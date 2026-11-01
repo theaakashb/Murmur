@@ -1547,6 +1547,12 @@ final class PreStart: @unchecked Sendable {
         let ns = value as NSString
         return range.location >= 0 && NSMaxRange(range) <= ns.length && ns.substring(with: range) == inserted
     }
+    /// Synthetic UI fixture only (check_ui.swift): shows the pill without a real insertion.
+    func showModeRecoveryFixture(stage: ModeRecovery.Stage) {
+        modeRecovery = ModeRecovery(entryID: "fixture", modeName: "AI Prompt", raw: "", inserted: "", anchor: nil, stage: stage)
+        bubble.showRecovery(screen: nil)
+        if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
+    }
     func clearModeRecovery() {
         recoveryRequest.cancel(); modeRecovery = nil
         bubble.hideRecovery()

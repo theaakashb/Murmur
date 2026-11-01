@@ -157,6 +157,10 @@ import SwiftUI
             if CommandLine.arguments.contains("--not-pasted") {
                 controller.showNotPasted(.insertionOff, saved: "Saved to History.", entryID: entries.first?.id, text: "Synthetic dictation saved with Insert at the cursor off.")
             }
+            if let i = args.firstIndex(of: "--mode-recovery") {
+                let name = args.indices.contains(i + 1) ? args[i + 1] : ""
+                controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : .offer)
+            }
             if CommandLine.arguments.contains("--undo") { controller.bubble.showUndo(screen: nil) }
             if CommandLine.arguments.contains("--learned") { controller.bubble.showLearned("Aakash", entryID: UUID(), screen: nil) }
             // Meeting detection (PRD 11.7): --call-offer shows Zoom's offer, --call-offer-browser Arc's. The fixture's

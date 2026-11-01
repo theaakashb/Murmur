@@ -2416,6 +2416,12 @@ final class BubblePresenter {
             self.controller.clearModeRecovery()
         }
     }
+    /// Synthetic UI fixture only: writes the panel's current content as a PNG (screen capture needs a permission).
+    func writeSnapshot(to url: URL) {
+        guard let view = panel.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?.write(to: url)
+    }
     func hideRecovery() { if recoveryNotice != nil, notice == recoveryNotice { hide() } }
     /// The learned-word notice; leaves after 5 s unless something else took the panel first.
     func showLearned(_ word: String, entryID: UUID, screen: NSScreen?) {
