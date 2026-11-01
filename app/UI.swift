@@ -932,7 +932,8 @@ struct SettingsView: View {
 
             eyebrow("Trigger words").padding(.top, 20)
             ModeListEditor(items: mode.triggers, placeholder: "email mode", label: "Trigger")
-            help("Say one at the start or end of a dictation to use this mode; it is removed from the text. Pick a phrase you would not otherwise say there.", color: Palette.ink64)
+            help(m.transform == nil ? "Say one at the start or end of a dictation to use this mode; it is removed from the text. Pick a phrase you would not otherwise say there."
+                 : "Say one at the very start of a dictation to use this mode; it is removed from the text. This built-in mode rewrites the text on AI cleanup routes (not On this Mac); your custom instructions below are added to its prompt.", color: Palette.ink64)
                 .font(WindowType.body(12)).padding(.top, 6)
 
             eyebrow("Cleanup").padding(.top, 20)
@@ -2302,6 +2303,43 @@ private struct LearnedNotice: View {
     }
 }
 
+/// Shown after a dictation that used a mode: "Mode used: Email  [Use without mode]  [×]".
+private struct ModeRecoveryCard: View {
+    @ObservedObject var controller: AppController
+    var body: some View {
+        if let recovery = controller.modeRecovery {
+            HStack(spacing: 8) {
+                Image(systemName: "slider.horizontal.3").font(.system(size: 12)).foregroundStyle(.secondary).accessibilityHidden(true)
+                switch recovery.stage {
+                case .offer:
+                    Text("Mode used: \(recovery.modeName)").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Button("Use without mode") { controller.useWithoutMode() }.buttonStyle(.borderedProminent).controlSize(.small)
+                        .accessibilityHint("Processes the original transcript with ordinary Cleanup and replaces the inserted text if it is unchanged.")
+                case .working:
+                    Text("Reprocessing…").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    Spacer(minLength: 4)
+                case .replaced:
+                    Text("Replaced without mode").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    Spacer(minLength: 4)
+                case .copy:
+                    Text("Could not replace safely").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Button("Copy") { controller.copyRecovery() }.buttonStyle(.borderedProminent).controlSize(.small)
+                        .accessibilityHint("Copies the text processed without the mode.")
+                }
+                if recovery.stage != .replaced {
+                    Button { controller.clearModeRecovery() } label: { Image(systemName: "xmark") }
+                        .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Dismiss")
+                }
+            }
+            .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .contain)
+            .modifier(UtilityGlass(radius: 18))
+        }
+    }
+}
+
 private final class DictationPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
@@ -2345,7 +2383,7 @@ final class BubblePresenter {
         panel.orderFrontRegardless()
     }
 
-    func hide() { notice = nil; panel.orderOut(nil) }
+    func hide() { notice = nil; recoveryNotice = nil; panel.orderOut(nil) }
     /// Whether the bubble shows anything (a status, Undo, a card); the meeting offer waits for it.
     var isVisible: Bool { panel.isVisible }
 
@@ -2361,6 +2399,24 @@ final class BubblePresenter {
         panel.orderFrontRegardless()
         notice = UUID()
     }
+    private var recoveryNotice: UUID?
+    /// The mode recovery pill; leaves after 12 s unless something else took the panel first.
+    func showRecovery(screen: NSScreen?) {
+        let frame = (screen ?? NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let width = min(380, max(260, frame.width - 32))
+        let shown = UUID()
+        let host = NSHostingView(rootView: ModeRecoveryCard(controller: controller).frame(width: width))
+        panel.contentView = host
+        panel.hasShadow = true
+        panel.setFrame(NSRect(x: frame.midX - width / 2, y: frame.minY + 24, width: width, height: host.fittingSize.height), display: true)
+        panel.orderFrontRegardless()
+        notice = shown; recoveryNotice = shown
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
+            guard let self, self.recoveryNotice == shown else { return }
+            self.controller.clearModeRecovery()
+        }
+    }
+    func hideRecovery() { if recoveryNotice != nil, notice == recoveryNotice { hide() } }
     /// The learned-word notice; leaves after 5 s unless something else took the panel first.
     func showLearned(_ word: String, entryID: UUID, screen: NSScreen?) {
         let frame = (screen ?? NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)

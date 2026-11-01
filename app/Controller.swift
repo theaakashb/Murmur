@@ -1166,6 +1166,7 @@ final class PreStart: @unchecked Sendable {
     @Published private(set) var pasteFailure: PasteFailure?
     func setPhase(_ phase: String, _ message: String, announcement: String? = nil, pasteFailure: PasteFailure? = nil) {
         self.phase = phase; self.message = message; self.pasteFailure = pasteFailure
+        if phase == "Listening" || phase == "Processing" { clearModeRecovery() }
         // Every finished status leaves on its own unless replaced: text stays in History and retry audio
         // stays on disk. "No speech" needs no action (2 s); errors get longer to read (8 s); a text to
         // copy 30 s; the rest 5 s.
@@ -1511,6 +1512,7 @@ final class PreStart: @unchecked Sendable {
                 try store.save(entry)
                 watchCorrections(insertion, text: entry.finalText, entryID: entry.id, at: target?.selection?.location, pid: target?.pid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier)
                 showInsertionResult(insertion, entryID: entry.id, text: entry.finalText)
+                if insertion.status != .failed { offerModeRecovery(entry: entry, inserted: entry.finalText, insertion: insertion, target: target) }
                 // A provider failure is not silent: a bad key or quota would otherwise degrade every dictation.
                 if insertion.status != .failed, let error = processing?.lastProviderError {
                     setPhase("Ready", "Inserted with local cleanup. \(error.userMessage)")
@@ -1526,6 +1528,86 @@ final class PreStart: @unchecked Sendable {
         }
         destination = nil; historySaved(); done()
     }
+    // MARK: Mode recovery
+
+    /// Where verified inserted text sits, so the pill's "Use without mode" can replace exactly it.
+    struct ModeRecoveryAnchor { let element: AXUIElement; let pid: pid_t; let value: String; let range: NSRange }
+    struct ModeRecovery {
+        enum Stage: Equatable { case offer, working, replaced, copy(String) }
+        let entryID: String, modeName: String, raw: String, inserted: String
+        var anchor: ModeRecoveryAnchor?
+        var stage = Stage.offer
+    }
+    @Published private(set) var modeRecovery: ModeRecovery?
+    private let recoveryRequest = CloudRequest()
+
+    /// The field is replaced only when it still holds exactly the verified post-insertion value and
+    /// the inserted text still sits at the recorded range.
+    nonisolated static func recoveryRangeIsIntact(value: String, range: NSRange, inserted: String) -> Bool {
+        let ns = value as NSString
+        return range.location >= 0 && NSMaxRange(range) <= ns.length && ns.substring(with: range) == inserted
+    }
+    func clearModeRecovery() {
+        recoveryRequest.cancel(); modeRecovery = nil
+        bubble.hideRecovery()
+    }
+    private func offerModeRecovery(entry: HistoryEntry, inserted: String, insertion: InsertionResult, target: FocusSnapshot?) {
+        guard let name = entry.writingModeName else { return }
+        var anchor: ModeRecoveryAnchor?
+        if insertion.status == .verified, let after = insertion.snapshot, let value = after.value, let selection = target?.selection {
+            let range = NSRange(location: selection.location, length: inserted.utf16.count)
+            if Self.recoveryRangeIsIntact(value: value, range: range, inserted: inserted) {
+                anchor = ModeRecoveryAnchor(element: after.element, pid: after.pid, value: value, range: range)
+            }
+        }
+        modeRecovery = ModeRecovery(entryID: entry.id, modeName: name, raw: entry.rawText, inserted: inserted, anchor: anchor)
+        bubble.showRecovery(screen: destinationScreen)
+    }
+    /// Reprocesses the original transcript (trigger included) through ordinary Cleanup, with no mode matching.
+    func useWithoutMode() {
+        guard var recovery = modeRecovery, recovery.stage == .offer, !isBusy, let processing else { return }
+        recovery.stage = .working; modeRecovery = recovery
+        let style = DictationStyle(mode: nil, settings: processing.settings)
+        let entryID = recovery.entryID
+        recoveryRequest.start({ await processing.processAsync(recovery.raw, style: style) }) { [weak self] outcome in
+            guard let self, var recovery = self.modeRecovery, recovery.entryID == entryID, !self.isBusy else { return }
+            guard case .insert(let text) = outcome, !text.isEmpty else { recovery.stage = .offer; self.modeRecovery = recovery; return }
+            let replacement = recovery.inserted.hasPrefix(" ") && !text.hasPrefix(" ") ? " " + text : text
+            if self.replaceInserted(recovery, with: replacement) {
+                recovery.stage = .replaced
+                self.updateRecoveredHistory(entryID: entryID, text: replacement)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in if self?.modeRecovery?.entryID == entryID { self?.clearModeRecovery() } }
+            } else { recovery.stage = .copy(text) }
+            self.modeRecovery = recovery
+        }
+    }
+    /// Selects the recorded range and pastes over it, only if the same focused field still holds the
+    /// verified value; nothing else is ever touched.
+    private func replaceInserted(_ recovery: ModeRecovery, with text: String) -> Bool {
+        guard let anchor = recovery.anchor, let current = try? captureFocus(), current.pid == anchor.pid, CFEqual(current.element, anchor.element),
+              current.readableText, current.value == anchor.value else { return false }
+        watchTick(ending: true)
+        var range = CFRange(location: anchor.range.location, length: anchor.range.length)
+        guard let value = AXValueCreate(.cfRange, &range),
+              AXUIElementSetAttributeValue(anchor.element, kAXSelectedTextRangeAttribute as CFString, value) == .success,
+              let selected = try? captureFocus(), selected.pid == anchor.pid, CFEqual(selected.element, anchor.element),
+              selected.value == anchor.value, selected.selection?.location == range.location, selected.selection?.length == range.length else { return false }
+        let result = insertText(text, into: selected)
+        timingLog.notice("mode-recovery status=\(result.status.rawValue, privacy: .public) detail=\(result.detail, privacy: .public)")
+        if result.status != .failed { lastDictationText = text }
+        return result.status != .failed
+    }
+    private func updateRecoveredHistory(entryID: String, text: String) {
+        guard let index = history.firstIndex(where: { $0.id == entryID }) else { return }
+        var entry = history[index]; entry.finalText = text
+        try? records?.update(entry); history[index] = entry
+    }
+    func copyRecovery() {
+        guard let recovery = modeRecovery, case .copy(let text) = recovery.stage, !text.isEmpty else { return }
+        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
+        clearModeRecovery()
+    }
+
     /// Latest insertable dictation, including verified deliveries, kept in memory for ⌃⌘V.
     var lastDictationText: String?
     /// ⌃⌘V explicitly pastes again; never triggered by a read-back mismatch.
@@ -1943,7 +2025,7 @@ final class PreStart: @unchecked Sendable {
         }
     }
     func dismissStatus() {
-        guard !isBusy else { return }
+        guard !isBusy, modeRecovery == nil else { return }
         if sessionAvailable {
             setPhase("Ready", idleMessage)
         } else {

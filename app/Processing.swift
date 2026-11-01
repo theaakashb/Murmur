@@ -119,11 +119,6 @@ struct WritingMode: Codable, Equatable, Identifiable, Sendable {
     var transform: ModeTransform? = nil
 }
 
-/// The built-in rewrites. Each has its own prompt and output check (`TransformPrompt`, `TransformGuard`).
-enum ModeTransform: String, Codable, Sendable {
-    case aiPrompt, email, notes
-}
-
 extension WritingMode {
     /// Seeded once into the user's list; fully editable and deletable afterwards.
     static let presets: [WritingMode] = [

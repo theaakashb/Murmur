@@ -7,6 +7,10 @@ import AVFoundation
 @main struct ControllerChecks {
     static func main() throws {
         runInsertionChecks()
+        let field = "Dear Sam, ship it. Thanks"
+        precondition(AppController.recoveryRangeIsIntact(value: field, range: NSRange(location: 10, length: 8), inserted: "ship it."), "recovery range holds the inserted text")
+        precondition(!AppController.recoveryRangeIsIntact(value: field, range: NSRange(location: 9, length: 8), inserted: "ship it."), "a shifted range refuses")
+        precondition(!AppController.recoveryRangeIsIntact(value: "short", range: NSRange(location: 3, length: 8), inserted: "ship it."), "a range past the end refuses")
         let a = AXUIElementCreateApplication(getpid()), b = AXUIElementCreateApplication(getpid() + 10000)
         let identity = LearningFocusIdentity(field: a, window: a)
         precondition(identity.matches(LearningFocusIdentity(field: a, window: a)))

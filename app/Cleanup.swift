@@ -105,6 +105,11 @@ enum Tone: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// The built-in rewrites. Each has its own prompt and output check (`TransformPrompt`, `TransformGuard`).
+enum ModeTransform: String, Codable, Sendable {
+    case aiPrompt, email, notes
+}
+
 enum WritingModeLimits {
     /// A writing mode's custom instructions are capped at this many characters.
     static let instructions = 2_000
