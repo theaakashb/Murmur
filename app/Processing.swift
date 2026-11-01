@@ -114,6 +114,23 @@ struct WritingMode: Codable, Equatable, Identifiable, Sendable {
     var screenContext: Bool? = nil
     /// Sent to AI cleanup routes only; capped at `WritingModeLimits.instructions` characters.
     var instructions = ""
+    /// Set on the built-in presets: a separate, explicit rewrite contract on AI routes (never ordinary cleanup).
+    /// Its triggers match only at the start of a dictation.
+    var transform: ModeTransform? = nil
+}
+
+/// The built-in rewrites. Each has its own prompt and output check (`TransformPrompt`, `TransformGuard`).
+enum ModeTransform: String, Codable, Sendable {
+    case aiPrompt, email, notes
+}
+
+extension WritingMode {
+    /// Seeded once into the user's list; fully editable and deletable afterwards.
+    static let presets: [WritingMode] = [
+        WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000001")!, name: "AI Prompt", triggers: ["prompt engineer"], transform: .aiPrompt),
+        WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000002")!, name: "Email", triggers: ["email mode"], transform: .email),
+        WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000003")!, name: "Notes", triggers: ["notes mode"], transform: .notes),
+    ]
 }
 
 /// How one dictation is processed: the global settings with the matched mode's overrides.
@@ -121,6 +138,7 @@ struct DictationStyle: Equatable, Sendable {
     var options: CleanupOptions
     var tone: Tone = .formal
     var instructions = ""
+    var transform: ModeTransform? = nil
     /// Captured screen text, used only when the mode or the global setting has screen context on
     /// and only on an AI route. Set it to nil otherwise.
     var context: ScreenContext? = nil
@@ -135,14 +153,23 @@ struct DictationStyle: Equatable, Sendable {
                   instructions: String((mode?.instructions ?? "").prefix(WritingModeLimits.instructions)),
                   context: (mode?.screenContext ?? settings.screenContext) ? context : nil)
         options.trustModel = settings.options.trustModel // A global preference; modes have no control for it.
+        transform = mode?.transform
     }
 }
 
 enum WritingModes {
     static let defaultsKey = "writingModes"
 
+    static let presetsSeededKey = "writingModePresetsSeeded"
+
+    /// The saved modes; the first call adds the presets after them (existing modes keep priority), once.
     static func load(from defaults: UserDefaults) -> [WritingMode] {
-        defaults.data(forKey: defaultsKey).flatMap { try? JSONDecoder().decode([WritingMode].self, from: $0) } ?? []
+        var modes = defaults.data(forKey: defaultsKey).flatMap { try? JSONDecoder().decode([WritingMode].self, from: $0) } ?? []
+        if !defaults.bool(forKey: presetsSeededKey) {
+            modes += WritingMode.presets.filter { preset in !modes.contains { $0.id == preset.id } }
+            save(modes, to: defaults); defaults.set(true, forKey: presetsSeededKey)
+        }
+        return modes
     }
 
     static func save(_ modes: [WritingMode], to defaults: UserDefaults) {
@@ -188,7 +215,7 @@ enum WritingModes {
     static func trigger(_ modes: [WritingMode], in transcript: String) -> (mode: WritingMode, text: String)? {
         for mode in modes where mode.enabled {
             for phrase in mode.triggers {
-                if let text = stripTrigger(phrase, from: transcript) { return (mode, text) }
+                if let text = stripTrigger(phrase, from: transcript, startOnly: mode.transform != nil) { return (mode, text) }
             }
         }
         return nil
@@ -197,7 +224,8 @@ enum WritingModes {
     /// Whole words only ("code" never matches "codebase"), and only at either end; a dictation that
     /// is nothing but the trigger does not match. "Slack mode, fix it" -> "Fix it";
     /// "Fix it, slack mode." -> "Fix it."
-    static func stripTrigger(_ phrase: String, from text: String) -> String? {
+    /// `startOnly` (the presets) ignores a trigger said at the end.
+    static func stripTrigger(_ phrase: String, from text: String, startOnly: Bool = false) -> String? {
         let words = CleanupGuard.words(phrase).map(\.lower)
         guard !words.isEmpty else { return nil }
         var t = CleanupText.tokenize(text)
@@ -213,7 +241,7 @@ enum WritingModes {
             if capital, let first = t.firstIndex(where: { $0.kind == .word }) { t[first].text = CleanupText.capitalized(t[first].text) }
             return CleanupText.render(t)
         }
-        if wi.suffix(words.count).map({ t[$0].lower }) == words {
+        if !startOnly, wi.suffix(words.count).map({ t[$0].lower }) == words {
             let start = wi[wi.count - words.count]
             let end = t.lastIndex(where: { $0.kind != .space })!
             let mark = t[end].isTerminal && t[end].text != "\n" ? t[end].text : ""
@@ -349,6 +377,13 @@ final class ProcessingCoordinator {
             c.selected = String(c.selected.prefix(400)); c.clipboard = String(c.clipboard.prefix(400)); c.window = String(c.window.prefix(1_000))
             context = c
         }
+        if let kind = style.transform, let provider = cloudCleaner, !prepared.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if let attempt = await Self.transformClean(prepared.text, kind: kind, provider: provider, terms: terms, instructions: instructions) {
+                lastOutcome = .modelAccepted; lastModelOutput = attempt.accepted; lastPromptHash = attempt.promptHash; lastGuardVerdict = attempt.verdict
+                return .insert(attempt.text ?? prepared.text)
+            }
+            lastFallback = .cleanerFailed // Rewrite failed or was rejected: ordinary cleanup below.
+        }
         if !options.anyEnabled { lastOutcome = .off }
         if !options.anyEnabled || prepared.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .insert(toned(prepared.text, input: prepared.text, style: style)) }
         guard let provider = cloudCleaner else { lastFallback = .cleanerFailed; lastOutcome = .localRules; return .insert(toned(localClean(prepared.text, terms: terms, options: options), input: prepared.text, style: style)) }
@@ -411,6 +446,15 @@ final class ProcessingCoordinator {
         /// "cleaned", "unchanged", "rejected" or "provider-error".
         var verdict = "provider-error"
         var promptHash: String? = nil
+    }
+
+    /// A preset's rewrite in one provider call, no sections, no tone or cleanup. Nil on a provider error or a rejected output.
+    private static func transformClean(_ text: String, kind: ModeTransform, provider: CleanupProvider, terms: [String], instructions: String) async -> CloudAttempt? {
+        let messages = TransformPrompt.build(kind, transcript: text, dictionaryTerms: terms, instructions: instructions)
+        guard let output = try? await provider.cleanup(messages) else { return nil }
+        let out = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard TransformGuard.accepts(input: text, output: out) else { return nil }
+        return CloudAttempt(text: out, reason: nil, error: nil, accepted: out, verdict: "transform", promptHash: promptHash(messages.system))
     }
 
     /// One provider call, no retry (a rate limit or an outage would only fail again). If the guard

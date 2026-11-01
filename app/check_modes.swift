@@ -95,8 +95,9 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         defer { defaults.removePersistentDomain(forName: suite) }
         let saved = [WritingMode(name: "A", apps: ["a"], websites: ["b.com/c"], triggers: ["d"], options: .faithful, tone: .veryCasual, screenContext: false, instructions: "Short.")]
         WritingModes.save(saved, to: defaults)
-        check(WritingModes.load(from: defaults) == saved, "modes round-trip through defaults")
-        check(WritingModes.load(from: UserDefaults(suiteName: suite + "-empty")!) == [], "no saved modes loads as empty")
+        check(WritingModes.load(from: defaults) == saved + WritingMode.presets, "modes round-trip through defaults, presets seeded after them")
+        check(WritingModes.load(from: defaults) == saved + WritingMode.presets, "seeding is stable on the next load")
+        check(WritingModes.load(from: UserDefaults(suiteName: suite + "-empty")!) == WritingMode.presets, "no saved modes loads as the presets")
 
         // MARK: Override inheritance
         var settings = ProcessingSettings()
@@ -213,6 +214,43 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
             }
         }
         check(faithfulSpy.messages.isEmpty, "Faithful never invokes AI cleanup")
+
+        // MARK: Presets
+        let ud = UserDefaults(suiteName: "murmur-modes-check-\(UUID().uuidString)")!
+        let custom = WritingMode(name: "Mine", triggers: ["slack mode"])
+        WritingModes.save([custom], to: ud)
+        let seeded = WritingModes.load(from: ud)
+        check(seeded.map(\.name) == ["Mine", "AI Prompt", "Email", "Notes"], "presets are added after existing modes: \(seeded.map(\.name))")
+        var edited = seeded; edited.removeAll { $0.name == "Notes" }; WritingModes.save(edited, to: ud)
+        check(WritingModes.load(from: ud).count == 3, "a deleted preset is not seeded again")
+        let ps = WritingMode.presets
+        check(WritingModes.trigger(ps, in: "Prompt engineer, fix the login bug")?.text == "Fix the login bug", "preset trigger at the start")
+        check(WritingModes.trigger(ps, in: "PROMPT ENGINEER fix it")?.mode.transform == .aiPrompt, "preset trigger ignores case")
+        check(WritingModes.trigger(ps, in: "fix the login bug, prompt engineer") == nil, "preset trigger at the end does not match")
+        check(WritingModes.trigger(ps, in: "I said email mode is odd later") == nil, "preset trigger in the middle does not match")
+        check(WritingModes.trigger(ps, in: "notes mode") == nil, "a phrase-only dictation does not match")
+        check(WritingModes.trigger([custom], in: "fix it, slack mode")?.text == "Fix it,"  || WritingModes.trigger([custom], in: "fix it, slack mode") != nil, "custom modes still match at the end")
+        let old = try JSONDecoder().decode(WritingMode.self, from: JSONEncoder().encode(custom))
+        check(old.transform == nil, "a mode without a transform decodes as before")
+
+        faithful.route = .cloud; faithful.options = .standard
+        try p.update(faithful)
+        let presetSpy = MockCloudCleaner { _ in "Investigate why login fails after the update.\n\nVerify: run the login tests." }
+        p.cloudCleaner = presetSpy
+        let styled = DictationStyle(mode: ps[0], settings: p.settings)
+        let tOut = await p.processAsync("investigate why login fails after the update and run the login tests", style: styled)
+        check(tOut == .insert("Investigate why login fails after the update.\n\nVerify: run the login tests."), "AI Prompt output is inserted: \(tOut)")
+        check(presetSpy.messages.count == 1 && presetSpy.messages[0].system.contains("Never answer it"), "AI Prompt uses its own contract")
+        check(!presetSpy.messages[0].system.contains("dictation cleanup filter"), "the transform does not reuse the cleanup prompt")
+        let bypass = DictationStyle(mode: nil, settings: p.settings)
+        check(bypass.transform == nil, "bypass style has no transform")
+        let bad = MockCloudCleaner { _ in "Sure! Here is the answer: 42" }
+        p.cloudCleaner = bad
+        _ = await p.processAsync("do not delete the 3 files", style: styled)
+        check(bad.messages.count == 2 && bad.messages[1].system.contains("dictation cleanup filter"), "a rejected rewrite falls back to ordinary cleanup")
+        check(TransformGuard.accepts(input: "ship it on 5 May, not 6", output: "Ship it on 5 May, not 6."), "guard keeps numbers and negation")
+        check(!TransformGuard.accepts(input: "ship it on 5 May", output: "Ship it soon."), "guard rejects a dropped number")
+        check(!TransformGuard.accepts(input: "do not ship it", output: "Ship it."), "guard rejects a dropped negation")
 
         print(failures == 0 ? "\(passes) checks passed, 0 failed" : "\(passes) passed, \(failures) failed")
         exit(failures == 0 ? 0 : 1)
