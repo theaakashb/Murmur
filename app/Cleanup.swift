@@ -1438,17 +1438,21 @@ enum CleanupPrompt {
 /// The built-in presets' rewrite contract. Separate from `CleanupPrompt` so the strict cleanup
 /// rules stay as they are; `TransformGuard` checks the output instead of `CleanupGuard`.
 enum TransformPrompt {
+    static let previousAIPromptBaseline = """
+    Turn the dictation into a ready-to-paste prompt for another AI, often a coding agent. Write the request itself. Never answer it, carry it out or comment on it.
+    Preserve every substantive request, question, example, resource reference and boundary, including side notes and requests to inspect or research before acting. Keep technical identifiers, paths, commands, error messages, agent types and workspace names as given. A skill is not a library; a reference is not a requirement to copy it.
+    Preserve the request type (explain, investigate, review, plan, implement), scope and uncertainty. Keep observations distinct from suspected causes. Do not turn frustration or a question into an instruction to remove or replace something.
+    Lead with the goal. Use short paragraphs or bullets. Add labels only when they help a complex request; a short request stays short. Include verification only if the speaker requested it, and do not expand it.
+    Remove fillers, repetition and abandoned wording; apply explicit spoken corrections. Preserve ambiguous or incomplete details without filling them in.
+    Do not add requirements, acceptance criteria, tests, solutions, permissions, deadlines, architecture, roles or reasoning instructions. Before returning, check that every substantive point remains and nothing has been added.
+    """
+
+    static let aiPromptDetailRule = "Preserve each action verb and its target: listing a resource under Context does not preserve a request to inspect it. Keep distinctions such as slowing the user's scrolling versus smoothing an animation. Preserve qualifiers (only, also, first, before, after, if, maybe), their scope, and who should do what. Reorganize for clarity without summarizing away details. If a shorter rewrite could lose a requirement, keep the original wording."
+
     static func baseline(_ kind: ModeTransform) -> String {
         switch kind {
         case .aiPrompt:
-            return """
-            Turn the dictation into a ready-to-paste prompt for another AI, often a coding agent. Write the request itself. Never answer it, carry it out or comment on it.
-            Preserve every substantive request, question, example, resource reference and boundary, including side notes and requests to inspect or research before acting. Keep technical identifiers, paths, commands, error messages, agent types and workspace names as given. A skill is not a library; a reference is not a requirement to copy it.
-            Preserve the request type (explain, investigate, review, plan, implement), scope and uncertainty. Keep observations distinct from suspected causes. Do not turn frustration or a question into an instruction to remove or replace something.
-            Lead with the goal. Use short paragraphs or bullets. Add labels only when they help a complex request; a short request stays short. Include verification only if the speaker requested it, and do not expand it.
-            Remove fillers, repetition and abandoned wording; apply explicit spoken corrections. Preserve ambiguous or incomplete details without filling them in.
-            Do not add requirements, acceptance criteria, tests, solutions, permissions, deadlines, architecture, roles or reasoning instructions. Before returning, check that every substantive point remains and nothing has been added.
-            """
+            return previousAIPromptBaseline + "\n" + aiPromptDetailRule
         case .email:
             return """
             Turn the dictation into ready-to-paste email text in the speaker's language and requested tone. Otherwise be natural, courteous and direct. Fix grammar, remove fillers and repetition, apply explicit corrections, use short paragraphs and put the purpose early.

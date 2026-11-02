@@ -258,6 +258,18 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         p.cloudCleaner = spy
         _ = await p.processAsync("the draft is ready", style: DictationStyle(mode: savedEmail, settings: p.settings))
         check(spy.messages.last?.system.contains("Write ready-to-paste email text.") == true && spy.messages.last?.system.contains("Use a warm tone.") == true, "persisted legacy style notes reach the provider with the email contract")
+        var previousPreset = WritingMode.presets[0]
+        previousPreset.instructions = TransformPrompt.previousAIPromptBaseline
+        WritingModes.save([previousPreset], to: migration)
+        let tuned = WritingModes.load(from: migration)
+        check(tuned[0].instructions == TransformPrompt.baseline(.aiPrompt), "an unchanged previous baseline is tuned in saved settings")
+        var customized = previousPreset
+        customized.instructions += "\nUse my preferred headings."
+        WritingModes.save([customized], to: migration)
+        check(WritingModes.load(from: migration) == [customized], "tuning never replaces customized instructions")
+        let detailPrompt = TransformPrompt.build(.aiPrompt, transcript: "inspect the example first and only then change the scrolling", instructions: tuned[0].instructions)
+        check(detailPrompt.system.contains(TransformPrompt.aiPromptDetailRule), "detail preservation rule reaches the provider prompt")
+        check(detailPrompt.system.contains("action verb and its target") && detailPrompt.system.contains("before, after, if, maybe"), "prompt explicitly preserves actions and scoped qualifiers")
         let ps = WritingMode.presets
         check(WritingModes.trigger(ps, in: "Prompt engineer, fix the login bug")?.text == "Fix the login bug", "preset trigger at the start")
         check(WritingModes.trigger(ps, in: "PROMPT ENGINEER fix it")?.mode.transform == .aiPrompt, "preset trigger ignores case")

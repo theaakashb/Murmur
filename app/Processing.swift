@@ -174,6 +174,10 @@ enum WritingModes {
             save(modes, to: defaults)
             defaults.set(true, forKey: "writingModeEditableBaselines")
         }
+        if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[0].id && $0.transform == .aiPrompt && $0.instructions == TransformPrompt.previousAIPromptBaseline }) {
+            modes[i].instructions = TransformPrompt.baseline(.aiPrompt)
+            save(modes, to: defaults)
+        }
         return modes
     }
 
