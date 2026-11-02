@@ -1449,10 +1449,13 @@ enum TransformPrompt {
 
     static let aiPromptDetailRule = "Preserve each action verb and its target: listing a resource under Context does not preserve a request to inspect it. Keep distinctions such as slowing the user's scrolling versus smoothing an animation. Preserve qualifiers (only, also, first, before, after, if, maybe), their scope, and who should do what. Reorganize for clarity without summarizing away details. If a shorter rewrite could lose a requirement, keep the original wording."
 
+    static let previousDetailAIPromptBaseline = previousAIPromptBaseline + "\n" + aiPromptDetailRule
+    static let aiPromptConditionRule = "For unless/until/only-if restrictions, copy their sentence unchanged. Do not add an explanation or implied permission. 'Do not X unless Y' must never become 'If Y, do X'. Preserve I/me and inspect/report-only boundaries."
+
     static func baseline(_ kind: ModeTransform) -> String {
         switch kind {
         case .aiPrompt:
-            return previousAIPromptBaseline + "\n" + aiPromptDetailRule
+            return aiPromptConditionRule + "\n" + previousDetailAIPromptBaseline
         case .email:
             return """
             Turn the dictation into ready-to-paste email text in the speaker's language and requested tone. Otherwise be natural, courteous and direct. Fix grammar, remove fillers and repetition, apply explicit corrections, use short paragraphs and put the purpose early.

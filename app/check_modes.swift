@@ -270,6 +270,18 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         let detailPrompt = TransformPrompt.build(.aiPrompt, transcript: "inspect the example first and only then change the scrolling", instructions: tuned[0].instructions)
         check(detailPrompt.system.contains(TransformPrompt.aiPromptDetailRule), "detail preservation rule reaches the provider prompt")
         check(detailPrompt.system.contains("action verb and its target") && detailPrompt.system.contains("before, after, if, maybe"), "prompt explicitly preserves actions and scoped qualifiers")
+        previousPreset.instructions = TransformPrompt.previousDetailAIPromptBaseline
+        WritingModes.save([previousPreset], to: migration)
+        let conditional = WritingModes.load(from: migration)
+        check(conditional[0].instructions == TransformPrompt.baseline(.aiPrompt), "the installed detail baseline receives the conditional preservation update")
+        customized = previousPreset; customized.instructions += "\nPrefer concise wording."
+        WritingModes.save([customized], to: migration)
+        check(WritingModes.load(from: migration) == [customized], "conditional tuning preserves edits to the detail baseline")
+        check(conditional[0].instructions.hasPrefix(TransformPrompt.aiPromptConditionRule), "the conditional rule leads the editable baseline")
+        let conditionalInput = "Suggest an adjustment but do not make it unless the footer is missing."
+        let conditionalPrompt = TransformPrompt.build(.aiPrompt, transcript: conditionalInput, instructions: conditional[0].instructions)
+        check(conditionalPrompt.system.contains(TransformPrompt.aiPromptConditionRule), "conditional rule reaches the provider without being truncated")
+        check(conditionalPrompt.user.contains(conditionalInput), "conditional wording reaches the model unchanged")
         let ps = WritingMode.presets
         check(WritingModes.trigger(ps, in: "Prompt engineer, fix the login bug")?.text == "Fix the login bug", "preset trigger at the start")
         check(WritingModes.trigger(ps, in: "PROMPT ENGINEER fix it")?.mode.transform == .aiPrompt, "preset trigger ignores case")
