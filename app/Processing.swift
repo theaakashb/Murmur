@@ -122,9 +122,9 @@ struct WritingMode: Codable, Equatable, Identifiable, Sendable {
 extension WritingMode {
     /// Seeded once into the user's list; fully editable and deletable afterwards.
     static let presets: [WritingMode] = [
-        WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000001")!, name: "AI Prompt", triggers: ["prompt engineer"], transform: .aiPrompt),
-        WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000002")!, name: "Email", triggers: ["email mode"], transform: .email),
-        WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000003")!, name: "Notes", triggers: ["notes mode"], transform: .notes),
+        WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000001")!, name: "Prompt Engineer", triggers: ["prompt engineer"], instructions: TransformPrompt.baseline(.aiPrompt), transform: .aiPrompt),
+        WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000002")!, name: "Email", triggers: ["email mode"], instructions: TransformPrompt.baseline(.email), transform: .email),
+        WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000003")!, name: "Notes", triggers: ["notes mode"], instructions: TransformPrompt.baseline(.notes), transform: .notes),
     ]
 }
 
@@ -163,6 +163,16 @@ enum WritingModes {
         if !defaults.bool(forKey: presetsSeededKey) {
             modes += WritingMode.presets.filter { preset in !modes.contains { $0.id == preset.id } }
             save(modes, to: defaults); defaults.set(true, forKey: presetsSeededKey)
+        }
+        if !defaults.bool(forKey: "writingModeEditableBaselines") {
+            for i in modes.indices {
+                guard let preset = WritingMode.presets.first(where: { $0.id == modes[i].id }),
+                      modes[i].transform == preset.transform else { continue }
+                if modes[i].instructions.isEmpty { modes[i].instructions = preset.instructions }
+                if modes[i].name == "AI Prompt" { modes[i].name = "Prompt Engineer" }
+            }
+            save(modes, to: defaults)
+            defaults.set(true, forKey: "writingModeEditableBaselines")
         }
         return modes
     }

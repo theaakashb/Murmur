@@ -220,9 +220,44 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         let custom = WritingMode(name: "Mine", triggers: ["slack mode"])
         WritingModes.save([custom], to: ud)
         let seeded = WritingModes.load(from: ud)
-        check(seeded.map(\.name) == ["Mine", "AI Prompt", "Email", "Notes"], "presets are added after existing modes: \(seeded.map(\.name))")
+        check(seeded.map(\.name) == ["Mine", "Prompt Engineer", "Email", "Notes"], "presets are added after existing modes: \(seeded.map(\.name))")
         var edited = seeded; edited.removeAll { $0.name == "Notes" }; WritingModes.save(edited, to: ud)
         check(WritingModes.load(from: ud).count == 3, "a deleted preset is not seeded again")
+        let migrationSuite = "murmur-mode-migration-\(UUID().uuidString)"
+        let migration = UserDefaults(suiteName: migrationSuite)!
+        defer { migration.removePersistentDomain(forName: migrationSuite) }
+        migration.set(true, forKey: WritingModes.presetsSeededKey)
+        var legacy = Array(WritingMode.presets.prefix(2))
+        legacy[0].name = "AI Prompt"; legacy[0].instructions = ""
+        legacy[1].name = "My mail"; legacy[1].instructions = "Use a warm tone."
+        WritingModes.save(legacy, to: migration)
+        let migrated = WritingModes.load(from: migration)
+        check(migrated.count == 2, "migration does not resurrect deleted presets")
+        check(migrated[0].name == "Prompt Engineer" && migrated[0].instructions == TransformPrompt.baseline(.aiPrompt), "old untouched preset receives editable baseline and name")
+        check(migrated[1].name == "My mail" && migrated[1].instructions == "Use a warm tone.", "migration preserves user names and instructions")
+        var cleared = migrated; cleared[0].instructions = ""; cleared.removeLast()
+        WritingModes.save(cleared, to: migration)
+        check(WritingModes.load(from: migration) == cleared, "cleared instructions and deleted modes stay changed on reload")
+        WritingModes.save([], to: migration)
+        check(WritingModes.load(from: migration).isEmpty, "all presets can be deleted permanently")
+        for preset in WritingMode.presets {
+            check(!preset.instructions.isEmpty && preset.instructions.count <= WritingModeLimits.instructions, "editable baseline fits the instruction field")
+            check(preset.instructions == TransformPrompt.baseline(preset.transform!), "preset stores the actual baseline")
+        }
+        let editedPrompt = TransformPrompt.build(.aiPrompt, transcript: "inspect the dashboard", nonce: "M1", instructions: "Use one paragraph.")
+        check(editedPrompt.system.contains("Use one paragraph.") && !editedPrompt.system.contains("Lead with the goal"), "edited instructions replace the baseline rather than append to hidden instructions")
+        check(!TransformPrompt.build(.aiPrompt, transcript: "inspect", instructions: "").system.contains("Lead with the goal"), "clearing instructions does not silently restore the baseline")
+        check(TransformPrompt.baseline(.aiPrompt).contains("verification only if the speaker requested it") && TransformPrompt.baseline(.aiPrompt).contains("A skill is not a library"), "baseline addresses invented verification and changed resource requests")
+        for (kind, purpose) in [(ModeTransform.aiPrompt, "prompt for another AI"), (.email, "email text"), (.notes, "organized notes")] {
+            for notes in ["", "Use a warm tone."] {
+                check(TransformPrompt.build(kind, transcript: "share the draft", instructions: notes).system.contains(purpose), "custom and cleared instructions retain the mode's output type")
+            }
+        }
+        WritingModes.save([WritingMode(name: "My email", instructions: "Use a warm tone.", transform: .email)], to: migration)
+        let savedEmail = WritingModes.load(from: migration)[0]
+        p.cloudCleaner = spy
+        _ = await p.processAsync("the draft is ready", style: DictationStyle(mode: savedEmail, settings: p.settings))
+        check(spy.messages.last?.system.contains("Write ready-to-paste email text.") == true && spy.messages.last?.system.contains("Use a warm tone.") == true, "persisted legacy style notes reach the provider with the email contract")
         let ps = WritingMode.presets
         check(WritingModes.trigger(ps, in: "Prompt engineer, fix the login bug")?.text == "Fix the login bug", "preset trigger at the start")
         check(WritingModes.trigger(ps, in: "PROMPT ENGINEER fix it")?.mode.transform == .aiPrompt, "preset trigger ignores case")

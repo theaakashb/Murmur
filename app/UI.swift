@@ -179,7 +179,7 @@ struct SettingsView: View {
     @State private var keyDraft = ""
     @State private var checkedSetup = false
     /// The writing mode whose editor is open.
-    @State private var editingModeID: UUID?
+    @State var editingModeID: UUID?
     @AppStorage("sidebarCollapsed") private var sidebarCollapsed = false
     @AppStorage("showDetailedSettingsInfo") private var showDetailedSettingsInfo = true
     /// System, light or dark (gap #20). A window preference only; the floating indicator keeps following
@@ -833,7 +833,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
                 Text("How modes are chosen").font(WindowType.body(14, weight: .semibold))
-                SettingInfoButton(text: "A mode is picked by a trigger word said at the start or end of a dictation, then by the website, then by the app focused when you started. If two modes match the same way, the first in this list wins. Anything a mode leaves as “Same as Cleanup” follows the Cleanup settings.")
+                SettingInfoButton(text: "Preset trigger words work at the start of a dictation; other modes also accept them at the end. Spoken triggers take priority, then the website, then the app focused when you started. If two modes match the same way, the first in this list wins. Anything a mode leaves as “Same as Cleanup” follows the Cleanup settings.")
             }.padding(.top, 12)
             rule.padding(.top, 20)
             ForEach($controller.writingModes) { $mode in
@@ -898,6 +898,12 @@ struct SettingsView: View {
                 Spacer()
                 Button(editingModeID == m.id ? "Done" : "Edit") { editingModeID = editingModeID == m.id ? nil : m.id }
                     .buttonStyle(InkButtonStyle(kind: .outline)).fixedSize()
+                Button("Delete", role: .destructive) {
+                    controller.writingModes.removeAll { $0.id == m.id }
+                    if editingModeID == m.id { editingModeID = nil }
+                }
+                .buttonStyle(InkButtonStyle(kind: .plain)).fixedSize()
+                .accessibilityLabel("Delete \(m.name.isEmpty ? "untitled mode" : m.name)")
             }
             .padding(.vertical, 12)
             if editingModeID == m.id { modeEditor(mode).padding(.bottom, 16) }
@@ -909,6 +915,17 @@ struct SettingsView: View {
         return VStack(alignment: .leading, spacing: 0) {
             field("Mode name", text: mode.name)
             toggleRow("Mode on", "When off, this mode never matches.", isOn: mode.enabled)
+
+            eyebrow("Custom instructions").padding(.top, 20)
+            TextEditor(text: Binding(get: { mode.wrappedValue.instructions }, set: { mode.wrappedValue.instructions = String($0.prefix(WritingModeLimits.instructions)) }))
+                .font(WindowType.body(15)).scrollContentBackground(.hidden)
+                .frame(height: m.transform == nil ? 120 : 240).padding(8)
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Palette.ink20, lineWidth: 1))
+                .accessibilityLabel("Custom instructions").padding(.top, 8)
+            help("\(m.instructions.count) of \(WritingModeLimits.instructions) characters. " + (m.transform == nil
+                 ? "Sent only to AI cleanup routes. Cleanup still preserves what you said."
+                 : "These are the rewriting instructions sent to AI cleanup. Edit them to make this mode your own. Murmur checks the result, but rewrites can still make mistakes."), color: Palette.ink64)
+                .font(WindowType.body(12)).padding(.top, 6)
 
             eyebrow("Apps").padding(.top, 20)
             ForEach(m.apps, id: \.self) { app in
@@ -933,7 +950,7 @@ struct SettingsView: View {
             eyebrow("Trigger words").padding(.top, 20)
             ModeListEditor(items: mode.triggers, placeholder: "email mode", label: "Trigger")
             help(m.transform == nil ? "Say one at the start or end of a dictation to use this mode; it is removed from the text. Pick a phrase you would not otherwise say there."
-                 : "Say one at the very start of a dictation to use this mode; it is removed from the text. This built-in mode rewrites the text on AI cleanup routes (not On this Mac); your custom instructions below are added to its prompt.", color: Palette.ink64)
+                 : "Say one at the very start of a dictation to use this mode; it is removed from the text. This built-in mode rewrites the text on AI cleanup routes (not On this Mac); the custom instructions above control its rewrite.", color: Palette.ink64)
                 .font(WindowType.body(12)).padding(.top, 6)
 
             eyebrow("Cleanup").padding(.top, 20)
@@ -959,18 +976,7 @@ struct SettingsView: View {
             eyebrow("Screen context").padding(.top, 20)
             segmented([(Bool?.none, "Same as Cleanup"), (true, "On"), (false, "Off")], mode.screenContext, size: 13).padding(.top, 8)
 
-            eyebrow("Custom instructions").padding(.top, 20)
-            TextEditor(text: Binding(get: { m.instructions }, set: { mode.wrappedValue.instructions = String($0.prefix(WritingModeLimits.instructions)) }))
-                .font(WindowType.body(15)).scrollContentBackground(.hidden)
-                .frame(minHeight: 72).padding(8).overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Palette.ink20, lineWidth: 1))
-                .accessibilityLabel("Custom instructions").padding(.top, 8)
-            help("\(m.instructions.count) of \(WritingModeLimits.instructions) characters. Sent only to AI cleanup routes, never used by On this Mac. They cannot make cleanup add content: Murmur still checks the result against what you said.", color: Palette.ink64)
-                .font(WindowType.body(12)).padding(.top, 6)
 
-            Button("Delete Mode", role: .destructive) {
-                controller.writingModes.removeAll { $0.id == m.id }; editingModeID = nil
-            }
-            .buttonStyle(InkButtonStyle(kind: .outline)).fixedSize().padding(.top, 20)
         }
     }
 
