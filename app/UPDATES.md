@@ -19,10 +19,10 @@ Back up this signing key securely using Sparkle's `generate_keys -x` export opti
 
 ## Build and prepare a release
 
-The release repository is `Penguin0011/Murmur`. This configuration preserves the existing bundle identifier; choose the intended version and a new build number for each release. Clean the generated `runtime/Murmur.app` output before building a public candidate so stale resources cannot enter the archive.
+The release repository is `theaakashb/Murmur`. This configuration preserves the existing bundle identifier; choose the intended version and a new build number for each release. Clean the generated `runtime/Murmur.app` output before building a public candidate so stale resources cannot enter the archive.
 
 ```sh
-export MURMUR_UPDATE_FEED_URL='https://github.com/Penguin0011/Murmur/releases/latest/download/appcast.xml'
+export MURMUR_UPDATE_FEED_URL='https://github.com/theaakashb/Murmur/releases/latest/download/appcast.xml'
 export MURMUR_UPDATE_PUBLIC_KEY='OLsVG/pPafKOshla810tZqhA0fOK8Ya88htcW7pc3XE='
 export MURMUR_VERSION='0.2.0'
 export MURMUR_BUILD_VERSION='2'
