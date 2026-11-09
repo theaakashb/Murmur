@@ -67,6 +67,7 @@ import SwiftUI
         let state = NSMenuItem(title: controller.phase, action: nil, keyEquivalent: ""); state.isEnabled = false; menu.addItem(state)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "History…", action: #selector(openHistory), keyEquivalent: "").target = self
         if recording {
             menu.addItem(withTitle: "Stop Meeting Notes", action: #selector(stopMeeting), keyEquivalent: "").target = self
         } else {
@@ -95,6 +96,7 @@ import SwiftUI
         controller.screenRequest = "settings"
         showWindow()
     }
+    @objc func openHistory() { controller.screenRequest = "history"; showWindow() }
     /// Replays the welcome guide from its first step (gap #21).
     @objc func openGuide() { controller.screenRequest = "guide"; showWindow() }
     /// Keep configuration/recording errors visible even when Sparkle cannot open its dialog.
