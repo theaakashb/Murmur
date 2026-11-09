@@ -174,7 +174,10 @@ import SwiftUI
                 controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : .offer)
             }
             if CommandLine.arguments.contains("--cleanup-warning") { controller.recordCleanup(error: .quota(.gemini), outcome: .localRules, fallback: .cleanerFailed) }
-            if CommandLine.arguments.contains("--undo") { controller.bubble.showUndo(screen: nil) }
+            if CommandLine.arguments.contains("--undo") {
+                controller.bubble.showUndo(screen: nil)
+                if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
+            }
             if CommandLine.arguments.contains("--learned") { controller.bubble.showLearned("Aakash", entryID: UUID(), screen: nil) }
             // Meeting detection (PRD 11.7): --call-offer shows Zoom's offer, --call-offer-browser Arc's. The fixture's
             // defaults persist, so the switch and Never list are reset every run; --never seeds the list.
