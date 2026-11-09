@@ -2278,17 +2278,28 @@ private struct LiveWordsBubble: View {
 /// Gap #18: shown for a few seconds after Escape cancels a recording. Undo processes it as normal.
 private struct UndoCancelCard: View {
     @ObservedObject var controller: AppController
+    var inNotch = false
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "xmark.circle").font(.system(size: 12)).foregroundStyle(.secondary).accessibilityHidden(true)
             Text("Recording canceled").font(.system(size: 12, weight: .medium)).lineLimit(1)
             Spacer(minLength: 4)
-            Button("Undo") { controller.undoCancel() }.buttonStyle(.borderedProminent).controlSize(.small)
-                .accessibilityHint("Transcribes and inserts the canceled recording.")
+            if inNotch {
+                Rectangle().fill(Color.white.opacity(0.3)).frame(width: 1, height: 16)
+                Spacer(minLength: 4)
+                Button { controller.undoCancel() } label: {
+                    Text("Undo").font(.system(size: 12, weight: .medium))
+                        .frame(height: 24).contentShape(Rectangle())
+                }.buttonStyle(.plain)
+                    .accessibilityHint("Transcribes and inserts the canceled recording.")
+            } else {
+                Button("Undo") { controller.undoCancel() }.buttonStyle(.borderedProminent).controlSize(.small)
+                    .accessibilityHint("Transcribes and inserts the canceled recording.")
+            }
         }
-        .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+        .padding(inNotch ? 4 : 8).frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
-        .modifier(UtilityGlass(radius: 18))
+        .modifier(RecoveryBackground(inNotch: inNotch))
     }
 }
 
@@ -2462,14 +2473,36 @@ final class BubblePresenter {
     /// The Undo card; it leaves with the "Recording canceled" status (5 s) or when anything else is shown.
     func showUndo(screen: NSScreen?) {
         transition = UUID(); atNotch = false; panel.alphaValue = 1
-        panel.level = .floating
-        let frame = (screen ?? NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let width = min(260, max(200, frame.width - 32))
-        let host = NSHostingView(rootView: UndoCancelCard(controller: controller).frame(width: width))
+        let targetScreen = screen ?? NSScreen.main ?? NSScreen.screens.first
+        let frame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let left = targetScreen?.auxiliaryTopLeftArea
+        let right = targetScreen?.auxiliaryTopRightArea
+        let hasNotch = left != nil && right != nil
+        let width = hasNotch ? min(260, left!.width) : min(260, max(200, frame.width - 32))
+        let notchWidth = (right?.minX ?? 0) - (left?.maxX ?? 0)
+        let notchHeight = targetScreen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32
+        let content = hasNotch ? AnyView(HStack(spacing: 0) {
+            UndoCancelCard(controller: controller, inNotch: true).frame(width: width, height: notchHeight)
+            Color.clear.frame(width: notchWidth / 2 + 10, height: notchHeight)
+        }.background(Color.black, in: UnevenRoundedRectangle(bottomLeadingRadius: 12)))
+            : AnyView(UndoCancelCard(controller: controller).frame(width: width))
+        let host = NSHostingView(rootView: content)
         panel.contentView = host
-        panel.hasShadow = true
-        panel.setFrame(NSRect(x: frame.midX - width / 2, y: frame.minY + 24, width: width, height: host.fittingSize.height), display: true)
+        panel.hasShadow = !hasNotch
+        panel.level = hasNotch ? .statusBar : .floating
+        let height = host.fittingSize.height
+        let destination = NSRect(x: hasNotch ? left!.maxX - width : frame.midX - width / 2,
+                                 y: hasNotch ? targetScreen!.frame.maxY - height : frame.minY + 24,
+                                 width: hasNotch ? width + notchWidth / 2 + 10 : width, height: height)
+        let animate = hasNotch && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        panel.setFrame(animate ? destination.offsetBy(dx: width, dy: 0) : destination, display: true)
         panel.orderFrontRegardless()
+        if animate {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                panel.animator().setFrame(destination, display: true)
+            }
+        }
         notice = UUID()
     }
     private var recoveryNotice: UUID?
