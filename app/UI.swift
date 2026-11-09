@@ -2458,14 +2458,26 @@ final class BubblePresenter {
     func showRecovery(screen: NSScreen?) {
         transition = UUID(); atNotch = false; panel.alphaValue = 1
         panel.level = .floating
-        let frame = (screen ?? NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let targetScreen = screen ?? NSScreen.main ?? NSScreen.screens.first
+        let frame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let hasNotch = targetScreen?.auxiliaryTopLeftArea != nil && targetScreen?.auxiliaryTopRightArea != nil
         let width = min(380, max(260, frame.width - 32))
         let shown = UUID()
         let host = NSHostingView(rootView: ModeRecoveryCard(controller: controller).frame(width: width))
         panel.contentView = host
         panel.hasShadow = true
-        panel.setFrame(NSRect(x: frame.midX - width / 2, y: frame.minY + 24, width: width, height: host.fittingSize.height), display: true)
+        let destination = NSRect(x: frame.midX - width / 2, y: hasNotch ? frame.maxY - host.fittingSize.height - 8 : frame.minY + 24, width: width, height: host.fittingSize.height)
+        let animate = hasNotch && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        panel.alphaValue = animate ? 0 : 1
+        panel.setFrame(animate ? destination.offsetBy(dx: 0, dy: 20) : destination, display: true)
         panel.orderFrontRegardless()
+        if animate {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                panel.animator().setFrame(destination, display: true)
+                panel.animator().alphaValue = 1
+            }
+        }
         notice = shown; recoveryNotice = shown
         DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
             guard let self, self.recoveryNotice == shown else { return }
