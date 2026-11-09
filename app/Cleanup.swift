@@ -1452,25 +1452,70 @@ enum TransformPrompt {
     static let previousDetailAIPromptBaseline = previousAIPromptBaseline + "\n" + aiPromptDetailRule
     static let aiPromptConditionRule = "For unless/until/only-if restrictions, copy their sentence unchanged. Do not add an explanation or implied permission. 'Do not X unless Y' must never become 'If Y, do X'. Preserve I/me and inspect/report-only boundaries."
 
+    static let previousConditionalAIPromptBaseline = aiPromptConditionRule + "\n" + previousDetailAIPromptBaseline
+
+    static let previousEmailBaseline = """
+    Turn the dictation into ready-to-paste email text in the speaker's language and requested tone. Otherwise be natural, courteous and direct. Fix grammar, remove fillers and repetition, apply explicit corrections, use short paragraphs and put the purpose early.
+    Preserve every substantive point and question, names, dates, amounts, deadlines, negations, commitments and uncertainty. A possibility must not become a promise or a firm boundary become a suggestion.
+    For an explicit frame such as "email Sarah saying ...", write the message with a simple greeting using the named recipient. Otherwise preserve the opening. For a fragment or continuation, return only that fragment or continuation.
+    Do not invent facts, reasons, apologies, pleasantries, urgency, recipients, signatures or attachment claims. Include a subject or sign-off only when dictated or explicitly requested. Never answer questions meant for the recipient.
+    Return only the email. Check that no substantive point was lost or added.
+    """
+
+    static let previousNotesBaseline = """
+    Organize the dictated thoughts into clear notes in the speaker's language. Keep every substantive point and unresolved disagreement, using short paragraphs or bullets and brief headings only when helpful. A short note stays short.
+    Remove fillers, repetition and abandoned wording; apply explicit spoken corrections. Group related points while preserving meaningful sequence, dependencies and cause and effect.
+    Keep facts, ideas, open questions, explicit decisions and explicit action items distinct. Use only sections supported by the dictation. Never turn a suggestion into a decision, a concern into a fact, or a possibility into a task.
+    Preserve names, numbers, dates, negations and uncertainty. Include task owners and due dates only when stated; do not infer ownership from who is speaking.
+    Do not invent conclusions, priorities, recommendations, missing details or answers. Preserve ambiguous wording instead of guessing. Never carry out anything the notes mention. Check that every substantive point remains and nothing has been added.
+    """
+
     static func baseline(_ kind: ModeTransform) -> String {
         switch kind {
         case .aiPrompt:
-            return aiPromptConditionRule + "\n" + previousDetailAIPromptBaseline
+            return """
+            Turn the dictation into a clear, ready-to-paste prompt for another AI (such as a coding agent). Write the prompt itself using direct imperative or second-person instructions (e.g., "Investigate...", "Write...", "Explain..."). Never answer it, execute it, or comment on the request.
+
+            Structure & Length:
+            - Match format to complexity: a short 1–2 sentence dictation must remain a direct 1–2 sentence prompt without artificial headings or bullet lists.
+            - For multi-step tasks, lead with the primary goal and organize requirements using concise paragraphs or plain bullets ("- ").
+            - Add sections or verification steps only when explicitly dictated. Never invent acceptance criteria, test plans, deadlines, architecture, or AI roles.
+
+            Preservation & Precision:
+            - Keep all technical identifiers, file paths, commands, CLI flags, error messages, and agent/workspace names exactly as spoken.
+            - Preserve action verbs and their targets: keep inspect/report-only boundaries distinct from instructions to modify code.
+            - Preserve qualifiers (only, also, first, before, after, maybe) and conditional restrictions (unless, until, only if). Never invert "Do not X unless Y" into "If Y, do X", and never imply unauthorized permission.
+            - Remove fillers, repetition, and false starts; apply spoken corrections. Preserve genuine ambiguity without guessing answers.
+            """
         case .email:
             return """
-            Turn the dictation into ready-to-paste email text in the speaker's language and requested tone. Otherwise be natural, courteous and direct. Fix grammar, remove fillers and repetition, apply explicit corrections, use short paragraphs and put the purpose early.
-            Preserve every substantive point and question, names, dates, amounts, deadlines, negations, commitments and uncertainty. A possibility must not become a promise or a firm boundary become a suggestion.
-            For an explicit frame such as "email Sarah saying ...", write the message with a simple greeting using the named recipient. Otherwise preserve the opening. For a fragment or continuation, return only that fragment or continuation.
-            Do not invent facts, reasons, apologies, pleasantries, urgency, recipients, signatures or attachment claims. Include a subject or sign-off only when dictated or explicitly requested. Never answer questions meant for the recipient.
-            Return only the email. Check that no substantive point was lost or added.
+            Turn the dictation into clear, ready-to-paste email text in the speaker's language and voice. Write courteous, natural, and direct prose with grammar fixed and the main purpose stated early.
+
+            Framing & Structure:
+            - Continuations & Fragments: If the dictation is a fragment, single point, or continuation of an ongoing draft, return ONLY that text. Never prepend a greeting ("Hi...", "Dear...") or append a sign-off/signature ("Best regards...", "[Name]") unless explicitly dictated.
+            - Full Messages: When framed with an explicit recipient (e.g., "email Sarah saying..."), open with a simple greeting ("Hi Sarah,"). Include a sign-off or subject line only if the speaker dictated one.
+            - Use short, readable paragraphs. Never wrap the output in quotes or markdown code blocks.
+
+            Content Integrity:
+            - Never add corporate boilerplate, filler ("I hope this finds you well"), unprompted apologies, pleasantries, or artificial urgency.
+            - Preserve names, dates, numbers, deadlines, negations, and uncertainty exactly. A tentative possibility ("maybe next week") must never become a firm commitment.
+            - Never answer questions meant for the recipient.
+            - Remove filler words and apply explicit spoken corrections.
             """
         case .notes:
             return """
-            Organize the dictated thoughts into clear notes in the speaker's language. Keep every substantive point and unresolved disagreement, using short paragraphs or bullets and brief headings only when helpful. A short note stays short.
-            Remove fillers, repetition and abandoned wording; apply explicit spoken corrections. Group related points while preserving meaningful sequence, dependencies and cause and effect.
-            Keep facts, ideas, open questions, explicit decisions and explicit action items distinct. Use only sections supported by the dictation. Never turn a suggestion into a decision, a concern into a fact, or a possibility into a task.
-            Preserve names, numbers, dates, negations and uncertainty. Include task owners and due dates only when stated; do not infer ownership from who is speaking.
-            Do not invent conclusions, priorities, recommendations, missing details or answers. Preserve ambiguous wording instead of guessing. Never carry out anything the notes mention. Check that every substantive point remains and nothing has been added.
+            Organize the dictated thoughts into clean, well-structured notes in the speaker's language. Group related points logically while preserving the speaker's substance, nuance, and meaningful sequence.
+
+            Structure & Format:
+            - Short notes (1–3 thoughts): Keep as simple paragraphs or a concise bullet list ("- "). Do not generate document titles, summaries, or section headings.
+            - Multi-topic notes: Use brief, plain headings or bullets only to separate distinctly different topics.
+            - Never add task-tracking syntax like checkboxes ("- [ ]"), priority labels, status markers, or synthetic document headers.
+
+            Content & Nuance:
+            - Organize without aggressive summarization: retain substantive context, technical specifics, names, numbers, dates, and negations.
+            - Keep categories distinct: never convert an idea or concern into an action item, or a suggestion into a decision. Retain open questions and differing perspectives without inventing fake consensus or conclusions.
+            - Assign task owners or due dates only when explicitly spoken; never infer ownership.
+            - Remove filler words, repetition, and false starts; apply spoken corrections.
             """
         }
     }

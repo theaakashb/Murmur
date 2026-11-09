@@ -220,7 +220,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         let custom = WritingMode(name: "Mine", triggers: ["slack mode"])
         WritingModes.save([custom], to: ud)
         let seeded = WritingModes.load(from: ud)
-        check(seeded.map(\.name) == ["Mine", "Prompt Engineer", "Email", "Notes"], "presets are added after existing modes: \(seeded.map(\.name))")
+        check(seeded.map(\.name) == ["Mine", "Prompt Mode", "Email", "Notes"], "presets are added after existing modes: \(seeded.map(\.name))")
         var edited = seeded; edited.removeAll { $0.name == "Notes" }; WritingModes.save(edited, to: ud)
         check(WritingModes.load(from: ud).count == 3, "a deleted preset is not seeded again")
         let migrationSuite = "murmur-mode-migration-\(UUID().uuidString)"
@@ -233,7 +233,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         WritingModes.save(legacy, to: migration)
         let migrated = WritingModes.load(from: migration)
         check(migrated.count == 2, "migration does not resurrect deleted presets")
-        check(migrated[0].name == "Prompt Engineer" && migrated[0].instructions == TransformPrompt.baseline(.aiPrompt), "old untouched preset receives editable baseline and name")
+        check(migrated[0].name == "Prompt Mode" && migrated[0].instructions == TransformPrompt.baseline(.aiPrompt), "old untouched preset receives editable baseline and name")
         check(migrated[1].name == "My mail" && migrated[1].instructions == "Use a warm tone.", "migration preserves user names and instructions")
         var cleared = migrated; cleared[0].instructions = ""; cleared.removeLast()
         WritingModes.save(cleared, to: migration)
@@ -245,9 +245,10 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
             check(preset.instructions == TransformPrompt.baseline(preset.transform!), "preset stores the actual baseline")
         }
         let editedPrompt = TransformPrompt.build(.aiPrompt, transcript: "inspect the dashboard", nonce: "M1", instructions: "Use one paragraph.")
-        check(editedPrompt.system.contains("Use one paragraph.") && !editedPrompt.system.contains("Lead with the goal"), "edited instructions replace the baseline rather than append to hidden instructions")
-        check(!TransformPrompt.build(.aiPrompt, transcript: "inspect", instructions: "").system.contains("Lead with the goal"), "clearing instructions does not silently restore the baseline")
-        check(TransformPrompt.baseline(.aiPrompt).contains("verification only if the speaker requested it") && TransformPrompt.baseline(.aiPrompt).contains("A skill is not a library"), "baseline addresses invented verification and changed resource requests")
+        check(editedPrompt.system.contains("Use one paragraph.") && !editedPrompt.system.contains("Match format to complexity"), "edited instructions replace the baseline rather than append to hidden instructions")
+        check(!TransformPrompt.build(.aiPrompt, transcript: "inspect", instructions: "").system.contains("Match format to complexity"), "clearing instructions does not silently restore the baseline")
+        check(TransformPrompt.baseline(.aiPrompt).contains("verification steps only when explicitly dictated") && TransformPrompt.baseline(.aiPrompt).contains("agent/workspace names exactly as spoken"), "baseline addresses invented verification and exact technical identifiers")
+        check(TransformPrompt.baseline(.email).contains("Never prepend a greeting") && TransformPrompt.baseline(.notes).contains("Organize without aggressive summarization"), "email and notes baselines address hallucinations and guard compliance")
         for (kind, purpose) in [(ModeTransform.aiPrompt, "prompt for another AI"), (.email, "email text"), (.notes, "organized notes")] {
             for notes in ["", "Use a warm tone."] {
                 check(TransformPrompt.build(kind, transcript: "share the draft", instructions: notes).system.contains(purpose), "custom and cleared instructions retain the mode's output type")
@@ -268,24 +269,25 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         WritingModes.save([customized], to: migration)
         check(WritingModes.load(from: migration) == [customized], "tuning never replaces customized instructions")
         let detailPrompt = TransformPrompt.build(.aiPrompt, transcript: "inspect the example first and only then change the scrolling", instructions: tuned[0].instructions)
-        check(detailPrompt.system.contains(TransformPrompt.aiPromptDetailRule), "detail preservation rule reaches the provider prompt")
-        check(detailPrompt.system.contains("action verb and its target") && detailPrompt.system.contains("before, after, if, maybe"), "prompt explicitly preserves actions and scoped qualifiers")
-        previousPreset.instructions = TransformPrompt.previousDetailAIPromptBaseline
+        check(detailPrompt.system.contains("Preserve action verbs and their targets") && detailPrompt.system.contains("inspect/report-only boundaries distinct from instructions to modify code"), "detail preservation rule reaches the provider prompt")
+        check(detailPrompt.system.contains("only, also, first, before, after, maybe"), "prompt explicitly preserves actions and scoped qualifiers")
+        previousPreset.instructions = TransformPrompt.previousConditionalAIPromptBaseline
         WritingModes.save([previousPreset], to: migration)
         let conditional = WritingModes.load(from: migration)
-        check(conditional[0].instructions == TransformPrompt.baseline(.aiPrompt), "the installed detail baseline receives the conditional preservation update")
+        check(conditional[0].instructions == TransformPrompt.baseline(.aiPrompt), "the installed detail baseline receives the prompt mode update")
         customized = previousPreset; customized.instructions += "\nPrefer concise wording."
         WritingModes.save([customized], to: migration)
         check(WritingModes.load(from: migration) == [customized], "conditional tuning preserves edits to the detail baseline")
-        check(conditional[0].instructions.hasPrefix(TransformPrompt.aiPromptConditionRule), "the conditional rule leads the editable baseline")
+        check(conditional[0].instructions.contains("Never invert \"Do not X unless Y\" into \"If Y, do X\""), "conditional restriction preservation is in the baseline")
         let conditionalInput = "Suggest an adjustment but do not make it unless the footer is missing."
         let conditionalPrompt = TransformPrompt.build(.aiPrompt, transcript: conditionalInput, instructions: conditional[0].instructions)
-        check(conditionalPrompt.system.contains(TransformPrompt.aiPromptConditionRule), "conditional rule reaches the provider without being truncated")
+        check(conditionalPrompt.system.contains("Never invert \"Do not X unless Y\" into \"If Y, do X\""), "conditional rule reaches the provider without being truncated")
         check(conditionalPrompt.user.contains(conditionalInput), "conditional wording reaches the model unchanged")
         let ps = WritingMode.presets
-        check(WritingModes.trigger(ps, in: "Prompt engineer, fix the login bug")?.text == "Fix the login bug", "preset trigger at the start")
-        check(WritingModes.trigger(ps, in: "PROMPT ENGINEER fix it")?.mode.transform == .aiPrompt, "preset trigger ignores case")
-        check(WritingModes.trigger(ps, in: "fix the login bug, prompt engineer") == nil, "preset trigger at the end does not match")
+        check(WritingModes.trigger(ps, in: "Prompt mode, fix the login bug")?.text == "Fix the login bug", "preset trigger at the start")
+        check(WritingModes.trigger(ps, in: "PROMPT MODE fix it")?.mode.transform == .aiPrompt, "preset trigger ignores case")
+        check(WritingModes.trigger(ps, in: "Prompt engineer, fix the login bug")?.text == "Fix the login bug", "legacy prompt engineer trigger still matches")
+        check(WritingModes.trigger(ps, in: "fix the login bug, prompt mode") == nil, "preset trigger at the end does not match")
         check(WritingModes.trigger(ps, in: "I said email mode is odd later") == nil, "preset trigger in the middle does not match")
         check(WritingModes.trigger(ps, in: "notes mode") == nil, "a phrase-only dictation does not match")
         check(WritingModes.trigger([custom], in: "fix it, slack mode")?.text == "Fix it,"  || WritingModes.trigger([custom], in: "fix it, slack mode") != nil, "custom modes still match at the end")

@@ -122,7 +122,7 @@ struct WritingMode: Codable, Equatable, Identifiable, Sendable {
 extension WritingMode {
     /// Seeded once into the user's list; fully editable and deletable afterwards.
     static let presets: [WritingMode] = [
-        WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000001")!, name: "Prompt Engineer", triggers: ["prompt engineer"], instructions: TransformPrompt.baseline(.aiPrompt), transform: .aiPrompt),
+        WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000001")!, name: "Prompt Mode", triggers: ["prompt mode", "prompt engineer"], instructions: TransformPrompt.baseline(.aiPrompt), transform: .aiPrompt),
         WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000002")!, name: "Email", triggers: ["email mode"], instructions: TransformPrompt.baseline(.email), transform: .email),
         WritingMode(id: UUID(uuidString: "6D1A0001-5E5E-4A4A-9A9A-000000000003")!, name: "Notes", triggers: ["notes mode"], instructions: TransformPrompt.baseline(.notes), transform: .notes),
     ]
@@ -169,13 +169,25 @@ enum WritingModes {
                 guard let preset = WritingMode.presets.first(where: { $0.id == modes[i].id }),
                       modes[i].transform == preset.transform else { continue }
                 if modes[i].instructions.isEmpty { modes[i].instructions = preset.instructions }
-                if modes[i].name == "AI Prompt" { modes[i].name = "Prompt Engineer" }
+                if ["AI Prompt", "Prompt Engineer"].contains(modes[i].name) { modes[i].name = "Prompt Mode" }
             }
             save(modes, to: defaults)
             defaults.set(true, forKey: "writingModeEditableBaselines")
         }
-        if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[0].id && $0.transform == .aiPrompt && [TransformPrompt.previousAIPromptBaseline, TransformPrompt.previousDetailAIPromptBaseline].contains($0.instructions) }) {
+        if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[0].id && $0.transform == .aiPrompt && [TransformPrompt.previousAIPromptBaseline, TransformPrompt.previousDetailAIPromptBaseline, TransformPrompt.previousConditionalAIPromptBaseline].contains($0.instructions) }) {
             modes[i].instructions = TransformPrompt.baseline(.aiPrompt)
+            if ["AI Prompt", "Prompt Engineer"].contains(modes[i].name) {
+                modes[i].name = "Prompt Mode"
+                modes[i].triggers = WritingMode.presets[0].triggers
+            }
+            save(modes, to: defaults)
+        }
+        if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[1].id && $0.transform == .email && $0.instructions == TransformPrompt.previousEmailBaseline }) {
+            modes[i].instructions = TransformPrompt.baseline(.email)
+            save(modes, to: defaults)
+        }
+        if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[2].id && $0.transform == .notes && $0.instructions == TransformPrompt.previousNotesBaseline }) {
+            modes[i].instructions = TransformPrompt.baseline(.notes)
             save(modes, to: defaults)
         }
         return modes
