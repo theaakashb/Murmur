@@ -2326,6 +2326,7 @@ private struct ModeRecoveryCard: View {
                     Spacer(minLength: 4)
                     if inNotch {
                         Rectangle().fill(Color.white.opacity(0.3)).frame(width: 1, height: 16)
+                        Spacer(minLength: 4)
                         Button { controller.useWithoutMode() } label: {
                             Text("Use without mode").font(.system(size: 12, weight: .medium))
                                 .frame(height: 24).contentShape(Rectangle())
