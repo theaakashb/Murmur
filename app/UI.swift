@@ -2338,7 +2338,7 @@ private struct ModeRecoveryCard: View {
                     Button("Copy") { controller.copyRecovery() }.buttonStyle(.borderedProminent).controlSize(.small)
                         .accessibilityHint("Copies the text processed without the mode.")
                 }
-                if recovery.stage != .replaced {
+                if !inNotch && recovery.stage != .replaced {
                     Button { controller.clearModeRecovery() } label: { Image(systemName: "xmark") }
                         .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Dismiss")
                 }
@@ -2471,7 +2471,7 @@ final class BubblePresenter {
         let left = targetScreen?.auxiliaryTopLeftArea
         let right = targetScreen?.auxiliaryTopRightArea
         let hasNotch = left != nil && right != nil
-        let width = hasNotch ? min(380, left!.width) : min(380, max(260, frame.width - 32))
+        let width = hasNotch ? min(320, left!.width) : min(380, max(260, frame.width - 32))
         let shown = UUID()
         let notchWidth = (right?.minX ?? 0) - (left?.maxX ?? 0)
         let notchHeight = targetScreen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32
