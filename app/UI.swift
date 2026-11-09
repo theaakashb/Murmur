@@ -500,10 +500,10 @@ struct SettingsView: View {
             .foregroundStyle(Palette.paper).padding(.horizontal, 24).padding(.vertical, 12)
             .background(controller.phase == "Error" ? Palette.ink : Palette.accentDeep)
         }
-        if let warning = controller.cleanupWarning {
+        if controller.cleanupWarning != nil {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                Text("AI cleanup is off: dictation uses basic local cleanup\(warning.mode.map { ", and your \($0) mode is not applied" } ?? ""). \(warning.reason)")
+                Text(AppController.cleanupWarningText)
                     .font(WindowType.body(14)).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
                 Button("Cleanup settings") { controller.openCleanupSettings() }.buttonStyle(.plain).underline()

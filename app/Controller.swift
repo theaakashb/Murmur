@@ -1436,7 +1436,7 @@ final class PreStart: @unchecked Sendable {
         entry.cleanupModel = Self.modelID(processing?.cloudCleaner)
         let text = entry.rawText
         let saved = HistoryText.saved(persists: !store.sessionOnlyIDs.contains(entry.id))
-        let firstWarning = recordCleanup(error: processing?.lastProviderError, outcome: processing?.lastOutcome, fallback: processing?.lastFallback, mode: entry.writingModeName)
+        let firstWarning = recordCleanup(error: processing?.lastProviderError, outcome: processing?.lastOutcome, fallback: processing?.lastFallback)
         // A held result keeps only the raw transcript and is never inserted.
         guard case .insert(let processed) = outcome else {
             let reason = processing?.lastProviderError.map { " " + $0.userMessage } ?? ""
@@ -1515,8 +1515,8 @@ final class PreStart: @unchecked Sendable {
                 showInsertionResult(insertion, entryID: entry.id, text: entry.finalText)
                 if insertion.status != .failed { offerModeRecovery(entry: entry, inserted: entry.finalText, insertion: insertion, target: target) }
                 // A provider failure is not silent: a bad key or quota would otherwise degrade every dictation.
-                if insertion.status != .failed, firstWarning, let warning = cleanupWarning {
-                    setPhase("Error", "Inserted with basic local cleanup\(warning.mode.map { ", not the \($0) mode" } ?? ""). \(warning.reason)")
+                if insertion.status != .failed, firstWarning {
+                    setPhase("Error", Self.cleanupWarningText)
                 }
             } catch {
                 // After an attempt the paste may have landed, so no card offers the text again.
@@ -1533,21 +1533,20 @@ final class PreStart: @unchecked Sendable {
 
     /// AI cleanup is not working: dictation still inserts, with basic local cleanup. Persists until a later
     /// dictation gets real model cleanup (changing settings alone does not clear it).
-    struct CleanupWarning: Equatable { let reason: String; let mode: String?; var key = "" }
-    @Published private(set) var cleanupWarning: CleanupWarning?
+    static let cleanupWarningText = "AI cleanup isn’t working. Check your model provider."
+    /// The failure kind and provider (never the message, whose retry delay changes); nil when cleanup works.
+    @Published private(set) var cleanupWarning: String?
     /// Returns true when this is the first failure (or the reason changed), so the caller announces it once.
     @discardableResult
-    func recordCleanup(error: ProviderError?, outcome: CleanupPath?, fallback: CleanupFailureReason?, mode: String?) -> Bool {
+    func recordCleanup(error: ProviderError?, outcome: CleanupPath?, fallback: CleanupFailureReason?) -> Bool {
         // The user's chosen local route or no-cleanup setting worked as configured, so an old cloud outage is stale.
         if outcome == .modelAccepted || outcome == .localRoute || outcome == .off { cleanupWarning = nil; return false }
         // A guard rejection is the model working; only provider errors and a missing cleaner are outages.
-        let reason = error?.userMessage ?? (outcome == .localRules && fallback == .cleanerFailed ? "No AI cleanup provider is set up." : nil)
-        guard let reason else { return false }
+        guard error != nil || (outcome == .localRules && fallback == .cleanerFailed) else { return false }
         // Keyed by failure kind and provider, not the message (a rate limit's text carries a changing delay).
         let key = error.map { "\(Mirror(reflecting: $0).children.first?.label ?? "\($0)")-\($0.provider?.rawValue ?? "")" } ?? "no-cleaner"
-        let next = CleanupWarning(reason: reason, mode: mode, key: key)
-        defer { cleanupWarning = next; updateMenu?() }
-        return next.key != cleanupWarning?.key
+        defer { cleanupWarning = key; updateMenu?() }
+        return key != cleanupWarning
     }
     func openCleanupSettings() { screenRequest = "settings-2"; openSettings?() }
     // MARK: Mode recovery

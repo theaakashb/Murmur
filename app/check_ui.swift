@@ -173,7 +173,7 @@ import SwiftUI
                 let name = args.indices.contains(i + 1) ? args[i + 1] : ""
                 controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : .offer)
             }
-            if CommandLine.arguments.contains("--cleanup-warning") { controller.recordCleanup(error: .quota(.gemini), outcome: .localRules, fallback: .cleanerFailed, mode: "Email") }
+            if CommandLine.arguments.contains("--cleanup-warning") { controller.recordCleanup(error: .quota(.gemini), outcome: .localRules, fallback: .cleanerFailed) }
             if CommandLine.arguments.contains("--undo") { controller.bubble.showUndo(screen: nil) }
             if CommandLine.arguments.contains("--learned") { controller.bubble.showLearned("Aakash", entryID: UUID(), screen: nil) }
             // Meeting detection (PRD 11.7): --call-offer shows Zoom's offer, --call-offer-browser Arc's. The fixture's

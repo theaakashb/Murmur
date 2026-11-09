@@ -67,7 +67,7 @@ import SwiftUI
         let menu = NSMenu()
         let state = NSMenuItem(title: controller.phase, action: nil, keyEquivalent: ""); state.isEnabled = false; menu.addItem(state)
         if controller.cleanupWarning != nil {
-            menu.addItem(withTitle: "⚠︎ AI cleanup unavailable — Open Cleanup Settings…", action: #selector(openCleanupSettings), keyEquivalent: "").target = self
+            menu.addItem(withTitle: "AI cleanup isn’t working — Open Cleanup Settings…", action: #selector(openCleanupSettings), keyEquivalent: "").target = self
         }
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: "").target = self
