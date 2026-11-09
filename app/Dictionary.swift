@@ -241,7 +241,10 @@ final class DictionaryStore {
 
     /// Folded variant key -> entry. Command targets win, then manual entries over learned ones,
     /// then older entries.
-    private func variantTable() -> [String: DictionaryEntry] {
+    /// A learned variant made only of ordinary words that the preferred spelling merely extends (Cloud -> clouddev) is
+    /// skipped when a lexicon is supplied: old persisted aliases like Cloud -> clouddev stay stored
+    /// but stop rewriting everyday text. Manual variants are deliberate and always apply.
+    private func variantTable(isCommonWord: ((String) -> Bool)? = nil) -> [String: DictionaryEntry] {
         var table: [String: DictionaryEntry] = [:]
         let ordered = entries.filter(\.enabled).sorted {
             let command0 = Self.isCommandTarget($0), command1 = Self.isCommandTarget($1)
@@ -252,6 +255,8 @@ final class DictionaryStore {
         for entry in ordered {
             for variant in entry.variants {
                 guard let key = TermText.phraseKey(variant), table[key] == nil else { continue }
+                if entry.source == .learned, let common = isCommonWord, key.split(separator: " ").allSatisfy({ common(String($0)) }),
+                   CorrectionFilter.embedsOrdinary(key, TermText.fold(entry.preferred)) { continue }
                 table[key] = entry
             }
         }
@@ -265,7 +270,7 @@ final class DictionaryStore {
     /// phrase wins (gap #12), then the longest phrase; replaced text is never matched again, so
     /// another entry cannot rewrite words inside an inserted command ("question mark" stays).
     func apply(to text: String, isCommonWord: ((String) -> Bool)? = nil) -> String {
-        let table = variantTable()
+        let table = variantTable(isCommonWord: isCommonWord)
         let terms = isCommonWord == nil ? [] : entries.filter { $0.enabled && !Self.isCommandTarget($0) && $0.preferred.count >= 6 && $0.preferred.allSatisfy(\.isLetter) }
         guard !table.isEmpty || !terms.isEmpty else { return text }
         let maxWords = table.keys.map { $0.split(separator: " ").count }.max() ?? 1
