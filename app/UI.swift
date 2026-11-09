@@ -2324,8 +2324,17 @@ private struct ModeRecoveryCard: View {
                 case .offer:
                     Text("Mode used: \(recovery.modeName)").font(.system(size: 12, weight: .medium)).lineLimit(1)
                     Spacer(minLength: 4)
-                    Button("Use without mode") { controller.useWithoutMode() }.buttonStyle(.borderedProminent).controlSize(.small)
-                        .accessibilityHint("Processes the original transcript with ordinary Cleanup and replaces the inserted text if it is unchanged.")
+                    if inNotch {
+                        Rectangle().fill(Color.white.opacity(0.3)).frame(width: 1, height: 16)
+                        Button { controller.useWithoutMode() } label: {
+                            Text("Use without mode").font(.system(size: 12, weight: .medium))
+                                .frame(height: 24).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                            .accessibilityHint("Processes the original transcript with ordinary Cleanup and replaces the inserted text if it is unchanged.")
+                    } else {
+                        Button("Use without mode") { controller.useWithoutMode() }.buttonStyle(.borderedProminent).controlSize(.small)
+                            .accessibilityHint("Processes the original transcript with ordinary Cleanup and replaces the inserted text if it is unchanged.")
+                    }
                 case .working:
                     Text("Reprocessing…").font(.system(size: 12, weight: .medium)).lineLimit(1)
                     Spacer(minLength: 4)
