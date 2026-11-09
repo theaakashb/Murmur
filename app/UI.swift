@@ -2315,6 +2315,7 @@ private struct LearnedNotice: View {
 /// Shown after a dictation that used a mode: "Mode used: Email  [Use without mode]  [×]".
 private struct ModeRecoveryCard: View {
     @ObservedObject var controller: AppController
+    var inNotch = false
     var body: some View {
         if let recovery = controller.modeRecovery {
             HStack(spacing: 8) {
@@ -2342,10 +2343,18 @@ private struct ModeRecoveryCard: View {
                         .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Dismiss")
                 }
             }
-            .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(inNotch ? 4 : 8).frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .contain)
-            .modifier(UtilityGlass(radius: 18))
+            .modifier(RecoveryBackground(inNotch: inNotch))
         }
+    }
+}
+
+private struct RecoveryBackground: ViewModifier {
+    let inNotch: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if inNotch { content.preferredColorScheme(.dark) }
+        else { content.modifier(UtilityGlass(radius: 18)) }
     }
 }
 
@@ -2457,25 +2466,35 @@ final class BubblePresenter {
     /// The mode recovery pill; leaves after 12 s unless something else took the panel first.
     func showRecovery(screen: NSScreen?) {
         transition = UUID(); atNotch = false; panel.alphaValue = 1
-        panel.level = .floating
         let targetScreen = screen ?? NSScreen.main ?? NSScreen.screens.first
         let frame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let hasNotch = targetScreen?.auxiliaryTopLeftArea != nil && targetScreen?.auxiliaryTopRightArea != nil
-        let width = min(380, max(260, frame.width - 32))
+        let left = targetScreen?.auxiliaryTopLeftArea
+        let right = targetScreen?.auxiliaryTopRightArea
+        let hasNotch = left != nil && right != nil
+        let width = hasNotch ? min(380, left!.width) : min(380, max(260, frame.width - 32))
         let shown = UUID()
-        let host = NSHostingView(rootView: ModeRecoveryCard(controller: controller).frame(width: width))
+        let notchWidth = (right?.minX ?? 0) - (left?.maxX ?? 0)
+        let notchHeight = targetScreen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32
+        let content = hasNotch ? AnyView(HStack(spacing: 0) {
+            ModeRecoveryCard(controller: controller, inNotch: true).frame(width: width, height: notchHeight)
+            Color.clear.frame(width: notchWidth / 2 + 10, height: notchHeight)
+        }.background(Color.black, in: UnevenRoundedRectangle(bottomLeadingRadius: 12)))
+            : AnyView(ModeRecoveryCard(controller: controller).frame(width: width))
+        let host = NSHostingView(rootView: content)
         panel.contentView = host
-        panel.hasShadow = true
-        let destination = NSRect(x: frame.midX - width / 2, y: hasNotch ? frame.maxY - host.fittingSize.height - 8 : frame.minY + 24, width: width, height: host.fittingSize.height)
+        panel.hasShadow = !hasNotch
+        panel.level = hasNotch ? .statusBar : .floating
+        let height = host.fittingSize.height
+        let destination = NSRect(x: hasNotch ? left!.maxX - width : frame.midX - width / 2,
+                                 y: hasNotch ? targetScreen!.frame.maxY - height : frame.minY + 24,
+                                 width: hasNotch ? width + notchWidth / 2 + 10 : width, height: height)
         let animate = hasNotch && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        panel.alphaValue = animate ? 0 : 1
-        panel.setFrame(animate ? destination.offsetBy(dx: 0, dy: 20) : destination, display: true)
+        panel.setFrame(animate ? destination.offsetBy(dx: width, dy: 0) : destination, display: true)
         panel.orderFrontRegardless()
         if animate {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.2
                 panel.animator().setFrame(destination, display: true)
-                panel.animator().alphaValue = 1
             }
         }
         notice = shown; recoveryNotice = shown
