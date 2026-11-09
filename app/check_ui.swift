@@ -150,6 +150,16 @@ import SwiftUI
                 controller.showLiveWordsFixture("Synthetic live words keep the newest tail of a long dictation on two lines, with only the last word dimm")
             }
             controller.bubble.show(phase: controller.phase, message: controller.message)
+            if args.contains("--loop-bubble") {
+                var visible = true
+                Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+                    MainActor.assumeIsolated {
+                        visible.toggle()
+                        if visible { controller.bubble.show(phase: "Listening", message: "") }
+                        else { controller.bubble.hide() }
+                    }
+                }
+            }
             if CommandLine.arguments.contains("--paste-failed") {
                 controller.showInsertionResult(InsertionResult(status: .failed, detail: "fixture", snapshot: nil), entryID: entries.first?.id,
                                                text: "Synthetic dictation that could not be pasted because the target app closed. It wraps to show the card's three-line limit and keeps going past it.")

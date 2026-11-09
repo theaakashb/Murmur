@@ -2138,6 +2138,7 @@ func showsFloatingIndicator(phase: String) -> Bool {
 private struct VoiceBubbles: View {
     @ObservedObject var controller: AppController
     let phase: String
+    var ink: Color? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
@@ -2159,7 +2160,7 @@ private struct VoiceBubbles: View {
                             : phase == "Processing" ? (reduceMotion ? 0.35 : (sin(t * 4 - Double(index)) + 1) / 2 * 0.45) : 0.15
                         // Rests as a short pill (9 × 13 pt) and stretches up to the full 40 pt.
                         Color.clear.frame(width: 9, height: 13 + 27 * level * Self.weights[index])
-                            .modifier(VoiceDotGlass(opaque: reduceTransparency || contrast == .increased))
+                            .modifier(VoiceDotGlass(opaque: reduceTransparency || contrast == .increased, ink: ink))
                             .frame(width: 14, height: 40)
                     }
                 }
@@ -2176,8 +2177,10 @@ private struct VoiceBubbles: View {
 
 private struct VoiceDotGlass: ViewModifier {
     let opaque: Bool
+    var ink: Color? = nil
     @ViewBuilder func body(content: Content) -> some View {
-        if opaque { content.overlay(Capsule().fill(Color.primary.opacity(0.65))) }
+        if let ink { content.overlay(Capsule().fill(ink)) }
+        else if opaque { content.overlay(Capsule().fill(Color.primary.opacity(0.65))) }
         // A #5995C9 fill under clear glass: glass tint alone rendered gray and vanished on white.
         else {
             content.background(Capsule().fill(Color(red: 0x59 / 255, green: 0x95 / 255, blue: 0xC9 / 255).opacity(0.55)))
@@ -2311,6 +2314,8 @@ private final class DictationPanel: NSPanel {
 final class BubblePresenter {
     private let controller: AppController
     private let panel = DictationPanel(contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: false)
+    private var transition = UUID()
+    private var atNotch = false
 
     init(controller: AppController) {
         self.controller = controller
@@ -2329,29 +2334,72 @@ final class BubblePresenter {
         // A card holding text not pasted shows in any phase (Saved included).
         guard showsFloatingIndicator(phase: phase) || controller.pasteFailure != nil else { if notice == nil { hide() }; return }
         notice = nil
-        let frame = (screen ?? NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let targetScreen = screen ?? NSScreen.main ?? NSScreen.screens.first
+        let frame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         let minimal = phase != "Error" && controller.pasteFailure == nil
         panel.hasShadow = !minimal
         let card = controller.pasteFailure
         let live = phase == "Listening" && controller.liveWordsActive
-        let width = live ? min(420, max(240, frame.width - 32)) : minimal ? 80 : card != nil ? min(320, max(200, frame.width - 32)) : min(240, max(180, frame.width - 32))
-        let content = live ? AnyView(LiveWordsBubble(controller: controller))
+        let left = targetScreen?.auxiliaryTopLeftArea
+        let right = targetScreen?.auxiliaryTopRightArea
+        let notch = minimal && !live && left != nil && right != nil
+        let entering = notch && (!panel.isVisible || !atNotch)
+        transition = UUID()
+        atNotch = notch
+        panel.alphaValue = 1
+        let notchWidth = (right?.minX ?? 0) - (left?.maxX ?? 0)
+        let notchHeight = targetScreen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32
+        let width = notch ? 72 + notchWidth / 2 + 10 : live ? min(420, max(240, frame.width - 32)) : minimal ? 80 : card != nil ? min(320, max(200, frame.width - 32)) : min(240, max(180, frame.width - 32))
+        let content = notch ? AnyView(HStack(spacing: 0) {
+            VoiceBubbles(controller: controller, phase: phase, ink: Color(red: 0x59 / 255, green: 0x95 / 255, blue: 0xC9 / 255)).scaleEffect(0.75).frame(width: 72, height: notchHeight)
+            Color.clear.frame(width: notchWidth / 2 + 10, height: notchHeight)
+        }.frame(height: notchHeight).background(Color(red: 0, green: 0, blue: 0), in: UnevenRoundedRectangle(bottomLeadingRadius: 12)))
+            : live ? AnyView(LiveWordsBubble(controller: controller))
             : minimal ? AnyView(VoiceBubbles(controller: controller, phase: phase))
             : card.map { AnyView(PasteFailureCard(controller: controller, failure: $0)) } ?? AnyView(BubbleView(controller: controller, message: message))
         let host = NSHostingView(rootView: content.frame(width: width))
         panel.contentView = host
         let height = host.fittingSize.height
-        panel.setFrame(NSRect(x: frame.midX - width / 2, y: frame.minY + 24, width: width, height: height), display: true)
+        panel.level = notch ? .statusBar : .floating
+        let x = notch ? left!.maxX - 72 : frame.midX - width / 2
+        let y = notch ? targetScreen!.frame.maxY - height : frame.minY + 24
+        let destination = NSRect(x: x, y: y, width: width, height: height)
+        panel.setFrame(entering && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? destination.offsetBy(dx: 72, dy: 0) : destination, display: true)
         panel.orderFrontRegardless()
+        if entering && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                panel.animator().setFrame(destination, display: true)
+            }
+        }
     }
 
-    func hide() { notice = nil; panel.orderOut(nil) }
+    func hide() {
+        notice = nil
+        let current = UUID()
+        transition = current
+        guard atNotch && panel.isVisible && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            atNotch = false; panel.orderOut(nil); return
+        }
+        atNotch = false
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            panel.animator().setFrame(panel.frame.offsetBy(dx: 72, dy: 0), display: true)
+            panel.animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            guard let self, self.transition == current else { return }
+            self.panel.orderOut(nil)
+            self.panel.alphaValue = 1
+        }
+    }
     /// Whether the bubble shows anything (a status, Undo, a card); the meeting offer waits for it.
     var isVisible: Bool { panel.isVisible }
 
     private var notice: UUID?
     /// The Undo card; it leaves with the "Recording canceled" status (5 s) or when anything else is shown.
     func showUndo(screen: NSScreen?) {
+        transition = UUID(); atNotch = false; panel.alphaValue = 1
+        panel.level = .floating
         let frame = (screen ?? NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         let width = min(260, max(200, frame.width - 32))
         let host = NSHostingView(rootView: UndoCancelCard(controller: controller).frame(width: width))
@@ -2363,6 +2411,8 @@ final class BubblePresenter {
     }
     /// The learned-word notice; leaves after 5 s unless something else took the panel first.
     func showLearned(_ word: String, entryID: UUID, screen: NSScreen?) {
+        transition = UUID(); atNotch = false; panel.alphaValue = 1
+        panel.level = .floating
         let frame = (screen ?? NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         let width = min(320, max(200, frame.width - 32))
         let shown = UUID()
