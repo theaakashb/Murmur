@@ -62,9 +62,13 @@ import SwiftUI
         if !controller.showMenuBar { if let statusItem { NSStatusBar.system.removeStatusItem(statusItem) }; statusItem = nil; return }
         if statusItem == nil { statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength) }
         let recording = controller.meetingRecorder.live != nil
-        statusItem?.button?.image = recording ? NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Murmur: recording meeting notes") : Logo.menuBarImage
+        statusItem?.button?.image = recording ? NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Murmur: recording meeting notes")
+            : controller.cleanupWarning != nil ? NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Murmur: AI cleanup unavailable") : Logo.menuBarImage
         let menu = NSMenu()
         let state = NSMenuItem(title: controller.phase, action: nil, keyEquivalent: ""); state.isEnabled = false; menu.addItem(state)
+        if controller.cleanupWarning != nil {
+            menu.addItem(withTitle: "⚠︎ AI cleanup unavailable — Open Cleanup Settings…", action: #selector(openCleanupSettings), keyEquivalent: "").target = self
+        }
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: "").target = self
         if recording {
@@ -91,6 +95,7 @@ import SwiftUI
         menu.addItem(.separator()); menu.addItem(withTitle: "Quit Murmur", action: #selector(quit), keyEquivalent: "q").target = self
         statusItem?.menu = menu
     }
+    @objc func openCleanupSettings() { controller.openCleanupSettings(); showWindow() }
     @objc func openSettings() {
         controller.screenRequest = "settings"
         showWindow()
