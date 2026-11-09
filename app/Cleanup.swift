@@ -752,6 +752,29 @@ enum CleanupGuard {
         return cuts.isEmpty ? raw : CleanupText.render(CleanupText.normalize(tokens))
     }
 
+    /// Trusted output that lost substance: under 60% of the spoken words, a vanished tail of 3+ content words,
+    /// or every negation gone. Self-corrections (the correction window) may drop words, and numbers.
+    /// shortcut: length and tail floors, not a semantic check; a same-length meaning change passes, upgrade with a verifier.
+    static func truncated(raw: String, cleaned: String) -> Bool {
+        let r = words(raw), o = words(cleaned)
+        let a = r.map(\.lower), b = o.map(\.lower)
+        let spoken = words(RuleCleaner.removeFillers(raw)).count
+        if spoken >= 8 && Double(o.count) < Double(spoken) * 0.6 { return true }
+        let window = correctionWindow(raw, loose: true)
+        let matched = align(a, b).0
+        let kept = Set(b.map { String($0.prefix(5)) })
+        var tail = 0, k = a.count - 1
+        while k >= 0, !matched.contains(k) { k -= 1 }
+        for i in (k + 1)..<a.count where !window.contains(i) && !grammarWords.contains(a[i]) && !CleanupText.hesitations.contains(a[i]) && !kept.contains(String(a[i].prefix(5))) { tail += 1 }
+        if tail >= 3 { return true }
+        // A restriction connector ("unless QA signs off") outside a correction must survive somewhere.
+        for i in a.indices where !window.contains(i) {
+            if ["unless", "until", "except"].contains(a[i]) && !b.contains(a[i]) { return true }
+        }
+        let rawNeg = a.indices.filter { CleanupText.isNegation(a[$0]) && !window.contains($0) }.count
+        return rawNeg > 0 && !b.contains(where: CleanupText.isNegation)
+    }
+
     /// LCS alignment over lowercased words; returns matched raw and cleaned indices.
     static func align(_ a: [String], _ b: [String]) -> (Set<Int>, Set<Int>) {
         let n = a.count, m = b.count
@@ -1695,7 +1718,8 @@ enum CleanupPipeline {
         if options.trustModel && (options.polish || options.professional) {
             let reason: CleanupFailureReason? = CleanupGuard.words(output).isEmpty ? .emptyOutput
                 : CleanupGuard.answers(raw: raw, cleaned: output) ? .answerPattern
-                : Double(output.count) > Double(raw.count) * 2 + 10 ? .lengthRatio : nil
+                : Double(output.count) > Double(raw.count) * 2 + 10 ? .lengthRatio
+                : CleanupGuard.truncated(raw: raw, cleaned: output) ? .unexplainedDeletion : nil
             return reason.map { .heldForRecovery(raw: raw, reason: $0) } ?? .cleaned(output)
         }
         switch CleanupGuard.check(raw: raw, cleaned: output, options: options, allowedTerms: allowedTerms, soundsLike: soundsLike) {
