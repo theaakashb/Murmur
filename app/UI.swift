@@ -2297,7 +2297,8 @@ private struct UndoCancelCard: View {
                     .accessibilityHint("Transcribes and inserts the canceled recording.")
             }
         }
-        .padding(inNotch ? 4 : 8).frame(maxWidth: .infinity, alignment: .leading)
+        .padding(inNotch ? 4 : 8).padding(.trailing, inNotch ? 8 : 0)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .modifier(RecoveryBackground(inNotch: inNotch))
     }
@@ -2478,7 +2479,7 @@ final class BubblePresenter {
         let left = targetScreen?.auxiliaryTopLeftArea
         let right = targetScreen?.auxiliaryTopRightArea
         let hasNotch = left != nil && right != nil
-        let width = hasNotch ? min(260, left!.width) : min(260, max(200, frame.width - 32))
+        let width = hasNotch ? min(225, left!.width) : min(260, max(200, frame.width - 32))
         let notchWidth = (right?.minX ?? 0) - (left?.maxX ?? 0)
         let notchHeight = targetScreen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32
         let content = hasNotch ? AnyView(HStack(spacing: 0) {
