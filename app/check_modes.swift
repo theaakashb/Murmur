@@ -95,8 +95,9 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         defer { defaults.removePersistentDomain(forName: suite) }
         let saved = [WritingMode(name: "A", apps: ["a"], websites: ["b.com/c"], triggers: ["d"], options: .faithful, tone: .veryCasual, screenContext: false, instructions: "Short.")]
         WritingModes.save(saved, to: defaults)
-        check(WritingModes.load(from: defaults) == saved, "modes round-trip through defaults")
-        check(WritingModes.load(from: UserDefaults(suiteName: suite + "-empty")!) == [], "no saved modes loads as empty")
+        check(WritingModes.load(from: defaults) == saved + WritingMode.presets, "modes round-trip through defaults, presets seeded after them")
+        check(WritingModes.load(from: defaults) == saved + WritingMode.presets, "seeding is stable on the next load")
+        check(WritingModes.load(from: UserDefaults(suiteName: suite + "-empty")!) == WritingMode.presets, "no saved modes loads as the presets")
 
         // MARK: Override inheritance
         var settings = ProcessingSettings()
@@ -213,6 +214,104 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
             }
         }
         check(faithfulSpy.messages.isEmpty, "Faithful never invokes AI cleanup")
+
+        // MARK: Presets
+        let ud = UserDefaults(suiteName: "murmur-modes-check-\(UUID().uuidString)")!
+        let custom = WritingMode(name: "Mine", triggers: ["slack mode"])
+        WritingModes.save([custom], to: ud)
+        let seeded = WritingModes.load(from: ud)
+        check(seeded.map(\.name) == ["Mine", "Prompt Mode", "Email", "Notes"], "presets are added after existing modes: \(seeded.map(\.name))")
+        var edited = seeded; edited.removeAll { $0.name == "Notes" }; WritingModes.save(edited, to: ud)
+        check(WritingModes.load(from: ud).count == 3, "a deleted preset is not seeded again")
+        let migrationSuite = "murmur-mode-migration-\(UUID().uuidString)"
+        let migration = UserDefaults(suiteName: migrationSuite)!
+        defer { migration.removePersistentDomain(forName: migrationSuite) }
+        migration.set(true, forKey: WritingModes.presetsSeededKey)
+        var legacy = Array(WritingMode.presets.prefix(2))
+        legacy[0].name = "AI Prompt"; legacy[0].instructions = ""
+        legacy[1].name = "My mail"; legacy[1].instructions = "Use a warm tone."
+        WritingModes.save(legacy, to: migration)
+        let migrated = WritingModes.load(from: migration)
+        check(migrated.count == 2, "migration does not resurrect deleted presets")
+        check(migrated[0].name == "Prompt Mode" && migrated[0].instructions == TransformPrompt.baseline(.aiPrompt), "old untouched preset receives editable baseline and name")
+        check(migrated[1].name == "My mail" && migrated[1].instructions == "Use a warm tone.", "migration preserves user names and instructions")
+        var cleared = migrated; cleared[0].instructions = ""; cleared.removeLast()
+        WritingModes.save(cleared, to: migration)
+        check(WritingModes.load(from: migration) == cleared, "cleared instructions and deleted modes stay changed on reload")
+        WritingModes.save([], to: migration)
+        check(WritingModes.load(from: migration).isEmpty, "all presets can be deleted permanently")
+        for preset in WritingMode.presets {
+            check(!preset.instructions.isEmpty && preset.instructions.count <= WritingModeLimits.instructions, "editable baseline fits the instruction field")
+            check(preset.instructions == TransformPrompt.baseline(preset.transform!), "preset stores the actual baseline")
+        }
+        let editedPrompt = TransformPrompt.build(.aiPrompt, transcript: "inspect the dashboard", nonce: "M1", instructions: "Use one paragraph.")
+        check(editedPrompt.system.contains("Use one paragraph.") && !editedPrompt.system.contains("Match format to complexity"), "edited instructions replace the baseline rather than append to hidden instructions")
+        check(!TransformPrompt.build(.aiPrompt, transcript: "inspect", instructions: "").system.contains("Match format to complexity"), "clearing instructions does not silently restore the baseline")
+        check(TransformPrompt.baseline(.aiPrompt).contains("verification steps only when explicitly dictated") && TransformPrompt.baseline(.aiPrompt).contains("agent/workspace names exactly as spoken"), "baseline addresses invented verification and exact technical identifiers")
+        check(TransformPrompt.baseline(.email).contains("Never prepend a greeting") && TransformPrompt.baseline(.notes).contains("Organize without aggressive summarization"), "email and notes baselines address hallucinations and guard compliance")
+        for (kind, purpose) in [(ModeTransform.aiPrompt, "prompt for another AI"), (.email, "email text"), (.notes, "organized notes")] {
+            for notes in ["", "Use a warm tone."] {
+                check(TransformPrompt.build(kind, transcript: "share the draft", instructions: notes).system.contains(purpose), "custom and cleared instructions retain the mode's output type")
+            }
+        }
+        WritingModes.save([WritingMode(name: "My email", instructions: "Use a warm tone.", transform: .email)], to: migration)
+        let savedEmail = WritingModes.load(from: migration)[0]
+        p.cloudCleaner = spy
+        _ = await p.processAsync("the draft is ready", style: DictationStyle(mode: savedEmail, settings: p.settings))
+        check(spy.messages.last?.system.contains("Write ready-to-paste email text.") == true && spy.messages.last?.system.contains("Use a warm tone.") == true, "persisted legacy style notes reach the provider with the email contract")
+        var previousPreset = WritingMode.presets[0]
+        previousPreset.instructions = TransformPrompt.previousAIPromptBaseline
+        WritingModes.save([previousPreset], to: migration)
+        let tuned = WritingModes.load(from: migration)
+        check(tuned[0].instructions == TransformPrompt.baseline(.aiPrompt), "an unchanged previous baseline is tuned in saved settings")
+        var customized = previousPreset
+        customized.instructions += "\nUse my preferred headings."
+        WritingModes.save([customized], to: migration)
+        check(WritingModes.load(from: migration) == [customized], "tuning never replaces customized instructions")
+        let detailPrompt = TransformPrompt.build(.aiPrompt, transcript: "inspect the example first and only then change the scrolling", instructions: tuned[0].instructions)
+        check(detailPrompt.system.contains("Preserve action verbs and their targets") && detailPrompt.system.contains("inspect/report-only boundaries distinct from instructions to modify code"), "detail preservation rule reaches the provider prompt")
+        check(detailPrompt.system.contains("only, also, first, before, after, maybe"), "prompt explicitly preserves actions and scoped qualifiers")
+        previousPreset.instructions = TransformPrompt.previousConditionalAIPromptBaseline
+        WritingModes.save([previousPreset], to: migration)
+        let conditional = WritingModes.load(from: migration)
+        check(conditional[0].instructions == TransformPrompt.baseline(.aiPrompt), "the installed detail baseline receives the prompt mode update")
+        customized = previousPreset; customized.instructions += "\nPrefer concise wording."
+        WritingModes.save([customized], to: migration)
+        check(WritingModes.load(from: migration) == [customized], "conditional tuning preserves edits to the detail baseline")
+        check(conditional[0].instructions.contains("Never invert \"Do not X unless Y\" into \"If Y, do X\""), "conditional restriction preservation is in the baseline")
+        let conditionalInput = "Suggest an adjustment but do not make it unless the footer is missing."
+        let conditionalPrompt = TransformPrompt.build(.aiPrompt, transcript: conditionalInput, instructions: conditional[0].instructions)
+        check(conditionalPrompt.system.contains("Never invert \"Do not X unless Y\" into \"If Y, do X\""), "conditional rule reaches the provider without being truncated")
+        check(conditionalPrompt.user.contains(conditionalInput), "conditional wording reaches the model unchanged")
+        let ps = WritingMode.presets
+        check(WritingModes.trigger(ps, in: "Prompt mode, fix the login bug")?.text == "Fix the login bug", "preset trigger at the start")
+        check(WritingModes.trigger(ps, in: "PROMPT MODE fix it")?.mode.transform == .aiPrompt, "preset trigger ignores case")
+        check(WritingModes.trigger(ps, in: "Prompt engineer, fix the login bug")?.text == "Fix the login bug", "legacy prompt engineer trigger still matches")
+        check(WritingModes.trigger(ps, in: "fix the login bug, prompt mode") == nil, "preset trigger at the end does not match")
+        check(WritingModes.trigger(ps, in: "I said email mode is odd later") == nil, "preset trigger in the middle does not match")
+        check(WritingModes.trigger(ps, in: "notes mode") == nil, "a phrase-only dictation does not match")
+        check(WritingModes.trigger([custom], in: "fix it, slack mode")?.text == "Fix it,"  || WritingModes.trigger([custom], in: "fix it, slack mode") != nil, "custom modes still match at the end")
+        let old = try JSONDecoder().decode(WritingMode.self, from: JSONEncoder().encode(custom))
+        check(old.transform == nil, "a mode without a transform decodes as before")
+
+        faithful.route = .cloud; faithful.options = .standard
+        try p.update(faithful)
+        let presetSpy = MockCloudCleaner { _ in "Investigate why login fails after the update.\n\nVerify: run the login tests." }
+        p.cloudCleaner = presetSpy
+        let styled = DictationStyle(mode: ps[0], settings: p.settings)
+        let tOut = await p.processAsync("investigate why login fails after the update and run the login tests", style: styled)
+        check(tOut == .insert("Investigate why login fails after the update.\n\nVerify: run the login tests."), "AI Prompt output is inserted: \(tOut)")
+        check(presetSpy.messages.count == 1 && presetSpy.messages[0].system.contains("Never answer it"), "AI Prompt uses its own contract")
+        check(!presetSpy.messages[0].system.contains("dictation cleanup filter"), "the transform does not reuse the cleanup prompt")
+        let bypass = DictationStyle(mode: nil, settings: p.settings)
+        check(bypass.transform == nil, "bypass style has no transform")
+        let bad = MockCloudCleaner { _ in "Sure! Here is the answer: 42" }
+        p.cloudCleaner = bad
+        _ = await p.processAsync("do not delete the 3 files", style: styled)
+        check(bad.messages.count == 2 && bad.messages[1].system.contains("dictation cleanup filter"), "a rejected rewrite falls back to ordinary cleanup")
+        check(TransformGuard.accepts(input: "ship it on 5 May, not 6", output: "Ship it on 5 May, not 6."), "guard keeps numbers and negation")
+        check(!TransformGuard.accepts(input: "ship it on 5 May", output: "Ship it soon."), "guard rejects a dropped number")
+        check(!TransformGuard.accepts(input: "do not ship it", output: "Ship it."), "guard rejects a dropped negation")
 
         print(failures == 0 ? "\(passes) checks passed, 0 failed" : "\(passes) passed, \(failures) failed")
         exit(failures == 0 ? 0 : 1)

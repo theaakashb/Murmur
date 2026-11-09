@@ -18,6 +18,8 @@ Save recoverable text before attempting insertion. Never automatically retry an 
 
 Toggles and route choices apply automatically. Provider URL and model fields apply on Return or focus loss; API keys require Save. Route choices, model IDs, endpoint URLs and custom-key destination bindings use UserDefaults; keys stay in the Keychain. Changing a custom endpoint requires saving its key for the new destination.
 
+Settings → Modes includes Prompt Mode (say “prompt mode”), Email (“email mode”), and Notes (“notes mode”). These presets match at the start of a dictation and rewrite on AI cleanup routes. Edit a preset to see and change its baseline custom instructions; changes apply immediately. Delete removes any mode, including a preset, without restoring it on restart. Existing edited instructions and custom names are preserved when updating. The Mode determines the output type, while the editable instructions control the rewrite; ordinary cleanup safeguards remain separate. Rewrites can still omit or invent details, so review the result.
+
 Settings → Cleanup offers Faithful and Strict for local rules, plus Polish and Professional on AI routes:
 
 - **Faithful** disables cleanup; dictionary spelling corrections still apply.
@@ -85,6 +87,8 @@ app/check_ui.sh --meeting-settings --tall
 ```
 
 `--meetings` seeds two synthetic meetings (one with hidden echo, one with leftover parts) and opens Meetings. `--meeting-live` also shows the live panel with a synthetic recording; with `--snapshot` it renders the panel, whose glass draws transparent offscreen. `--call-offer` shows Zoom's detection offer and `--call-offer-browser` Arc's; `--never` seeds the Never list shown with `--meeting-settings`. `--consent` opens the one-time consent sheet; quit it from the menu, since `--snapshot` does not close a sheet. `--meeting-notes` gives the first meeting synthetic notes and opens its Notes tab; `--outdated` marks them out of date. `--transcript` opens the Transcript tab instead. `--notes-choice` opens the first-Stop notes route question; like `--consent`, quit it from the menu. `--meeting-settings` opens Settings → Meetings with the meeting transcription and notes routes.
+
+`--section 3 --mode-editor` seeds the three presets and opens the Prompt Mode instruction editor.
 
 The window opens on Home. `--insights` seeds timed dictations into four apps over 24 days and opens Insights; with `--empty` it shows the empty state, and `--history-off` shows the History-off state. `--guide STEP` opens the welcome guide at step 0–4; without it the fixture marks the guide finished. `--settings` opens Settings, `--tall` makes the window 1100 points tall where the screen allows, and `--system-appearance` stores System (or, with `--light` or `--dark`, that choice) without forcing the app's appearance, so the bubble follows macOS. `--snapshot PATH` renders the window offscreen to a PNG and quits, which works while the screen is locked.
 
