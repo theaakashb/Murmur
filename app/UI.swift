@@ -2439,13 +2439,23 @@ final class BubblePresenter {
         let x = notch ? left!.maxX - 72 : frame.midX - width / 2
         let y = notch ? targetScreen!.frame.maxY - height : frame.minY + 24
         let destination = NSRect(x: x, y: y, width: width, height: height)
-        panel.setFrame(entering && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? destination.offsetBy(dx: 72, dy: 0) : destination, display: true)
+        place(entering && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? destination.offsetBy(dx: 72, dy: 0) : destination)
         panel.orderFrontRegardless()
         if entering && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.2
                 panel.animator().setFrame(destination, display: true)
             }
+        }
+    }
+
+    /// Places the panel now. A plain setFrame loses to a hide() slide still pending or in flight (the
+    /// indicator is hidden just before a blocking insertion), which then parks the next card at the notch.
+    private func place(_ frame: NSRect) {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0
+            panel.animator().setFrame(frame, display: true)
+            panel.animator().alphaValue = 1
         }
     }
 
@@ -2496,7 +2506,7 @@ final class BubblePresenter {
                                  y: hasNotch ? targetScreen!.frame.maxY - height : frame.minY + 24,
                                  width: hasNotch ? width + notchWidth / 2 + 10 : width, height: height)
         let animate = hasNotch && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        panel.setFrame(animate ? destination.offsetBy(dx: width, dy: 0) : destination, display: true)
+        place(animate ? destination.offsetBy(dx: width, dy: 0) : destination)
         panel.orderFrontRegardless()
         if animate {
             NSAnimationContext.runAnimationGroup { context in
@@ -2533,7 +2543,7 @@ final class BubblePresenter {
                                  y: hasNotch ? targetScreen!.frame.maxY - height : frame.minY + 24,
                                  width: hasNotch ? width + notchWidth / 2 + 10 : width, height: height)
         let animate = hasNotch && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        panel.setFrame(animate ? destination.offsetBy(dx: width, dy: 0) : destination, display: true)
+        place(animate ? destination.offsetBy(dx: width, dy: 0) : destination)
         panel.orderFrontRegardless()
         if animate {
             NSAnimationContext.runAnimationGroup { context in
@@ -2564,7 +2574,7 @@ final class BubblePresenter {
         let host = NSHostingView(rootView: LearnedNotice(controller: controller, word: word, entryID: entryID).frame(width: width))
         panel.contentView = host
         panel.hasShadow = true
-        panel.setFrame(NSRect(x: frame.midX - width / 2, y: frame.minY + 24, width: width, height: host.fittingSize.height), display: true)
+        place(NSRect(x: frame.midX - width / 2, y: frame.minY + 24, width: width, height: host.fittingSize.height))
         panel.orderFrontRegardless()
         notice = shown
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
