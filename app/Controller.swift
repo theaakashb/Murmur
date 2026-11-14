@@ -1380,7 +1380,7 @@ final class PreStart: @unchecked Sendable {
         }
         savedEntry.cleanup = detail
         guard let processing, processing.settings.route != .local else {
-            complete(processing?.process(text, style: style) ?? .heldForRecovery(raw: text, reason: .cleanerFailed), entry: savedEntry, store: store, done: done); return
+            complete(processing?.process(text, style: style) ?? ProcessingResult(outcome: .heldForRecovery(raw: text, reason: .cleanerFailed)), entry: savedEntry, store: store, done: done); return
         }
         cloudStage = .cleanup; cloudDone = done
         cloudRequest.start({ await processing.processAsync(text, style: style) }) { [weak self] outcome in
@@ -1418,30 +1418,31 @@ final class PreStart: @unchecked Sendable {
         if let p = provider as? GeminiTranscribeProvider { return p.model }
         return (provider as? OpenAICompatibleTranscriptionProvider)?.server.model
     }
-    private func complete(_ outcome: ProcessingOutcome, entry savedEntry: HistoryEntry, store: HistoryRouter<HistoryEntry>, done: @escaping () -> Void) {
+    private func complete(_ result: ProcessingResult, entry savedEntry: HistoryEntry, store: HistoryRouter<HistoryEntry>, done: @escaping () -> Void) {
+        let outcome = result.outcome
         var entry = savedEntry
         // Consumed here for every outcome, so a later retry never measures from an old key release.
         let released = finishedAt; finishedAt = 0
-        entry.cleanupOutcome = processing?.lastOutcome
+        entry.cleanupOutcome = result.cleanupPath
         entry.timing?.cleanup = ProcessInfo.processInfo.systemUptime - cleanupStartedAt
-        if let processing {
+        if processing != nil {
             var detail = entry.cleanup ?? CleanupDetail()
-            detail.modelOutput = processing.lastModelOutput; detail.guardVerdict = processing.lastGuardVerdict; detail.promptHash = processing.lastPromptHash
-            detail.dictionaryTerms = processing.lastTerms.isEmpty ? nil : processing.lastTerms; detail.input = processing.lastCleanupInput
-            detail.providerError = processing.lastProviderError.map { Mirror(reflecting: $0).children.first?.label ?? "\($0)" }
+            detail.modelOutput = result.modelOutput; detail.guardVerdict = result.guardVerdict; detail.promptHash = result.promptHash
+            detail.dictionaryTerms = result.terms.isEmpty ? nil : result.terms; detail.input = result.cleanupInput
+            detail.providerError = result.providerError.map { Mirror(reflecting: $0).children.first?.label ?? "\($0)" }
             entry.cleanup = detail
         }
-        timingLog.notice("cleanup took=\(ProcessInfo.processInfo.systemUptime - self.cleanupStartedAt, format: .fixed(precision: 3)) path=\(self.processing?.lastOutcome?.rawValue ?? "none", privacy: .public)")
+        timingLog.notice("cleanup took=\(ProcessInfo.processInfo.systemUptime - self.cleanupStartedAt, format: .fixed(precision: 3)) path=\(result.cleanupPath?.rawValue ?? "none", privacy: .public)")
         entry.cleanupProvider = processing?.settings.route == .local ? "local-rules" : processing?.cloudCleaner?.id.rawValue
         entry.cleanupModel = Self.modelID(processing?.cloudCleaner)
         let text = entry.rawText
         let saved = HistoryText.saved(persists: !store.sessionOnlyIDs.contains(entry.id))
         // A held result keeps only the raw transcript and is never inserted.
         guard case .insert(let processed) = outcome else {
-            let reason = processing?.lastProviderError.map { " " + $0.userMessage } ?? ""
+            let reason = result.providerError.map { " " + $0.userMessage } ?? ""
             // Content-free: the guard's category, never the text.
             if case .heldForRecovery(_, let why) = outcome {
-                timingLog.notice("cleanup-held reason=\(why.rawValue, privacy: .public) provider-error=\(self.processing?.lastProviderError.map { Mirror(reflecting: $0).children.first?.label ?? "\($0)" } ?? "none", privacy: .public)")
+                timingLog.notice("cleanup-held reason=\(why.rawValue, privacy: .public) provider-error=\(result.providerError.map { Mirror(reflecting: $0).children.first?.label ?? "\($0)" } ?? "none", privacy: .public)")
             }
             entry = entry.with(finalText: "", status: "held-cleanup")
             do { try store.save(entry); setPhase("Error", "Cleanup was held for review.\(reason) The raw transcript is in History. Press ⌃⌘C to copy it.") }
@@ -1449,9 +1450,9 @@ final class PreStart: @unchecked Sendable {
             destination = nil; historySaved(); done(); return
         }
         // Content-free: why the full cleanup was not used (the punctuation transfer or local rules was).
-        let fallback = processing?.lastFallback?.rawValue, rejected = processing?.lastRejectedOutput
-        if let why = processing?.lastFallback {
-            timingLog.notice("cleanup-fallback entry=\(savedEntry.id, privacy: .public) reason=\(why.rawValue, privacy: .public) provider-error=\(self.processing?.lastProviderError.map { Mirror(reflecting: $0).children.first?.label ?? "\($0)" } ?? "none", privacy: .public)")
+        let fallback = result.fallback?.rawValue, rejected = result.rejectedOutput
+        if let why = result.fallback {
+            timingLog.notice("cleanup-fallback entry=\(savedEntry.id, privacy: .public) reason=\(why.rawValue, privacy: .public) provider-error=\(result.providerError.map { Mirror(reflecting: $0).children.first?.label ?? "\($0)" } ?? "none", privacy: .public)")
         }
         // Only filler words were heard: keep the raw transcript, insert nothing, show no error.
         if processed.isEmpty {
@@ -1514,7 +1515,7 @@ final class PreStart: @unchecked Sendable {
                 showInsertionResult(insertion, entryID: entry.id, text: entry.finalText)
                 if insertion.status != .failed { offerModeRecovery(entry: entry, inserted: entry.finalText, insertion: insertion, target: target) }
                 // A provider failure is not silent: a bad key or quota would otherwise degrade every dictation.
-                if insertion.status != .failed, let error = processing?.lastProviderError {
+                if insertion.status != .failed, let error = result.providerError {
                     setPhase("Ready", "Inserted with local cleanup. \(error.userMessage)")
                 }
             } catch {
@@ -1577,7 +1578,7 @@ final class PreStart: @unchecked Sendable {
         let entryID = recovery.entryID
         recoveryRequest.start({ await processing.processAsync(recovery.raw, style: style) }) { [weak self] outcome in
             guard let self, var recovery = self.modeRecovery, recovery.entryID == entryID, !self.isBusy else { return }
-            guard case .insert(let text) = outcome, !text.isEmpty else { recovery.stage = .offer; self.modeRecovery = recovery; return }
+            guard case .insert(let text) = outcome.outcome, !text.isEmpty else { recovery.stage = .offer; self.modeRecovery = recovery; return }
             let replacement = recovery.inserted.hasPrefix(" ") && !text.hasPrefix(" ") ? " " + text : text
             if self.replaceInserted(recovery, with: replacement) {
                 recovery.stage = .replaced

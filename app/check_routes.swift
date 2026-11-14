@@ -408,15 +408,15 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let outcome = await CloudTranscription.run(provider: provider, audioData: speech, vocabulary: p.dictionary.vocabularyTerms)
         guard case .transcript(let text) = outcome else { check(false, "custom transcript reaches dictionary"); return }
         check(text == raw, "raw provider text remains available for history")
-        check(p.process(text) == .insert("Call Aakash and spaceyboi."), "manual and learned variants correct without ASR hints or cleanup")
+        check((p.process(text)).outcome == .insert("Call Aakash and spaceyboi."), "manual and learned variants correct without ASR hints or cleanup")
         check(!transport.lastBody.contains("name=\"prompt\"") && !transport.lastBody.contains("Shelfmate"), "whole dictionary stays out of custom ASR")
-        check(p.process("Send a shelf made report.") == .insert("Send a shelf made report."), "preferred-only learned entry does not make faithful correction fuzzy")
+        check((p.process("Send a shelf made report.")).outcome == .insert("Send a shelf made report."), "preferred-only learned entry does not make faithful correction fuzzy")
         settings.route = .cloud; settings.options = .standard
         try p.update(settings)
         p.cloudCleaner = MockCleaner(.success("Send a Shelfmate report."))
-        await checkA(await p.processAsync("Send a shelf made report.") == .insert("Send a Shelfmate report."), "preferred-only learned spelling still corrected by guarded cleanup")
+        await checkA((await p.processAsync("Send a shelf made report.")).outcome == .insert("Send a Shelfmate report."), "preferred-only learned spelling still corrected by guarded cleanup")
         p.cloudCleaner = MockCleaner(.failure(.timeout(.gemini)))
-        await checkA(await p.processAsync(text) == .insert("Call Aakash and spaceyboi."), "cleanup failure keeps manual and learned exact corrections")
+        await checkA((await p.processAsync(text)).outcome == .insert("Call Aakash and spaceyboi."), "cleanup failure keeps manual and learned exact corrections")
     }
 
     // MARK: Keys
@@ -512,14 +512,16 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let p = try ProcessingCoordinator(directory: directory, defaults: defaults)
         var settings = p.settings; settings.route = CleanupChoice.gemini.processingRoute; settings.options = .standard; try p.update(settings)
         p.cloudCleaner = MockCleaner(.success("Call Akme."))
-        await checkA(await p.processAsync("Um, call Akme.") == .insert("Call Akme."), "configured cloud cleanup inserts")
+        await checkA((await p.processAsync("Um, call Akme.")).outcome == .insert("Call Akme."), "configured cloud cleanup inserts")
         p.cloudCleaner = MockCleaner(.failure(.quota(.gemini)))
-        let fellBack = await p.processAsync("Um, call Akme.")
+        let result6 = await p.processAsync("Um, call Akme.")
+        let fellBack = result6.outcome
         check(fellBack == .insert("Call Akme."), "cleanup error uses local rules: \(fellBack)")
-        check(p.lastProviderError == .quota(.gemini), "provider error kept for the notice")
+        check(result6.providerError == .quota(.gemini), "provider error kept for the notice")
         p.cloudCleaner = nil
-        await checkA(await p.processAsync("Um, call Akme.") == .insert("Call Akme."), "unconfigured cloud cleanup uses local rules")
-        check(p.lastProviderError == nil, "error cleared per call")
+        let result7 = await p.processAsync("Um, call Akme.")
+        await checkA(result7.outcome == .insert("Call Akme."), "unconfigured cloud cleanup uses local rules")
+        check(result7.providerError == nil, "error cleared per call")
         settings.route = .local; try p.update(settings)
     }
 
