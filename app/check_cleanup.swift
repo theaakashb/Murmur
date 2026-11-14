@@ -729,6 +729,42 @@ struct EchoAsyncCleaner: AsyncCleaner {
         for (raw, out, reason) in held {
             expect(CleanupPipeline.judge(raw: raw, cleaned: out, options: trusted, allowedTerms: []) == .heldForRecovery(raw: raw, reason: reason), "trust still holds \(reason)")
         }
+        // Trusted output may not truncate: the tail of a long sentence is substance.
+        let travel = "I am willing to go pretty much anywhere to pick up the perfect jacket."
+        let trustedPro = CleanupOptions(polish: true, professional: true, trustModel: true)
+        expect(CleanupPipeline.judge(raw: travel, cleaned: "I am willing to go.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: travel, reason: .unexplainedDeletion), "trust holds a truncated tail")
+        expect(CleanupPipeline.judge(raw: travel, cleaned: "I will travel almost anywhere to find the perfect jacket.", options: trustedPro, allowedTerms: []) == .cleaned("I will travel almost anywhere to find the perfect jacket."), "trust accepts a rewrite that keeps the substance")
+        expect(CleanupPipeline.judge(raw: "Um, uh, I I think we should, um, ship it on Friday if QA signs off.", cleaned: "I think we should ship it on Friday if QA signs off.", options: trustedPro, allowedTerms: []) == .cleaned("I think we should ship it on Friday if QA signs off."), "trust accepts filler removal")
+        let tail = "We should move the review to Thursday morning and invite the design team to the kickoff call before the vendor contract expires."
+        expect(CleanupPipeline.judge(raw: tail, cleaned: "We should move the review to Thursday morning and invite the design team to the kickoff call.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: tail, reason: .unexplainedDeletion), "trust holds a dropped final clause")
+        let neg = "Do not deploy the build to production unless the staging tests pass."
+        expect(CleanupPipeline.judge(raw: neg, cleaned: "Deploy the build to production when the staging tests pass.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: neg, reason: .unexplainedDeletion), "trust holds a lost negation")
+        let fix = "Book the room for three people, no wait, four people on Tuesday."
+        expect(CleanupPipeline.judge(raw: fix, cleaned: "Book the room for four people on Tuesday.", options: trustedPro, allowedTerms: []) == .cleaned("Book the room for four people on Tuesday."), "trust accepts a self-correction")
+        let ramble = "So, you know, I was thinking, like, we should probably, you know, sort of look at the budget, I mean the budget for the quarter, and, like, maybe cut the travel line, you know, if we can."
+        expect(CleanupPipeline.judge(raw: ramble, cleaned: "I was thinking we should look at the quarter budget and maybe cut the travel line if we can.", options: trustedPro, allowedTerms: []) == .cleaned("I was thinking we should look at the quarter budget and maybe cut the travel line if we can."), "trust accepts a rambling condensation")
+        let cond = "Do not ship it unless QA signs off."
+        expect(CleanupPipeline.judge(raw: cond, cleaned: "Do not ship it.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: cond, reason: .unexplainedDeletion), "trust holds a dropped condition")
+        for (raw, out) in [("That sounds pretty good no I mean that doesn't sound that great.", "That doesn't sound that great."),
+                           ("What time is it? No, I mean, what day is it?", "What day is it?"),
+                           ("Send Alex 20 dollars no I mean do not send Alex 20 dollars.", "Do not send Alex 20 dollars.")] {
+            expect(CleanupPipeline.judge(raw: raw, cleaned: out, options: trustedPro, allowedTerms: []) == .cleaned(out), "trust accepts explicit repair: \(out)")
+        }
+        let dropNeg = "Send Alex 20 dollars to the vendor and do not tell the team about the change."
+        expect(CleanupPipeline.judge(raw: dropNeg, cleaned: "Send Alex 20 dollars to the vendor and tell the team about the change.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: dropNeg, reason: .unexplainedDeletion), "trust holds a negation dropped outside a repair")
+        // A split cue, a short "I mean" repair and "do not" reworded as "without" are not truncation.
+        for (raw, out) in [("Hey, let's meet on Monday. No, Thursday.", "Hey, let's meet on Thursday."),
+                           ("Then rename this folder. I mean, delete this folder.", "Delete this folder."),
+                           ("Check whether the logo is aligned and report what you find do not move it.", "Check whether the logo is aligned and report what you find, without moving it.")] {
+            expect(CleanupPipeline.judge(raw: raw, cleaned: out, options: trustedPro, allowedTerms: []) == .cleaned(out), "trust accepts: \(out)")
+        }
+        let beside = "Send the report to Dana, I mean Dan, and then book the room and order lunch for the whole team on Friday."
+        expect(CleanupPipeline.judge(raw: beside, cleaned: "Send the report to Dan.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: beside, reason: .unexplainedDeletion), "trust holds truncation beside a short repair")
+        // A repair excuses only its own clause: a negation or condition dropped after it is still held.
+        for (raw, out) in [("Send Alex 20 dollars no I mean send Alex 30 dollars and do not tell the team about it.", "Send Alex 30 dollars and tell the team about it."),
+                           ("Ship it Monday no I mean ship it Tuesday unless QA finds a blocker.", "Ship it Tuesday.")] {
+            expect(CleanupPipeline.judge(raw: raw, cleaned: out, options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: raw, reason: .unexplainedDeletion), "trust holds a drop beside a repair: \(out)")
+        }
         let old = try? JSONDecoder().decode(CleanupOptions.self, from: Data(#"{"fillers":true,"corrections":true,"lists":true,"spoken":true}"#.utf8))
         expect(old?.trustModel == false && !CleanupOptions.standard.trustModel && !CleanupOptions().trustModel, "trust is off by default and in old saved options")
         // Failure reasons are content-free identifiers.
