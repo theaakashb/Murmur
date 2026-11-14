@@ -46,7 +46,7 @@ struct ProcessingResult: Sendable {
 
 /// Settings owned by processing, persisted in UserDefaults.
 struct ProcessingSettings: Equatable, Sendable {
-    var options: CleanupOptions = .standard
+    var options: CleanupOptions = CleanupOptions(punctuation: true, spoken: true, trustModel: true)
     var route: CleanupRoute = .local
     var learningEnabled = true
     var learningRequiresReadableField = false
@@ -65,7 +65,6 @@ struct ProcessingSettings: Equatable, Sendable {
         static let polish = "cleanupPolish"
         static let professional = "cleanupProfessional"
         static let spoken = "cleanupSpokenCommands"
-        static let trustModel = "cleanupTrustModel"
         static let route = "cleanupRoute"
         static let learning = "learningEnabled"
         static let readableLearning = "learningRequiresReadableField"
@@ -78,7 +77,7 @@ struct ProcessingSettings: Equatable, Sendable {
     static func load(from defaults: UserDefaults) -> ProcessingSettings {
         var settings = ProcessingSettings()
         func flag(_ key: String, _ fallback: Bool) -> Bool { defaults.object(forKey: key) as? Bool ?? fallback }
-        settings.options = CleanupOptions(fillers: flag(Key.fillers, true), corrections: flag(Key.corrections, true), lists: flag(Key.lists, true), punctuation: flag(Key.punctuation, true), polish: flag(Key.polish, false), professional: flag(Key.professional, false), spoken: flag(Key.spoken, true), trustModel: flag(Key.trustModel, false))
+        settings.options = CleanupOptions(fillers: flag(Key.fillers, true), corrections: flag(Key.corrections, true), lists: flag(Key.lists, true), punctuation: flag(Key.punctuation, true), polish: flag(Key.polish, false), professional: flag(Key.professional, false), spoken: flag(Key.spoken, true), trustModel: true)
         settings.route = defaults.string(forKey: Key.route).flatMap(CleanupRoute.init(rawValue:)) ?? .local
         settings.learningEnabled = flag(Key.learning, true)
         settings.learningRequiresReadableField = flag(Key.readableLearning, false)
@@ -96,7 +95,6 @@ struct ProcessingSettings: Equatable, Sendable {
         defaults.set(options.polish, forKey: Key.polish)
         defaults.set(options.professional, forKey: Key.professional)
         defaults.set(options.spoken, forKey: Key.spoken)
-        defaults.set(options.trustModel, forKey: Key.trustModel)
         defaults.set(route.rawValue, forKey: Key.route)
         defaults.set(learningEnabled, forKey: Key.learning)
         defaults.set(learningRequiresReadableField, forKey: Key.readableLearning)
@@ -160,7 +158,7 @@ struct DictationStyle: Equatable, Sendable {
         self.init(options: mode?.options ?? settings.options, tone: mode?.tone ?? .formal,
                   instructions: String((mode?.instructions ?? "").prefix(WritingModeLimits.instructions)),
                   context: (mode?.screenContext ?? settings.screenContext) ? context : nil)
-        options.trustModel = settings.options.trustModel // A global preference; modes have no control for it.
+        options.trustModel = settings.options.trustModel // Modes use the processing setting.
         transform = mode?.transform
     }
 }

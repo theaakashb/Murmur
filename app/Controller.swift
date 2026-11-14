@@ -372,7 +372,6 @@ final class PreStart: @unchecked Sendable {
     /// Professional above Polish (`CleanupOptions.professional`).
     @Published var cleanupProfessional: Bool
     @Published var cleanupSpoken: Bool
-    @Published var cleanupTrustModel: Bool
     /// Screen context for AI cleanup (gap #8), opt-in; a writing mode can override it.
     @Published var screenContext: Bool
     /// Writing modes (gap #6), saved as soon as they change and read at each recording start.
@@ -611,7 +610,6 @@ final class PreStart: @unchecked Sendable {
         cleanupPolish = processingSettings.options.polish
         cleanupProfessional = processingSettings.options.professional
         cleanupSpoken = processingSettings.options.spoken
-        cleanupTrustModel = processingSettings.options.trustModel
         screenContext = processingSettings.screenContext
         writingModes = WritingModes.load(from: defaults)
         learningEnabled = processingSettings.learningEnabled
@@ -824,7 +822,7 @@ final class PreStart: @unchecked Sendable {
                 stopWatching()
             }
             var next = processing.settings
-            next.options = CleanupOptions(fillers: cleanupFillers, corrections: cleanupCorrections, lists: cleanupLists, punctuation: cleanupPunctuation, polish: cleanupPolish, professional: cleanupProfessional, spoken: cleanupSpoken, trustModel: cleanupTrustModel)
+            next.options = CleanupOptions(fillers: cleanupFillers, corrections: cleanupCorrections, lists: cleanupLists, punctuation: cleanupPunctuation, polish: cleanupPolish, professional: cleanupProfessional, spoken: cleanupSpoken, trustModel: true)
             next.learningEnabled = learningEnabled; next.route = routes.cleanup.processingRoute
             next.learningRequiresReadableField = learningRequiresReadableField
             next.historyMode = historyMode; next.updateChecksEnabled = updateChecksEnabled

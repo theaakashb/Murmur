@@ -110,12 +110,16 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
     }
 
     static func settingsChecks(_ defaults: UserDefaults) throws {
+        defaults.set(false, forKey: "cleanupTrustModel")
         let fresh = ProcessingSettings.load(from: defaults)
+        check(fresh.options.trustModel, "obsolete trust preference is ignored")
+        let strict = ProcessingCoordinator.localRules("Send 3 reports.", terms: [], options: CleanupOptions(polish: true, trustModel: true), cleaner: SpyCleaner(.fixed("Send 300 reports.")))
+        check(strict.text == "Send 3 reports." && strict.reason != nil, "local rules retain strict guard")
         check(fresh == ProcessingSettings(), "missing keys load approved defaults")
         check(!fresh.options.polish, "strict cleanup by default")
-        check(fresh.options == .standard && fresh.route == .local && fresh.learningEnabled && fresh.historyMode == .on && fresh.updateChecksEnabled, "defaults: all comforts on, local, learning on")
+        check(fresh.options == CleanupOptions(punctuation: true, spoken: true, trustModel: true) && fresh.route == .local && fresh.learningEnabled && fresh.historyMode == .on && fresh.updateChecksEnabled, "defaults: all comforts on, local, learning on")
         var next = ProcessingSettings()
-        next.options = CleanupOptions(fillers: false, corrections: true, lists: false, professional: true)
+        next.options = CleanupOptions(fillers: false, corrections: true, lists: false, professional: true, trustModel: true)
         next.route = .cloud; next.learningEnabled = false; next.learningRequiresReadableField = true; next.historyMode = .off; next.updateChecksEnabled = false
         next.save(to: defaults)
         check(ProcessingSettings.load(from: defaults) == next, "settings round-trip")

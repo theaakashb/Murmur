@@ -927,15 +927,11 @@ struct SettingsView: View {
                  : controller.cleanupChoice == .localRules
                  ? "Local rules use Strict: “Let’s meet Thursday at the cafe.” Choose an AI cleanup route above to enable Polish or Professional."
                  : controller.cleanupProfessional
-                 ? "Rewrites into clear, professional writing of what you meant: “Let’s meet on Thursday at the café.” Names, numbers and “not” stay."
+                 ? "Rewrites into clear, professional writing of what you meant: “Let’s meet on Thursday at the café.”"
                  : controller.cleanupPolish
                  ? "Also resolves backtracks and false starts, and fixes small grammar slips, keeping your voice: “Let’s meet Thursday at the cafe.”"
                  : "Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”")
                 .padding(.top, 8)
-            if controller.cleanupChoice != .localRules && cleanupStyle.wrappedValue >= 1 {
-                toggleRow("Protect what I said", "Murmur checks each AI edit against your words and keeps your original if a name, number or “not” changes, or if something you said goes missing or something new appears. Turn off to paste the AI’s version as-is.", isOn: Binding(get: { !controller.cleanupTrustModel }, set: { controller.cleanupTrustModel = !$0 }))
-                    .padding(.top, 12)
-            }
         }
     }
 
@@ -2251,7 +2247,6 @@ private struct AutoApplyRoutes: ViewModifier {
             .onChange(of: controller.cleanupSpoken) { controller.settingsChanged() }
             .onChange(of: controller.cleanupPolish) { controller.settingsChanged() }
             .onChange(of: controller.cleanupProfessional) { controller.settingsChanged() }
-            .onChange(of: controller.cleanupTrustModel) { controller.settingsChanged() }
             .onChange(of: controller.screenContext) { controller.settingsChanged() }
             .onChange(of: controller.learningEnabled) { controller.settingsChanged() }
             .onChange(of: controller.learningRequiresReadableField) { controller.settingsChanged() }
