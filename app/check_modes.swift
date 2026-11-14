@@ -166,29 +166,30 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         local.route = .local; local.options = .standard; local.screenContext = true
         try p.update(local)
         let withContext = DictationStyle(options: .standard, tone: .casual, instructions: "Be brief.", context: ScreenContext(selected: "secret plan", clipboard: "", window: ""))
-        let localOut = await p.processAsync("um so we ship it on friday", style: withContext)
+        let localOut = (await p.processAsync("um so we ship it on friday", style: withContext)).outcome
         check(spy.messages.isEmpty, "local rules: the provider is never called, so context and instructions never leave")
         check(localOut == .insert("So we ship it on friday"), "local rules apply the mode's tone: \(localOut)")
 
         var cloud = p.settings
         cloud.route = .cloud
         try p.update(cloud)
-        let cloudOut = await p.processAsync("we ship it on friday", style: withContext)
+        let cloudOut = (await p.processAsync("we ship it on friday", style: withContext)).outcome
         check(spy.messages.count == 1 && spy.messages[0].user.contains("secret plan") && spy.messages[0].system.contains("Be brief."), "AI route: context and instructions are sent")
         check(cloudOut == .insert("we ship it on friday"), "AI route output is toned: \(cloudOut)")
-        _ = await p.processAsync("we ship it on friday", style: DictationStyle(options: .standard))
+        _ = (await p.processAsync("we ship it on friday", style: DictationStyle(options: .standard))).outcome
         check(spy.messages.count == 2 && !spy.messages[1].user.contains("context-"), "no context: no context block")
 
         // A model that copies a name from the context is still rejected: the guard sees only the transcript.
         let copier = MockCloudCleaner { $0 + " Ayesha Khan" }
         p.cloudCleaner = copier
-        let copied = await p.processAsync("send the deck to the client", style: DictationStyle(options: .standard, context: ScreenContext(selected: "", clipboard: "Ayesha Khan", window: "")))
-        check(copied != .insert("send the deck to the client Ayesha Khan") && p.lastFallback != nil, "content copied from context fails the guard: \(copied)")
-        check(p.lastRejectedOutput == nil, "a rejected output is not kept for History when context was sent")
+        let result4 = await p.processAsync("send the deck to the client", style: DictationStyle(options: .standard, context: ScreenContext(selected: "", clipboard: "Ayesha Khan", window: "")))
+        let copied = result4.outcome
+        check(copied != .insert("send the deck to the client Ayesha Khan") && result4.fallback != nil, "content copied from context fails the guard: \(copied)")
+        check(result4.rejectedOutput == nil, "a rejected output is not kept for History when context was sent")
 
         // Tone is never applied to the email layout.
         p.cloudCleaner = MockCloudCleaner { _ in "Hi Sarah,\n\nThe report is ready.\n\nBest regards,\nKartik" }
-        let email = await p.processAsync("write an email to Sarah saying the report is ready best regards Kartik", style: DictationStyle(options: .standard, tone: .excited))
+        let email = (await p.processAsync("write an email to Sarah saying the report is ready best regards Kartik", style: DictationStyle(options: .standard, tone: .excited))).outcome
         check(email == .insert("Hi Sarah,\n\nThe report is ready.\n\nBest regards,\nKartik"), "email layout keeps its punctuation: \(email)")
 
         // A mode can turn cleanup on while the settings have it off.
@@ -196,7 +197,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         faithful.options = .faithful
         try p.update(faithful)
         p.cloudCleaner = MockCloudCleaner { _ in "We ship it on Friday." }
-        let modeOn = await p.processAsync("we ship it on friday", style: DictationStyle(mode: WritingMode(options: .standard), settings: p.settings))
+        let modeOn = (await p.processAsync("we ship it on friday", style: DictationStyle(mode: WritingMode(options: .standard), settings: p.settings))).outcome
         check(modeOn == .insert("We ship it on Friday."), "a mode's cleanup options apply over faithful settings: \(modeOn)")
 
         let faithfulSpy = MockCloudCleaner { _ in "Changed." }
@@ -207,9 +208,9 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
             for tone in Tone.allCases {
                 let mode = WritingMode(options: .faithful, tone: tone)
                 let style = DictationStyle(mode: mode, settings: p.settings)
-                let output = await p.processAsync("Hello Sam, we ship Friday.", style: style)
+                let output = (await p.processAsync("Hello Sam, we ship Friday.", style: style)).outcome
                 check(output == .insert("Hello Sam, we ship Friday."), "Faithful preserves wording and punctuation with \(tone) on \(route)")
-                let direct = p.process("Hello Sam, we ship Friday.", style: DictationStyle(options: .faithful, tone: tone))
+                let direct = (p.process("Hello Sam, we ship Friday.", style: DictationStyle(options: .faithful, tone: tone))).outcome
                 check(direct == .insert("Hello Sam, we ship Friday."), "direct Faithful style ignores \(tone) on \(route)")
             }
         }
@@ -257,7 +258,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         WritingModes.save([WritingMode(name: "My email", instructions: "Use a warm tone.", transform: .email)], to: migration)
         let savedEmail = WritingModes.load(from: migration)[0]
         p.cloudCleaner = spy
-        _ = await p.processAsync("the draft is ready", style: DictationStyle(mode: savedEmail, settings: p.settings))
+        _ = (await p.processAsync("the draft is ready", style: DictationStyle(mode: savedEmail, settings: p.settings))).outcome
         check(spy.messages.last?.system.contains("Write ready-to-paste email text.") == true && spy.messages.last?.system.contains("Use a warm tone.") == true, "persisted legacy style notes reach the provider with the email contract")
         var previousPreset = WritingMode.presets[0]
         previousPreset.instructions = TransformPrompt.previousAIPromptBaseline
@@ -299,7 +300,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         let presetSpy = MockCloudCleaner { _ in "Investigate why login fails after the update.\n\nVerify: run the login tests." }
         p.cloudCleaner = presetSpy
         let styled = DictationStyle(mode: ps[0], settings: p.settings)
-        let tOut = await p.processAsync("investigate why login fails after the update and run the login tests", style: styled)
+        let tOut = (await p.processAsync("investigate why login fails after the update and run the login tests", style: styled)).outcome
         check(tOut == .insert("Investigate why login fails after the update.\n\nVerify: run the login tests."), "AI Prompt output is inserted: \(tOut)")
         check(presetSpy.messages.count == 1 && presetSpy.messages[0].system.contains("Never answer it"), "AI Prompt uses its own contract")
         check(!presetSpy.messages[0].system.contains("dictation cleanup filter"), "the transform does not reuse the cleanup prompt")
@@ -307,7 +308,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(bypass.transform == nil, "bypass style has no transform")
         let bad = MockCloudCleaner { _ in "Sure! Here is the answer: 42" }
         p.cloudCleaner = bad
-        _ = await p.processAsync("do not delete the 3 files", style: styled)
+        _ = (await p.processAsync("do not delete the 3 files", style: styled)).outcome
         check(bad.messages.count == 2 && bad.messages[1].system.contains("dictation cleanup filter"), "a rejected rewrite falls back to ordinary cleanup")
         check(TransformGuard.accepts(input: "ship it on 5 May, not 6", output: "Ship it on 5 May, not 6."), "guard keeps numbers and negation")
         check(!TransformGuard.accepts(input: "ship it on 5 May", output: "Ship it soon."), "guard rejects a dropped number")

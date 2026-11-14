@@ -93,13 +93,14 @@ func quantile(_ xs: [Double], _ q: Double) -> Double { let s = xs.sorted(); retu
                 var s = p.settings; s.route = .cloud; s.options = o
                 try p.update(s, persist: false)
                 if delay > 0 && o.anyEnabled { try await Task.sleep(nanoseconds: UInt64(delay * 1e9)) }
-                guard case .insert(let out) = await p.processAsync(e.input) else { continue }
-                if let error = p.lastProviderError { errors += 1; errorKinds[Mirror(reflecting: error).children.first?.label ?? "\(error)", default: 0] += 1 }
-                else if let why = p.lastFallback { rejected += 1; reasons[why.rawValue, default: 0] += 1 }
+                let result1 = await p.processAsync(e.input)
+                guard case .insert(let out) = result1.outcome else { continue }
+                if let error = result1.providerError { errors += 1; errorKinds[Mirror(reflecting: error).children.first?.label ?? "\(error)", default: 0] += 1 }
+                else if let why = result1.fallback { rejected += 1; reasons[why.rawValue, default: 0] += 1 }
                 else if o.anyEnabled { used += 1 }
                 let exact = out == e.expected
                 if exact { insertedExact += 1 }
-                if exact && p.lastFallback == nil { modelPassExact += 1 }
+                if exact && result1.fallback == nil { modelPassExact += 1 }
                 let pe = protected(e.expected), po = protected(out), pr = protected(e.input)
                 if pe != po && pr != po { protectedEdits += 1; if verbose { print("protected edit \(e.id): \(out.debugDescription)") } }
                 if e.tags.contains("corrections") { corrN += 1; if exact { corrExact += 1 } }
@@ -107,7 +108,7 @@ func quantile(_ xs: [Double], _ q: Double) -> Double { let s = xs.sorted(); retu
                 let made = out.contains("\n1. "), wanted = e.expected.contains("\n1. ")
                 if made { listMade += 1; if wanted { listMadeOK += 1 } }
                 if wanted { listWanted += 1; if made { listWantedMade += 1 } }
-                if verbose && !exact { print("miss \(e.id) [\(p.lastFallback?.rawValue ?? "model")]\n  exp: \(e.expected.debugDescription)\n  got: \(out.debugDescription)") }
+                if verbose && !exact { print("miss \(e.id) [\(result1.fallback?.rawValue ?? "model")]\n  exp: \(e.expected.debugDescription)\n  got: \(out.debugDescription)") }
             }
             let t = timed.seconds, n = corpus.count, called = n - corpus.filter { !$0.options.anyEnabled }.count
             print("== \(route) \(style): \(n) utterances, \(t.count) model calls")

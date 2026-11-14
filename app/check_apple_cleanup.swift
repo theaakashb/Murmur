@@ -60,33 +60,37 @@ private func provider(_ status: OnDeviceModelUnavailable?, _ model: FakeModel) -
         var settings = p.settings; settings.route = .cloud; settings.options = .standard
         try p.update(settings, persist: false)
         let raw = "um so we should ship it on friday"
-        let local = p.process(raw)
+        let local = (p.process(raw)).outcome
 
         // Unavailable: never calls the model, falls back to local rules, names the reason.
         for reason in [OnDeviceModelUnavailable.deviceNotEligible, .appleIntelligenceOff, .modelNotReady] {
             let model = FakeModel { $0 }
             p.cloudCleaner = provider(reason, model)
-            let out = await p.processAsync(raw)
+            let result2 = await p.processAsync(raw)
+            let out = result2.outcome
             check(model.calls.isEmpty, "\(reason): model not called")
             check(out == local, "\(reason): local rules output: \(out)")
-            check(p.lastProviderError == .modelUnavailable(.appleIntelligence, reason), "\(reason): error recorded")
-            check(p.lastProviderError?.userMessage == reason.userMessage, "\(reason): message shown")
-            check(p.lastFallback == .cleanerFailed, "\(reason): fallback logged")
+            check(result2.providerError == .modelUnavailable(.appleIntelligence, reason), "\(reason): error recorded")
+            check(result2.providerError?.userMessage == reason.userMessage, "\(reason): message shown")
+            check(result2.fallback == .cleanerFailed, "\(reason): fallback logged")
         }
 
         // A generation error falls back the same way.
         p.cloudCleaner = provider(nil, FakeModel { _ in throw ProviderError.contentBlocked(.appleIntelligence) })
-        check(await p.processAsync(raw) == local && p.lastProviderError == .contentBlocked(.appleIntelligence), "generation error: local rules")
+        let result3 = await p.processAsync(raw)
+        check(result3.outcome == local && result3.providerError == .contentBlocked(.appleIntelligence), "generation error: local rules")
 
         // Available: the model's output passes the guard and is inserted.
         p.cloudCleaner = provider(nil, FakeModel { _ in "So we should ship it on Friday." })
-        check(await p.processAsync(raw) == .insert("So we should ship it on Friday.") && p.lastFallback == nil, "good output inserted")
+        let result4 = await p.processAsync(raw)
+        check(result4.outcome == .insert("So we should ship it on Friday.") && result4.fallback == nil, "good output inserted")
 
         // An answer instead of cleanup is rejected by the guard and never inserted.
         p.cloudCleaner = provider(nil, FakeModel { _ in "Sure! Friday works. Here is a plan for the launch." })
-        if case .insert(let text) = await p.processAsync(raw) {
-            check(!text.contains("Sure") && !text.contains("plan") && p.lastFallback != nil, "guard rejects an answer: \(text)")
-            check(p.lastProviderError == nil, "a rejection is not a provider error")
+        let result5 = await p.processAsync(raw)
+        if case .insert(let text) = result5.outcome {
+            check(!text.contains("Sure") && !text.contains("plan") && result5.fallback != nil, "guard rejects an answer: \(text)")
+            check(result5.providerError == nil, "a rejection is not a provider error")
         } else { check(false, "always inserts") }
 
         // Long text is cleaned in sections that fit the context window.
@@ -94,11 +98,11 @@ private func provider(_ status: OnDeviceModelUnavailable?, _ model: FakeModel) -
         let long = Array(repeating: sentence, count: 60).joined(separator: " ")
         let echo = FakeModel { $0 }
         p.cloudCleaner = provider(nil, echo)
-        _ = await p.processAsync(long)
+        _ = (await p.processAsync(long)).outcome
         check(echo.calls.count > 1 && echo.calls.allSatisfy { $0 <= 600 }, "long text split into sections: \(echo.calls)")
         let short = FakeModel { $0 }
         p.cloudCleaner = provider(nil, short)
-        _ = await p.processAsync(raw)
+        _ = (await p.processAsync(raw)).outcome
         check(short.calls.count == 1, "short text is one request")
 
         // The AsyncCleaner entry point builds the shared prompt.
