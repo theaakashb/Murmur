@@ -1,3 +1,5 @@
+> The setting has been removed; AI rewrite levels now always use the trusted path.
+
 # Cleanup level benchmark — October 22, 2026
 
 This is a synthetic, live measurement of AI cleanup at each level. It uses `app/tools/check_professional_live.swift` with hand-written dictations only: no real transcripts, dictionary, screen or History. These are proxy scores from small samples (one run per case), not accuracy claims.
