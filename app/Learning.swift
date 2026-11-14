@@ -195,7 +195,11 @@ enum CorrectionFilter {
         } else if let isCommonWord, !acronym, (sf + tf).allSatisfy(isCommonWord) {
             return .rejected(.ordinaryWords)
         }
-        if manualPreferred.contains(tf.joined(separator: " ")) { return reduced }
+        // An ordinary word extended into a coined term ("Cloud" -> "clouddev") is a one-off context fix, and a
+        // manual preferred spelling does not make an ordinary source word a universal replacement.
+        let ordinarySource = isCommonWord.map { common in !acronym && !spacingFix && sf.allSatisfy(common) } == true
+        if ordinarySource, embedsOrdinary(sf.joined(), tf.joined()) { return .rejected(.ordinaryWords) }
+        if !ordinarySource, manualPreferred.contains(tf.joined(separator: " ")) { return reduced }
         let similarity = self.similarity(sLetters, tLetters)
         if similarity >= directSimilarity { return reduced }
         if similarity >= phoneticSimilarity, phoneticKey(sLetters) == phoneticKey(tLetters) { return reduced }
@@ -205,6 +209,13 @@ enum CorrectionFilter {
         if let isCommonWord, sf.count == 1, tf.count == 1, sLetters.count >= 5, similarity >= phoneticSimilarity,
            !isCommonWord(sf[0]), !isCommonWord(tf[0]) { return reduced }
         return .rejected(.notRespelling)
+    }
+
+    /// True when a folded target merely extends (or is a fragment of) an ordinary source ("cloud" -> "clouddev").
+    /// Shared by learning and `DictionaryStore.apply`, so a pair is learnable exactly when it would apply.
+    static func embedsOrdinary(_ source: String, _ target: String) -> Bool {
+        let s = letters(source), t = letters(target)
+        return s != t && (t.contains(s) || s.contains(t))
     }
 
     struct Change: Equatable {
@@ -602,6 +613,11 @@ final class CorrectionLedger {
                     // Already replaced: a repeat fix confirms it and adds nothing.
                     state.evidence.removeAll { $0.pair == pair }
                 } else if let latest = settled.max(by: { $0.correction.observedAt < $1.correction.observedAt }) {
+                    if case .rejected = CorrectionFilter.evaluate(source: latest.correction.source, target: latest.correction.target,
+                                                                   manualPreferred: manualPreferredKeys(), isCommonWord: isCommonWord) {
+                        state.evidence.removeAll { $0.pair.source == pair.source }
+                        continue
+                    }
                     let sessions = Array(Set(settled.map(\.correction.sessionID)))
                     if let existing = dictionary.entry(forVariant: latest.correction.source) {
                         // A manual or other entry already owns this form; consume matching evidence only.

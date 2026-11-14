@@ -1733,7 +1733,8 @@ final class PreStart: @unchecked Sendable {
     private func writeHelperVocabulary() {
         guard let vocabularyFile else { return }
         let terms: [[String: Any]] = dictionaryEntries.filter { $0.enabled && !DictionaryStore.isCommandTarget($0) }.map { entry in
-            entry.variants.isEmpty ? ["text": entry.preferred] : ["text": entry.preferred, "aliases": entry.variants]
+            let variants = entry.variants.filter { !DictionaryStore.skipLearnedVariant($0, entry: entry, isCommonWord: isCommonEnglishWord) }
+            return variants.isEmpty ? ["text": entry.preferred] : ["text": entry.preferred, "aliases": variants]
         }
         if terms.isEmpty { try? FileManager.default.removeItem(at: vocabularyFile); return }
         guard let data = try? JSONSerialization.data(withJSONObject: ["terms": terms], options: [.sortedKeys]) else { return }
