@@ -57,7 +57,7 @@ struct MeetingsPage: View {
     /// A cited line to scroll to and highlight on the Transcript tab.
     @State private var jump: Int?
 
-    enum DetailTab: String, CaseIterable { case notes = "Notes", transcript = "Transcript", mine = "My notes" }
+    enum DetailTab: String, CaseIterable { case notes = "Notes", lecture = "Lecture notes", transcript = "Transcript", mine = "My notes" }
 
     private enum MeetingDateFilter: String, CaseIterable {
         case all = "All dates", today = "Today", week = "Last 7 days", month = "Last 30 days", custom = "Date range…"
@@ -342,6 +342,7 @@ struct MeetingsPage: View {
                     .padding(.top, 4)
                     switch tab {
                     case .notes: notesTab(meeting)
+                    case .lecture: lectureTab(meeting)
                     case .mine:
                         TextEditor(text: $notesDraft).font(WindowType.body(14)).scrollContentBackground(.hidden).frame(minHeight: 160)
                             .padding(6).overlay(Rectangle().strokeBorder(Palette.ink, lineWidth: 1.5))
@@ -431,6 +432,31 @@ struct MeetingsPage: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder private func lectureTab(_ meeting: Meeting) -> some View {
+        let route = controller.meetingNotesRoute ?? .none
+        lede("Lecture notes use concepts, examples and perspectives from the transcript, with citations.")
+        lede("Provider: \(route.label). " + controller.meetingNotesDisclosure(route))
+        if let notes = meeting.lectureNotes {
+            if notes.outdated == true { lede("The source changed after these lecture notes were written.") }
+            if let summary = notes.summary { Text(summary).textSelection(.enabled) }
+            noteSection("Concepts", notes.keyPoints, meeting: meeting)
+            noteSection("Examples", notes.decisions, meeting: meeting)
+            noteSection("Perspectives", notes.actions, meeting: meeting)
+            lede("Written by \(notes.route). Unsupported items dropped: \(notes.dropped).")
+            Button("Copy Lecture Notes") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(MeetingExport.notes(meeting, lecture: true), forType: .string)
+            }.buttonStyle(InkButtonStyle(kind: .outline))
+        }
+        if let problem = recorder.notesProblem[meeting.id] { lede(problem) }
+        if recorder.notesWriting.contains(meeting.id) { lede("Writing notes…") }
+        Button(meeting.lectureNotes == nil ? "Generate Lecture Notes" : "Update Lecture Notes") {
+            recorder.writeNotes(meeting.id, lecture: true)
+        }.buttonStyle(InkButtonStyle(kind: .filled))
+            .disabled(route == .none || !meeting.finished || recorder.notesWriting.contains(meeting.id) || recorder.finishing.contains(meeting.id) || meeting.speakers?.state == .pending || meeting.lines.allSatisfy(\.isHidden))
+        if route == .none { lede("Choose a notes provider in Settings → Meetings first.") }
     }
 
     /// Speaker separation (W7d, PRD 11.8 and 11.9): progress with Skip, then each speaker with

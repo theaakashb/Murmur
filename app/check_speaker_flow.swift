@@ -49,7 +49,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         // Notes are written by the real writer; the stand-in model records what it was sent.
         var prompts: [String: String] = [:], states: [String: SpeakerSeparation.State?] = [:]
         recorder.notesRoute = { .customAPI }
-        recorder.notesWriter = { meeting in
+        recorder.notesWriter = { meeting, _ in
             states[meeting.id] = meeting.speakers?.state
             return try await MeetingNotesWriter.write(meeting, route: .customAPI, routeName: "Stand-in") { _, user in
                 prompts[meeting.id] = user; return "POINT | L1 | First voice"
@@ -152,6 +152,22 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         // Delete All Data stops everything.
         recorder.discardAll()
         check(recorder.separating.isEmpty && recorder.meetings.isEmpty, "Delete All Data forgets separations")
+
+        var saved = waiting
+        saved.finished = true
+        saved.speakers = nil
+        saved.notes = MeetingNotes(summary: "Original meeting", route: "fixture", writtenAt: Date())
+        saved.lectureNotes = MeetingNotes(summary: "Original lecture", route: "fixture", writtenAt: Date())
+        let preservation = MeetingRecorder()
+        preservation.showFixture([saved], live: nil)
+        preservation.notesWriter = { _, lecture in
+            check(lecture, "recorder forwards lecture selection")
+            throw NotesFailure.failed("Synthetic failure")
+        }
+        preservation.writeNotes(saved.id, lecture: true)
+        spin(until: { !preservation.notesWriting.contains(saved.id) })
+        check(preservation.notesProblem[saved.id]?.contains("Synthetic failure") == true, "lecture failure is reported")
+        check(preservation.meetings.first?.notes == saved.notes && preservation.meetings.first?.lectureNotes == saved.lectureNotes, "failed lecture generation preserves both note sets")
 
         print(failures == 0 ? "All speaker flow checks passed." : "\(failures) speaker flow check(s) failed.")
         exit(failures == 0 ? 0 : 1)

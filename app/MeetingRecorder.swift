@@ -44,7 +44,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     /// Set by AppController: the notes route in Settings, nil until the first Stop asks (Q3).
     var notesRoute: () -> MeetingNotesRoute? = { nil }
     /// Set by AppController: writes notes with the route chosen now. Throws `NotesFailure`.
-    var notesWriter: ((Meeting) async throws -> MeetingNotesWriter.Outcome)?
+    var notesWriter: ((Meeting, Bool) async throws -> MeetingNotesWriter.Outcome)?
     /// Called when the notes question waits after a Stop the user clicked, to open the Meetings page.
     var onNotesChoiceNeeded: (() -> Void)?
     /// Meetings stopped by the user, whose notes question may open the Meetings page; automatic stops
@@ -273,7 +273,10 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         update(id) {
             $0.insert(stream: job.stream, start: job.start, end: job.start + job.duration, text: spelled, localFallback: chunk.localFallback, words: chunk.words)
             // A leftover finished after notes were written: they no longer cover the whole transcript.
-            if $0.notes != nil, !spelled.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { $0.notes?.outdated = true }
+            if !spelled.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                $0.lectureNotes?.outdated = true
+                $0.notes?.outdated = true
+            }
         }
         if job.stream == .them { keepAudio(id, job) }
         try? FileManager.default.removeItem(at: job.url)
@@ -310,14 +313,14 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
 
     /// Writes (or rewrites: "Update Notes") a finished meeting's notes. Failure keeps the meeting and says why.
     /// Not while its speakers are being separated: the notes would say Them instead of their names.
-    func writeNotes(_ id: String) {
+    func writeNotes(_ id: String, lecture: Bool = false) {
         guard let writer = notesWriter, !notesWriting.contains(id), !finishing.contains(id),
               let meeting = meetings.first(where: { $0.id == id }), meeting.speakers?.state != .pending else { return }
         guard meeting.lines.contains(where: { !$0.isHidden }) else { notesProblem[id] = "There is no transcript to write notes from."; return }
         notesWriting.insert(id); notesProblem[id] = nil
         Task { [weak self] in
             let result: Result<MeetingNotesWriter.Outcome, Error>
-            do { result = .success(try await writer(meeting)) } catch { result = .failure(error) }
+            do { result = .success(try await writer(meeting, lecture)) } catch { result = .failure(error) }
             guard let self else { return }
             self.notesWriting.remove(id)
             switch result {
@@ -329,8 +332,8 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
                     var notes = outcome.notes
                     // Keep ticked action items that were written again word for word.
                     let ticked = Set((meeting.notes?.actions ?? []).filter { $0.done == true }.map(\.text))
-                    for i in notes.actions.indices where ticked.contains(notes.actions[i].text) { notes.actions[i].done = true }
-                    meeting.notes = notes
+                    for i in notes.actions.indices where !lecture && ticked.contains(notes.actions[i].text) { notes.actions[i].done = true }
+                    if lecture { meeting.lectureNotes = notes } else { meeting.notes = notes }
                 }
             case .failure(let error):
                 let reason: String
@@ -385,6 +388,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
             guard meeting.myNotes != text else { return }
             meeting.myNotes = text
             if meeting.notes != nil { meeting.notes?.outdated = true }
+            meeting.lectureNotes?.outdated = true
         }
     }
 
@@ -611,6 +615,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
                 MeetingSpeakers.apply(segments, to: &meeting)
                 // Written before separation (an older version of Murmur): they say Them, not the speakers.
                 if meeting.notes != nil { meeting.notes?.outdated = true }
+                meeting.lectureNotes?.outdated = true
             }
             else {
                 meeting.speakers?.state = .failed; meeting.speakers?.failure = reason

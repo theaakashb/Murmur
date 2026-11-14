@@ -253,6 +253,7 @@ import Combine
                 if args.contains("--consent") { recorder.consentPending = .everything }
                 if args.contains("--notes-choice") { recorder.notesChoicePending = call.id }
                 if args.contains("--transcript") { MeetingsPage.initialTab = .transcript }
+                if args.contains("--lecture-notes") { MeetingsPage.initialTab = .lecture }
                 controller.screenRequest = "meetings"
                 fixtureMeetingPanel = panel
             }

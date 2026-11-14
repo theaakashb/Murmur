@@ -58,6 +58,8 @@ struct Meeting: Codable, Identifiable, Equatable {
     var transcribedBy: String? = nil
     /// Written after Stop by the notes route (W7b, PRD 11.6). Optional, so W7a records still decode.
     var notes: MeetingNotes? = nil
+    // Reuses the cited-item schema: keyPoints = concepts, decisions = examples, actions = perspectives.
+    var lectureNotes: MeetingNotes? = nil
     /// Speaker separation (W7d): nil when it was off for this meeting.
     var speakers: SpeakerSeparation? = nil
 
@@ -72,7 +74,8 @@ struct Meeting: Codable, Identifiable, Equatable {
     /// Search the content people remember, including notes that do not appear in the transcript.
     var searchDetails: [String] {
         var text = [notes?.summary ?? "", myNotes]
-        if let notes {
+        for notes in [notes, lectureNotes].compactMap({ $0 }) {
+            text += [notes.title ?? "", notes.summary ?? ""]
             text += (notes.keyPoints + notes.decisions + notes.actions).map {
                 [$0.text, $0.owner ?? "", $0.due ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
             }
@@ -498,6 +501,7 @@ enum MeetingExport {
             if !names.isEmpty { out += "- Speakers: \(escape((["Me"] + names).joined(separator: ", ")))\n" }
         }
         if let notes = meeting.notes, !notes.isEmpty { out += "\n## Notes\n\n" + self.notes(meeting, markdown: true) + "\n" }
+        if meeting.lectureNotes != nil { out += "\n## Lecture notes\n\n" + self.notes(meeting, markdown: true, lecture: true) + "\n" }
         let mine = meeting.myNotes.trimmingCharacters(in: .whitespacesAndNewlines)
         if !mine.isEmpty { out += "\n## My notes\n\n\(mine)\n" }
         out += "\n## Transcript\n\n"
@@ -508,8 +512,8 @@ enum MeetingExport {
     }
     /// The generated notes (PRD 11.6) for Copy Notes, or the Markdown export's Notes section. Each
     /// item ends with the time of the first line it cites. Model text is escaped like transcript text.
-    static func notes(_ meeting: Meeting, markdown: Bool = false) -> String {
-        guard let notes = meeting.notes else { return "" }
+    static func notes(_ meeting: Meeting, markdown: Bool = false, lecture: Bool = false) -> String {
+        guard let notes = lecture ? meeting.lectureNotes : meeting.notes else { return "" }
         let times = Dictionary(meeting.lines.map { ($0.id, $0.start) }, uniquingKeysWith: { a, _ in a })
         let text: (String) -> String = markdown ? escape : { $0 }
         func item(_ item: NoteItem, box: Bool) -> String {
@@ -525,9 +529,9 @@ enum MeetingExport {
         if !markdown { sections.append(meeting.title) }
         if let summary = notes.summary { sections.append(text(summary)) }
         let heading = markdown ? "### " : ""
-        if !notes.keyPoints.isEmpty { sections.append(heading + "Key points\n" + notes.keyPoints.map { item($0, box: false) }.joined(separator: "\n")) }
-        if !notes.decisions.isEmpty { sections.append(heading + "Decisions\n" + notes.decisions.map { item($0, box: false) }.joined(separator: "\n")) }
-        if !notes.actions.isEmpty { sections.append(heading + "Action items\n" + notes.actions.map { item($0, box: true) }.joined(separator: "\n")) }
+        if !notes.keyPoints.isEmpty { sections.append(heading + (lecture ? "Concepts\n" : "Key points\n") + notes.keyPoints.map { item($0, box: false) }.joined(separator: "\n")) }
+        if !notes.decisions.isEmpty { sections.append(heading + (lecture ? "Examples\n" : "Decisions\n") + notes.decisions.map { item($0, box: false) }.joined(separator: "\n")) }
+        if !notes.actions.isEmpty { sections.append(heading + (lecture ? "Perspectives\n" : "Action items\n") + notes.actions.map { item($0, box: !lecture) }.joined(separator: "\n")) }
         sections.append("Written by \(notes.route) from the transcript\(notes.outdated == true ? "; out of date" : "").")
         return sections.joined(separator: "\n\n")
     }

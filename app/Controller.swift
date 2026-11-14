@@ -2229,9 +2229,9 @@ final class PreStart: @unchecked Sendable {
         recorder.applyDictionary = { [weak self] text in self?.processing?.dictionary.apply(to: text, isCommonWord: isCommonEnglishWord) ?? text }
         recorder.onLiveChange = { [weak self] in self?.updateMenu?(); self?.meetingPanelChanged?() }
         recorder.notesRoute = { [weak self] in self?.meetingNotesRoute }
-        recorder.notesWriter = { [weak self] meeting in
+        recorder.notesWriter = { [weak self] meeting, lecture in
             guard let self else { throw NotesFailure.failed("Murmur is closing.") }
-            return try await self.writeMeetingNotes(meeting)
+            return try await self.writeMeetingNotes(meeting, lecture: lecture)
         }
         recorder.onNotesChoiceNeeded = { [weak self] in self?.screenRequest = "meetings"; self?.openSettings?() }
         speakerSettings.attach(recorder, preview: preview) { [weak self] in self?.isBusy ?? true }
@@ -2329,14 +2329,14 @@ final class PreStart: @unchecked Sendable {
     }
 
     /// Writes notes for a finished meeting on the route chosen now (PRD 11.6).
-    func writeMeetingNotes(_ meeting: Meeting) async throws -> MeetingNotesWriter.Outcome {
+    func writeMeetingNotes(_ meeting: Meeting, lecture: Bool = false) async throws -> MeetingNotesWriter.Outcome {
         let route = meetingNotesRoute ?? .none
         let built = meetingNotesProvider(route)
         guard let provider = built.provider else { throw NotesFailure.failed(built.refusal ?? "Notes could not be written.") }
         let name = route == .appleIntelligence ? "Apple Intelligence (on-device)" : provider.id.displayName
         let structured = route == .appleIntelligence
-        return try await MeetingNotesWriter.write(meeting, route: route, routeName: name, structured: structured) { system, user in
-            do { return structured ? try await AppleSystemModel.notes(system: system, user: user) : try await provider.cleanup(CleanupMessages(system: system, user: user)) }
+        return try await MeetingNotesWriter.write(meeting, route: route, routeName: name, structured: structured, lecture: lecture) { system, user in
+            do { return structured ? try await AppleSystemModel.notes(system: system, user: user, lecture: lecture) : try await provider.cleanup(CleanupMessages(system: system, user: user)) }
             catch ProviderError.payloadTooLarge { throw NotesFailure.tooLarge }
             catch let error as ProviderError { throw NotesFailure.failed(error.userMessage) }
             catch { throw NotesFailure.failed("Notes could not be written.") }

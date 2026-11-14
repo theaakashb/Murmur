@@ -35,6 +35,7 @@ enum MeetingSpeakers {
 
     /// "Speaker 2", or the name the user gave; Me and unassigned Them lines keep their stream label.
     static func label(_ line: MeetingLine, in meeting: Meeting) -> String {
+        if meeting.source.micOnly { return "Room" }
         guard line.stream == .them, let number = line.speaker else { return MeetingExport.label(line.stream) }
         return label(number, in: meeting)
     }
@@ -149,6 +150,7 @@ extension Meeting {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         speakers?.names[number] = trimmed.isEmpty ? nil : String(trimmed.prefix(60))
         speakers?.editedAt = Date()
+        lectureNotes?.outdated = true
         relabelNotes(old, as: MeetingSpeakers.label(number, in: self), number: number)
     }
 
@@ -159,6 +161,7 @@ extension Meeting {
         for i in lines.indices where lines[i].speaker == from { lines[i].speaker = into }
         speakers?.names[from] = nil
         speakers?.editedAt = Date()
+        lectureNotes?.outdated = true
         relabelNotes(old, as: MeetingSpeakers.label(into, in: self), number: into)
     }
 
@@ -168,6 +171,7 @@ extension Meeting {
         guard speakers != nil, speaker > 0, let i = lines.firstIndex(where: { $0.id == id && $0.stream == .them }) else { return }
         lines[i].speaker = speaker
         speakers?.editedAt = Date()
+        lectureNotes?.outdated = true
         if notes != nil { notes?.outdated = true }
     }
 
