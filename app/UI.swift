@@ -2761,12 +2761,3 @@ func segmented<T: Hashable>(_ options: [(T, String)], _ selection: Binding<T>, s
         }
     }
 }
-
-extension NSAlert {
-    /// Destructive first button, Cancel as the Return default so a stray keypress deletes nothing.
-    func runDestructive() -> NSApplication.ModalResponse {
-        buttons.first?.hasDestructiveAction = true
-        if buttons.count > 1 { buttons[0].keyEquivalent = ""; buttons[1].keyEquivalent = "\r" }
-        return runModal()
-    }
-}
