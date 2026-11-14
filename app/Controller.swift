@@ -1478,10 +1478,8 @@ final class PreStart: @unchecked Sendable {
             let target = (try? captureFocus()).flatMap { $0.pid == getpid() ? nil : $0 }
             // Persist uncertainty before the one permitted delivery attempt.
             let insertionText = textWithLeadingSpace(processed, value: target?.value, selection: target?.selection, enabled: leadingSpaceThisSession)
-            entry = entry.with(finalText: insertionText, status: "insertion-pending", fallback: fallback, rejected: rejected)
-            var attempted = false
-            do {
-                try store.save(entry)
+            entry = entry.with(finalText: insertionText, status: entry.insertionStatus, fallback: fallback, rejected: rejected)
+            let delivery = Delivery.deliver(&entry, status: \.insertionStatus, save: { try store.save($0) }) { entry in
                 // The text appearing is the signal; insertion's verification waits block the main
                 // thread, so take the indicator down first instead of freezing it.
                 bubble.hide()
@@ -1493,7 +1491,6 @@ final class PreStart: @unchecked Sendable {
                 entry.timing?.handoff = inserting - (cleanupStartedAt + cleanupTook)
                 let insertion = readable ? insertText(entry.finalText, into: target!) : pasteIntoFrontmostApp(entry.finalText)
                 timingLog.notice("insert app=\(target?.bundleID ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none", privacy: .public) role=\(target?.role ?? "none", privacy: .public) status=\(insertion.status.rawValue, privacy: .public) took=\(ProcessInfo.processInfo.systemUptime - inserting, format: .fixed(precision: 3)) detail=\(insertion.detail, privacy: .public)")
-                attempted = true
                 let inserted = ProcessInfo.processInfo.systemUptime
                 // The text is visible when ⌘V is posted or the field first reads back matching; the
                 // read-back's remaining wait and the clipboard restore come after and are not the user's wait.
@@ -1508,9 +1505,11 @@ final class PreStart: @unchecked Sendable {
                 }
                 if let app = target?.bundleID, !app.isEmpty { recentApps = [app] + recentApps.filter { $0 != app }.prefix(9) }
                 lastDictationText = entry.finalText
-                entry.insertionStatus = insertion.status.rawValue
                 if insertion.status != .failed { entry.app = target?.bundleID ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
-                try store.save(entry)
+                return (insertion.status.rawValue, insertion)
+            }
+            switch delivery {
+            case .delivered(let insertion):
                 watchCorrections(insertion, text: entry.finalText, entryID: entry.id, at: target?.selection?.location, pid: target?.pid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier)
                 showInsertionResult(insertion, entryID: entry.id, text: entry.finalText)
                 if insertion.status != .failed { offerModeRecovery(entry: entry, inserted: entry.finalText, insertion: insertion, target: target) }
@@ -1518,10 +1517,11 @@ final class PreStart: @unchecked Sendable {
                 if insertion.status != .failed, let error = result.providerError {
                     setPhase("Ready", "Inserted with local cleanup. \(error.userMessage)")
                 }
-            } catch {
+            case .statusSaveFailed:
                 // After an attempt the paste may have landed, so no card offers the text again.
-                if attempted { setPhase("Error", "\(saved) Delivery status could not be saved. Check the destination before pasting again.") }
-                else { showNotPasted(.unsaved, saved: saved, entryID: entry.id, text: processed) }
+                setPhase("Error", Delivery.statusSaveFailureMessage(saved: saved))
+            case .pendingSaveFailed:
+                showNotPasted(.unsaved, saved: saved, entryID: entry.id, text: processed)
             }
         } else {
             try? store.save(entry) // Records the recording length, which only later saves would carry.
