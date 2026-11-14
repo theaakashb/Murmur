@@ -1340,7 +1340,7 @@ final class PreStart: @unchecked Sendable {
             }
             // An answer-shaped LLM transcript is held like a failed cleanup: raw text only, never inserted.
             var entry = HistoryEntry(id: UUID().uuidString, recordedAt: timestamp, rawText: text, finalText: held ? "" : text, insertionStatus: held ? "held-transcript" : "saved-not-inserted")
-            entry.transcriptionProvider = provider.id.rawValue; entry.transcriptionModel = Self.modelID(provider)
+            entry.transcriptionProvider = provider.id.rawValue; entry.transcriptionModel = provider.modelID
             entry.transcription = Self.transcriptionDetail(result.detail)
             if let audio { entry.recordingFile = self.recordings.keep(audio, entryID: entry.id) }
             do { try store.save(entry) } catch { self.setPhase("Error", "Could not save the transcript. \(audio == nil ? Self.heldDiscarded : "Audio is saved for retry for up to 24 hours.")"); done(); return }
@@ -1376,7 +1376,7 @@ final class PreStart: @unchecked Sendable {
         let mode = trigger?.mode ?? sessionMode, info = Bundle.main.infoDictionary
         savedEntry.cleanupOptions = style?.options; savedEntry.writingModeID = mode?.id.uuidString; savedEntry.writingModeName = mode?.name
         savedEntry.transcriptionProvider = sessionTranscriber?.id.rawValue ?? "local"
-        savedEntry.transcriptionModel = sessionTranscriber == nil ? unifiedRepository : Self.modelID(sessionTranscriber)
+        savedEntry.transcriptionModel = sessionTranscriber == nil ? unifiedRepository : sessionTranscriber?.modelID
         savedEntry.appVersion = (info?["CFBundleShortVersionString"] as? String).map { v in (info?["CFBundleVersion"] as? String).map { "\(v) (\($0))" } ?? v }
         savedEntry.contextUsed = style?.context != nil && style?.options.anyEnabled == true && processing?.settings.route == .cloud && processing?.cloudCleaner != nil
         // Counts and the app only, never the screen text.
@@ -1416,15 +1416,6 @@ final class PreStart: @unchecked Sendable {
         case .cancelled: return "cancelled"
         }
     }
-    /// Model identifiers for History; nil where the provider has none (Apple's on-device model).
-    private static func modelID(_ provider: Any?) -> String? {
-        // Read after the call: a rate limit during this dictation moves Gemini to its fallback model.
-        if let p = provider as? GeminiCleanupProvider { return p.onFallback ? p.fallback : p.model }
-        if let p = provider as? OpenAICompatibleCleanupProvider { return p.model }
-        if let p = provider as? GeminiTranscriptionProvider { return p.model }
-        if let p = provider as? GeminiTranscribeProvider { return p.model }
-        return (provider as? OpenAICompatibleTranscriptionProvider)?.server.model
-    }
     private func complete(_ result: ProcessingResult, entry savedEntry: HistoryEntry, store: HistoryRouter<HistoryEntry>, done: @escaping () -> Void) {
         let outcome = result.outcome
         var entry = savedEntry
@@ -1441,7 +1432,8 @@ final class PreStart: @unchecked Sendable {
         }
         timingLog.notice("cleanup took=\(ProcessInfo.processInfo.systemUptime - self.cleanupStartedAt, format: .fixed(precision: 3)) path=\(result.cleanupPath?.rawValue ?? "none", privacy: .public)")
         entry.cleanupProvider = processing?.settings.route == .local ? "local-rules" : processing?.cloudCleaner?.id.rawValue
-        entry.cleanupModel = Self.modelID(processing?.cloudCleaner)
+        // Read after the call: a rate limit during this dictation moves Gemini to its fallback model.
+        entry.cleanupModel = processing?.cloudCleaner?.modelID
         let text = entry.rawText
         let saved = HistoryText.saved(persists: !store.sessionOnlyIDs.contains(entry.id))
         // A held result keeps only the raw transcript and is never inserted.
@@ -2287,13 +2279,10 @@ final class PreStart: @unchecked Sendable {
         case .gemini: choice = .gemini
         case .customAPI: choice = .customAPI
         }
-        var routes = appliedRoutes; routes.transcription = .local; routes.cleanup = choice
-        let plan = routePlan(routes, cleanupSendsText: true)
+        let plan = routePlan(appliedRoutes.notes(choice), cleanupSendsText: true)
         guard let cleaner = plan.cleaner else { return (nil, (plan.refusal ?? "\(route.label) is not set up.") + " Set it up in Settings → Cleanup and API Keys.") }
         // A whole meeting takes longer than a dictation: allow the longest wait each route permits.
-        if var gemini = cleaner as? GeminiCleanupProvider { gemini.timeout = 120; return (gemini, nil) }
-        if var custom = cleaner as? OpenAICompatibleCleanupProvider { custom.timeout = OpenAICompatibleCleanupProvider.maximumTimeout; return (custom, nil) }
-        return (cleaner, nil)
+        return (cleaner.patient, nil)
     }
 
     /// Why a notes route cannot run, for Settings. Checks only that a key exists, so rendering never
@@ -2303,8 +2292,7 @@ final class PreStart: @unchecked Sendable {
         case .none: return nil
         case .appleIntelligence: return AppleCleanupProvider().status()?.userMessage
         case .gemini, .customAPI:
-            var routes = appliedRoutes; routes.transcription = .local; routes.cleanup = route == .gemini ? .gemini : .customAPI
-            let plan = RoutePlan.make(routes, cleanupSendsText: true) { self.credentials.exists($0) ? APIKey("disclosure-only") : nil }
+            let plan = RoutePlan.make(appliedRoutes.notes(route == .gemini ? .gemini : .customAPI), cleanupSendsText: true) { self.credentials.exists($0) ? RoutePlan.placeholderKey : nil }
             return plan.cleaner == nil ? (plan.refusal ?? "\(route.label) is not set up.") + " Set it up in Settings → Cleanup and API Keys." : nil
         }
     }
@@ -2312,8 +2300,7 @@ final class PreStart: @unchecked Sendable {
     /// Who receives the transcript on a notes route, for Settings and the first-Stop question.
     func meetingNotesDisclosure(_ route: MeetingNotesRoute) -> String {
         guard route == .gemini || route == .customAPI else { return MeetingNotesRoute.disclosure(route, host: nil, local: true, retention: nil) }
-        var routes = appliedRoutes; routes.transcription = .local; routes.cleanup = route == .gemini ? .gemini : .customAPI
-        let disclosure = RoutePlan.make(routes, cleanupSendsText: true) { _ in APIKey("disclosure-only") }.stages.first?.disclosure
+        let disclosure = RoutePlan.make(appliedRoutes.notes(route == .gemini ? .gemini : .customAPI), cleanupSendsText: true) { _ in RoutePlan.placeholderKey }.stages.first?.disclosure
         let local = disclosure?.staysOnThisMac ?? false
         let warning = disclosure?.warning.map { " " + $0 } ?? ""
         return MeetingNotesRoute.disclosure(route, host: disclosure?.destinationHost, local: local, retention: (disclosure?.retentionNote ?? "") + warning)

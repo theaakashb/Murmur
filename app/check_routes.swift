@@ -249,6 +249,23 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         settings.customTranscriptionAPIBaseURL = "http://10.0.0.6:8080"
         check(RoutePlan.make(settings, cleanupSendsText: true, key: all).stages.map(\.disclosure.destinationHost).contains("10.0.0.6"),
               "custom destination changes update the inline disclosure")
+
+        // Meeting notes: the cleanup provider alone, with the longest wait the route permits.
+        let notes = RoutePlan.make(settings.notes(.gemini), cleanupSendsText: true, key: all)
+        check(notes.transcriber == nil && notes.stages.map(\.disclosure.stage) == [.cleanup], "a notes route builds no transcriber and discloses only cleanup")
+        check((notes.cleaner?.patient as? GeminiCleanupProvider)?.timeout == 120, "Gemini notes wait 120 seconds")
+        let customNotes = RoutePlan.make(settings.notes(.customAPI), cleanupSendsText: true, key: all).cleaner
+        check((customNotes?.patient as? OpenAICompatibleCleanupProvider)?.timeout == OpenAICompatibleCleanupProvider.maximumTimeout && customNotes?.modelID == "m",
+              "custom notes wait the maximum and report the configured model")
+        check(RoutePlan.make(settings.notes(.gemini), cleanupSendsText: true) { _ in nil }.cleaner == nil, "a notes route without a key builds no provider")
+
+        // History's model id follows Gemini to its fallback model once the primary is rate limited.
+        var limited = GeminiCleanupProvider(apiKey: testKey); limited.limits = GeminiModelLimits()
+        let existential: CleanupProvider = limited
+        check(existential.modelID == GeminiCleanupProvider.defaultModel, "Gemini reports its primary model")
+        limited.limits.markLimited(limited.model, until: Date().addingTimeInterval(60))
+        check(existential.modelID == GeminiCleanupProvider.fallbackModel, "Gemini reports its fallback model after a rate limit")
+        check((MockCleaner(.success("")) as CleanupProvider).modelID == nil, "a provider without a model id reports none")
     }
 
     static func settingsChecks(_ defaults: UserDefaults) {
