@@ -321,6 +321,12 @@ func checkWelcomeGuide() {
 }
 
 func checkSettingsSearch() {
+    check(SettingsNavigation.destinations.count == 7, "settings has seven top-level destinations")
+    check(Set(SettingsNavigation.destinations.map { SettingsNavigation.group(for: $0) }).count == 7, "destinations select distinct sidebar groups")
+    check(SettingsNavigation.tabs(for: 1) == [9, 1, 10], "dictation tabs preserve legacy transcription destination")
+    check(SettingsNavigation.tabs(for: 4) == [2, 3, 4], "writing tabs preserve cleanup, modes and dictionary destinations")
+    check(SettingsSearch.matches("hotkey").first?.section == 9, "shortcut search opens Recording")
+    check(SettingsSearch.matches("automatic paste").first?.section == 10, "insertion search opens Insertion")
     check(SettingsSearch.matches("  \n").isEmpty, "empty search has no results")
     check(SettingsSearch.matches("HOTKEY").contains { $0.title == "Shortcut" }, "keyboard alias ignores case")
     check(SettingsSearch.matches("dark mode").contains { $0.title == "Appearance" }, "theme aliases work")

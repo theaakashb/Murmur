@@ -476,7 +476,7 @@ enum UpdateText {
 
 /// Search only authored setting labels and aliases; never user text or credentials.
 enum SettingsSearch {
-    static let sections = ["General", "Transcription", "Cleanup", "Modes", "Dictionary", "History & Privacy", "API Keys", "Updates", "Meetings"]
+    static let sections = ["General", "Transcription", "Cleanup", "Modes", "Dictionary", "History & Privacy", "API Keys", "Updates", "Meetings", "Recording", "Insertion"]
     struct Result: Identifiable {
         let title: String
         let section: Int
@@ -489,18 +489,18 @@ enum SettingsSearch {
         }
     }
     static let all: [Result] = [
-        .init("Shortcut", 0, "hotkey keyboard fn globe right option hold record"),
-        .init("Press once to start, again to stop", 0, "toggle recording double press"),
-        .init("Start and stop sounds", 0, "sound audio chime feedback"),
-        .init("Live words", 0, "streaming preview real time", target: "live-words"),
-        .init("Show live words on cloud routes", 0, "preview streaming", target: "live-words"),
-        .init("Insert at the cursor", 0, "automatic paste typing clipboard insertion"),
-        .init("Add a leading space when needed", 0, "intelligent spacing whitespace"),
+        .init("Shortcut", 9, "hotkey keyboard fn globe right option hold record"),
+        .init("Press once to start, again to stop", 9, "toggle recording double press"),
+        .init("Start and stop sounds", 9, "sound audio chime feedback"),
+        .init("Live words", 9, "streaming preview real time", target: "live-words"),
+        .init("Show live words on cloud routes", 9, "preview streaming", target: "live-words"),
+        .init("Insert at the cursor", 10, "automatic paste typing clipboard insertion"),
+        .init("Add a leading space when needed", 10, "intelligent spacing whitespace"),
         .init("Show menu bar icon", 0, "status tray hide"),
         .init("Show in Dock", 0, "app switcher hide icon"),
         .init("Open at login", 0, "startup launch background"),
-        .init("Microphone", 0, "input device audio mic"),
-        .init("Permissions", 0, "accessibility input monitoring microphone access"),
+        .init("Microphone", 9, "input device audio mic"),
+        .init("Permissions", 5, "accessibility input monitoring microphone access"),
         .init("Show detailed info", 0, "help explanations tooltips", target: "detailed-info"),
         .init("Appearance", 0, "dark light mode theme system"),
         .init("Speech model", 1, "download parakeet local on device offline", target: "top"),
@@ -540,5 +540,30 @@ enum SettingsSearch {
     }
     private static func normalized(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX")).replacingOccurrences(of: "-", with: " ")
+    }
+}
+
+/// Legacy section IDs remain stable for menu requests and search destinations.
+enum SettingsNavigation {
+    static let destinations = [0, 9, 2, 8, 5, 6, 7]
+    static let titles = ["General", "Dictation", "Writing", "Meetings", "Privacy & Storage", "Providers", "Updates"]
+    static let icons = ["gearshape", "mic", "pencil", "person.2", "externaldrive", "key", "arrow.triangle.2.circlepath"]
+    static func group(for section: Int) -> Int {
+        switch section {
+        case 1, 9, 10: return 1
+        case 2, 3, 4: return 2
+        case 8: return 3
+        case 5: return 4
+        case 6: return 5
+        case 7: return 6
+        default: return 0
+        }
+    }
+    static func tabs(for section: Int) -> [Int] {
+        switch group(for: section) {
+        case 1: return [9, 1, 10]
+        case 2: return [2, 3, 4]
+        default: return []
+        }
     }
 }
