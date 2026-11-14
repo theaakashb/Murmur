@@ -757,7 +757,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         let alert = NSAlert(); alert.messageText = Self.removeTitle
         alert.informativeText = Self.removeBody(folder: downloader.target)
         alert.addButton(withTitle: "Remove"); alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
         verified = false; refresh()
         do { try downloader.remove(); message = "Speaker separation was removed." }
         catch { message = (error as? ModelDownloadError)?.userMessage ?? ModelDownloadError.fileSystem.userMessage }

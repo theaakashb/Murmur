@@ -329,7 +329,6 @@ func checkSettingsSearch() {
     check(SettingsSearch.matches("automatic paste").first?.section == 10, "insertion search opens Insertion")
     check(SettingsSearch.matches("  \n").isEmpty, "empty search has no results")
     check(SettingsSearch.matches("HOTKEY").contains { $0.title == "Shortcut" }, "keyboard alias ignores case")
-    check(SettingsSearch.matches("dark mode").contains { $0.title == "Appearance" }, "theme aliases work")
     check(SettingsSearch.matches("cléanup style").contains { $0.title == "Cleanup style" }, "search folds accents")
     check(SettingsSearch.matches("meeting on-device").contains { $0.title == "Meeting transcription" }, "multiple words and on-device spelling work")
     check(SettingsSearch.matches("retention").contains { $0.section == 5 && $0.target == "Keep transcripts for" }, "retention opens its setting")

@@ -14,14 +14,7 @@ import SwiftUI
     lazy var meetingPanel = MeetingPanelPresenter(recorder: controller.meetingRecorder)
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(controller.showInDock ? .regular : .accessory)
-        let mainMenu = NSMenu()
-        let appItem = NSMenuItem(); let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
-        appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Welcome Guide…", action: #selector(openGuide), keyEquivalent: "").target = self
-        appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit Murmur", action: #selector(quit), keyEquivalent: "q").target = self
-        appItem.submenu = appMenu; mainMenu.addItem(appItem); mainMenu.addItem(standardEditMenuItem()); NSApp.mainMenu = mainMenu
+        NSApp.mainMenu = buildMainMenu()
         controller.openSettings = { [weak self] in self?.showWindow() }
         controller.updateMenu = { [weak self] in self?.refreshMenu() }
         // The live meeting panel shows whether or not the menu bar icon is visible (R6, PRD 11.3).
@@ -41,6 +34,50 @@ import SwiftUI
         if let seconds = options.quitAfter {
             DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { NSApp.terminate(nil) }
         }
+    }
+    private func buildMainMenu() -> NSMenu {
+        let mainMenu = NSMenu()
+        func add(_ menu: NSMenu, _ title: String, _ action: Selector, _ key: String = "", target: AnyObject? = nil, modifiers: NSEvent.ModifierFlags = .command) {
+            let item = menu.addItem(withTitle: title, action: action, keyEquivalent: key)
+            item.target = target; item.keyEquivalentModifierMask = modifiers
+        }
+        func attach(_ menu: NSMenu) { let item = NSMenuItem(); item.submenu = menu; mainMenu.addItem(item) }
+        let app = NSMenu()
+        add(app, "About Murmur", #selector(NSApplication.orderFrontStandardAboutPanel(_:)), target: NSApp)
+        app.addItem(.separator())
+        add(app, "Settings…", #selector(openSettings), ",", target: self)
+        add(app, "Check for Updates…", #selector(checkForUpdates), target: self)
+        app.addItem(.separator())
+        add(app, "Hide Murmur", #selector(NSApplication.hide(_:)), "h", target: NSApp)
+        add(app, "Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", target: NSApp, modifiers: [.command, .option])
+        add(app, "Show All", #selector(NSApplication.unhideAllApplications(_:)), target: NSApp)
+        app.addItem(.separator())
+        add(app, "Quit Murmur", #selector(quit), "q", target: self)
+        attach(app)
+        mainMenu.addItem(standardEditMenuItem())
+        let view = NSMenu(title: "View")
+        for (index, (title, screen)) in [("Home", "home"), ("Insights", "insights"), ("Meetings", "meetings"), ("History", "history")].enumerated() {
+            add(view, title, #selector(showScreen(_:)), "\(index + 1)", target: self)
+            view.items.last?.representedObject = screen
+        }
+        let viewItem = NSMenuItem(title: "View", action: nil, keyEquivalent: ""); viewItem.submenu = view; mainMenu.addItem(viewItem)
+        let window = NSMenu(title: "Window")
+        add(window, "Minimize", #selector(NSWindow.performMiniaturize(_:)), "m")
+        add(window, "Zoom", #selector(NSWindow.performZoom(_:)))
+        add(window, "Close", #selector(NSWindow.performClose(_:)), "w")
+        window.addItem(.separator())
+        add(window, "Bring All to Front", #selector(NSApplication.arrangeInFront(_:)))
+        let windowItem = NSMenuItem(title: "Window", action: nil, keyEquivalent: ""); windowItem.submenu = window; mainMenu.addItem(windowItem)
+        NSApp.windowsMenu = window
+        let help = NSMenu(title: "Help")
+        add(help, "Welcome Guide…", #selector(openGuide), target: self)
+        let helpItem = NSMenuItem(title: "Help", action: nil, keyEquivalent: ""); helpItem.submenu = help; mainMenu.addItem(helpItem)
+        NSApp.helpMenu = help
+        return mainMenu
+    }
+    @objc func showScreen(_ sender: NSMenuItem) {
+        controller.screenRequest = sender.representedObject as? String
+        showWindow()
     }
     func showWindow() {
         if window == nil {

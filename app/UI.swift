@@ -49,7 +49,7 @@ enum Palette {
     static let ink64 = ink.opacity(0.64)
     static let ink45 = ink.opacity(0.45)
     static let ink20 = ink.opacity(0.2)
-    static let accent = Color(red: 36 / 255, green: 75 / 255, blue: 223 / 255)
+    static let accent = Color(red: 77 / 255, green: 111 / 255, blue: 240 / 255)
     /// Small labels use neutral light text on dark surfaces to preserve contrast.
     static let accentInk = Color(nsColor: dynamic(light: 0x244BDF, dark: 0xFAFAFA))
     static let accentDeep = accentInk
@@ -85,7 +85,7 @@ private enum EditorialPalette {
     static let ink80 = ink
     static let ink45 = ink70
     static let ink20 = color(0xCCCCCC, 0x555555)
-    static let accent = color(0x244BDF, 0x244BDF)
+    static let accent = color(0x4D6FF0, 0x4D6FF0)
     static let accentInk = Palette.accentInk
     static let accentDeep = accentInk
     static let accent16 = color(0xEEEEEE, 0x242424)
@@ -183,34 +183,27 @@ struct InkButtonStyle: ButtonStyle {
     }
 }
 
-/// A keyboard-focusable button draws the reference switch; VoiceOver receives a native toggle.
+/// The system switch (focus ring, Increase Contrast, VoiceOver) with the label on the leading edge.
 struct MurmurToggleStyle: ToggleStyle {
-    @Environment(\.settingsSurface) private var settings
-    @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
-        Button { configuration.isOn.toggle() } label: {
-            HStack(spacing: 24) {
-                configuration.label.frame(maxWidth: .infinity, alignment: .leading)
-                Capsule().fill(configuration.isOn ? (settings ? Palette.accent : Palette.ink) : Palette.ink.opacity(0.2))
-                    .overlay(alignment: configuration.isOn ? .trailing : .leading) {
-                        Circle().fill(settings ? Color.white : Palette.paper).frame(width: settings ? 16 : 22, height: settings ? 16 : 22).padding(2)
-                    }
-                    .frame(width: settings ? 36 : 44, height: settings ? 20 : 26)
-            }
-            .frame(minHeight: 40).contentShape(Rectangle())
+        HStack(spacing: 24) {
+            configuration.label.frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle()).onTapGesture { configuration.isOn.toggle() }
+                .accessibilityHidden(true)
+            Toggle(isOn: configuration.$isOn) { configuration.label }
+                .toggleStyle(.switch).labelsHidden().tint(Palette.accent)
         }
-        .buttonStyle(.plain).opacity(enabled ? 1 : 0.45)
-        .accessibilityRepresentation { Toggle(isOn: configuration.$isOn) { configuration.label } }
+        .frame(minHeight: 40)
     }
 }
 
-/// Light or Dark for this window only; nil follows the system.
-private struct WindowAppearance: NSViewRepresentable {
-    let name: NSAppearance.Name?
+/// Names the window after the visible pane so VoiceOver, Mission Control and the Window menu show it.
+private struct WindowTitle: NSViewRepresentable {
+    let title: String
     func makeNSView(context: Context) -> NSView { NSView() }
     func updateNSView(_ view: NSView, context: Context) {
         // The view joins its window after the first update.
-        DispatchQueue.main.async { view.window?.appearance = name.flatMap { NSAppearance(named: $0) } }
+        DispatchQueue.main.async { view.window?.title = title }
     }
 }
 
@@ -249,9 +242,6 @@ struct SettingsView: View {
     @State var editingModeID: UUID?
     @AppStorage("sidebarCollapsed") private var sidebarCollapsed = false
     @AppStorage("showDetailedSettingsInfo") private var showDetailedSettingsInfo = false
-    /// System, light or dark (gap #20). A window preference only; the floating indicator keeps following
-    /// the system appearance.
-    @AppStorage("appearance") private var appearance = "system"
     /// API address and model apply when editing ends (Return or leaving the field), not per keystroke.
     @FocusState private var apiFieldFocused: Bool
 
@@ -268,6 +258,17 @@ struct SettingsView: View {
         "Verified updates from GitHub. Choose when they install.",
         "Where meeting audio is transcribed, apart from dictation, and how notes are written."
     ]
+
+    private var windowTitle: String {
+        switch screen {
+        case .home: "Murmur"
+        case .insights: "Murmur: Insights"
+        case .meetings: "Murmur: Meetings"
+        case .history: "Murmur: History"
+        case .setup: "Murmur: Welcome"
+        case .settings: "Murmur Settings: " + SettingsNavigation.titles[SettingsNavigation.group(for: section)]
+        }
+    }
 
     var body: some View {
         Group {
@@ -293,10 +294,7 @@ struct SettingsView: View {
         .disabled(settingsSearchOpen).accessibilityHidden(settingsSearchOpen)
         .foregroundStyle(Palette.ink)
         .background(Palette.paper)
-        // System leaves the window's appearance alone, so SwiftUI follows macOS.
-        .transformEnvironment(\.colorScheme) { if appearance == "dark" { $0 = .dark } else if appearance == "light" { $0 = .light } }
-        // preferredColorScheme leaks app-wide and darkened the floating bubble; set only this window.
-        .background(WindowAppearance(name: appearance == "dark" ? .darkAqua : appearance == "light" ? .aqua : nil))
+        .background(WindowTitle(title: windowTitle))
         .overlay { if settingsSearchOpen { settingsSearchOverlay } }
         .onChange(of: sidebarCollapsed) { settingsSearchOpen = false; settingsQuery = "" }
         .frame(minWidth: 760, minHeight: 560)
@@ -470,7 +468,7 @@ struct SettingsView: View {
             }
             HStack(spacing: 7) {
                 Circle().fill(controller.phase == "Error" ? Palette.ink : Palette.accent).frame(width: 6, height: 6)
-                if !sidebarCollapsed { mono(controller.phase, size: 10, color: Palette.ink70) }
+                if !sidebarCollapsed { mono(controller.phase, size: 11, color: Palette.ink70) }
             }
             .accessibilityElement(children: .ignore).accessibilityLabel(controller.phase)
             .help(controller.phase + " · " + (controller.appliedTranscriptionIsLocal ? "Local transcription" : "Cloud transcription"))
@@ -775,9 +773,6 @@ struct SettingsView: View {
             Toggle("Show detailed info", isOn: $showDetailedSettingsInfo)
                 .font(Font.system(size: 13)).toggleStyle(.checkbox).padding(.top, 12).id("detailed-info")
 
-            eyebrow("Appearance").padding(.top, 20)
-            segmented([("system", "System"), ("light", "Light"), ("dark", "Dark")], $appearance).padding(.top, 8)
-            help("Murmur’s windows only. The dictation bubble always follows macOS.").padding(.top, 8)
         }
     }
 
@@ -2404,7 +2399,7 @@ private struct PasteFailureCard: View {
                 Image(systemName: "doc.on.clipboard").font(.system(size: 12)).foregroundStyle(.orange).accessibilityHidden(true)
                 Text(failure.title).font(.system(size: 12, weight: .semibold))
                 Spacer(minLength: 4)
-                Button { controller.dismissStatus() } label: { Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)) }
+                Button { controller.dismissStatus() } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Dismiss")
             }
             Text(failure.text).font(.system(size: 12)).lineLimit(3).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
@@ -2765,5 +2760,14 @@ func segmented<T: Hashable>(_ options: [(T, String)], _ selection: Binding<T>, s
             }
             .buttonStyle(.plain).accessibilityAddTraits(on ? .isSelected : [])
         }
+    }
+}
+
+extension NSAlert {
+    /// Destructive first button, Cancel as the Return default so a stray keypress deletes nothing.
+    func runDestructive() -> NSApplication.ModalResponse {
+        buttons.first?.hasDestructiveAction = true
+        if buttons.count > 1 { buttons[0].keyEquivalent = ""; buttons[1].keyEquivalent = "\r" }
+        return runModal()
     }
 }

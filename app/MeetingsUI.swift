@@ -477,11 +477,11 @@ struct MeetingsPage: View {
                             Text(item.text).font(WindowType.body(14)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                                 .strikethrough(item.done == true)
                             HStack(spacing: 8) {
-                                if let owner = item.owner { mono(owner, size: 10, color: Palette.ink70) }
-                                if let due = item.due { mono("Due \(due)", size: 10, color: Palette.ink70) }
+                                if let owner = item.owner { mono(owner, size: 11, color: Palette.ink70) }
+                                if let due = item.due { mono("Due \(due)", size: 11, color: Palette.ink70) }
                                 ForEach(item.lines, id: \.self) { id in
                                     if let line = meeting.lines.first(where: { $0.id == id }) {
-                                        Button { tab = .transcript; jump = id } label: { mono(MeetingExport.clock(line.start), size: 10, color: Palette.accentInk).underline() }
+                                        Button { tab = .transcript; jump = id } label: { mono(MeetingExport.clock(line.start), size: 11, color: Palette.accentInk).underline() }
                                             .buttonStyle(.plain).help("Show this line in the transcript")
                                             .accessibilityLabel("Cited line at \(MeetingExport.clock(line.start))")
                                     }
@@ -581,9 +581,9 @@ struct MeetingLineRow: View {
             .frame(width: label == nil ? 44 : 96, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(showEcho ? line.text : line.visibleText).font(WindowType.body(14)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                    .foregroundStyle(line.isHidden ? Palette.ink45 : Palette.ink)
-                if line.localFallback == true { mono("Transcribed on this Mac: the cloud failed", size: 10, color: Palette.ink45) }
-                if showEcho && line.shown != nil { mono(line.isHidden ? "Hidden as echo" : "Echo partly hidden", size: 10, color: Palette.ink45) }
+                    .foregroundStyle(line.isHidden ? Palette.ink64 : Palette.ink)
+                if line.localFallback == true { mono("Transcribed on this Mac: the cloud failed", size: 11, color: Palette.ink64) }
+                if showEcho && line.shown != nil { mono(line.isHidden ? "Hidden as echo" : "Echo partly hidden", size: 11, color: Palette.ink64) }
             }
         }
         .accessibilityElement(children: .combine)
@@ -690,7 +690,7 @@ struct MeetingLiveView: View {
                 .frame(maxHeight: .infinity)
                 .onChange(of: recorder.live?.lines.count) { if let last = recorder.live?.lines.last?.id { proxy.scrollTo(last, anchor: .bottom) } }
             }
-            mono("My notes", size: 10, color: Palette.accentInk)
+            mono("My notes", size: 11, color: Palette.accentInk)
             TextField("Type a note", text: $notes, axis: .vertical).textFieldStyle(.plain).font(.system(size: 13)).lineLimit(2...4)
                 .padding(6).overlay(Rectangle().strokeBorder(Palette.ink20, lineWidth: 1))
             HStack {
@@ -708,7 +708,7 @@ struct MeetingLiveView: View {
 
     private func meter(_ label: String, _ level: Double) -> some View {
         HStack(spacing: 8) {
-            mono(label, size: 10, color: Palette.ink70).frame(width: 40, alignment: .leading)
+            mono(label, size: 11, color: Palette.ink70).frame(width: 40, alignment: .leading)
             GeometryReader { g in Rectangle().fill(Palette.accent).frame(width: g.size.width * min(1, level)) }
                 .frame(height: 6).background(Palette.ink20)
         }

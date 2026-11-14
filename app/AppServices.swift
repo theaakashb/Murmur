@@ -502,7 +502,6 @@ enum SettingsSearch {
         .init("Microphone", 9, "input device audio mic"),
         .init("Permissions", 5, "accessibility input monitoring microphone access"),
         .init("Show detailed info", 0, "help explanations tooltips", target: "detailed-info"),
-        .init("Appearance", 0, "dark light mode theme system"),
         .init("Speech model", 1, "download parakeet local on device offline", target: "top"),
         .init("Where transcription runs", 1, "dictation cloud local on device provider gemini custom api"),
         .init("Model folder", 1, "advanced storage location directory", target: "model-folder"),
