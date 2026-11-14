@@ -33,7 +33,7 @@ struct UtilityGlass: ViewModifier {
     }
 }
 
-/// The standalone design’s balanced palette, with a matching dark window appearance.
+/// Neutral reading surfaces and the same royal-blue brand accent in both appearances.
 enum Palette {
     private static func rgb(_ hex: Int) -> NSColor {
         NSColor(srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
@@ -49,14 +49,14 @@ enum Palette {
     static let ink64 = ink.opacity(0.64)
     static let ink45 = ink.opacity(0.45)
     static let ink20 = ink.opacity(0.2)
-    static let accent = Color(red: 0x59 / 255, green: 0x95 / 255, blue: 0xC9 / 255)
-    /// Same hue at 4.8:1 on paper: accent text.
-    static let accentInk = Color(nsColor: dynamic(light: 0x2F6EA6, dark: 0x8DB6DC))
-    static let accentDeep = Color(nsColor: dynamic(light: 0x285F90, dark: 0xA9C8E6))
-    static let accent16 = accent.opacity(0.16)
+    static let accent = Color(red: 36 / 255, green: 75 / 255, blue: 223 / 255)
+    /// Small labels use neutral light text on dark surfaces to preserve contrast.
+    static let accentInk = Color(nsColor: dynamic(light: 0x244BDF, dark: 0xFAFAFA))
+    static let accentDeep = accentInk
+    static let accent16 = Color(nsColor: dynamic(light: 0xEEEEEE, dark: 0x242424))
 }
 
-/// Scoped to settings and onboarding; floating notices keep Palette unchanged.
+/// Settings and onboarding retain their scoped surface styling.
 private struct EditorialSurfaceKey: EnvironmentKey { static let defaultValue = false }
 private extension EnvironmentValues {
     var editorialSurface: Bool {
@@ -73,18 +73,18 @@ private enum EditorialPalette {
                            green: CGFloat(hex >> 8 & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: 1)
         })
     }
-    static let paper = color(0xF4F4EF, 0x1D211F)
-    static let ink = color(0x20221F, 0xF4F4EF)
-    static let ink70 = color(0x555B54, 0xB8C1B9)
+    static let paper = color(0xFAFAFA, 0x181818)
+    static let ink = color(0x202020, 0xFAFAFA)
+    static let ink70 = color(0x555555, 0xBBBBBB)
     static let ink64 = ink70
     static let ink80 = ink
     static let ink45 = ink70
-    static let ink20 = color(0xCBD1C8, 0x475249)
-    static let accent = color(0x244BDF, 0xA8BCFF)
-    static let accentInk = accent
-    static let accentDeep = accent
-    static let accent16 = color(0xE5E9FF, 0x293651)
-    static let sage = color(0xDCE5DC, 0x28352D)
+    static let ink20 = color(0xCCCCCC, 0x555555)
+    static let accent = color(0x244BDF, 0x244BDF)
+    static let accentInk = Palette.accentInk
+    static let accentDeep = accentInk
+    static let accent16 = color(0xEEEEEE, 0x242424)
+    static let sidebar = color(0xFFFFFF, 0x111111)
 }
 
 /// Static paper and voice: no animation, permission state, or user content.
@@ -169,8 +169,8 @@ struct InkButtonStyle: ButtonStyle {
         configuration.label
             .font(WindowType.body(14, weight: .semibold)).lineLimit(1)
             .padding(.horizontal, kind == .plain ? 0 : 18).frame(minHeight: 36)
-            .foregroundStyle(kind == .filled || kind == .accent ? (editorial ? Color.white : Palette.paper) : (editorial ? EditorialPalette.ink : Palette.ink))
-            .background(kind == .filled || kind == .accent ? (editorial ? Color(red: 36 / 255, green: 75 / 255, blue: 223 / 255) : kind == .filled ? Palette.ink : Palette.accentInk) : Color.clear, in: RoundedRectangle(cornerRadius: editorial ? 8 : 18))
+            .foregroundStyle(kind == .filled || kind == .accent ? Color.white : (editorial ? EditorialPalette.ink : Palette.ink))
+            .background(kind == .filled || kind == .accent ? (Palette.accent) : Color.clear, in: RoundedRectangle(cornerRadius: editorial ? 8 : 18))
             .overlay { if kind == .outline { RoundedRectangle(cornerRadius: editorial ? 8 : 18).strokeBorder(editorial ? EditorialPalette.ink70 : Palette.ink, lineWidth: 1) } }
             .contentShape(Capsule())
             .opacity(enabled ? (configuration.isPressed ? 0.7 : 1) : 0.45)
@@ -457,7 +457,7 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack(spacing: 7) {
-                Circle().fill(controller.phase == "Error" ? Palette.ink : Palette.accentInk).frame(width: 6, height: 6)
+                Circle().fill(controller.phase == "Error" ? Palette.ink : Palette.accent).frame(width: 6, height: 6)
                 if !sidebarCollapsed { mono(controller.phase, size: 10, color: Palette.ink70) }
             }
             .accessibilityElement(children: .ignore).accessibilityLabel(controller.phase)
@@ -467,7 +467,7 @@ struct SettingsView: View {
         }
         .padding(.horizontal, sidebarCollapsed ? 14 : 20).padding(.top, 16)
         .frame(width: sidebarCollapsed ? 64 : 216).frame(maxHeight: .infinity)
-        .background(screen == .settings ? EditorialPalette.sage : Palette.paper)
+        .background(screen == .settings ? EditorialPalette.sidebar : Palette.paper)
     }
 
     private var settingsSearchField: some View {
@@ -557,8 +557,8 @@ struct SettingsView: View {
                 Button(action: controller.dismissStatus) { Image(systemName: "xmark") }
                     .buttonStyle(.plain).help("Dismiss status").accessibilityLabel("Dismiss status")
             }
-            .foregroundStyle(Palette.paper).padding(.horizontal, 24).padding(.vertical, 12)
-            .background(controller.phase == "Error" ? Palette.ink : Palette.accentDeep)
+            .foregroundStyle(controller.phase == "Error" ? Palette.paper : Color.white).padding(.horizontal, 24).padding(.vertical, 12)
+            .background(controller.phase == "Error" ? Palette.ink : Palette.accent)
         }
         if !setupComplete {
             HStack {
@@ -1617,7 +1617,7 @@ struct SettingsView: View {
                                         if steps[i].done { mono("✓", size: 12, color: EditorialPalette.accentInk) }
                                     }
                                     .frame(height: 40)
-                                    .overlay(alignment: .bottom) { Rectangle().fill(on ? EditorialPalette.accentInk : Color.clear).frame(height: 2) }
+                                    .overlay(alignment: .bottom) { Rectangle().fill(on ? EditorialPalette.accent : Color.clear).frame(height: 2) }
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain).accessibilityAddTraits(on ? .isSelected : [])
@@ -1630,7 +1630,7 @@ struct SettingsView: View {
                         .frame(width: 48, height: 48).accessibilityHidden(true)
                 }
                 .padding(24).frame(width: geometry.size.width * 5 / 12, alignment: .leading).frame(maxHeight: .infinity, alignment: .top)
-                .background(EditorialPalette.sage)
+                .background(EditorialPalette.sidebar)
 
                 VStack(alignment: .leading, spacing: 0) {
                     ScrollView {
@@ -1967,7 +1967,7 @@ private struct StreakCalendar: View {
                 let on = days.contains(day)
                 Text("\(calendar.component(.day, from: day))")
                     .font(WindowType.body(11, weight: on ? .semibold : .regular))
-                    .foregroundStyle(on ? Color(nsColor: .black) : Palette.ink70)
+                    .foregroundStyle(on ? Color.white : Palette.ink70)
                     .frame(maxWidth: .infinity).frame(height: 26)
                     .background(on ? Palette.accent : Palette.ink.opacity(0.06), in: Capsule())
                     .overlay(Capsule().strokeBorder(day == today ? Palette.ink : Color.clear, lineWidth: 1.5))
@@ -2254,9 +2254,9 @@ private struct VoiceDotGlass: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if let ink { content.overlay(Capsule().fill(ink)) }
         else if opaque { content.overlay(Capsule().fill(Color.primary.opacity(0.65))) }
-        // A #5995C9 fill under clear glass: glass tint alone rendered gray and vanished on white.
+        // A royal-blue fill under clear glass: glass tint alone rendered gray and vanished on white.
         else {
-            content.background(Capsule().fill(Color(red: 0x59 / 255, green: 0x95 / 255, blue: 0xC9 / 255).opacity(0.55)))
+            content.background(Capsule().fill(Palette.accent.opacity(0.55)))
                 .glassEffect(.clear, in: Capsule())
         }
     }
@@ -2492,7 +2492,7 @@ final class BubblePresenter {
         let notchHeight = targetScreen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32
         let width = notch ? 72 + notchWidth / 2 + 10 : live ? min(420, max(240, frame.width - 32)) : minimal ? 80 : card != nil ? min(320, max(200, frame.width - 32)) : min(240, max(180, frame.width - 32))
         let content = notch ? AnyView(HStack(spacing: 0) {
-            VoiceBubbles(controller: controller, phase: phase, ink: Color(red: 0x59 / 255, green: 0x95 / 255, blue: 0xC9 / 255)).scaleEffect(0.75).frame(width: 72, height: notchHeight)
+            VoiceBubbles(controller: controller, phase: phase, ink: Palette.accent).scaleEffect(0.75).frame(width: 72, height: notchHeight)
             Color.clear.frame(width: notchWidth / 2 + 10, height: notchHeight)
         }.frame(height: notchHeight).background(Color(red: 0, green: 0, blue: 0), in: UnevenRoundedRectangle(bottomLeadingRadius: 12)))
             : live ? AnyView(LiveWordsBubble(controller: controller))
@@ -2659,7 +2659,7 @@ func segmented<T: Hashable>(_ options: [(T, String)], _ selection: Binding<T>, s
                 Text(label).font(WindowType.body(size, weight: .medium)).lineLimit(1).minimumScaleFactor(0.75)
                     .frame(maxWidth: .infinity).frame(minHeight: 40)
                     .foregroundStyle(on ? Palette.ink : Palette.ink70)
-                    .overlay(alignment: .bottom) { Rectangle().fill(on ? Palette.accentInk : Color.clear).frame(height: 2) }
+                    .overlay(alignment: .bottom) { Rectangle().fill(on ? Palette.accent : Color.clear).frame(height: 2) }
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain).accessibilityAddTraits(on ? .isSelected : [])
