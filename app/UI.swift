@@ -49,7 +49,7 @@ enum Palette {
     static let ink64 = ink.opacity(0.64)
     static let ink45 = ink.opacity(0.45)
     static let ink20 = ink.opacity(0.2)
-    static let accent = Color(red: 36 / 255, green: 75 / 255, blue: 223 / 255)
+    static let accent = Color(red: 77 / 255, green: 111 / 255, blue: 240 / 255)
     /// Small labels use neutral light text on dark surfaces to preserve contrast.
     static let accentInk = Color(nsColor: dynamic(light: 0x244BDF, dark: 0xFAFAFA))
     static let accentDeep = accentInk
@@ -57,8 +57,13 @@ enum Palette {
 }
 
 /// Settings and onboarding retain their scoped surface styling.
+private struct SettingsSurfaceKey: EnvironmentKey { static let defaultValue = false }
 private struct EditorialSurfaceKey: EnvironmentKey { static let defaultValue = false }
 private extension EnvironmentValues {
+    var settingsSurface: Bool {
+        get { self[SettingsSurfaceKey.self] }
+        set { self[SettingsSurfaceKey.self] = newValue }
+    }
     var editorialSurface: Bool {
         get { self[EditorialSurfaceKey.self] }
         set { self[EditorialSurfaceKey.self] = newValue }
@@ -80,7 +85,7 @@ private enum EditorialPalette {
     static let ink80 = ink
     static let ink45 = ink70
     static let ink20 = color(0xCCCCCC, 0x555555)
-    static let accent = color(0x244BDF, 0x244BDF)
+    static let accent = color(0x4D6FF0, 0x4D6FF0)
     static let accentInk = Palette.accentInk
     static let accentDeep = accentInk
     static let accent16 = color(0xEEEEEE, 0x242424)
@@ -164,46 +169,41 @@ struct InkButtonStyle: ButtonStyle {
     enum Kind { case filled, outline, accent, plain }
     var kind: Kind = .filled
     @Environment(\.isEnabled) private var enabled
+    @Environment(\.settingsSurface) private var settings
     @Environment(\.editorialSurface) private var editorial
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(WindowType.body(14, weight: .semibold)).lineLimit(1)
-            .padding(.horizontal, kind == .plain ? 0 : 18).frame(minHeight: 36)
+            .font(settings ? .system(size: 13, weight: .medium) : WindowType.body(14, weight: .semibold)).lineLimit(1)
+            .padding(.horizontal, kind == .plain ? 0 : (settings ? 12 : 18)).frame(minHeight: settings ? 30 : 36)
             .foregroundStyle(kind == .filled || kind == .accent ? Color.white : (editorial ? EditorialPalette.ink : Palette.ink))
-            .background(kind == .filled || kind == .accent ? (Palette.accent) : Color.clear, in: RoundedRectangle(cornerRadius: editorial ? 8 : 18))
-            .overlay { if kind == .outline { RoundedRectangle(cornerRadius: editorial ? 8 : 18).strokeBorder(editorial ? EditorialPalette.ink70 : Palette.ink, lineWidth: 1) } }
+            .background(kind == .filled || kind == .accent ? (Palette.accent) : Color.clear, in: RoundedRectangle(cornerRadius: settings ? 5 : (editorial ? 8 : 18)))
+            .overlay { if kind == .outline { RoundedRectangle(cornerRadius: settings ? 5 : (editorial ? 8 : 18)).strokeBorder(settings ? Palette.ink20 : (editorial ? EditorialPalette.ink70 : Palette.ink), lineWidth: 1) } }
             .contentShape(Capsule())
             .opacity(enabled ? (configuration.isPressed ? 0.7 : 1) : 0.45)
     }
 }
 
-/// A keyboard-focusable button draws the reference switch; VoiceOver receives a native toggle.
+/// The system switch (focus ring, Increase Contrast, VoiceOver) with the label on the leading edge.
 struct MurmurToggleStyle: ToggleStyle {
-    @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
-        Button { configuration.isOn.toggle() } label: {
-            HStack(spacing: 24) {
-                configuration.label.frame(maxWidth: .infinity, alignment: .leading)
-                Capsule().fill(configuration.isOn ? Palette.ink : Palette.ink.opacity(0.25))
-                    .overlay(alignment: configuration.isOn ? .trailing : .leading) {
-                        Circle().fill(Palette.paper).frame(width: 22, height: 22).padding(2)
-                    }
-                    .frame(width: 44, height: 26)
-            }
-            .frame(minHeight: 40).contentShape(Rectangle())
+        HStack(spacing: 24) {
+            configuration.label.frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle()).onTapGesture { configuration.isOn.toggle() }
+                .accessibilityHidden(true)
+            Toggle(isOn: configuration.$isOn) { configuration.label }
+                .toggleStyle(.switch).labelsHidden().tint(Palette.accent)
         }
-        .buttonStyle(.plain).opacity(enabled ? 1 : 0.45)
-        .accessibilityRepresentation { Toggle(isOn: configuration.$isOn) { configuration.label } }
+        .frame(minHeight: 40)
     }
 }
 
-/// Light or Dark for this window only; nil follows the system.
-private struct WindowAppearance: NSViewRepresentable {
-    let name: NSAppearance.Name?
+/// Names the window after the visible pane so VoiceOver, Mission Control and the Window menu show it.
+private struct WindowTitle: NSViewRepresentable {
+    let title: String
     func makeNSView(context: Context) -> NSView { NSView() }
     func updateNSView(_ view: NSView, context: Context) {
         // The view joins its window after the first update.
-        DispatchQueue.main.async { view.window?.appearance = name.flatMap { NSAppearance(named: $0) } }
+        DispatchQueue.main.async { view.window?.title = title }
     }
 }
 
@@ -213,8 +213,10 @@ struct SettingsView: View {
     @State private var screen = Screen.home
     /// The welcome guide's current step (gap #21), saved as it changes so the guide resumes there.
     @State private var guideStep = WelcomeGuide.Step.microphone
-    @State private var section = 0
+    /// The last settings pane, restored by ⌘, and on relaunch.
+    @AppStorage("settingsSection") private var section = 0
     @State private var showAdvanced = false
+    @State private var showLiveModel = false
     /// The expanded History row.
     @State private var selectedID: String?
     @State private var copiedID: String?
@@ -240,26 +242,34 @@ struct SettingsView: View {
     /// The writing mode whose editor is open.
     @State var editingModeID: UUID?
     @AppStorage("sidebarCollapsed") private var sidebarCollapsed = false
-    @AppStorage("showDetailedSettingsInfo") private var showDetailedSettingsInfo = true
-    /// System, light or dark (gap #20). A window preference only; the floating indicator keeps following
-    /// the system appearance.
-    @AppStorage("appearance") private var appearance = "system"
+    @AppStorage("showDetailedSettingsInfo") private var showDetailedSettingsInfo = false
     /// API address and model apply when editing ends (Return or leaving the field), not per keystroke.
     @FocusState private var apiFieldFocused: Bool
 
     private static let sections = SettingsSearch.sections
     private static let sectionIcons = ["slider.horizontal.3", "waveform", "wand.and.stars", "switch.2", "character.book.closed", "hand.raised", "key", "arrow.triangle.2.circlepath", "gearshape.2"]
     private static let ledes = [
-        "The shortcut, how text is inserted, and what Murmur is allowed to do.",
+        "Make Murmur feel at home on your Mac.",
         "Where your voice is turned into text. On this Mac by default.",
         "Tidy the transcript before it is typed. Each option works on its own.",
         "Different cleanup for an app, a website or a word you say.",
         "Words Murmur should spell your way, in every mode.",
-        "What Murmur saves, and for how long. Nothing leaves this Mac.",
+        "Choose what Murmur saves on this Mac, and for how long.",
         "Needed only for cloud routes. Stored in your Keychain.",
         "Verified updates from GitHub. Choose when they install.",
         "Where meeting audio is transcribed, apart from dictation, and how notes are written."
     ]
+
+    private var windowTitle: String {
+        switch screen {
+        case .home: "Murmur"
+        case .insights: "Murmur: Insights"
+        case .meetings: "Murmur: Meetings"
+        case .history: "Murmur: History"
+        case .setup: "Murmur: Welcome"
+        case .settings: "Murmur Settings: " + SettingsNavigation.titles[SettingsNavigation.group(for: section)]
+        }
+    }
 
     var body: some View {
         Group {
@@ -273,7 +283,7 @@ struct SettingsView: View {
                             case .home: home
                             case .insights: insightsView
                             case .meetings: MeetingsPage(controller: controller, recorder: controller.meetingRecorder)
-                            case .settings: settings.environment(\.editorialSurface, true)
+                            case .settings: settings.environment(\.editorialSurface, true).environment(\.settingsSurface, true)
                             default: history
                             }
                         }
@@ -285,10 +295,7 @@ struct SettingsView: View {
         .disabled(settingsSearchOpen).accessibilityHidden(settingsSearchOpen)
         .foregroundStyle(Palette.ink)
         .background(Palette.paper)
-        // System leaves the window's appearance alone, so SwiftUI follows macOS.
-        .transformEnvironment(\.colorScheme) { if appearance == "dark" { $0 = .dark } else if appearance == "light" { $0 = .light } }
-        // preferredColorScheme leaks app-wide and darkened the floating bubble; set only this window.
-        .background(WindowAppearance(name: appearance == "dark" ? .darkAqua : appearance == "light" ? .aqua : nil))
+        .background(WindowTitle(title: windowTitle))
         .overlay { if settingsSearchOpen { settingsSearchOverlay } }
         .onChange(of: sidebarCollapsed) { settingsSearchOpen = false; settingsQuery = "" }
         .frame(minWidth: 760, minHeight: 560)
@@ -297,6 +304,7 @@ struct SettingsView: View {
         .modifier(AutoApplyRoutes(controller: controller, apiFieldFocused: apiFieldFocused))
         .onAppear {
             controller.refreshPermissions(); controller.refreshHistory(); controller.refreshInputDevices()
+            if !Self.sections.indices.contains(section) { section = 0 }
             if !checkedSetup {
                 checkedSetup = true
                 guideStep = WelcomeGuide.resumeStep(.standard)
@@ -340,25 +348,29 @@ struct SettingsView: View {
     // MARK: Shared pieces
 
     private func mono(_ text: String, size: CGFloat = 12, color: Color = Palette.ink) -> some View {
-        Text(text).font(.system(size: size, design: .monospaced)).tracking(size * 0.08).textCase(.uppercase).foregroundStyle(color)
+        Text(text).font(screen == .settings ? .system(size: size) : .system(size: size, design: .monospaced)).tracking(screen == .settings ? 0 : size * 0.08).textCase(screen == .settings ? nil : .uppercase).foregroundStyle(color)
     }
 
-    private func eyebrow(_ text: String) -> some View { mono(text, size: 11, color: Palette.accentInk).id(text) }
+    @ViewBuilder private func eyebrow(_ text: String) -> some View {
+        if screen == .settings {
+            Text(text).font(.system(size: 14, weight: .medium)).foregroundStyle(Palette.ink).id(text)
+        } else { mono(text, size: 11, color: Palette.accentInk).id(text) }
+    }
 
     private var rule: some View { Rectangle().fill(Palette.ink20).frame(height: 1) }
-    private var softRule: some View { Rectangle().fill(Palette.ink20).frame(height: 1) }
+    private var softRule: some View { Rectangle().fill(Palette.ink.opacity(screen == .settings ? 0.1 : 0.2)).frame(height: 1) }
 
     private func help(_ text: String, color: Color = Palette.ink70) -> some View {
-        Text(text).font(WindowType.body(13)).lineSpacing(2).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
+        Text(text).font(screen == .settings ? .system(size: 12) : WindowType.body(13)).lineSpacing(2).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
     }
 
     private func titled(_ title: String, _ detail: String?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
-                Text(title).font(WindowType.body(15, weight: .semibold))
-                if let detail, !showDetailedSettingsInfo { SettingInfoButton(text: detail) }
+                Text(title).font(screen == .settings ? .system(size: 13) : WindowType.body(15, weight: .semibold))
+                if let detail, !showDetailedSettingsInfo && section != 5 && section != 10 { SettingInfoButton(text: detail) }
             }
-            if let detail, showDetailedSettingsInfo { help(detail) }
+            if let detail, showDetailedSettingsInfo || (screen == .settings && (section == 5 || section == 10)) { help(detail) }
         }
     }
 
@@ -381,13 +393,13 @@ struct SettingsView: View {
             if saved == MicrophoneChoice.automatic {
                 SettingInfoButton(text: "Uses the Mac’s built-in microphone instead of a Bluetooth headset’s while available, so AirPods keep full playback quality. Otherwise uses the system default.")
             }
-            help("If the microphone changes while you dictate, recording continues on the new one and keeps what was already recorded.")
+            settingInfo("If the microphone changes while you dictate, recording continues on the new one and keeps what was already recorded.")
         }
     }
 
     private func toggleRow(_ title: String, _ detail: String, isOn: Binding<Bool>) -> some View {
         Toggle(isOn: isOn) { titled(title, detail) }.toggleStyle(MurmurToggleStyle())
-            .padding(.vertical, 10).id(title)
+            .padding(.vertical, screen == .settings ? 12 : 10).id(title)
     }
 
     /// "Gemini 3.5 Transcribe (speech recognition, …)" → "Gemini 3.5 Transcribe" for segment labels.
@@ -430,7 +442,11 @@ struct SettingsView: View {
 
     // MARK: Window navigation
 
-    private var sidebar: some View {
+    @ViewBuilder private var sidebar: some View {
+        if screen == .settings { settingsSidebar } else { appSidebar }
+    }
+
+    private var appSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button { sidebarCollapsed.toggle() } label: {
                 Image(systemName: "sidebar.left")
@@ -447,18 +463,14 @@ struct SettingsView: View {
                     navigationRow("Insights", icon: "chart.bar.xaxis", selected: screen == .insights) { screen = .insights }
                     navigationRow("Meetings", icon: "person.2", selected: screen == .meetings) { screen = .meetings }
                     navigationRow("History", icon: "clock.arrow.circlepath", selected: screen == .history) { screen = .history }
-                    navigationRow("Search settings", icon: "magnifyingglass", selected: settingsSearchOpen) { settingsSearchOpen = true }
-                    Color.clear.frame(height: 12)
-                    ForEach(Self.sections.indices, id: \.self) { index in
-                        navigationRow(index == 8 ? "Meeting Settings" : index == 5 ? "Privacy" : Self.sections[index],
-                                      icon: Self.sectionIcons[index], selected: screen == .settings && section == index) { section = index; screen = .settings }
-                    }
+                    navigationRow("Settings", icon: "gearshape", selected: false) { screen = .settings }
+
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack(spacing: 7) {
                 Circle().fill(controller.phase == "Error" ? Palette.ink : Palette.accent).frame(width: 6, height: 6)
-                if !sidebarCollapsed { mono(controller.phase, size: 10, color: Palette.ink70) }
+                if !sidebarCollapsed { mono(controller.phase, size: 11, color: Palette.ink70) }
             }
             .accessibilityElement(children: .ignore).accessibilityLabel(controller.phase)
             .help(controller.phase + " · " + (controller.appliedTranscriptionIsLocal ? "Local transcription" : "Cloud transcription"))
@@ -468,6 +480,42 @@ struct SettingsView: View {
         .padding(.horizontal, sidebarCollapsed ? 14 : 20).padding(.top, 16)
         .frame(width: sidebarCollapsed ? 64 : 216).frame(maxHeight: .infinity)
         .background(screen == .settings ? EditorialPalette.sidebar : Palette.paper)
+    }
+
+    private var settingsSidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button { screen = .home } label: {
+                Label("Back to Murmur", systemImage: "chevron.left")
+                    .font(.system(size: 12)).foregroundStyle(Palette.ink70)
+                    .frame(minHeight: 32)
+            }.buttonStyle(.plain).padding(.bottom, 20)
+            Text("Settings").font(.system(size: 14, weight: .medium)).padding(.bottom, 12)
+            Button { settingsSearchOpen = true } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                    Text("Search settings")
+                    Spacer(minLength: 0)
+                    Text("⌘K").accessibilityHidden(true)
+                }.font(.system(size: 12)).foregroundStyle(Palette.ink70)
+                    .padding(8).overlay(RoundedRectangle(cornerRadius: 5).stroke(Palette.ink20))
+            }.buttonStyle(.plain).keyboardShortcut("k", modifiers: .command)
+                .help("Search all settings (⌘K)").padding(.bottom, 24)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(SettingsNavigation.destinations.indices, id: \.self) { index in
+                        if index == 4 { Divider().padding(.vertical, 12) }
+                        navigationRow(SettingsNavigation.titles[index], icon: SettingsNavigation.icons[index],
+                                      selected: SettingsNavigation.group(for: section) == index) {
+                            section = SettingsNavigation.destinations[index]; settingsTarget = "top"
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16).padding(.top, 20)
+        .frame(width: 216).frame(maxHeight: .infinity)
+        .background(EditorialPalette.sidebar)
+        .overlay(alignment: .trailing) { Rectangle().fill(Palette.ink.opacity(0.08)).frame(width: 1) }
     }
 
     private var settingsSearchField: some View {
@@ -528,6 +576,7 @@ struct SettingsView: View {
 
     private func openSetting(_ result: SettingsSearch.Result) {
         if result.target == "model-folder" { showAdvanced = true }
+        if result.target == "live-words" { showLiveModel = true }
         settingsTarget = result.target; settingsNavigationID = UUID()
         section = result.section; screen = .settings
         settingsSearchOpen = false; settingsQuery = ""; settingsSearchFocused = false
@@ -537,10 +586,12 @@ struct SettingsView: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: icon).font(.system(size: 15)).frame(width: 20)
-                if !sidebarCollapsed { mono(title, size: 11, color: selected ? Palette.ink : Palette.ink70).lineLimit(1) }
+                if screen == .settings { Text(title).font(.system(size: 13, weight: selected ? .medium : .regular)).lineLimit(1) }
+                else if !sidebarCollapsed { mono(title, size: 11, color: selected ? Palette.ink : Palette.ink70).lineLimit(1) }
             }
             .foregroundStyle(selected ? Palette.ink : Palette.ink70)
-            .frame(maxWidth: .infinity, minHeight: 36, alignment: sidebarCollapsed ? .center : .leading)
+            .padding(.horizontal, screen == .settings ? 10 : 0)
+            .frame(maxWidth: .infinity, minHeight: 36, alignment: sidebarCollapsed && screen != .settings ? .center : .leading)
             .background(selected ? Palette.accent16 : Color.clear, in: RoundedRectangle(cornerRadius: 6))
             .contentShape(Rectangle())
         }
@@ -584,14 +635,33 @@ struct SettingsView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(Self.sections[section]).id("top").font(.system(size: 30, weight: .semibold, design: .serif)).tracking(-0.8)
-                    Text(Self.ledes[section]).font(WindowType.body(14)).foregroundStyle(EditorialPalette.ink70)
-                        .lineSpacing(2).padding(.top, 6).padding(.bottom, 8)
+                    let group = SettingsNavigation.group(for: section)
+                    Text(SettingsNavigation.titles[group]).id("top")
+                        .font(.system(size: 25, weight: .medium)).tracking(-0.5)
+                    Text(group == 1 ? "Set up your voice-to-text workflow." : group == 2 ? "Shape your text and keep your own voice." : Self.ledes[section])
+                        .font(.system(size: 13)).foregroundStyle(EditorialPalette.ink70)
+                        .padding(.top, 6).padding(.bottom, 24)
+                    let tabs = SettingsNavigation.tabs(for: section)
+                    if !tabs.isEmpty {
+                        HStack(spacing: 24) {
+                            ForEach(tabs, id: \.self) { value in
+                                Button { section = value; settingsTarget = "top" } label: {
+                                    Text(Self.sections[value]).font(.system(size: 13, weight: .medium))
+                                        .foregroundStyle(section == value ? Palette.ink : Palette.ink70)
+                                        .padding(.vertical, 12)
+                                        .overlay(alignment: .bottom) { Rectangle().fill(section == value ? Palette.accent : .clear).frame(height: 2) }
+                                }.buttonStyle(.plain).accessibilityAddTraits(section == value ? .isSelected : [])
+                            }
+                            Spacer(minLength: 0)
+                        }.overlay(alignment: .bottom) { softRule }.padding(.bottom, 24)
+                    }
                     sectionBody.disabled(controller.isBusy)
                     if controller.isBusy { help("Finish dictating to change settings.", color: EditorialPalette.ink64).padding(.top, 12) }
                 }
-                .padding(EdgeInsets(top: 16, leading: 24, bottom: 24, trailing: 24))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 32)
+                .frame(maxWidth: 760, alignment: .leading)
+                .padding(.horizontal, 36)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
             .onAppear { DispatchQueue.main.async { proxy.scrollTo(settingsTarget, anchor: .top) } }
             .onChange(of: settingsNavigationID) { DispatchQueue.main.async { proxy.scrollTo(settingsTarget, anchor: .top) } }
@@ -610,6 +680,8 @@ struct SettingsView: View {
         case 4: dictionary
         case 5: privacy
         case 6: apiKeys
+        case 9: recordingSettings
+        case 10: insertionSettings
         case 8: meetingSettings
         default: updates
         }
@@ -644,56 +716,71 @@ struct SettingsView: View {
         }
     }
 
-    private var general: some View {
+    private var recordingSettings: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
                 eyebrow("Shortcut")
                 SettingInfoButton(text: controller.pressToToggle ? "Press the shortcut to start recording and press it again to stop, or hold it and release. Escape cancels." : "Hold to record until you release. Double-press to keep recording until you press again. Escape cancels.")
                     .accessibilityLabel("How to use the shortcut")
             }.padding(.top, 12)
-            VStack(alignment: .leading, spacing: 8) {
-                segmented([("right-option", "Right Option"), ("fn", "Fn / Globe"), ("ctrl-option-space", "Control–Option–Space")], $controller.shortcut)
-                ShortcutRecorder(controller: controller)
-            }
-            .padding(.vertical, 12).overlay(alignment: .top) { rule }.overlay(alignment: .bottom) { softRule }.padding(.top, 8)
+            HStack(spacing: 12) {
+                Text("Dictation shortcut").font(.system(size: 13))
+                Spacer()
+                Picker("Dictation shortcut", selection: $controller.shortcut) {
+                    Text("Right Option").tag("right-option")
+                    Text("Fn / Globe").tag("fn")
+                    Text("Control–Option–Space").tag("ctrl-option-space")
+                    if !["right-option", "fn", "ctrl-option-space"].contains(controller.shortcut) {
+                        Text("Custom shortcut").tag(controller.shortcut)
+                    }
+                }.labelsHidden().frame(maxWidth: 190)
+            }.padding(.vertical, 12)
+            ShortcutRecorder(controller: controller).padding(.bottom, 12)
             toggleRow("Press once to start, again to stop", "Holding still works: release to stop. Off means hold to record.", isOn: $controller.pressToToggle)
+            softRule.padding(.vertical, 12)
+            eyebrow("Audio")
+            HStack(alignment: .top, spacing: 16) {
+                Text("Microphone").font(.system(size: 13))
+                Spacer(minLength: 16)
+                microphonePicker.frame(maxWidth: 280, alignment: .trailing)
+            }.padding(.top, 16).id("Microphone")
             toggleRow("Start and stop sounds", "A short sound when recording starts and when it stops or is canceled. No sound when text is inserted.", isOn: $controller.recordingSounds)
+            softRule.padding(.top, 12)
+            eyebrow("Live preview").padding(.top, 24)
             toggleRow(LiveWordsFacts.displayName, LiveWordsFacts.explanation, isOn: $controller.liveWords).id("live-words")
             if controller.liveWords {
-                liveWordsModel.padding(.vertical, 10)
+                DisclosureGroup("Live preview model", isExpanded: $showLiveModel) {
+                    liveWordsModel.padding(.vertical, 10)
+                }.font(.system(size: 13)).padding(.vertical, 12)
                 toggleRow("Show live words on cloud routes", "Off: when transcription runs in the cloud, the bubble shows only the level meter and the extra model does not start. The preview always runs on this Mac.", isOn: $controller.liveWordsOnCloud)
             }
+
+        }
+    }
+
+    private var insertionSettings: some View {
+        VStack(alignment: .leading, spacing: 0) {
             toggleRow("Insert at the cursor", "Types into whichever field has the cursor when dictation finishes. Press ⌃⌘V to paste the last dictation again if it is missing; check the field first to avoid a duplicate. The previous clipboard is restored unless you copy something newer. Automatic paste is marked transient; other software may still read or retain it. Murmur never sends a message.", isOn: $controller.automaticInsertion)
             toggleRow("Add a leading space when needed", "Separates dictation from existing text at the cursor. Existing whitespace, punctuation and selected text are left alone.", isOn: $controller.intelligentLeadingSpace)
+        }
+    }
+
+    private var general: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            eyebrow("Visibility").padding(.top, 12)
             toggleRow("Show menu bar icon", "When hidden, reopen Murmur from Finder or Spotlight.", isOn: $controller.showMenuBar)
             toggleRow("Show in Dock", "Adds Murmur to the Dock and the app switcher. With both icons hidden, reopen Murmur from Finder or Spotlight.", isOn: $controller.showInDock)
             toggleRow("Open at login", "Starts Murmur in the background when you log in, so the shortcut is ready.", isOn: Binding(get: { controller.openAtLogin }, set: controller.setOpenAtLogin))
 
-            eyebrow("Microphone").padding(.top, 20)
-            microphonePicker.padding(.top, 8)
-
-            eyebrow("Permissions").padding(.top, 20)
-            VStack(spacing: 0) {
-                permissionRow("Microphone", allowed: controller.microphoneAuthorized, actionTitle: "Allow", action: controller.requestMicrophone)
-                permissionRow("Accessibility", allowed: controller.accessibilityAuthorized, actionTitle: "Open Settings…") { controller.openPermissionSettings("accessibility") }
-                permissionRow("Input Monitoring", allowed: controller.inputMonitoringAuthorized, actionTitle: "Open Settings…") { controller.openPermissionSettings("input-monitoring") }
-            }
-            .overlay(alignment: .top) { rule }.padding(.top, 8)
-            Button("Refresh Permissions", action: controller.refreshPermissionsAndShortcut)
-                .buttonStyle(InkButtonStyle(kind: .outline)).padding(.top, 16)
-
             Toggle("Show detailed info", isOn: $showDetailedSettingsInfo)
-                .font(WindowType.body(13)).toggleStyle(.checkbox).padding(.top, 12).id("detailed-info")
+                .font(Font.system(size: 13)).toggleStyle(.checkbox).padding(.top, 12).id("detailed-info")
 
-            eyebrow("Appearance").padding(.top, 20)
-            segmented([("system", "System"), ("light", "Light"), ("dark", "Dark")], $appearance).padding(.top, 8)
-            help("Murmur’s windows only. The dictation bubble always follows macOS.").padding(.top, 8)
         }
     }
 
     private func permissionRow(_ title: String, allowed: Bool, actionTitle: String, action: @escaping () -> Void) -> some View {
         HStack(spacing: 14) {
-            Text(title).font(WindowType.body(15, weight: .semibold))
+            Text(title).font(Font.system(size: 15, weight: .semibold))
             Spacer()
             mono(allowed ? "Allowed ✓" : "Needed", color: allowed ? Palette.accentInk : Palette.ink)
             if !allowed { Button(actionTitle, action: action).buttonStyle(InkButtonStyle()) }
@@ -707,12 +794,12 @@ struct SettingsView: View {
                 HStack(alignment: .center, spacing: 16) {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 4) {
-                            Text(ModelFacts.displayName).font(WindowType.body(18, weight: .semibold))
+                            Text(ModelFacts.displayName).font(Font.system(size: 18, weight: .semibold))
                             ModelInfoIcons(license: controller.modelLicense.map(ModelFacts.licenseText), details: controller.modelSummary)
                         }
                         Group {
                             if controller.modelRow.isReady { mono("Model ready ✓", color: EditorialPalette.accentInk) }
-                            else { Text(controller.modelRow.statusText).font(WindowType.body(14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
+                            else { Text(controller.modelRow.statusText).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
                         }
                         .padding(.top, 5)
                     }
@@ -736,7 +823,7 @@ struct SettingsView: View {
             if showAdvanced {
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Model folder").id("model-folder").font(WindowType.body(16, weight: .semibold))
+                        Text("Model folder").id("model-folder").font(Font.system(size: 16, weight: .semibold))
                         help((controller.usesCustomModelFolder ? "Custom folder" : "Default folder") + " · " + (controller.modelAvailable ? "model files found ✓" : "no model files in this folder"))
                         if !controller.modelDirectory.isEmpty {
                             Text(URL(fileURLWithPath: controller.modelDirectory).lastPathComponent)
@@ -777,7 +864,7 @@ struct SettingsView: View {
                     : "Other Gemini models may follow spoken instructions, skip words, or invent text."
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 4) {
-                        Text("Gemini transcription model").font(WindowType.body(14, weight: .semibold))
+                        Text("Gemini transcription model").font(Font.system(size: 14, weight: .semibold))
                         settingInfo(modelHint)
                     }
                     field(GeminiTranscribeProvider.defaultModel, text: $controller.geminiTranscriptionModel)
@@ -787,10 +874,10 @@ struct SettingsView: View {
             }
             if controller.cloudTranscriber == .customAPI {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Transcription API base URL").font(WindowType.body(14, weight: .semibold))
+                    Text("Transcription API base URL").font(Font.system(size: 14, weight: .semibold))
                     field("https://api.example.com/v1", text: $controller.customTranscriptionAPIBaseURL)
                         .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
-                    Text("Transcription model name").font(WindowType.body(14, weight: .semibold))
+                    Text("Transcription model name").font(Font.system(size: 14, weight: .semibold))
                     field("whisper-1", text: $controller.customTranscriptionModel)
                         .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
                     keyRow(.customTranscription)
@@ -803,7 +890,7 @@ struct SettingsView: View {
     @ViewBuilder private func disclosure(_ text: String?) -> some View {
         if let text {
             Text(text)
-                .font(WindowType.body(14)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+                .font(Font.system(size: 14)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
                 .padding(16).frame(maxWidth: .infinity, alignment: .leading).background(EditorialPalette.accent16)
         }
     }
@@ -877,10 +964,10 @@ struct SettingsView: View {
 
     private var customCleanupSettings: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Cleanup API base URL").font(WindowType.body(14, weight: .semibold))
+            Text("Cleanup API base URL").font(Font.system(size: 14, weight: .semibold))
             field("https://api.cerebras.ai/v1", text: $controller.customAPIBaseURL)
                 .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
-            Text("Model name").font(WindowType.body(14, weight: .semibold)).padding(.top, 4)
+            Text("Model name").font(Font.system(size: 14, weight: .semibold)).padding(.top, 4)
             field("gpt-oss-120b", text: $controller.customAPIModel)
                 .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
             keyRow(.customCleanup)
@@ -894,7 +981,7 @@ struct SettingsView: View {
     private var modes: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
-                Text("How modes are chosen").font(WindowType.body(14, weight: .semibold))
+                Text("How modes are chosen").font(Font.system(size: 14, weight: .semibold))
                 SettingInfoButton(text: "Preset trigger words work at the start of a dictation; other modes also accept them at the end. Spoken triggers take priority, then the website, then the app focused when you started. If two modes match the same way, the first in this list wins. Anything a mode leaves as “Same as Cleanup” follows the Cleanup settings.")
             }.padding(.top, 12)
             rule.padding(.top, 20)
@@ -954,7 +1041,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(m.name.isEmpty ? "Untitled mode" : m.name).font(WindowType.body(16, weight: .semibold))
+                    Text(m.name.isEmpty ? "Untitled mode" : m.name).font(Font.system(size: 16, weight: .semibold))
                     help(m.enabled ? modeSummary(m) : "Off · " + modeSummary(m)).lineLimit(2)
                 }
                 Spacer()
@@ -980,19 +1067,19 @@ struct SettingsView: View {
 
             eyebrow("Custom instructions").padding(.top, 20)
             TextEditor(text: Binding(get: { mode.wrappedValue.instructions }, set: { mode.wrappedValue.instructions = String($0.prefix(WritingModeLimits.instructions)) }))
-                .font(WindowType.body(15)).scrollContentBackground(.hidden)
+                .font(Font.system(size: 15)).scrollContentBackground(.hidden)
                 .frame(height: m.transform == nil ? 120 : 240).padding(8)
                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(EditorialPalette.ink20, lineWidth: 1))
                 .accessibilityLabel("Custom instructions").padding(.top, 8)
             help("\(m.instructions.count) of \(WritingModeLimits.instructions) characters. " + (m.transform == nil
                  ? "Sent only to AI cleanup routes. Cleanup still preserves what you said."
                  : "These are the rewriting instructions sent to AI cleanup. Edit them to make this mode your own. Murmur checks the result, but rewrites can still make mistakes."), color: EditorialPalette.ink64)
-                .font(WindowType.body(12)).padding(.top, 6)
+                .font(Font.system(size: 12)).padding(.top, 6)
 
             eyebrow("Apps").padding(.top, 20)
             ForEach(m.apps, id: \.self) { app in
                 HStack {
-                    Text(appName(app)).font(WindowType.body(15)); help(app, color: EditorialPalette.ink64).font(WindowType.body(12))
+                    Text(appName(app)).font(Font.system(size: 15)); help(app, color: EditorialPalette.ink64).font(Font.system(size: 12))
                     Spacer()
                     Button("Remove") { mode.wrappedValue.apps.removeAll { $0 == app } }.buttonStyle(InkButtonStyle(kind: .plain)).fixedSize()
                 }
@@ -1007,13 +1094,13 @@ struct SettingsView: View {
             eyebrow("Websites").padding(.top, 20)
             ModeListEditor(items: mode.websites, placeholder: "github.com, docs.google.com/document/*, *.slack.com", label: "Website")
             help("Matches the page open in the browser when recording starts. A site includes its subdomains; add a path to match only that part. The address is read through Accessibility, only while a mode lists a website, and is never saved or sent. A browser that does not show its page to Accessibility matches by app only.", color: EditorialPalette.ink64)
-                .font(WindowType.body(12)).padding(.top, 6)
+                .font(Font.system(size: 12)).padding(.top, 6)
 
             eyebrow("Trigger words").padding(.top, 20)
             ModeListEditor(items: mode.triggers, placeholder: "email mode", label: "Trigger")
             help(m.transform == nil ? "Say one at the start or end of a dictation to use this mode; it is removed from the text. Pick a phrase you would not otherwise say there."
                  : "Say one at the very start of a dictation to use this mode; it is removed from the text. This built-in mode rewrites the text on AI cleanup routes (not On this Mac); the custom instructions above control its rewrite.", color: EditorialPalette.ink64)
-                .font(WindowType.body(12)).padding(.top, 6)
+                .font(Font.system(size: 12)).padding(.top, 6)
 
             eyebrow("Cleanup").padding(.top, 20)
             segmented([(-1, "Same as Cleanup"), (0, "Faithful"), (1, "Strict"), (2, "Polish"), (3, "Professional")], modeStyle(mode), size: 13).padding(.top, 8)
@@ -1031,9 +1118,9 @@ struct SettingsView: View {
                  : m.tone == .casual ? "Drops commas and the final period. Commas inside numbers stay."
                  : m.tone == .veryCasual ? "Casual, and sentences start in lowercase. “I” and words like “iPhone” keep their capitals."
                  : "The final period becomes “!”.", color: EditorialPalette.ink64)
-                .font(WindowType.body(12)).padding(.top, 6)
+                .font(Font.system(size: 12)).padding(.top, 6)
             help("Applied by rules after cleanup, on every route. Never applied to an email laid out from “write an email to…”.", color: EditorialPalette.ink64)
-                .font(WindowType.body(12))
+                .font(Font.system(size: 12))
 
             eyebrow("Screen context").padding(.top, 20)
             segmented([(Bool?.none, "Same as Cleanup"), (true, "On"), (false, "Off")], mode.screenContext, size: 13).padding(.top, 8)
@@ -1048,11 +1135,11 @@ struct SettingsView: View {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 4) {
-                        Text("Parakeet Unified streaming").font(WindowType.body(14, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+                        Text("Parakeet Unified streaming").font(Font.system(size: 14, weight: .medium)).fixedSize(horizontal: false, vertical: true)
                         ModelInfoIcons(license: controller.liveWordsLicense.map(ModelFacts.licenseText), details: controller.liveWordsSummary)
                     }
                     if controller.liveWordsRow.isReady { mono("Ready ✓", color: EditorialPalette.accentInk) }
-                    else { Text(controller.liveWordsRow.statusText).font(WindowType.body(13)).foregroundStyle(EditorialPalette.ink70).fixedSize(horizontal: false, vertical: true) }
+                    else { Text(controller.liveWordsRow.statusText).font(Font.system(size: 13)).foregroundStyle(EditorialPalette.ink70).fixedSize(horizontal: false, vertical: true) }
                 }
                 Spacer()
                 let row = controller.liveWordsRow
@@ -1072,12 +1159,12 @@ struct SettingsView: View {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 4) {
-                        Text(DictionaryModelFacts.displayName).font(WindowType.body(18, weight: .semibold))
+                        Text(DictionaryModelFacts.displayName).font(Font.system(size: 18, weight: .semibold))
                         ModelInfoIcons(license: controller.dictionaryModelLicense.map(ModelFacts.licenseText), details: controller.dictionaryModelSummary)
                     }
                     Group {
                         if controller.dictionaryModelRow.isReady && !controller.dictionarySupportFailed { mono("Ready ✓", color: EditorialPalette.accentInk) }
-                        else if !controller.dictionaryModelRow.isReady { Text(controller.dictionaryModelRow.statusText).font(WindowType.body(14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
+                        else if !controller.dictionaryModelRow.isReady { Text(controller.dictionaryModelRow.statusText).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
                     }
                     .padding(.top, 5)
                 }
@@ -1090,7 +1177,7 @@ struct SettingsView: View {
             }
             help(DictionaryModelFacts.explanation)
             if let progress = controller.dictionaryModelRow.progress { progressBar(progress) }
-            if controller.dictionarySupportFailed { Text(DictionaryModelFacts.unavailableMessage).font(WindowType.body(14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
+            if controller.dictionarySupportFailed { Text(DictionaryModelFacts.unavailableMessage).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
             if !controller.dictionaryModelMessage.isEmpty { help(controller.dictionaryModelMessage) }
         }
         .padding(.vertical, 18).padding(.top, 20)
@@ -1107,7 +1194,7 @@ struct SettingsView: View {
             }
             .padding(.top, 20)
             if !controller.dictionaryMessage.isEmpty {
-                Text(controller.dictionaryMessage).font(WindowType.body(14, weight: .semibold)).padding(.top, 10)
+                Text(controller.dictionaryMessage).font(Font.system(size: 14, weight: .semibold)).padding(.top, 10)
             }
             VStack(alignment: .leading, spacing: 0) {
                 if controller.dictionaryEntries.isEmpty {
@@ -1148,7 +1235,7 @@ struct SettingsView: View {
             DisclosureGroup("On-device dictionary support") {
                 dictionaryModel
             }
-            .font(WindowType.body(14)).padding(.top, 16)
+            .font(Font.system(size: 14)).padding(.top, 16)
         }
         .onAppear { controller.refreshDictionarySuggestions() }
     }
@@ -1161,9 +1248,9 @@ struct SettingsView: View {
     private func dictionaryRow(_ entry: DictionaryEntry) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.preferred).font(WindowType.body(16, weight: .semibold))
+                Text(entry.preferred).font(Font.system(size: 16, weight: .semibold))
                 if !entry.variants.isEmpty {
-                    Text("Heard as " + entry.variants.joined(separator: ", ")).font(WindowType.body(13)).foregroundStyle(EditorialPalette.ink70).lineLimit(1)
+                    Text("Heard as " + entry.variants.joined(separator: ", ")).font(Font.system(size: 13)).foregroundStyle(EditorialPalette.ink70).lineLimit(1)
                 }
             }
             .opacity(entry.enabled ? 1 : 0.45)
@@ -1178,9 +1265,9 @@ struct SettingsView: View {
                 editPreferred = entry.preferred; editVariants = entry.variants.joined(separator: ", ")
                 controller.dictionaryMessage = ""; editingEntryID = entry.id
             }
-            .buttonStyle(.plain).font(WindowType.body(14, weight: .semibold)).frame(height: 44).accessibilityLabel("Edit \(entry.preferred)")
+            .buttonStyle(.plain).font(Font.system(size: 14, weight: .semibold)).frame(height: 44).accessibilityLabel("Edit \(entry.preferred)")
             Button { controller.deleteDictionaryEntry(entry) } label: {
-                Text("×").font(WindowType.body(18)).frame(width: 44, height: 44).contentShape(Rectangle())
+                Text("×").font(Font.system(size: 18)).frame(width: 44, height: 44).contentShape(Rectangle())
             }
             .buttonStyle(.plain).help("Delete \(entry.preferred)").accessibilityLabel("Delete \(entry.preferred)")
         }
@@ -1192,7 +1279,7 @@ struct SettingsView: View {
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 field("Spelling", text: spelling).frame(minWidth: 100, idealWidth: 180, maxWidth: 220)
-                Text("Heard as \(item.heard.joined(separator: ", ")) · \(item.dictations) dictations").font(WindowType.body(13)).foregroundStyle(EditorialPalette.ink70)
+                Text("Heard as \(item.heard.joined(separator: ", ")) · \(item.dictations) dictations").font(Font.system(size: 13)).foregroundStyle(EditorialPalette.ink70)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
@@ -1211,8 +1298,8 @@ struct SettingsView: View {
         }
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(word).font(WindowType.body(16, weight: .semibold))
-                Text(why).font(WindowType.body(13)).foregroundStyle(EditorialPalette.ink70)
+                Text(word).font(Font.system(size: 16, weight: .semibold))
+                Text(why).font(Font.system(size: 13)).foregroundStyle(EditorialPalette.ink70)
             }
             Spacer()
             Button("Unblock") { controller.unblockWord(item) }.buttonStyle(InkButtonStyle(kind: .outline)).fixedSize()
@@ -1237,6 +1324,17 @@ struct SettingsView: View {
 
     private var privacy: some View {
         VStack(alignment: .leading, spacing: 0) {
+            eyebrow("Permissions").padding(.top, 20)
+            VStack(spacing: 0) {
+                permissionRow("Microphone", allowed: controller.microphoneAuthorized, actionTitle: "Allow", action: controller.requestMicrophone)
+                permissionRow("Accessibility", allowed: controller.accessibilityAuthorized, actionTitle: "Open Settings…") { controller.openPermissionSettings("accessibility") }
+                permissionRow("Input Monitoring", allowed: controller.inputMonitoringAuthorized, actionTitle: "Open Settings…") { controller.openPermissionSettings("input-monitoring") }
+            }
+            .overlay(alignment: .top) { rule }.padding(.top, 8)
+            Button("Refresh Permissions", action: controller.refreshPermissionsAndShortcut)
+                .buttonStyle(InkButtonStyle(kind: .outline)).padding(.top, 16)
+
+
             eyebrow("Transcript history").padding(.top, 20)
             segmented([(HistoryMode.on, "Save on this Mac"), (HistoryMode.off, "Off")], $controller.historyMode).padding(.top, 8)
             help(controller.historyMode == .on
@@ -1246,10 +1344,10 @@ struct SettingsView: View {
             segmented([("30-days", "30 days"), ("six-months", "Six months"), ("forever", "Forever")], $controller.retention).padding(.top, 8)
             toggleRow("Keep recordings for diagnostics (7 days)", "Keeps the audio of each dictation on this Mac, beside its History entry, so a developer can replay what Murmur heard. Off by default. Recordings are deleted after 7 days, and are kept only while History is saved. Delete All Data removes them.", isOn: $controller.keepRecordings).padding(.top, 20)
             if let notice = controller.historyNotice {
-                Text(notice).font(WindowType.body(14, weight: .semibold)).fixedSize(horizontal: false, vertical: true).padding(.top, 12)
+                Text(notice).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true).padding(.top, 12)
             }
             if let warning = controller.historyCapWarning {
-                Text(warning).font(WindowType.body(14, weight: .semibold)).fixedSize(horizontal: false, vertical: true).padding(.top, 12)
+                Text(warning).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true).padding(.top, 12)
             }
             if controller.hasRecoveryAudio {
                 Button("Show Retained Audio…", action: controller.revealRecoveryAudio)
@@ -1280,7 +1378,7 @@ struct SettingsView: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(provider.displayName).font(WindowType.body(16, weight: .semibold))
+                    Text(provider.displayName).font(Font.system(size: 16, weight: .semibold))
                     mono(has ? "Saved in Keychain ✓" : KeyText.none, color: has ? EditorialPalette.accentInk : EditorialPalette.ink70)
                 }
                 Spacer()
@@ -1314,7 +1412,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Murmur " + controller.currentVersion).font(WindowType.body(18, weight: .semibold))
+                    Text("Murmur " + controller.currentVersion).font(Font.system(size: 18, weight: .semibold))
                     if !controller.updateStatus.isEmpty { help(controller.updateStatus) }
                 }
                 Spacer()
@@ -2303,7 +2401,7 @@ private struct PasteFailureCard: View {
                 Image(systemName: "doc.on.clipboard").font(.system(size: 12)).foregroundStyle(.orange).accessibilityHidden(true)
                 Text(failure.title).font(.system(size: 12, weight: .semibold))
                 Spacer(minLength: 4)
-                Button { controller.dismissStatus() } label: { Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)) }
+                Button { controller.dismissStatus() } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Dismiss")
             }
             Text(failure.text).font(.system(size: 12)).lineLimit(3).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
@@ -2664,5 +2762,14 @@ func segmented<T: Hashable>(_ options: [(T, String)], _ selection: Binding<T>, s
             }
             .buttonStyle(.plain).accessibilityAddTraits(on ? .isSelected : [])
         }
+    }
+}
+
+extension NSAlert {
+    /// Destructive first button, Cancel as the Return default so a stray keypress deletes nothing.
+    func runDestructive() -> NSApplication.ModalResponse {
+        buttons.first?.hasDestructiveAction = true
+        if buttons.count > 1 { buttons[0].keyEquivalent = ""; buttons[1].keyEquivalent = "\r" }
+        return runModal()
     }
 }

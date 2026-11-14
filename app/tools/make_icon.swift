@@ -8,7 +8,7 @@ let bars: [CGRect] = [
     CGRect(x: 45, y: 32, width: 8, height: 32), CGRect(x: 58, y: 25, width: 8, height: 46),
     CGRect(x: 71, y: 37, width: 6, height: 22),
 ]
-let accent = NSColor(srgbRed: 36 / 255, green: 75 / 255, blue: 223 / 255, alpha: 1)
+let accent = NSColor(srgbRed: 77 / 255, green: 111 / 255, blue: 240 / 255, alpha: 1)
 let ink = NSColor(srgbRed: 0x14 / 255, green: 0x14 / 255, blue: 0x14 / 255, alpha: 1)
 
 func png(pixels: Int) -> Data {

@@ -4,15 +4,33 @@
 
 Bring Murmur's settings and onboarding into a neutral white/black and royal-blue identity inspired by the redesigned website. The current PR screenshots with green/sage surfaces and pale-blue accents are rejected. The requirements below supersede the previous sage/paper palette; implementation of this correction is pending. Preserve native Mac conventions and all existing behavior.
 
+## Settings layout
+
+Settings uses a dedicated seven-destination sidebar: General, Dictation, Writing,
+Meetings, Privacy & Storage, Providers, and Updates. Back to Murmur returns to
+Home. Search retains direct links to individual controls.
+
+Dictation groups Recording, Transcription, and Insertion into tabs. Writing groups
+Cleanup, Modes, and Dictionary. General contains visibility, startup, and appearance;
+permissions live under Privacy & Storage. Existing preferences and processing routes
+are preserved.
+
+The approved Linear-inspired direction uses system typography, restrained heading
+weights, neutral layered surfaces, subtle separators, compact controls, and royal-blue
+selection indicators. Settings styling is scoped independently of Home, onboarding,
+and status notices. Both light and dark appearances remain supported. Optional
+explanations use accessible information buttons; privacy and insertion consequences
+remain visible.
+
 ## Visual vocabulary
 
 - The only app theme colors are neutral white, black/grayscale, and royal blue. No sage, green, olive, teal, cream or green-tinted secondary text. Neutral grays have equal RGB channels.
 - Light mode: white or neutral near-white sidebar and content, black/neutral dark text. Dark mode: black or neutral charcoal sidebar and content, white/neutral light text. Example dark surfaces: `#111111`, `#181818`, `#242424`; do not use the rejected green-blacks `#1D211F` or `#28352D`.
-- Sole brand accent: **`#244BDF` (RGB 36, 75, 223), in both appearances**. Replace the legacy baby blue `#5995C9` and its accent derivatives. Do not substitute pale `#A8BCFF` in dark mode. Trace both `Palette` and `EditorialPalette` consumers so legacy accents do not leak into settings, navigation or onboarding.
+- Sole brand accent: **`#4D6FF0` (RGB 77, 111, 240), in both appearances**. Replace the legacy baby blue `#5995C9` and its accent derivatives. Do not substitute pale `#A8BCFF` in dark mode. Trace both `Palette` and `EditorialPalette` consumers so legacy accents do not leak into settings, navigation or onboarding.
 - Use royal blue for primary actions, selected indicators, underlines, icons, links and progress as appropriate. White primary-button labels must remain readable. If small royal-blue text fails contrast on a dark surface, use a neutral label plus a royal-blue indicator/fill; do not solve it by changing the brand to baby blue. Verify focus and disabled states too.
 - Keep broad surfaces neutral. Subtle blue selection treatments must not become a second pastel-blue brand or a large tinted canvas. The website's occasional sage illustration highlight is not authorized for the app theme.
 - Illustration, if retained, uses neutral ink/paper and a royal-blue voice ribbon only. No green fill, rejected human hero or unrelated decorative colors.
-- Native semantic text styles, legibility, keyboard navigation, accessible contrast and usable settings density take precedence over marketing typography. Keep the correction focused; preserve the settings/onboarding layout unless a small adjustment is needed for usability.
+- Native semantic text styles, legibility, keyboard navigation, accessible contrast and usable settings density take precedence over marketing typography. Keep the correction focused; use the Settings organization above while preserving the onboarding layout.
 
 ## Scope and protected behavior
 
@@ -22,7 +40,7 @@ Preserve dictation, recording, transcription, cleanup, insertion, shortcuts, pro
 
 ## Acceptance criteria
 
-- All app-owned theme surfaces are neutral white/black/grayscale with royal-blue `#244BDF` accents; no green/sage tint or legacy baby-blue accent remains. Settings and onboarding retain native controls and usable density.
+- All app-owned theme surfaces are neutral white/black/grayscale with royal-blue `#4D6FF0` accents; no green/sage tint or legacy baby-blue accent remains. Settings and onboarding retain native controls and usable density.
 - Text, icons, selection, focus, disabled states and interactive controls remain legible in light and dark appearances. Respect reduced motion and keyboard operation.
 - Notifications and alerts retain their existing behavior; review the diff and relevant checks against the baseline.
 - Replace the rejected after screenshots with corrected native settings/onboarding screenshots in light/dark and compact layouts using synthetic data. Embed images in the implementation PR and label historical images clearly.

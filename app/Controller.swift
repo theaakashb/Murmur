@@ -792,13 +792,13 @@ final class PreStart: @unchecked Sendable {
             alert.messageText = expiredMeetings == 0 ? "Delete \(expired.count) expired transcripts?" : "Delete \(expired.count) expired transcripts and \(expiredMeetings) \(expiredMeetings == 1 ? "meeting" : "meetings")?"
             alert.informativeText = "Applying this retention period permanently removes these older entries."
             alert.addButton(withTitle: "Apply and Delete"); alert.addButton(withTitle: "Cancel")
-            guard alert.runModal() == .alertFirstButtonReturn else { retention = appliedRetention; return }
+            guard alert.runDestructive() == .alertFirstButtonReturn else { retention = appliedRetention; return }
         }
         if historyMode == .off && appliedHistoryMode == .on {
             let alert = NSAlert(); alert.messageText = "Turn history off?"
             alert.informativeText = HistoryMode.offDisclosure
             alert.addButton(withTitle: "Turn Off History"); alert.addButton(withTitle: "Cancel")
-            guard alert.runModal() == .alertFirstButtonReturn else { historyMode = appliedHistoryMode; return }
+            guard alert.runDestructive() == .alertFirstButtonReturn else { historyMode = appliedHistoryMode; return }
         }
         let routes = routeSettings
         if routes.cleanup == .appleIntelligence && appliedRoutes.cleanup != .appleIntelligence { AppleCleanupProvider().prewarm() }
@@ -1796,7 +1796,7 @@ final class PreStart: @unchecked Sendable {
         let alert = NSAlert(); alert.messageText = "Reset learned dictionary entries?"
         alert.informativeText = "This removes every learned entry and all learning evidence, and unblocks every word under Not learned. Entries you added stay."
         alert.addButton(withTitle: "Reset Learned"); alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
         do { try processing?.resetLearned(); dictionaryMessage = "" } catch { dictionaryMessage = "Could not reset learned entries." }
         refreshDictionary()
     }
@@ -2024,7 +2024,7 @@ final class PreStart: @unchecked Sendable {
     func clearHistory() {
         let alert = NSAlert(); alert.messageText = "Delete all saved transcripts?"; alert.informativeText = "This cannot be undone."
         alert.addButton(withTitle: "Delete All"); alert.addButton(withTitle: "Cancel")
-        if alert.runModal() == .alertFirstButtonReturn {
+        if alert.runDestructive() == .alertFirstButtonReturn {
             do { for entry in history { try deleteTranscript(entry) } }
             catch { message = "Could not delete all transcripts. Remaining entries are shown in History." }
             refreshHistory()
@@ -2081,7 +2081,7 @@ final class PreStart: @unchecked Sendable {
         let alert = NSAlert(); alert.messageText = "Remove the downloaded model?"
         alert.informativeText = "Murmur cannot dictate until you download it again (\(ModelFacts.formatBytes(downloader.downloadSize))) or choose another model folder."
         alert.addButton(withTitle: "Remove"); alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
         if let refusal = ModelGate.removeRefusal(isBusy: isBusy, preview: preview, downloading: modelDownloadInFlight) { modelMessage = refusal; return }
         warm.stopNow() // Release the helper's open model files before deleting them.
         do { try downloader.remove(); modelMessage = "The model was removed." }
@@ -2115,7 +2115,7 @@ final class PreStart: @unchecked Sendable {
         let alert = NSAlert(); alert.messageText = DictionaryModelFacts.removeTitle
         alert.informativeText = DictionaryModelFacts.removeBody(folder: dictionaryDownloader.target)
         alert.addButton(withTitle: "Remove"); alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
         if let refusal = ModelGate.removeRefusal(isBusy: isBusy, preview: preview, downloading: dictionaryDownloadInFlight) { dictionaryModelMessage = refusal; return }
         warm.stopNow()
         do { try dictionaryDownloader.remove(); dictionaryModelMessage = "Dictionary support was removed." }
@@ -2191,7 +2191,7 @@ final class PreStart: @unchecked Sendable {
         let alert = NSAlert(); alert.messageText = LiveWordsFacts.removeTitle
         alert.informativeText = LiveWordsFacts.removeBody(folder: liveWordsDownloader.target)
         alert.addButton(withTitle: "Remove"); alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
         if let refusal = ModelGate.removeRefusal(isBusy: isBusy, preview: preview, downloading: liveWordsDownloadInFlight) { liveWordsMessage = refusal; return }
         do { try liveWordsDownloader.remove(); liveWordsMessage = "Live words were removed." }
         catch { liveWordsMessage = (error as? ModelDownloadError)?.userMessage ?? ModelDownloadError.fileSystem.userMessage }
@@ -2402,7 +2402,7 @@ final class PreStart: @unchecked Sendable {
         guard !isBusy else { message = "Finish the current dictation before deleting data."; return }
         let alert = NSAlert(); alert.messageText = DeleteAllDataText.title; alert.informativeText = DeleteAllDataText.body
         alert.addButton(withTitle: "Delete All Data"); alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
         deleteConfirmedData()
     }
     /// Confirmation is kept outside the wipe so checks exercise the same reset as the UI.

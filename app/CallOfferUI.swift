@@ -99,7 +99,7 @@ private struct CallOfferCard: View {
                 Image(systemName: "waveform").font(.system(size: 12)).foregroundStyle(.secondary).accessibilityHidden(true)
                 Text(offer.text).font(.system(size: 12, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
-                Button { presenter.hide() } label: { Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)) }
+                Button { presenter.hide() } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Not now")
             }
             Text(offer.question).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
