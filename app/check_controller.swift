@@ -87,6 +87,22 @@ import AVFoundation
         print("Controller probe ownership checks passed (multi-buffer copy, private mode, original preserved, failed-copy cleanup).")
     }
     @MainActor static func checkDismissal() throws {
+        let warning = AppController(preview: true)
+        warning.recordCleanup(outcome: .localRules, fallback: .cleanerFailed)
+        precondition(warning.cleanupWarning)
+        warning.recordCleanup(outcome: .localRules, fallback: .unexplainedDeletion)
+        precondition(warning.cleanupWarning)
+        warning.recordCleanup(outcome: .modelAccepted, fallback: nil)
+        precondition(!warning.cleanupWarning)
+        warning.recordCleanup(outcome: .localRules, fallback: .cleanerFailed)
+        warning.recordCleanup(outcome: .localRoute, fallback: nil)
+        precondition(!warning.cleanupWarning)
+        warning.recordCleanup(outcome: .localRules, fallback: .cleanerFailed)
+        warning.recordCleanup(outcome: .off, fallback: nil)
+        precondition(warning.cleanupWarning)
+        warning.recordCleanup(outcome: .modelAccepted, fallback: nil)
+        warning.recordCleanup(outcome: .localRules, fallback: .answerPattern, error: .quota(.gemini))
+        precondition(warning.cleanupWarning)
         for phase in ["Listening", "Processing", "Error"] { precondition(showsFloatingIndicator(phase: phase)) }
         for phase in ["Saved", "Inserted", "Ready"] { precondition(!showsFloatingIndicator(phase: phase)) }
         func spaced(_ text: String, _ value: String?, _ location: Int, _ length: Int = 0, _ enabled: Bool = true) -> String {

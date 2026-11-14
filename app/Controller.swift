@@ -1444,6 +1444,7 @@ final class PreStart: @unchecked Sendable {
         entry.cleanupModel = Self.modelID(processing?.cloudCleaner)
         let text = entry.rawText
         let saved = HistoryText.saved(persists: !store.sessionOnlyIDs.contains(entry.id))
+        recordCleanup(outcome: result.cleanupPath, fallback: result.fallback, error: result.providerError)
         // A held result keeps only the raw transcript and is never inserted.
         guard case .insert(let processed) = outcome else {
             let reason = result.providerError.map { " " + $0.userMessage } ?? ""
@@ -1536,6 +1537,15 @@ final class PreStart: @unchecked Sendable {
         }
         destination = nil; historySaved(); done()
     }
+    // Keep the warning visible until a later dictation confirms recovery or uses an intentional local route.
+    @Published private(set) var cleanupWarning = false
+    func recordCleanup(outcome: CleanupPath?, fallback: CleanupFailureReason?, error: ProviderError? = nil) {
+        let previous = cleanupWarning
+        if outcome == .modelAccepted || outcome == .localRoute { cleanupWarning = false }
+        else if fallback == .cleanerFailed || error != nil { cleanupWarning = true }
+        if previous != cleanupWarning { updateMenu?() }
+    }
+
     // MARK: Mode recovery
 
     /// Where verified inserted text sits, so the pill's "Use without mode" can replace exactly it.

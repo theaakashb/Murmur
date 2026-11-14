@@ -99,9 +99,15 @@ import SwiftUI
         if !controller.showMenuBar { if let statusItem { NSStatusBar.system.removeStatusItem(statusItem) }; statusItem = nil; return }
         if statusItem == nil { statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength) }
         let recording = controller.meetingRecorder.live != nil
-        statusItem?.button?.image = recording ? NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Murmur: recording meeting notes") : Logo.menuBarImage
+        statusItem?.button?.image = recording ? NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Murmur: recording meeting notes")
+            : controller.cleanupWarning ? NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Murmur: AI cleanup unavailable") : Logo.menuBarImage
         let menu = NSMenu()
         let state = NSMenuItem(title: controller.phase, action: nil, keyEquivalent: ""); state.isEnabled = false; menu.addItem(state)
+        if controller.cleanupWarning {
+            let warning = NSMenuItem(title: "⚠ AI cleanup unavailable", action: nil, keyEquivalent: ""); warning.isEnabled = false; menu.addItem(warning)
+            let detail = NSMenuItem(title: "Dictation uses basic cleanup until AI returns.", action: nil, keyEquivalent: ""); detail.isEnabled = false; menu.addItem(detail)
+            menu.addItem(withTitle: "Open Cleanup Settings…", action: #selector(openCleanupSettings), keyEquivalent: "").target = self
+        }
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: "").target = self
         menu.addItem(withTitle: "History…", action: #selector(openHistory), keyEquivalent: "").target = self
@@ -129,6 +135,7 @@ import SwiftUI
         menu.addItem(.separator()); menu.addItem(withTitle: "Quit Murmur", action: #selector(quit), keyEquivalent: "q").target = self
         statusItem?.menu = menu
     }
+    @objc func openCleanupSettings() { controller.screenRequest = "settings-2"; showWindow() }
     @objc func openSettings() {
         controller.screenRequest = "settings"
         showWindow()
