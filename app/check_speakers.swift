@@ -31,6 +31,17 @@ func segment(_ speaker: String, _ start: Double, _ end: Double) -> SpeakerSegmen
             check(MeetingSpeakers.speaker(0, 1, [], nearest: true) == nil, "no segments: no speaker")
         }
 
+        do {
+            var room = Meeting(id: UUID().uuidString, recordedAt: Date(), source: .microphoneOnly)
+            room.speakers = SpeakerSeparation(state: .pending)
+            room.insert(stream: .me, start: 0, end: 4, text: "Hello there", words: [[0, 1], [2, 3]])
+            MeetingSpeakers.apply([segment("a", 0, 1.5), segment("b", 1.5, 4)], to: &room)
+            check(room.lines.map(\.stream) == [.me, .me] && room.lines.map(\.speaker) == [1, 2], "room speakers split without changing stream")
+            check(MeetingSpeakers.label(room.lines[1], in: room) == "Speaker 2", "room speaker label")
+            room.reassignLine(room.lines[1].id, to: 1)
+            check(room.lines[1].speaker == 1, "room speaker reassignment")
+        }
+
         // Numbering is by first assigned line, so a speaker with no text leaves no gap.
         do {
             var meeting = Meeting(id: UUID().uuidString, recordedAt: Date(), source: call)

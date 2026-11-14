@@ -97,7 +97,7 @@ enum MeetingNotesPrompt {
     /// The other side's labels in order of first line, when speakers were separated; empty otherwise.
     static func speakers(_ lines: [Numbered]) -> [String] {
         var seen = Set<String>()
-        let labels = lines.filter { $0.line.stream == .them }.map(\.speaker).filter { seen.insert($0).inserted }
+        let labels = lines.filter { $0.line.stream == .them || $0.line.speaker != nil }.map(\.speaker).filter { seen.insert($0).inserted }
         return labels == ["Them"] ? [] : labels
     }
 
@@ -145,8 +145,9 @@ enum MeetingNotesPrompt {
         let id = nonce.filter { $0.isLetter || $0.isNumber }
         let tag = "lines-\(id)", notesTag = "my-notes-\(id)"
         let speakers = speakers(lines)
-        let side = speakers.isEmpty ? "\"Them\" is the other side." : "The other side's speakers are \(speakers.joined(separator: ", "))."
-        let room = lines.contains { $0.speaker == "Room" } ? "Room is a shared microphone; it can contain multiple people. Never identify it as Me or the recorder." : ""
+        let isRoom = lines.contains { $0.speaker == "Room" || ($0.line.stream == .me && $0.line.speaker != nil) }
+        let side = isRoom ? "Speaker labels identify voices captured by a shared microphone, not necessarily the recorder." : (speakers.isEmpty ? "\"Them\" is the other side." : "The other side's speakers are \(speakers.joined(separator: ", ")).")
+        let room = isRoom ? "Room is a shared microphone; it can contain multiple people. Never identify its speakers as the recorder without evidence." : ""
         let system = """
         \(room)
         You write meeting notes from a call transcript. Each line starts with [L<number> <speaker> <time>]. "Me" is the user who recorded the call; \(side)
