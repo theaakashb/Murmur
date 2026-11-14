@@ -495,9 +495,11 @@ struct SettingsView: View {
                     Image(systemName: "magnifyingglass")
                     Text("Search settings")
                     Spacer(minLength: 0)
+                    Text("⌘K").accessibilityHidden(true)
                 }.font(.system(size: 12)).foregroundStyle(Palette.ink70)
                     .padding(8).overlay(RoundedRectangle(cornerRadius: 5).stroke(Palette.ink20))
-            }.buttonStyle(.plain).padding(.bottom, 24)
+            }.buttonStyle(.plain).keyboardShortcut("k", modifiers: .command)
+                .help("Search all settings (⌘K)").padding(.bottom, 24)
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(SettingsNavigation.destinations.indices, id: \.self) { index in
