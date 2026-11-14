@@ -782,3 +782,12 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     /// UI fixture only (check_ui.swift).
     func showFixture(enabled: Bool, status: ModelStatus) { fixture = true; self.enabled = enabled; self.status = status }
 }
+
+extension NSAlert {
+    /// Destructive first button, Cancel as the Return default so a stray keypress deletes nothing.
+    func runDestructive() -> NSApplication.ModalResponse {
+        buttons.first?.hasDestructiveAction = true
+        if buttons.count > 1 { buttons[0].keyEquivalent = ""; buttons[1].keyEquivalent = "\r" }
+        return runModal()
+    }
+}

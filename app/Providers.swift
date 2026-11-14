@@ -215,7 +215,10 @@ protocol TranscriptionProvider: Sendable {
     func transcribe(_ audio: AudioPayload) async throws -> String
     /// Minimal authenticated call that consumes no tokens. Throws `ProviderError`.
     func validate() async throws
+    /// Model identifier for History; nil where the provider has none.
+    var modelID: String? { get }
 }
+extension TranscriptionProvider { var modelID: String? { nil } }
 
 protocol CleanupProvider: Sendable {
     var id: ProviderID { get }
@@ -223,6 +226,15 @@ protocol CleanupProvider: Sendable {
     /// One request, no retry. Returns the model text unchanged; the caller runs the bound/guard check.
     func cleanup(_ messages: CleanupMessages) async throws -> String
     func validate() async throws
+    /// Model identifier for History; nil where the provider has none (Apple's on-device model).
+    /// Read it after the call: a rate limit during a dictation moves Gemini to its fallback model.
+    var modelID: String? { get }
+    /// The same provider with the longest wait it permits, for work longer than a dictation.
+    var patient: CleanupProvider { get }
+}
+extension CleanupProvider {
+    var modelID: String? { nil }
+    var patient: CleanupProvider { self }
 }
 
 // MARK: - HTTP
@@ -707,6 +719,7 @@ enum OpenAIChatFormat {
 struct OpenAICompatibleTranscriptionProvider: DetailedTranscriber {
     let server: OpenAICompatibleCleanupProvider
     let id = ProviderID.customAPI
+    var modelID: String? { server.model }
     var transport: HTTPTransport = URLSessionTransport()
     /// Conservative client upload cap; the configured server may impose a smaller one.
     static let uploadLimitBytes = 25_000_000
@@ -775,6 +788,8 @@ struct GeminiCleanupProvider: CleanupProvider {
 
     /// The next request goes to the slower fallback model because the primary is rate limited.
     var onFallback: Bool { fallback != nil && fallback != model && limits.isLimited(model) }
+    var modelID: String? { onFallback ? fallback : model }
+    var patient: CleanupProvider { var next = self; next.timeout = 120; return next }
 
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .cleanup, destinationHost: baseURL.host ?? "generativelanguage.googleapis.com",
@@ -957,6 +972,7 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
     let apiKey: APIKey
     var baseURL: URL = GeminiTranscriptionProvider.defaultBaseURL
     var model: String = GeminiTranscriptionProvider.defaultModel
+    var modelID: String? { model }
     var schemaStyle: SchemaStyle = .responseFormat
     var timeout: TimeInterval = 60
     /// Bounds runaway output (a hallucinating model); five minutes of speech is about 1,500 tokens.
@@ -1215,6 +1231,7 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
     let apiKey: APIKey
     var baseURL: URL = GeminiTranscribeProvider.defaultBaseURL
     var model: String = GeminiTranscribeProvider.defaultModel
+    var modelID: String? { model }
     var mode: Mode = .verbatim
     /// Sent as `store`. True per the user's decision (Google stores the interaction). False asks
     /// Google not to store it; then a non-synchronous answer cannot be polled.
@@ -1677,6 +1694,8 @@ struct OpenAICompatibleCleanupProvider: CleanupProvider {
     /// Ollama's native model list, used only when `/v1/models` is missing (404).
     var ollamaTagsURL: URL { URL(string: baseURL.absoluteString + "/api/tags")! }
     var effectiveTimeout: TimeInterval { min(max(timeout, 1), Self.maximumTimeout) }
+    var modelID: String? { model }
+    var patient: CleanupProvider { var next = self; next.timeout = Self.maximumTimeout; return next }
 
     var disclosure: DataDisclosure {
         switch locality {

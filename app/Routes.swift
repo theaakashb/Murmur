@@ -265,6 +265,14 @@ struct DisclosureStage: Equatable, Sendable {
     let disclosure: DataDisclosure
 }
 
+extension RouteSettings {
+    /// A meeting-notes route: this cleanup provider, with local transcription so no transcriber is built.
+    func notes(_ cleanup: CleanupChoice) -> RouteSettings {
+        var routes = self; routes.transcription = .local; routes.cleanup = cleanup
+        return routes
+    }
+}
+
 /// What a dictation would use with these settings and keys, decided before recording starts.
 struct RoutePlan {
     /// Nil means local transcription (Parakeet).
@@ -279,7 +287,7 @@ struct RoutePlan {
     var usesLocalModel: Bool { transcriber == nil && refusal == nil }
 
     /// Reads only the disclosure of a provider; this placeholder is never sent anywhere.
-    private static let placeholderKey = APIKey("disclosure-only")!
+    static let placeholderKey = APIKey("disclosure-only")!
 
     /// `cleanupSendsText` is false when every cleanup option is off: the provider is not called
     /// then, so nothing is sent and no key is needed.
