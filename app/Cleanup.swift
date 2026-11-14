@@ -756,11 +756,14 @@ enum CleanupGuard {
     /// or every negation gone. Self-corrections (the correction window) may drop words, and numbers.
     /// shortcut: length and tail floors, not a semantic check; a same-length meaning change passes, upgrade with a verifier.
     static func truncated(raw: String, cleaned: String) -> Bool {
+        // Judge the comma form of a split cue ("Tuesday. No, Wednesday." -> "Tuesday, no, Wednesday").
+        let raw = RuleCleaner.mergeSplitCues(raw)
         let r = words(raw), o = words(cleaned)
         let a = r.map(\.lower), b = o.map(\.lower)
-        let spoken = words(RuleCleaner.removeFillers(raw)).count
-        if spoken >= 8 && Double(o.count) < Double(spoken) * 0.6 { return true }
         let window = correctionWindow(raw, loose: true)
+        // Words a correction replaces are not substance, so they do not count toward the length floor.
+        let spoken = words(RuleCleaner.removeFillers(raw)).count - window.count
+        if spoken >= 8 && Double(o.count) < Double(spoken) * 0.6 { return true }
         let matched = align(a, b).0
         let kept = Set(b.map { String($0.prefix(5)) })
         var tail = 0, k = a.count - 1
@@ -772,7 +775,7 @@ enum CleanupGuard {
             if ["unless", "until", "except"].contains(a[i]) && !b.contains(a[i]) { return true }
         }
         let rawNeg = a.indices.filter { CleanupText.isNegation(a[$0]) && !window.contains($0) }.count
-        return rawNeg > 0 && !b.contains(where: CleanupText.isNegation)
+        return rawNeg > 0 && !b.contains(where: { CleanupText.isNegation($0) || $0 == "without" })
     }
 
     /// LCS alignment over lowercased words; returns matched raw and cleaned indices.
