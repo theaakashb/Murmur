@@ -783,8 +783,10 @@ final class PreStart: @unchecked Sendable {
     }
     func applySettings() {
         guard !isBusy else { message = "Finish the current dictation before changing settings."; return }
+        let retentionChanged = retention != appliedRetention
+        let historyChanged = historyMode != appliedHistoryMode
         let expired: [HistoryEntry]
-        do { expired = try store?.expired(retention: retention) ?? [] }
+        do { expired = retentionChanged ? try store?.expired(retention: retention) ?? [] : [] }
         catch { message = "Could not review history retention. Settings were not applied."; return }
         let expiredMeetings = HistoryExpiry.cutoff(HistoryRetention(rawValue: retention) ?? .thirtyDays).map { cutoff in meetingRecorder.meetings.filter { $0.recordedAt <= cutoff }.count } ?? 0
         if retention != appliedRetention, !expired.isEmpty || expiredMeetings > 0 {
@@ -834,7 +836,12 @@ final class PreStart: @unchecked Sendable {
         defaults.set(learningRequiresReadableField, forKey: ProcessingSettings.Key.readableLearning)
         defaults.set(updateChecksEnabled, forKey: ProcessingSettings.Key.updateChecks)
         if !preview { sparkleUpdater.setPreferences(checks: updateChecksEnabled, installs: installUpdatesAutomatically) }
-        do { try store?.purge(retention: appliedRetention); meetingRecorder.purge(cutoff: HistoryExpiry.cutoff(HistoryRetention(rawValue: appliedRetention) ?? .thirtyDays)); try enforceHistoryCap(); refreshHistory() } catch { setPhase("Error", "Could not apply history retention.") }
+        // Unrelated switches must not scan disk and recompute Insights during their animation.
+        if retentionChanged {
+            do { try store?.purge(retention: appliedRetention); meetingRecorder.purge(cutoff: HistoryExpiry.cutoff(HistoryRetention(rawValue: appliedRetention) ?? .thirtyDays)); try enforceHistoryCap() }
+            catch { setPhase("Error", "Could not apply history retention.") }
+        }
+        if retentionChanged || historyChanged { refreshHistory() }
         refreshPermissions(); if !preview { configureShortcut() }
         if phase == "Ready" { message = idleMessage }
         updateMenu?()

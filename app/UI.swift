@@ -390,10 +390,9 @@ struct SettingsView: View {
                 if !saved.isEmpty && saved != MicrophoneChoice.automatic && !devices.contains(where: { $0.uid == saved }) { Text("Chosen microphone (not connected)").tag(saved) }
             }
             .labelsHidden()
-            if saved == MicrophoneChoice.automatic {
-                SettingInfoButton(text: "Uses the Mac’s built-in microphone instead of a Bluetooth headset’s while available, so AirPods keep full playback quality. Otherwise uses the system default.")
-            }
-            settingInfo("If the microphone changes while you dictate, recording continues on the new one and keeps what was already recorded.")
+            settingInfo((saved == MicrophoneChoice.automatic
+                ? "Uses the Mac’s built-in microphone instead of a Bluetooth headset’s while available, so AirPods keep full playback quality. Otherwise uses the system default.\n\n" : "")
+                + "If the microphone changes while you dictate, recording continues on the new one and keeps what was already recorded.")
         }
     }
 
@@ -1232,10 +1231,8 @@ struct SettingsView: View {
             rule.padding(.top, 24)
             toggleRow("Learn from my corrections", "Fix a misheard word once, within a minute, and Murmur adds it to your dictionary and fixes it from your next dictation. Where an app hides its text, it follows your keys for that minute; raw keys stay in memory.", isOn: $controller.learningEnabled)
             toggleRow("Limit learning to readable fields", "No keystroke learning in editors Murmur can't read. Add those words by hand.", isOn: $controller.learningRequiresReadableField)
-            DisclosureGroup("On-device dictionary support") {
-                dictionaryModel
-            }
-            .font(Font.system(size: 14)).padding(.top, 16)
+            eyebrow("On-device dictionary support").padding(.top, 16)
+            dictionaryModel
         }
         .onAppear { controller.refreshDictionarySuggestions() }
     }
