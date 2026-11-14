@@ -745,6 +745,13 @@ struct EchoAsyncCleaner: AsyncCleaner {
         expect(CleanupPipeline.judge(raw: ramble, cleaned: "I was thinking we should look at the quarter budget and maybe cut the travel line if we can.", options: trustedPro, allowedTerms: []) == .cleaned("I was thinking we should look at the quarter budget and maybe cut the travel line if we can."), "trust accepts a rambling condensation")
         let cond = "Do not ship it unless QA signs off."
         expect(CleanupPipeline.judge(raw: cond, cleaned: "Do not ship it.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: cond, reason: .unexplainedDeletion), "trust holds a dropped condition")
+        for (raw, out) in [("That sounds pretty good no I mean that doesn't sound that great.", "That doesn't sound that great."),
+                           ("What time is it? No, I mean, what day is it?", "What day is it?"),
+                           ("Send Alex 20 dollars no I mean do not send Alex 20 dollars.", "Do not send Alex 20 dollars.")] {
+            expect(CleanupPipeline.judge(raw: raw, cleaned: out, options: trustedPro, allowedTerms: []) == .cleaned(out), "trust accepts explicit repair: \(out)")
+        }
+        let dropNeg = "Send Alex 20 dollars to the vendor and do not tell the team about the change."
+        expect(CleanupPipeline.judge(raw: dropNeg, cleaned: "Send Alex 20 dollars to the vendor and tell the team about the change.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: dropNeg, reason: .unexplainedDeletion), "trust holds a negation dropped outside a repair")
         let old = try? JSONDecoder().decode(CleanupOptions.self, from: Data(#"{"fillers":true,"corrections":true,"lists":true,"spoken":true}"#.utf8))
         expect(old?.trustModel == false && !CleanupOptions.standard.trustModel && !CleanupOptions().trustModel, "trust is off by default and in old saved options")
         // Failure reasons are content-free identifiers.

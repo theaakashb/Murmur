@@ -1719,7 +1719,7 @@ enum CleanupPipeline {
             let reason: CleanupFailureReason? = CleanupGuard.words(output).isEmpty ? .emptyOutput
                 : CleanupGuard.answers(raw: raw, cleaned: output) ? .answerPattern
                 : Double(output.count) > Double(raw.count) * 2 + 10 ? .lengthRatio
-                : CleanupGuard.truncated(raw: raw, cleaned: output) ? .unexplainedDeletion : nil
+                : CleanupGuard.truncated(raw: CleanupGuard.applyExplicitRepairs(raw), cleaned: output) ? .unexplainedDeletion : nil
             return reason.map { .heldForRecovery(raw: raw, reason: $0) } ?? .cleaned(output)
         }
         switch CleanupGuard.check(raw: raw, cleaned: output, options: options, allowedTerms: allowedTerms, soundsLike: soundsLike) {
