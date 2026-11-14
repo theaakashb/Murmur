@@ -125,7 +125,7 @@ struct MeetingsPage: View {
                     Spacer()
                     Button { recorder.message = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("Dismiss")
                 }
-                .foregroundStyle(Palette.paper).padding(.horizontal, 24).padding(.vertical, 10).background(Palette.accentDeep)
+                .foregroundStyle(Color.white).padding(.horizontal, 24).padding(.vertical, 10).background(Palette.accent)
             }
             if controller.historyMode == .off {
                 lede("History is off, so meetings are kept only until Murmur quits. Export one to keep it.", color: Palette.accentDeep).padding(.horizontal, 24).padding(.bottom, 8)
@@ -333,7 +333,7 @@ struct MeetingsPage: View {
                             Button { tab = item } label: {
                                 Text(item.rawValue).font(WindowType.body(13, weight: .semibold)).padding(.horizontal, 14).frame(height: 32)
                                     .foregroundStyle(tab == item ? Palette.ink : Palette.ink70)
-                                    .overlay(alignment: .bottom) { Rectangle().fill(tab == item ? Palette.accentInk : Color.clear).frame(height: 2) }
+                                    .overlay(alignment: .bottom) { Rectangle().fill(tab == item ? Palette.accent : Color.clear).frame(height: 2) }
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain).accessibilityAddTraits(tab == item ? .isSelected : [])
