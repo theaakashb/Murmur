@@ -241,7 +241,7 @@ final class DictionaryStore {
 
     /// Folded variant key -> entry. Command targets win, then manual entries over learned ones,
     /// then older entries.
-    private func variantTable() -> [String: DictionaryEntry] {
+    private func variantTable(isCommonWord: ((String) -> Bool)? = nil) -> [String: DictionaryEntry] {
         var table: [String: DictionaryEntry] = [:]
         let ordered = entries.filter(\.enabled).sorted {
             let command0 = Self.isCommandTarget($0), command1 = Self.isCommandTarget($1)
@@ -252,10 +252,20 @@ final class DictionaryStore {
         for entry in ordered {
             for variant in entry.variants {
                 guard let key = TermText.phraseKey(variant), table[key] == nil else { continue }
+                if Self.skipLearnedVariant(variant, entry: entry, isCommonWord: isCommonWord) { continue }
                 table[key] = entry
             }
         }
         return table
+    }
+
+    /// Keep unsafe learned aliases stored, but omit them from both replacement and model biasing.
+    static func skipLearnedVariant(_ variant: String, entry: DictionaryEntry, isCommonWord: ((String) -> Bool)?) -> Bool {
+        guard entry.source == .learned, let common = isCommonWord,
+              let key = TermText.phraseKey(variant), key.split(separator: " ").allSatisfy({ common(String($0)) }) else { return false }
+        let targetWords = TermText.tokens(entry.preferred)
+        let acronym = targetWords.allSatisfy { $0.text.count >= 2 && $0.text.allSatisfy { !$0.isLetter || $0.isUppercase } }
+        return !acronym && CorrectionFilter.embedsOrdinary(key, TermText.fold(entry.preferred))
     }
 
     /// Replaces whole-word variant phrases with preferred spellings. Explicit variants match
@@ -265,7 +275,7 @@ final class DictionaryStore {
     /// phrase wins (gap #12), then the longest phrase; replaced text is never matched again, so
     /// another entry cannot rewrite words inside an inserted command ("question mark" stays).
     func apply(to text: String, isCommonWord: ((String) -> Bool)? = nil) -> String {
-        let table = variantTable()
+        let table = variantTable(isCommonWord: isCommonWord)
         let terms = isCommonWord == nil ? [] : entries.filter { $0.enabled && !Self.isCommandTarget($0) && $0.preferred.count >= 6 && $0.preferred.allSatisfy(\.isLetter) }
         guard !table.isEmpty || !terms.isEmpty else { return text }
         let maxWords = table.keys.map { $0.split(separator: " ").count }.max() ?? 1
