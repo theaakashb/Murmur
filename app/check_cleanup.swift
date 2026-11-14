@@ -752,6 +752,11 @@ struct EchoAsyncCleaner: AsyncCleaner {
         }
         let dropNeg = "Send Alex 20 dollars to the vendor and do not tell the team about the change."
         expect(CleanupPipeline.judge(raw: dropNeg, cleaned: "Send Alex 20 dollars to the vendor and tell the team about the change.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: dropNeg, reason: .unexplainedDeletion), "trust holds a negation dropped outside a repair")
+        // A repair excuses only its own clause: a negation or condition dropped after it is still held.
+        for (raw, out) in [("Send Alex 20 dollars no I mean send Alex 30 dollars and do not tell the team about it.", "Send Alex 30 dollars and tell the team about it."),
+                           ("Ship it Monday no I mean ship it Tuesday unless QA finds a blocker.", "Ship it Tuesday.")] {
+            expect(CleanupPipeline.judge(raw: raw, cleaned: out, options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: raw, reason: .unexplainedDeletion), "trust holds a drop beside a repair: \(out)")
+        }
         let old = try? JSONDecoder().decode(CleanupOptions.self, from: Data(#"{"fillers":true,"corrections":true,"lists":true,"spoken":true}"#.utf8))
         expect(old?.trustModel == false && !CleanupOptions.standard.trustModel && !CleanupOptions().trustModel, "trust is off by default and in old saved options")
         // Failure reasons are content-free identifiers.
