@@ -174,6 +174,7 @@ import SwiftUI
                 let name = args.indices.contains(i + 1) ? args[i + 1] : ""
                 controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : .offer)
             }
+            if CommandLine.arguments.contains("--cleanup-warning") { controller.recordCleanup(error: .quota(.gemini), outcome: .localRules, fallback: .cleanerFailed) }
             if CommandLine.arguments.contains("--undo") {
                 controller.bubble.showUndo(screen: nil)
                 if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }

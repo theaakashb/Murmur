@@ -560,6 +560,16 @@ struct SettingsView: View {
             .foregroundStyle(controller.phase == "Error" ? Palette.paper : Color.white).padding(.horizontal, 24).padding(.vertical, 12)
             .background(controller.phase == "Error" ? Palette.ink : Palette.accent)
         }
+        if controller.cleanupWarning != nil {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                Text(AppController.cleanupWarningText)
+                    .font(WindowType.body(14)).fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Button("Cleanup settings") { controller.openCleanupSettings() }.buttonStyle(.plain).underline()
+            }
+            .foregroundStyle(Palette.paper).padding(.horizontal, 24).padding(.vertical, 12).background(Palette.ink)
+        }
         if !setupComplete {
             HStack {
                 Text(controller.accessibilityAuthorized && controller.inputMonitoringAuthorized

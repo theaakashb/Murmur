@@ -178,6 +178,27 @@ private struct Item: RetainedHistoryItem { let id: String; let recordedAt: Date 
         check(CorrectionFilter.evaluate(source: "lunch", target: "launch", isCommonWord: common) == .rejected(.ordinaryWords), "lunch -> launch")
         check(CorrectionFilter.evaluate(source: "Acme", target: "Akme", isCommonWord: common) == .accepted(source: "Acme", target: "Akme"), "lexicon keeps Acme -> Akme")
         check(CorrectionFilter.evaluate(source: "Cloud", target: "Claude", manualPreferred: ["claude"], isCommonWord: { lexicon.contains($0) || $0 == "claude" }) == .rejected(.ordinaryWords), "manual term does not waive lexicon guard")
+        // Common word -> manual rare term is contextual, not learned; unfamiliar respelling still is.
+        let cd: (String) -> Bool = { ["cloud", "zero", "cipher"].contains($0) }
+        check(CorrectionFilter.evaluate(source: "Cloud", target: "clouddev", manualPreferred: ["clouddev"], isCommonWord: cd) == .rejected(.ordinaryWords), "common word is not learned toward a manual term")
+        check(CorrectionFilter.evaluate(source: "Zero cloud", target: "Zero clouddev", manualPreferred: ["clouddev"], isCommonWord: cd) == .rejected(.ordinaryWords), "context does not make a common word learnable")
+        check(CorrectionFilter.evaluate(source: "Akmee", target: "Akme", manualPreferred: ["akme"], isCommonWord: cd) == .accepted(source: "Akmee", target: "Akme"), "unfamiliar misspelling still learned")
+        check(CorrectionFilter.evaluate(source: "cloud zero", target: "clouddev zero", manualPreferred: ["clouddev zero"], isCommonWord: cd) == .rejected(.ordinaryWords), "two-word ordinary source extended is not learned")
+        for (src, dst) in [("Cloud", "clouddev"), ("Acme", "Akme")] {
+            let learned: Bool = { if case .accepted = CorrectionFilter.evaluate(source: src, target: dst, isCommonWord: { ["cloud", "acme", "cloud's"].contains($0) }) { return true }; return false }()
+            let skipped = CorrectionFilter.embedsOrdinary(TermText.fold(src), TermText.fold(dst))
+            check(learned != skipped, "learning and apply agree for \(src) -> \(dst)")
+        }
+        do {
+            let d = try DictionaryStore(directory: FileManager.default.temporaryDirectory.appendingPathComponent("murmur-dict-safe-\(UUID())"))
+            try d.add(preferred: "clouddev", variants: ["Cloud", "cloudnip"], source: .learned)
+            try d.add(preferred: "Akme", variants: ["Acme"], source: .learned)
+            try d.add(preferred: "Zed", variants: ["zero"], source: .manual)
+            try d.add(preferred: "GitHub", variants: ["git hub"], source: .learned)
+            let t = d.apply(to: "Cloud zero cloudnip Acme git hub", isCommonWord: cd)
+            check(t == "Cloud Zed clouddev Akme GitHub", "old learned common alias skipped; manual, rare and spacing aliases apply: \(t)")
+            check(d.apply(to: "Cloud") == "Clouddev", "without a lexicon aliases are unchanged")
+        }
         // With a lexicon: case, spacing, acronym and short-name fixes (user decision, October 4, 2026).
         let words: Set<String> = lexicon.union(["notion", "git", "hub", "every", "one", "everyone", "api", "son", "call"])
         let ordinary: (String) -> Bool = { words.contains($0) }

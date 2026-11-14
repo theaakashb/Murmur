@@ -89,6 +89,22 @@ import AVFoundation
     @MainActor static func checkDismissal() throws {
         for phase in ["Listening", "Processing", "Error"] { precondition(showsFloatingIndicator(phase: phase)) }
         for phase in ["Saved", "Inserted", "Ready"] { precondition(!showsFloatingIndicator(phase: phase)) }
+        do { // Cleanup warning: first failure announces once, persists, clears only on real model cleanup.
+            let c = AppController(preview: true), q = ProviderError.quota(.gemini)
+            precondition(c.recordCleanup(error: q, outcome: .localRules, fallback: .cleanerFailed), "first failure announces")
+            precondition(c.cleanupWarning != nil)
+            precondition(!c.recordCleanup(error: q, outcome: .localRules, fallback: .cleanerFailed), "repeat is silent")
+            precondition(c.cleanupWarning != nil, "off-cleanup outcomes keep it")
+            precondition(c.recordCleanup(error: .rateLimited(.gemini, retryAfter: 37), outcome: .localRules, fallback: .cleanerFailed), "a new failure kind announces")
+            precondition(!c.recordCleanup(error: .rateLimited(.gemini, retryAfter: 12), outcome: .localRules, fallback: .cleanerFailed), "changing retry delay stays silent")
+            _ = c.recordCleanup(error: nil, outcome: .localRules, fallback: .unexplainedDeletion)
+            precondition(c.cleanupWarning != nil, "a guard rejection neither raises nor clears")
+            _ = c.recordCleanup(error: nil, outcome: .modelAccepted, fallback: nil)
+            precondition(c.cleanupWarning == nil, "real cleanup clears")
+            precondition(c.recordCleanup(error: nil, outcome: .localRules, fallback: .cleanerFailed), "missing cleaner warns")
+            _ = c.recordCleanup(error: nil, outcome: .localRoute, fallback: nil)
+            precondition(c.cleanupWarning == nil, "a deliberate local route clears a stale outage")
+        }
         func spaced(_ text: String, _ value: String?, _ location: Int, _ length: Int = 0, _ enabled: Bool = true) -> String {
             textWithLeadingSpace(text, value: value, selection: CFRange(location: location, length: length), enabled: enabled)
         }
