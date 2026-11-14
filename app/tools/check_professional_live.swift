@@ -397,10 +397,11 @@ for (index, c) in cases.enumerated() where (flags.subset?.contains(index) ?? tru
         if !results.isEmpty && flags.delay > 0 { try await Task.sleep(nanoseconds: UInt64(flags.delay * 1e9)) }
         let measured = MeasuredProvider(provider, flags); coordinator.cloudCleaner = measured
         let context = flags.context && !c.context.isEmpty ? ScreenContext(selected: "", clipboard: "", window: c.context) : nil
-        guard case .insert(let final) = await coordinator.processAsync(c.raw, style: DictationStyle(options: flags.options, context: context)) else { fatalError("unexpected non-insertion") }
+        let result1 = await coordinator.processAsync(c.raw, style: DictationStyle(options: flags.options, context: context))
+        guard case .insert(let final) = result1.outcome else { fatalError("unexpected non-insertion") }
         let mq = measured.output.map { quality($0, c) }
         let reason = measured.output.flatMap { guardReason(c.raw, $0, flags.options) }, passed = measured.output.map { _ in reason == nil }
-        let r = BenchResult(caseIndex: index, run: run, raw: c.raw, must: c.must, mustNot: c.mustNot, context: context == nil ? nil : c.context, modelOutput: measured.output, modelQuality: mq, guardPass: passed, guardReason: reason, finalOutput: final, finalQuality: quality(final, c), path: coordinator.lastOutcome?.rawValue, seconds: measured.seconds, providerErrors: measured.errors, errorKinds: measured.errorKinds, attempts: measured.seconds.count, totalSeconds: measured.totalSeconds, attemptSucceeded: measured.attemptSucceeded, forbidNumberedList: c.forbidNumberedList)
+        let r = BenchResult(caseIndex: index, run: run, raw: c.raw, must: c.must, mustNot: c.mustNot, context: context == nil ? nil : c.context, modelOutput: measured.output, modelQuality: mq, guardPass: passed, guardReason: reason, finalOutput: final, finalQuality: quality(final, c), path: result1.cleanupPath?.rawValue, seconds: measured.seconds, providerErrors: measured.errors, errorKinds: measured.errorKinds, attempts: measured.seconds.count, totalSeconds: measured.totalSeconds, attemptSucceeded: measured.attemptSucceeded, forbidNumberedList: c.forbidNumberedList)
         results.append(r)
         print("case \(index) run \(run): modelQuality=\(mq.map { String($0.good) } ?? "unavailable") guard=\(passed.map(String.init) ?? "unavailable") guardReason=\(reason ?? "none") finalQuality=\(r.finalQuality.good) errors=\(r.errorKinds) attempts=\(r.attempts) elapsed=\(r.totalSeconds)s")
     }

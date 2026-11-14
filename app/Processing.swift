@@ -31,6 +31,19 @@ enum ProcessingOutcome: Equatable, Sendable {
     case heldForRecovery(raw: String, reason: CleanupFailureReason)
 }
 
+struct ProcessingResult: Sendable {
+    var outcome: ProcessingOutcome
+    var providerError: ProviderError?
+    var fallback: CleanupFailureReason?
+    var rejectedOutput: String?
+    var cleanupPath: CleanupPath?
+    var modelOutput: String?
+    var guardVerdict: String?
+    var promptHash: String?
+    var terms: [String] = []
+    var cleanupInput: String?
+}
+
 /// Settings owned by processing, persisted in UserDefaults.
 struct ProcessingSettings: Equatable, Sendable {
     var options: CleanupOptions = .standard
@@ -288,23 +301,6 @@ final class ProcessingCoordinator {
     /// The cloud route's provider. Nil means the cloud route is not configured, so local rules run.
     /// AppController sets it from `RoutePlan` (selected provider and Keychain key) at each start.
     var cloudCleaner: CleanupProvider?
-    /// The last provider error from `processAsync`, for a content-free notice. Main thread.
-    private(set) var lastProviderError: ProviderError?
-    /// Why the last dictation did not get its full cleanup (content-free), or nil. Main thread.
-    private(set) var lastFallback: CleanupFailureReason?
-    /// The cleanup model's output the guard rejected in the last dictation, or nil. Main thread.
-    private(set) var lastRejectedOutput: String?
-    /// Which path supplied the last dictation's text. Main thread.
-    private(set) var lastOutcome: CleanupPath?
-    /// Diagnostics for the last dictation's History entry (October 22, 2026). Main thread.
-    /// The model's output where the guard accepted it, the guard's verdict per section, the prompt's
-    /// hash, the dictionary terms sent, and the text cleanup received when the dictionary changed it.
-    private(set) var lastModelOutput: String?
-    private(set) var lastGuardVerdict: String?
-    private(set) var lastPromptHash: String?
-    private(set) var lastTerms: [String] = []
-    private(set) var lastCleanupInput: String?
-    private func resetDiagnostics() { lastModelOutput = nil; lastGuardVerdict = nil; lastPromptHash = nil; lastTerms = []; lastCleanupInput = nil }
     /// What the punctuation transfer is guarded as: sentence punctuation and capitals, no word changes.
     static let punctuationOnly = CleanupOptions(fillers: false, corrections: false, lists: false, punctuation: true)
 
@@ -340,9 +336,9 @@ final class ProcessingCoordinator {
     }
 
     /// Local rules, guarded; the dictionary-applied text itself if they fail the guard.
-    private func localClean(_ text: String, terms: [String], options: CleanupOptions) -> String {
+    private func localClean(_ text: String, terms: [String], options: CleanupOptions, evidence: inout ProcessingResult) -> String {
         let local = Self.localRules(text, terms: terms, options: options, cleaner: localCleaner)
-        if let reason = local.reason { lastFallback = lastFallback ?? reason }
+        if let reason = local.reason { evidence.fallback = evidence.fallback ?? reason }
         return local.text
     }
 
@@ -365,14 +361,14 @@ final class ProcessingCoordinator {
     /// cloud route it uses local rules. The app calls `processAsync` whenever the route is not local rules.
     /// `style` carries a writing mode's overrides; nil uses the settings. Screen context and custom
     /// instructions are never used here: local rules send nothing and take no instructions.
-    func process(_ raw: String, style: DictationStyle? = nil) -> ProcessingOutcome {
-        lastProviderError = nil; lastFallback = nil; lastRejectedOutput = nil; lastOutcome = nil; resetDiagnostics()
+    func process(_ raw: String, style: DictationStyle? = nil) -> ProcessingResult {
+        var evidence = ProcessingResult(outcome: .insert(raw))
         let style = style ?? DictationStyle(mode: nil, settings: settings)
         let prepared = prepare(raw)
-        lastTerms = prepared.terms; lastCleanupInput = prepared.text == raw ? nil : prepared.text
-        if settings.route == .cloud && style.options.anyEnabled { lastFallback = .cleanerFailed }
-        lastOutcome = !style.options.anyEnabled ? .off : settings.route == .cloud ? .localRules : .localRoute
-        return .insert(toned(localClean(prepared.text, terms: prepared.terms, options: style.options), input: prepared.text, style: style))
+        evidence.terms = prepared.terms; evidence.cleanupInput = prepared.text == raw ? nil : prepared.text
+        if settings.route == .cloud && style.options.anyEnabled { evidence.fallback = .cleanerFailed }
+        evidence.cleanupPath = !style.options.anyEnabled ? .off : settings.route == .cloud ? .localRules : .localRoute
+        evidence.outcome = .insert(toned(localClean(prepared.text, terms: prepared.terms, options: style.options, evidence: &evidence), input: prepared.text, style: style)); return evidence
     }
 
     /// The mode's tone, applied last to whichever text was chosen (gap #7). Never on the email layout,
@@ -385,13 +381,13 @@ final class ProcessingCoordinator {
 
     /// Full path including the cloud route. Always inserts: see the failure policy above.
     /// Main actor: the dictionary is read on the main thread; only the provider calls run elsewhere.
-    @MainActor func processAsync(_ raw: String, style: DictationStyle? = nil) async -> ProcessingOutcome {
-        lastProviderError = nil; lastFallback = nil; lastRejectedOutput = nil; lastOutcome = nil; resetDiagnostics()
+    @MainActor func processAsync(_ raw: String, style: DictationStyle? = nil) async -> ProcessingResult {
+        var evidence = ProcessingResult(outcome: .insert(raw))
         guard settings.route == .cloud else { return process(raw, style: style) }
         let style = style ?? DictationStyle(mode: nil, settings: settings)
         let prepared = prepare(raw)
         let options = style.options, terms = prepared.terms
-        lastTerms = terms; lastCleanupInput = prepared.text == raw ? nil : prepared.text
+        evidence.terms = terms; evidence.cleanupInput = prepared.text == raw ? nil : prepared.text
         var context = style.context, instructions = style.instructions
         // ponytail: fixed caps keep prompt + a 400-word section inside Apple's ~4K-token window; size by token count if it still overflows.
         if cloudCleaner?.id == .appleIntelligence, var c = context {
@@ -400,14 +396,14 @@ final class ProcessingCoordinator {
         }
         if let kind = style.transform, let provider = cloudCleaner, !prepared.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             if let attempt = await Self.transformClean(prepared.text, kind: kind, provider: provider, terms: terms, instructions: instructions) {
-                lastOutcome = .modelAccepted; lastModelOutput = attempt.accepted; lastPromptHash = attempt.promptHash; lastGuardVerdict = attempt.verdict
-                return .insert(attempt.text ?? prepared.text)
+                evidence.cleanupPath = .modelAccepted; evidence.modelOutput = attempt.accepted; evidence.promptHash = attempt.promptHash; evidence.guardVerdict = attempt.verdict
+                evidence.outcome = .insert(attempt.text ?? prepared.text); return evidence
             }
-            lastFallback = .cleanerFailed // Rewrite failed or was rejected: ordinary cleanup below.
+            evidence.fallback = .cleanerFailed // Rewrite failed or was rejected: ordinary cleanup below.
         }
-        if !options.anyEnabled { lastOutcome = .off }
-        if !options.anyEnabled || prepared.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .insert(toned(prepared.text, input: prepared.text, style: style)) }
-        guard let provider = cloudCleaner else { lastFallback = .cleanerFailed; lastOutcome = .localRules; return .insert(toned(localClean(prepared.text, terms: terms, options: options), input: prepared.text, style: style)) }
+        if !options.anyEnabled { evidence.cleanupPath = .off }
+        if !options.anyEnabled || prepared.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { evidence.outcome = .insert(toned(prepared.text, input: prepared.text, style: style)); return evidence }
+        guard let provider = cloudCleaner else { evidence.fallback = .cleanerFailed; evidence.cleanupPath = .localRules; evidence.outcome = .insert(toned(localClean(prepared.text, terms: terms, options: options, evidence: &evidence), input: prepared.text, style: style)); return evidence }
         // On the slow Gemma fallback, long text is cleaned in parallel sections, each guarded on its own.
         // Apple's on-device model splits longer text, to stay inside its context window (AppleCleanup.swift).
         let sections = (provider as? GeminiCleanupProvider)?.onFallback == true ? CleanupSections.split(prepared.text)
@@ -421,24 +417,24 @@ final class ProcessingCoordinator {
             return out
         }
         // The worst section decides.
-        lastOutcome = results.contains { $0.text == nil } ? .localRules : results.contains { $0.reason != nil } ? .modelPunctuationOnLocal : .modelAccepted
+        evidence.cleanupPath = results.contains { $0.text == nil } ? .localRules : results.contains { $0.reason != nil } ? .modelPunctuationOnLocal : .modelAccepted
         var parts: [String] = []
         for (section, attempt) in zip(sections, results) {
-            if let reason = attempt.reason { lastFallback = lastFallback ?? reason }
-            if let error = attempt.error { lastProviderError = lastProviderError ?? error }
+            if let reason = attempt.reason { evidence.fallback = evidence.fallback ?? reason }
+            if let error = attempt.error { evidence.providerError = evidence.providerError ?? error }
             // A rejected output was never pasted and may echo screen context, so it is not kept for History when
             // context was sent. An accepted output is what was pasted (before tone and spacing), so keeping it
             // stores nothing History does not already hold, and it is the model's exact output.
-            if context == nil, let rejected = attempt.rejected { lastRejectedOutput = (lastRejectedOutput.map { $0 + "\n\n" } ?? "") + rejected }
-            if let accepted = attempt.accepted { lastModelOutput = (lastModelOutput.map { $0 + "\n\n" } ?? "") + accepted }
-            lastPromptHash = lastPromptHash ?? attempt.promptHash
-            let text = attempt.text ?? localClean(section, terms: terms, options: options)
+            if context == nil, let rejected = attempt.rejected { evidence.rejectedOutput = (evidence.rejectedOutput.map { $0 + "\n\n" } ?? "") + rejected }
+            if let accepted = attempt.accepted { evidence.modelOutput = (evidence.modelOutput.map { $0 + "\n\n" } ?? "") + accepted }
+            evidence.promptHash = evidence.promptHash ?? attempt.promptHash
+            let text = attempt.text ?? localClean(section, terms: terms, options: options, evidence: &evidence)
             if !text.isEmpty { parts.append(text) }
         }
         var verdicts: [String] = []
         for attempt in results where !verdicts.contains(attempt.verdict) { verdicts.append(attempt.verdict) }
-        lastGuardVerdict = verdicts.joined(separator: ",")
-        return .insert(toned(parts.joined(separator: " "), input: prepared.text, style: style))
+        evidence.guardVerdict = verdicts.joined(separator: ",")
+        evidence.outcome = .insert(toned(parts.joined(separator: " "), input: prepared.text, style: style)); return evidence
     }
 
     /// A short, stable name for a system prompt: the template without the per-call tag nonce and without the
