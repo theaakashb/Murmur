@@ -56,6 +56,64 @@ enum Palette {
     static let accent16 = accent.opacity(0.16)
 }
 
+/// Scoped to settings and onboarding; floating notices keep Palette unchanged.
+private struct EditorialSurfaceKey: EnvironmentKey { static let defaultValue = false }
+private extension EnvironmentValues {
+    var editorialSurface: Bool {
+        get { self[EditorialSurfaceKey.self] }
+        set { self[EditorialSurfaceKey.self] = newValue }
+    }
+}
+
+private enum EditorialPalette {
+    private static func color(_ light: Int, _ dark: Int) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let hex = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            return NSColor(srgbRed: CGFloat(hex >> 16 & 255) / 255,
+                           green: CGFloat(hex >> 8 & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: 1)
+        })
+    }
+    static let paper = color(0xF4F4EF, 0x1D211F)
+    static let ink = color(0x20221F, 0xF4F4EF)
+    static let ink70 = color(0x555B54, 0xB8C1B9)
+    static let ink64 = ink70
+    static let ink80 = ink
+    static let ink45 = ink70
+    static let ink20 = color(0xCBD1C8, 0x475249)
+    static let accent = color(0x244BDF, 0xA8BCFF)
+    static let accentInk = accent
+    static let accentDeep = accent
+    static let accent16 = color(0xE5E9FF, 0x293651)
+    static let sage = color(0xDCE5DC, 0x28352D)
+}
+
+/// Static paper and voice: no animation, permission state, or user content.
+private struct PaperVoice: View {
+    var body: some View {
+        Canvas { context, size in
+            let sheet = CGRect(x: size.width * 0.34, y: 8, width: size.width * 0.56, height: size.height - 16)
+            context.fill(Path(roundedRect: sheet, cornerRadius: 8), with: .color(EditorialPalette.paper))
+            for row in 0..<4 {
+                let y = 28 + CGFloat(row) * 15
+                var line = Path()
+                line.move(to: CGPoint(x: sheet.minX + 18, y: y))
+                line.addLine(to: CGPoint(x: sheet.maxX - (row == 3 ? 40 : 18), y: y))
+                context.stroke(line, with: .color(EditorialPalette.ink20), lineWidth: 2)
+            }
+            var ribbon = Path()
+            ribbon.move(to: CGPoint(x: 8, y: size.height * 0.6))
+            ribbon.addCurve(to: CGPoint(x: sheet.midX, y: size.height * 0.65),
+                control1: CGPoint(x: size.width * 0.18, y: -20),
+                control2: CGPoint(x: size.width * 0.25, y: size.height + 28))
+            ribbon.addCurve(to: CGPoint(x: sheet.maxX - 18, y: size.height * 0.65),
+                control1: CGPoint(x: sheet.midX + 25, y: size.height * 0.3),
+                control2: CGPoint(x: sheet.maxX - 36, y: size.height * 0.9))
+            context.stroke(ribbon, with: .color(EditorialPalette.accent), style: StrokeStyle(lineWidth: 5, lineCap: .round))
+        }
+        .frame(height: 112).accessibilityHidden(true).allowsHitTesting(false)
+    }
+}
+
 /// Fonts ship with the app; the window never fetches typography from the network.
 enum WindowType {
     private static let registered: Void = {
@@ -106,13 +164,14 @@ struct InkButtonStyle: ButtonStyle {
     enum Kind { case filled, outline, accent, plain }
     var kind: Kind = .filled
     @Environment(\.isEnabled) private var enabled
+    @Environment(\.editorialSurface) private var editorial
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(WindowType.body(14, weight: .semibold)).lineLimit(1)
             .padding(.horizontal, kind == .plain ? 0 : 18).frame(minHeight: 36)
-            .foregroundStyle(kind == .filled || kind == .accent ? Palette.paper : Palette.ink)
-            .background(kind == .filled ? Palette.ink : kind == .accent ? Palette.accentInk : Color.clear, in: Capsule())
-            .overlay { if kind == .outline { Capsule().strokeBorder(Palette.ink, lineWidth: 1) } }
+            .foregroundStyle(kind == .filled || kind == .accent ? (editorial ? Color.white : Palette.paper) : (editorial ? EditorialPalette.ink : Palette.ink))
+            .background(kind == .filled || kind == .accent ? (editorial ? Color(red: 36 / 255, green: 75 / 255, blue: 223 / 255) : kind == .filled ? Palette.ink : Palette.accentInk) : Color.clear, in: RoundedRectangle(cornerRadius: editorial ? 8 : 18))
+            .overlay { if kind == .outline { RoundedRectangle(cornerRadius: editorial ? 8 : 18).strokeBorder(editorial ? EditorialPalette.ink70 : Palette.ink, lineWidth: 1) } }
             .contentShape(Capsule())
             .opacity(enabled ? (configuration.isPressed ? 0.7 : 1) : 0.45)
     }
@@ -204,7 +263,7 @@ struct SettingsView: View {
 
     var body: some View {
         Group {
-            if screen == .setup { setup } else {
+            if screen == .setup { setup.environment(\.editorialSurface, true) } else {
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
                         sidebar
@@ -214,7 +273,7 @@ struct SettingsView: View {
                             case .home: home
                             case .insights: insightsView
                             case .meetings: MeetingsPage(controller: controller, recorder: controller.meetingRecorder)
-                            case .settings: settings
+                            case .settings: settings.environment(\.editorialSurface, true)
                             default: history
                             }
                         }
@@ -408,6 +467,7 @@ struct SettingsView: View {
         }
         .padding(.horizontal, sidebarCollapsed ? 14 : 20).padding(.top, 16)
         .frame(width: sidebarCollapsed ? 64 : 216).frame(maxHeight: .infinity)
+        .background(screen == .settings ? EditorialPalette.sage : Palette.paper)
     }
 
     private var settingsSearchField: some View {
@@ -524,17 +584,19 @@ struct SettingsView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(Self.sections[section]).id("top").font(WindowType.display(40)).tracking(-0.8)
-                    Text(Self.ledes[section]).font(WindowType.body(14)).foregroundStyle(Palette.ink70)
+                    Text(Self.sections[section]).id("top").font(.system(size: 30, weight: .semibold, design: .serif)).tracking(-0.8)
+                    Text(Self.ledes[section]).font(WindowType.body(14)).foregroundStyle(EditorialPalette.ink70)
                         .lineSpacing(2).padding(.top, 6).padding(.bottom, 8)
                     sectionBody.disabled(controller.isBusy)
-                    if controller.isBusy { help("Finish dictating to change settings.", color: Palette.ink64).padding(.top, 12) }
+                    if controller.isBusy { help("Finish dictating to change settings.", color: EditorialPalette.ink64).padding(.top, 12) }
                 }
                 .padding(EdgeInsets(top: 16, leading: 24, bottom: 24, trailing: 24))
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .onAppear { DispatchQueue.main.async { proxy.scrollTo(settingsTarget, anchor: .top) } }
             .onChange(of: settingsNavigationID) { DispatchQueue.main.async { proxy.scrollTo(settingsTarget, anchor: .top) } }
+            .background(EditorialPalette.paper)
+            .tint(EditorialPalette.accent)
             .id(section)
         }
     }
@@ -564,7 +626,7 @@ struct SettingsView: View {
             }.padding(.top, 20)
             segmented([(MeetingTranscription.local, "On this Mac (Parakeet)"), (MeetingTranscription.cloud, "Cloud (\(controller.cloudTranscriber.displayName))")], $controller.meetingTranscription)
             if controller.meetingTranscription == .cloud && controller.meetingCloudNote == nil {
-                help("No cloud transcriber is set up. Choose one and save its key in Settings → Transcription and API Keys.", color: Palette.ink)
+                help("No cloud transcriber is set up. Choose one and save its key in Settings → Transcription and API Keys.", color: EditorialPalette.ink)
             }
             HStack(spacing: 4) {
                 eyebrow("Meeting notes")
@@ -649,7 +711,7 @@ struct SettingsView: View {
                             ModelInfoIcons(license: controller.modelLicense.map(ModelFacts.licenseText), details: controller.modelSummary)
                         }
                         Group {
-                            if controller.modelRow.isReady { mono("Model ready ✓", color: Palette.accentInk) }
+                            if controller.modelRow.isReady { mono("Model ready ✓", color: EditorialPalette.accentInk) }
                             else { Text(controller.modelRow.statusText).font(WindowType.body(14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
                         }
                         .padding(.top, 5)
@@ -678,7 +740,7 @@ struct SettingsView: View {
                         help((controller.usesCustomModelFolder ? "Custom folder" : "Default folder") + " · " + (controller.modelAvailable ? "model files found ✓" : "no model files in this folder"))
                         if !controller.modelDirectory.isEmpty {
                             Text(URL(fileURLWithPath: controller.modelDirectory).lastPathComponent)
-                                .font(.system(size: 12, design: .monospaced)).foregroundStyle(Palette.ink64).lineLimit(1)
+                                .font(.system(size: 12, design: .monospaced)).foregroundStyle(EditorialPalette.ink64).lineLimit(1)
                                 .textSelection(.enabled).help(controller.modelDirectory)
                         }
                     }
@@ -742,7 +804,7 @@ struct SettingsView: View {
         if let text {
             Text(text)
                 .font(WindowType.body(14)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
-                .padding(16).frame(maxWidth: .infinity, alignment: .leading).background(Palette.accent16)
+                .padding(16).frame(maxWidth: .infinity, alignment: .leading).background(EditorialPalette.accent16)
         }
     }
 
@@ -920,17 +982,17 @@ struct SettingsView: View {
             TextEditor(text: Binding(get: { mode.wrappedValue.instructions }, set: { mode.wrappedValue.instructions = String($0.prefix(WritingModeLimits.instructions)) }))
                 .font(WindowType.body(15)).scrollContentBackground(.hidden)
                 .frame(height: m.transform == nil ? 120 : 240).padding(8)
-                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Palette.ink20, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(EditorialPalette.ink20, lineWidth: 1))
                 .accessibilityLabel("Custom instructions").padding(.top, 8)
             help("\(m.instructions.count) of \(WritingModeLimits.instructions) characters. " + (m.transform == nil
                  ? "Sent only to AI cleanup routes. Cleanup still preserves what you said."
-                 : "These are the rewriting instructions sent to AI cleanup. Edit them to make this mode your own. Murmur checks the result, but rewrites can still make mistakes."), color: Palette.ink64)
+                 : "These are the rewriting instructions sent to AI cleanup. Edit them to make this mode your own. Murmur checks the result, but rewrites can still make mistakes."), color: EditorialPalette.ink64)
                 .font(WindowType.body(12)).padding(.top, 6)
 
             eyebrow("Apps").padding(.top, 20)
             ForEach(m.apps, id: \.self) { app in
                 HStack {
-                    Text(appName(app)).font(WindowType.body(15)); help(app, color: Palette.ink64).font(WindowType.body(12))
+                    Text(appName(app)).font(WindowType.body(15)); help(app, color: EditorialPalette.ink64).font(WindowType.body(12))
                     Spacer()
                     Button("Remove") { mode.wrappedValue.apps.removeAll { $0 == app } }.buttonStyle(InkButtonStyle(kind: .plain)).fixedSize()
                 }
@@ -944,13 +1006,13 @@ struct SettingsView: View {
 
             eyebrow("Websites").padding(.top, 20)
             ModeListEditor(items: mode.websites, placeholder: "github.com, docs.google.com/document/*, *.slack.com", label: "Website")
-            help("Matches the page open in the browser when recording starts. A site includes its subdomains; add a path to match only that part. The address is read through Accessibility, only while a mode lists a website, and is never saved or sent. A browser that does not show its page to Accessibility matches by app only.", color: Palette.ink64)
+            help("Matches the page open in the browser when recording starts. A site includes its subdomains; add a path to match only that part. The address is read through Accessibility, only while a mode lists a website, and is never saved or sent. A browser that does not show its page to Accessibility matches by app only.", color: EditorialPalette.ink64)
                 .font(WindowType.body(12)).padding(.top, 6)
 
             eyebrow("Trigger words").padding(.top, 20)
             ModeListEditor(items: mode.triggers, placeholder: "email mode", label: "Trigger")
             help(m.transform == nil ? "Say one at the start or end of a dictation to use this mode; it is removed from the text. Pick a phrase you would not otherwise say there."
-                 : "Say one at the very start of a dictation to use this mode; it is removed from the text. This built-in mode rewrites the text on AI cleanup routes (not On this Mac); the custom instructions above control its rewrite.", color: Palette.ink64)
+                 : "Say one at the very start of a dictation to use this mode; it is removed from the text. This built-in mode rewrites the text on AI cleanup routes (not On this Mac); the custom instructions above control its rewrite.", color: EditorialPalette.ink64)
                 .font(WindowType.body(12)).padding(.top, 6)
 
             eyebrow("Cleanup").padding(.top, 20)
@@ -968,9 +1030,9 @@ struct SettingsView: View {
             help(m.tone == .formal ? "Text stays as cleanup wrote it."
                  : m.tone == .casual ? "Drops commas and the final period. Commas inside numbers stay."
                  : m.tone == .veryCasual ? "Casual, and sentences start in lowercase. “I” and words like “iPhone” keep their capitals."
-                 : "The final period becomes “!”.", color: Palette.ink64)
+                 : "The final period becomes “!”.", color: EditorialPalette.ink64)
                 .font(WindowType.body(12)).padding(.top, 6)
-            help("Applied by rules after cleanup, on every route. Never applied to an email laid out from “write an email to…”.", color: Palette.ink64)
+            help("Applied by rules after cleanup, on every route. Never applied to an email laid out from “write an email to…”.", color: EditorialPalette.ink64)
                 .font(WindowType.body(12))
 
             eyebrow("Screen context").padding(.top, 20)
@@ -989,8 +1051,8 @@ struct SettingsView: View {
                         Text("Parakeet Unified streaming").font(WindowType.body(14, weight: .medium)).fixedSize(horizontal: false, vertical: true)
                         ModelInfoIcons(license: controller.liveWordsLicense.map(ModelFacts.licenseText), details: controller.liveWordsSummary)
                     }
-                    if controller.liveWordsRow.isReady { mono("Ready ✓", color: Palette.accentInk) }
-                    else { Text(controller.liveWordsRow.statusText).font(WindowType.body(13)).foregroundStyle(Palette.ink70).fixedSize(horizontal: false, vertical: true) }
+                    if controller.liveWordsRow.isReady { mono("Ready ✓", color: EditorialPalette.accentInk) }
+                    else { Text(controller.liveWordsRow.statusText).font(WindowType.body(13)).foregroundStyle(EditorialPalette.ink70).fixedSize(horizontal: false, vertical: true) }
                 }
                 Spacer()
                 let row = controller.liveWordsRow
@@ -1014,7 +1076,7 @@ struct SettingsView: View {
                         ModelInfoIcons(license: controller.dictionaryModelLicense.map(ModelFacts.licenseText), details: controller.dictionaryModelSummary)
                     }
                     Group {
-                        if controller.dictionaryModelRow.isReady && !controller.dictionarySupportFailed { mono("Ready ✓", color: Palette.accentInk) }
+                        if controller.dictionaryModelRow.isReady && !controller.dictionarySupportFailed { mono("Ready ✓", color: EditorialPalette.accentInk) }
                         else if !controller.dictionaryModelRow.isReady { Text(controller.dictionaryModelRow.statusText).font(WindowType.body(14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
                     }
                     .padding(.top, 5)
@@ -1101,13 +1163,13 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.preferred).font(WindowType.body(16, weight: .semibold))
                 if !entry.variants.isEmpty {
-                    Text("Heard as " + entry.variants.joined(separator: ", ")).font(WindowType.body(13)).foregroundStyle(Palette.ink70).lineLimit(1)
+                    Text("Heard as " + entry.variants.joined(separator: ", ")).font(WindowType.body(13)).foregroundStyle(EditorialPalette.ink70).lineLimit(1)
                 }
             }
             .opacity(entry.enabled ? 1 : 0.45)
             Spacer()
-            mono(entry.source == .learned ? "Learned" : "Manual", size: 11, color: Palette.accentDeep)
-                .padding(.horizontal, 8).padding(.vertical, 3).background(Palette.accent16)
+            mono(entry.source == .learned ? "Learned" : "Manual", size: 11, color: EditorialPalette.accentDeep)
+                .padding(.horizontal, 8).padding(.vertical, 3).background(EditorialPalette.accent16)
             Toggle(isOn: Binding(get: { entry.enabled }, set: { on in
                 controller.updateDictionaryEntry(entry, preferred: entry.preferred, variants: entry.variants.joined(separator: ", "), enabled: on)
             })) { EmptyView() }
@@ -1130,7 +1192,7 @@ struct SettingsView: View {
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 field("Spelling", text: spelling).frame(minWidth: 100, idealWidth: 180, maxWidth: 220)
-                Text("Heard as \(item.heard.joined(separator: ", ")) · \(item.dictations) dictations").font(WindowType.body(13)).foregroundStyle(Palette.ink70)
+                Text("Heard as \(item.heard.joined(separator: ", ")) · \(item.dictations) dictations").font(WindowType.body(13)).foregroundStyle(EditorialPalette.ink70)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
@@ -1150,7 +1212,7 @@ struct SettingsView: View {
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(word).font(WindowType.body(16, weight: .semibold))
-                Text(why).font(WindowType.body(13)).foregroundStyle(Palette.ink70)
+                Text(why).font(WindowType.body(13)).foregroundStyle(EditorialPalette.ink70)
             }
             Spacer()
             Button("Unblock") { controller.unblockWord(item) }.buttonStyle(InkButtonStyle(kind: .outline)).fixedSize()
@@ -1219,7 +1281,7 @@ struct SettingsView: View {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(provider.displayName).font(WindowType.body(16, weight: .semibold))
-                    mono(has ? "Saved in Keychain ✓" : KeyText.none, color: has ? Palette.accentInk : Palette.ink70)
+                    mono(has ? "Saved in Keychain ✓" : KeyText.none, color: has ? EditorialPalette.accentInk : EditorialPalette.ink70)
                 }
                 Spacer()
                 if has {
@@ -1240,7 +1302,7 @@ struct SettingsView: View {
                 let address = provider == .customTranscription ? controller.customTranscriptionAPIBaseURL : controller.customAPIBaseURL
                 help("Server address: \(address)")
                 if controller.customAPIKeyNeedsConfirmation(provider) {
-                    help("Save the API key again to confirm this server address. The existing key stays in Keychain and will not be sent until confirmed.", color: Palette.accentInk)
+                    help("Save the API key again to confirm this server address. The existing key stays in Keychain and will not be sent until confirmed.", color: EditorialPalette.accentInk)
                 }
             }
             if let message = controller.keyMessages[provider], !message.isEmpty { help(message) }
@@ -1538,23 +1600,24 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     eyebrow("Welcome guide · Step \(index + 1) of \(steps.count)")
                     VStack(alignment: .leading, spacing: -8) {
-                        Text("Set up").font(WindowType.display(64)).tracking(-1.28)
+                        Text("Set up").font(.system(size: 42, weight: .regular, design: .serif)).tracking(-1.28)
                         wordmark("Murmur", size: 48)
                     }
                     .accessibilityElement(children: .combine).padding(.top, 16)
+                    PaperVoice().padding(.top, 16)
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(steps.indices, id: \.self) { i in
                                 let on = i == index
                                 Button { guideStep = WelcomeGuide.Step.allCases[i] } label: {
                                     HStack(spacing: 12) {
-                                        mono(String(format: "%02d", i + 1), size: 12, color: Palette.ink70)
-                                        mono(steps[i].title, size: 12, color: Palette.ink)
+                                        mono(String(format: "%02d", i + 1), size: 12, color: EditorialPalette.ink70)
+                                        mono(steps[i].title, size: 12, color: EditorialPalette.ink)
                                         Spacer()
-                                        if steps[i].done { mono("✓", size: 12, color: Palette.accentInk) }
+                                        if steps[i].done { mono("✓", size: 12, color: EditorialPalette.accentInk) }
                                     }
                                     .frame(height: 40)
-                                    .overlay(alignment: .bottom) { Rectangle().fill(on ? Palette.accentInk : Color.clear).frame(height: 2) }
+                                    .overlay(alignment: .bottom) { Rectangle().fill(on ? EditorialPalette.accentInk : Color.clear).frame(height: 2) }
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain).accessibilityAddTraits(on ? .isSelected : [])
@@ -1563,17 +1626,17 @@ struct SettingsView: View {
                     }
                     .padding(.top, 28)
                     Spacer()
-                    Logo.path(in: CGSize(width: 48, height: 48)).fill(Palette.ink)
+                    Logo.path(in: CGSize(width: 48, height: 48)).fill(EditorialPalette.ink)
                         .frame(width: 48, height: 48).accessibilityHidden(true)
                 }
                 .padding(24).frame(width: geometry.size.width * 5 / 12, alignment: .leading).frame(maxHeight: .infinity, alignment: .top)
-                .background(Palette.paper)
+                .background(EditorialPalette.sage)
 
                 VStack(alignment: .leading, spacing: 0) {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            mono(String(format: "%02d", index + 1), size: 13, color: Palette.accentInk)
-                            Text(step.title).font(WindowType.display(64)).tracking(-1.28).padding(.top, 8)
+                            mono(String(format: "%02d", index + 1), size: 13, color: EditorialPalette.accentInk)
+                            Text(step.title).font(.system(size: 42, weight: .regular, design: .serif)).tracking(-1.28).padding(.top, 8)
                             HStack(alignment: .top, spacing: 4) {
                                 help(step.detail)
                                 if guideStep == .model {
@@ -1604,7 +1667,7 @@ struct SettingsView: View {
                                     let working = guideStep == .model && controller.modelRow.isWorking
                                     VStack(alignment: .leading, spacing: 10) {
                                         HStack(spacing: 14) {
-                                            if step.done { mono("Done ✓", color: Palette.accentInk) }
+                                            if step.done { mono("Done ✓", color: EditorialPalette.accentInk) }
                                             else if working { Button("Cancel", action: controller.cancelModelDownload).buttonStyle(InkButtonStyle(kind: .outline)) }
                                             else { Button(step.action, action: step.run).buttonStyle(InkButtonStyle()) }
                                             Spacer()
@@ -1615,7 +1678,7 @@ struct SettingsView: View {
                                         }
                                         if guideStep == .model && !controller.modelMessage.isEmpty { help(controller.modelMessage) }
                                         if guideStep == .inputMonitoring || guideStep == .accessibility {
-                                            help("After you allow Murmur in System Settings, come back here; this page updates on its own.", color: Palette.ink64)
+                                            help("After you allow Murmur in System Settings, come back here; this page updates on its own.", color: EditorialPalette.ink64)
                                         }
                                     }
                                 }
@@ -1643,7 +1706,10 @@ struct SettingsView: View {
                     .padding(.top, 24)
                 }
                 .padding(24)
+                .background(EditorialPalette.paper)
             }
+            .foregroundStyle(EditorialPalette.ink)
+            .tint(EditorialPalette.accent)
         }
     }
 }

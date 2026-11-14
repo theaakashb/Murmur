@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Bring Murmur's settings and onboarding into the visual world of the redesigned [Murmur website](https://github.com/theaakashb/Murmur-Site/tree/38fd675c993e724c2782c23cf44ff6ee0d04fc6b), while preserving the native Mac experience and existing app behavior. This document describes the intended design; it does not claim that the app implements it yet.
+Bring Murmur's settings and onboarding into the visual world of the redesigned [Murmur website](https://github.com/theaakashb/Murmur-Site/tree/38fd675c993e724c2782c23cf44ff6ee0d04fc6b), while preserving the native Mac experience and existing app behavior. Settings and onboarding implement this direction with scoped appearance colors, blue primary actions, modest serif headings and a static native paper-and-voice drawing. Shared notification colors and behavior remain outside this scope.
 
 ## Visual vocabulary
 
