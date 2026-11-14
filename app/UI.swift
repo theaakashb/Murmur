@@ -213,7 +213,8 @@ struct SettingsView: View {
     @State private var screen = Screen.home
     /// The welcome guide's current step (gap #21), saved as it changes so the guide resumes there.
     @State private var guideStep = WelcomeGuide.Step.microphone
-    @State private var section = 0
+    /// The last settings pane, restored by ⌘, and on relaunch.
+    @AppStorage("settingsSection") private var section = 0
     @State private var showAdvanced = false
     @State private var showLiveModel = false
     /// The expanded History row.
@@ -303,6 +304,7 @@ struct SettingsView: View {
         .modifier(AutoApplyRoutes(controller: controller, apiFieldFocused: apiFieldFocused))
         .onAppear {
             controller.refreshPermissions(); controller.refreshHistory(); controller.refreshInputDevices()
+            if !Self.sections.indices.contains(section) { section = 0 }
             if !checkedSetup {
                 checkedSetup = true
                 guideStep = WelcomeGuide.resumeStep(.standard)
