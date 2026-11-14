@@ -1,6 +1,7 @@
 // Explicit visual fixture: temporary storage, synthetic text, no capture or insertion.
 import AppKit
 import SwiftUI
+import Combine
 
 /// Keeps the fixture's live meeting panel alive.
 @MainActor var fixtureMeetingPanel: MeetingPanelPresenter?
@@ -50,6 +51,16 @@ import SwiftUI
             controller.transcriptionRoute = .cloud
             controller.cloudTranscriber = .customAPI
         }
+        // Applying an unrelated switch must not reload History on the main thread.
+        controller.applySettings()
+        var historyReloads = 0
+        let historyObservation = controller.$history.dropFirst().sink { _ in historyReloads += 1 }
+        controller.recordingSounds.toggle()
+        controller.applySettings()
+        controller.recordingSounds.toggle()
+        controller.applySettings()
+        precondition(historyReloads == 0, "Unrelated switches reloaded History")
+        historyObservation.cancel()
         delegate.controller = controller
         if args.contains("--mode-editor") { controller.writingModes = WritingMode.presets }
         // Exercise the style binding without capture, providers, or saved user data.
