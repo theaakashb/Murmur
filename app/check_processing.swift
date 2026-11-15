@@ -239,7 +239,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         let override = try p.dictionary.add(preferred: "Override", variants: ["Spassyboy"])
         check((p.process("Spassyboy")).outcome == .insert("Override"), "explicit variant wins over an approximate term")
         try p.dictionary.delete(id: override.id)
-        settings.route = .cloud; settings.options = .standard; try p.update(settings, persist: false)
+        settings.route = .cloud; settings.options = .standard; settings.options.polish = true; try p.update(settings, persist: false)
         p.cloudCleaner = MockCloudCleaner(.failure(.timeout(.gemini)))
         await expect(p, "Send the Shelfmet report to Akash and Spassyboy.", .insert("Send the Shelfmate report to Aakash and spaceyboi."), "respelling survives cleanup provider failure")
         check(p.ledger.evidence.isEmpty && p.dictionary.entries.allSatisfy { $0.variants.isEmpty || $0.preferred == "Aakash" || $0.preferred == "spaceyboi" }, "automatic respelling creates no learned aliases or evidence")
@@ -314,7 +314,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         try p.addEntry(preferred: "Akme", variants: "acme")
         try p.addEntry(preferred: "kubectl", variants: "cube cuddle")
         var settings = p.settings
-        settings.route = .cloud; settings.options = .standard
+        settings.route = .cloud; settings.options = .standard; settings.options.polish = true
         try p.update(settings)
         let local = SpyCleaner(.echo); p.localCleaner = local
 
@@ -381,19 +381,30 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         await expect(p, "Um, call acme.", .insert("Um, call Akme."), "network failure uses local rules")
         check(local.calls == localBefore + 2, "local rules ran for each failure")
 
+        // Strict and Faithful stay on this Mac even when an AI route is stored.
+        let unused = MockCloudCleaner(.success("Call Akme."))
+        p.cloudCleaner = unused
+        var strictSettings = settings; strictSettings.options = .standard; try p.update(strictSettings, persist: false)
+        let strictResult = await expect(p, "Um, call acme.", .insert("Um, call Akme."), "strict on a cloud route uses local rules")
+        check(unused.messages.isEmpty && strictResult.fallback == nil && strictResult.cleanupPath == .localRoute, "strict never calls the model and is not a failure")
+        var proSettings = settings; proSettings.options.professional = true; try p.update(proSettings, persist: false)
+        var strictMode = WritingMode(); strictMode.options = .standard
+        _ = await p.processAsync("Um, call acme.", style: DictationStyle(mode: strictMode, settings: proSettings))
+        check(unused.messages.isEmpty, "a strict writing mode under a professional style stays local")
+        try p.update(settings, persist: false)
         // Guard rejects the cleaned words: the transcript's words go in with the model's punctuation.
-        let dropped = MockCloudCleaner(.success("Every give or take twenty seconds. Okay?"))
+        let dropped = MockCloudCleaner(.success("Every like give or take seconds. Okay?"))
         p.cloudCleaner = dropped
         let result38 = await expect(p, "every like give or take twenty seconds okay", .insert("Every like give or take twenty seconds. Okay?"), "punctuation transferred to the transcript")
         check(dropped.messages.count == 1, "no retry call")
-        check(result38.fallback == .unexplainedDeletion && result38.providerError == nil, "rejection reason kept, no provider error")
-        check(result38.rejectedOutput == "Every give or take twenty seconds. Okay?", "rejected model output kept for debugging")
+        check(result38.fallback == .numberDropped && result38.providerError == nil, "rejection reason kept, no provider error")
+        check(result38.rejectedOutput == "Every like give or take seconds. Okay?", "rejected model output kept for debugging")
         check(result38.cleanupPath == .modelPunctuationOnLocal, "rejected words, model punctuation outcome")
         settings.options.punctuation = false
         try p.update(settings)
         let result39 = await expect(p, "every like give or take twenty seconds okay", .insert("every like give or take twenty seconds okay"), "rejection without punctuation uses local rules")
         check(result39.fallback != nil && result39.cleanupPath == .localRules, "rejected without punctuation outcome is local rules")
-        settings.options = .standard
+        settings.options = .standard; settings.options.polish = true
         try p.update(settings)
         p.cloudCleaner = MockCloudCleaner(.success("Call Akme."))
         let result40 = await expect(p, "Um, call acme.", .insert("Call Akme."), "next dictation passes")
@@ -421,7 +432,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         settings.options.corrections = false
         try p.update(settings)
         await expect(p, "Meet Monday, no wait, Thursday.", .insert("Meet Monday, no wait, Thursday."), "fallback respects corrections off")
-        settings.options = .standard
+        settings.options = .standard; settings.options.polish = true
         try p.update(settings)
 
         // Synthetic postposed alternatives share local, AI-guard and rejection-fallback behavior.
@@ -437,7 +448,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
             p.cloudCleaner = MockCloudCleaner(.success("Let's make pizza."))
             await expect(p, "Let's make pasta. Pizza instead.", .insert("Let's make pasta. Pizza instead."), "ambiguous noun alternative survives AI deletion")
         }
-        settings.options = .standard
+        settings.options = .standard; settings.options.polish = true
         try p.update(settings)
 
         settings.options = CleanupOptions(polish: true, spoken: true)
@@ -465,7 +476,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         p.cloudCleaner = MockCloudCleaner(.success("Please send the report comma on Monday at 9."))
         await expect(p, "Um, please send the report comma on Monday.", .insert("Um, please send the report comma on Monday."), "fallback respects fillers and spoken commands off")
         p.localCleaner = spyCleaner
-        settings.options = .standard
+        settings.options = .standard; settings.options.polish = true
         try p.update(settings)
 
         // Provider obeys the dictation: the answer never goes in; the dictation's words do.
@@ -718,7 +729,7 @@ extension ProcessingChecks {
         check(CleanupSections.split(Array(repeating: sentence, count: 21).joined(separator: " ")).count == 2, "a short tail joins the last section")
 
         var settings = p.settings
-        settings.route = .cloud; settings.options = .standard
+        settings.route = .cloud; settings.options = .standard; settings.options.polish = true
         try p.update(settings)
         let expected = long.replacingOccurrences(of: "um, ", with: "")
         let limits = GeminiModelLimits(), echo = EchoGemini()

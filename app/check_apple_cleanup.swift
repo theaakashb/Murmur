@@ -57,7 +57,7 @@ private func provider(_ status: OnDeviceModelUnavailable?, _ model: FakeModel) -
         check(messages.count == 3 && messages.allSatisfy { $0.contains("Apple Intelligence") }, "three distinct availability messages")
 
         let p = try ProcessingCoordinator(directory: root, defaults: defaults)
-        var settings = p.settings; settings.route = .cloud; settings.options = .standard
+        var settings = p.settings; settings.route = .cloud; settings.options = .standard; settings.options.polish = true
         try p.update(settings, persist: false)
         let raw = "um so we should ship it on friday"
         let local = (p.process(raw)).outcome

@@ -411,7 +411,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check((p.process(text)).outcome == .insert("Call Aakash and spaceyboi."), "manual and learned variants correct without ASR hints or cleanup")
         check(!transport.lastBody.contains("name=\"prompt\"") && !transport.lastBody.contains("Shelfmate"), "whole dictionary stays out of custom ASR")
         check((p.process("Send a shelf made report.")).outcome == .insert("Send a shelf made report."), "preferred-only learned entry does not make faithful correction fuzzy")
-        settings.route = .cloud; settings.options = .standard
+        settings.route = .cloud; settings.options = .standard; settings.options.polish = true
         try p.update(settings)
         p.cloudCleaner = MockCleaner(.success("Send a Shelfmate report."))
         await checkA((await p.processAsync("Send a shelf made report.")).outcome == .insert("Send a Shelfmate report."), "preferred-only learned spelling still corrected by guarded cleanup")
@@ -510,7 +510,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
 
     @MainActor static func cleanupChecks(_ directory: URL, _ defaults: UserDefaults) async throws {
         let p = try ProcessingCoordinator(directory: directory, defaults: defaults)
-        var settings = p.settings; settings.route = CleanupChoice.gemini.processingRoute; settings.options = .standard; try p.update(settings)
+        var settings = p.settings; settings.route = CleanupChoice.gemini.processingRoute; settings.options = .standard; settings.options.polish = true; try p.update(settings)
         p.cloudCleaner = MockCleaner(.success("Call Akme."))
         await checkA((await p.processAsync("Um, call Akme.")).outcome == .insert("Call Akme."), "configured cloud cleanup inserts")
         p.cloudCleaner = MockCleaner(.failure(.quota(.gemini)))

@@ -160,7 +160,11 @@ struct DictationStyle: Equatable, Sendable {
                   context: (mode?.screenContext ?? settings.screenContext) ? context : nil)
         options.trustModel = settings.options.trustModel // Modes use the processing setting.
         transform = mode?.transform
+        if !usesModel { self.context = nil } // Strict and Faithful run on this Mac; nothing to send context to.
     }
+
+    /// Only the rewrite styles and preset rewrites use the AI model.
+    var usesModel: Bool { options.polish || options.professional || transform != nil }
 }
 
 enum WritingModes {
@@ -364,8 +368,10 @@ final class ProcessingCoordinator {
         let style = style ?? DictationStyle(mode: nil, settings: settings)
         let prepared = prepare(raw)
         evidence.terms = prepared.terms; evidence.cleanupInput = prepared.text == raw ? nil : prepared.text
-        if settings.route == .cloud && style.options.anyEnabled { evidence.fallback = .cleanerFailed }
-        evidence.cleanupPath = !style.options.anyEnabled ? .off : settings.route == .cloud ? .localRules : .localRoute
+        // Reaching here on the cloud route is a failure only for styles that wanted the model.
+        let wantedModel = settings.route == .cloud && style.usesModel
+        if wantedModel && style.options.anyEnabled { evidence.fallback = .cleanerFailed }
+        evidence.cleanupPath = !style.options.anyEnabled ? .off : wantedModel ? .localRules : .localRoute
         evidence.outcome = .insert(toned(localClean(prepared.text, terms: prepared.terms, options: style.options, evidence: &evidence), input: prepared.text, style: style)); return evidence
     }
 
@@ -381,8 +387,9 @@ final class ProcessingCoordinator {
     /// Main actor: the dictionary is read on the main thread; only the provider calls run elsewhere.
     @MainActor func processAsync(_ raw: String, style: DictationStyle? = nil) async -> ProcessingResult {
         var evidence = ProcessingResult(outcome: .insert(raw))
-        guard settings.route == .cloud else { return process(raw, style: style) }
         let style = style ?? DictationStyle(mode: nil, settings: settings)
+        // Only the rewrite styles and preset rewrites use the model; Strict and Faithful stay on this Mac.
+        guard settings.route == .cloud, style.usesModel else { return process(raw, style: style) }
         let prepared = prepare(raw)
         let options = style.options, terms = prepared.terms
         evidence.terms = terms; evidence.cleanupInput = prepared.text == raw ? nil : prepared.text
