@@ -4,7 +4,7 @@ import sys
 sys.dont_write_bytecode = True
 from configure_updates import configure
 
-feed = "https://github.com/Penguin0011/Murmur/releases/latest/download/appcast.xml"
+feed = "https://github.com/theaakashb/Murmur/releases/latest/download/appcast.xml"
 key = base64.b64encode(bytes(range(32))).decode()
 valid = dict(MURMUR_UPDATE_FEED_URL=feed, MURMUR_UPDATE_PUBLIC_KEY=key,
              MURMUR_BUILD_VERSION="42", MURMUR_VERSION="0.2.0")

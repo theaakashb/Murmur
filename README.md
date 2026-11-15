@@ -22,7 +22,7 @@ Development and performance testing has focused on an M3 MacBook Air with 16 GB 
 Install Apple Command Line Tools (`xcode-select --install`) or Xcode with a macOS 26 or newer SDK and Swift toolchain before building.
 
 ```sh
-git clone https://github.com/Penguin0011/Murmur.git
+git clone https://github.com/theaakashb/Murmur.git
 cd Murmur
 app/build.sh
 open runtime/Murmur.app

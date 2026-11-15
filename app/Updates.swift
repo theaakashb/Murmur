@@ -89,7 +89,7 @@ private extension Character {
 // MARK: - Configuration and results
 
 struct UpdateConfiguration: Sendable {
-    static let defaultOwner = "Penguin0011"
+    static let defaultOwner = "theaakashb"
     static let defaultRepository = "Murmur"
 
     let owner: String
