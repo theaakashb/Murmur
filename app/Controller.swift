@@ -1017,8 +1017,8 @@ final class PreStart: @unchecked Sendable {
         }
         // Read only if this dictation could use it: the start mode (or the global setting) has it on,
         // or a mode that a trigger word could still pick does.
-        let wanted = (sessionMode?.screenContext ?? screenContext) || modes.contains { $0.enabled && !$0.triggers.isEmpty && ($0.screenContext ?? screenContext) }
-        guard aiCleanup, wanted,
+        guard aiCleanup, let settings = processing?.settings,
+              DictationStyle.needsScreenContext(mode: sessionMode, modes: modes, settings: settings),
               !IsSecureEventInputEnabled(), destination?.secure != true else { return }
         let pasteboard = NSPasteboard.general
         let types = pasteboard.types?.map(\.rawValue) ?? []

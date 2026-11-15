@@ -100,6 +100,31 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(WritingModes.load(from: UserDefaults(suiteName: suite + "-empty")!) == WritingMode.presets, "no saved modes loads as the presets")
 
         // MARK: Override inheritance
+        var captureSettings = ProcessingSettings()
+        captureSettings.screenContext = true
+        func captures(_ mode: WritingMode? = nil, modes: [WritingMode] = []) -> Bool {
+            DictationStyle.needsScreenContext(mode: mode, modes: modes, settings: captureSettings)
+        }
+        check(!captures(), "Strict does not read screen context with a stored AI provider")
+        captureSettings.options = .faithful
+        check(!captures(), "Faithful does not read screen context")
+        captureSettings.options = CleanupOptions(polish: true)
+        check(captures(), "Polish reads opted-in context")
+        var strictMode = WritingMode(); strictMode.options = .standard
+        check(!captures(strictMode), "Strict mode overrides a global rewrite")
+        var trigger = WritingMode(); trigger.transform = .aiPrompt; trigger.triggers = ["prompt mode"]
+        captureSettings.options = .standard
+        check(captures(modes: [trigger]), "AI trigger can still need context under Strict")
+        trigger.enabled = false
+        check(!captures(modes: [trigger]), "Disabled triggers never read context")
+        trigger.enabled = true; trigger.screenContext = false
+        check(!captures(modes: [trigger]), "Trigger opt-out never reads context")
+        captureSettings.screenContext = false
+        trigger.screenContext = true
+        check(captures(modes: [trigger]), "Trigger opt-in overrides the global switch")
+        trigger.triggers = []
+        check(!captures(modes: [trigger]), "Unmatched modes without triggers cannot read context")
+
         var settings = ProcessingSettings()
         settings.options = .standard; settings.options.polish = true; settings.screenContext = true
         let ctx = ScreenContext(selected: "Ayesha", clipboard: "", window: "")
