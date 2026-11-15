@@ -1,0 +1,22 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const html = fs.readFileSync(__dirname + '/index.html', 'utf8');
+function element(extra = {}) { return {hidden:false, disabled:false, textContent:'', dataset:{}, listeners:{}, classList:{add(){},remove(){}}, addEventListener(type,fn){this.listeners[type]=fn},setAttribute(){},removeAttribute(){},querySelector(){return {focus(){}}}, ...extra}; }
+const steps=Array.from({length:3},()=>element());
+const nav=Array.from({length:3},(_,i)=>element({dataset:{go:String(i)}}));
+const permissions=['microphone','accessibility','shortcut'].map(name=>element({dataset:{permission:name}}));
+const ids=Object.fromEntries(['continue','permission-status','record','transcript','record-status','dictation-title','dictation-description','handoff','finish','retry','reset'].map(id=>[id,element()]));
+const document={querySelectorAll(selector){return selector==='.step'?steps:selector==='nav button'?nav:selector==='[data-go]'?nav:permissions}, querySelector(selector){return ids[selector.slice(1)]},getElementById(id){return ids[id]}};
+vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1],{document,window:{addEventListener(){}},console});
+nav[1].listeners.click();
+assert.equal(steps[0].hidden,true); assert.equal(steps[1].hidden,false);
+permissions[0].listeners.click();assert.equal(ids.continue.disabled,true);
+permissions[1].listeners.click();permissions[2].listeners.click();assert.equal(ids.continue.disabled,false);
+nav[2].listeners.click();
+ids.record.listeners.keydown({code:'Space',preventDefault(){}}); assert.equal(ids.transcript.textContent,'Listening…');
+ids.record.listeners.keyup({code:'Space',preventDefault(){}});assert.equal(ids.transcript.textContent,'I finally found the words.');assert.equal(ids.finish.hidden,false);
+ids.finish.listeners.click();assert.equal(ids.handoff.hidden,false);
+ids.reset.listeners.click();assert.equal(steps[0].hidden,false);assert.equal(ids.continue.disabled,true);assert.equal(ids.finish.hidden,true);assert.ok(permissions.every(p=>!p.disabled));
+assert.ok(!/getUserMedia|SpeechRecognition/.test(html));
+console.log('PASS: navigation, permissions, keyboard dictation, handoff, reset, and no audio APIs');
