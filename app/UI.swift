@@ -907,32 +907,34 @@ struct SettingsView: View {
                 controller.cleanupPunctuation = true; controller.cleanupSpoken = true
             }
             controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
+            // Polish and Professional need a model; Strict keeps the stored one for next time.
+            if style >= 1, controller.cleanupChoice == .localRules, let first = Self.aiCleanupChoices.first { controller.cleanupChoice = first }
         })
     }
 
+    static let aiCleanupChoices = CleanupChoice.allCases.filter { $0 != .localRules }
+
     private var cleanupChoices: some View {
         VStack(alignment: .leading, spacing: 0) {
-            eyebrow("Cleanup runs with").padding(.top, 28)
-            segmented(CleanupChoice.allCases.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14)
-                .padding(.top, 8).help(controller.cleanupChoice.displayName)
-            eyebrow("Cleanup style").padding(.top, 20)
+            eyebrow("Cleanup style").padding(.top, 28)
             HStack(spacing: 4) {
-                segmented(controller.cleanupChoice == .localRules
-                          ? [(-1, "Faithful"), (0, "Strict")]
-                          : [(-1, "Faithful"), (0, "Strict"), (1, "Polish"), (2, "Professional")], cleanupStyle, size: 14)
-                SettingInfoButton(text: "Faithful keeps your words as dictated.\nStrict removes fillers and applies clear spoken corrections.\nPolish also resolves backtracks and small grammar slips, keeping your voice.\nProfessional rewrites into clear writing of what you meant.")
-                    .accessibilityLabel("About Faithful")
+                segmented([(-1, "Faithful"), (0, "Strict"), (1, "Polish"), (2, "Professional")], cleanupStyle, size: 14)
+                SettingInfoButton(text: "Faithful keeps your words as dictated.\nStrict runs on this Mac: it removes fillers and applies clear spoken corrections.\nPolish uses an AI model to also resolve backtracks and small grammar slips, keeping your voice.\nProfessional uses an AI model to rewrite into clear writing of what you meant.")
+                    .accessibilityLabel("About cleanup styles")
             }.padding(.top, 8)
             help(cleanupStyle.wrappedValue == -1
                  ? "Keeps the words as dictated, apart from dictionary spellings: “Um, let’s meet Tuesday, no, I mean, Thursday, at the cafe.”"
-                 : controller.cleanupChoice == .localRules
-                 ? "Local rules use Strict: “Let’s meet Thursday at the cafe.” Choose an AI cleanup route above to enable Polish or Professional."
-                 : controller.cleanupProfessional
+                 : cleanupStyle.wrappedValue == 2
                  ? "Rewrites into clear, professional writing of what you meant: “Let’s meet on Thursday at the café.”"
-                 : controller.cleanupPolish
+                 : cleanupStyle.wrappedValue == 1
                  ? "Also resolves backtracks and false starts, and fixes small grammar slips, keeping your voice: “Let’s meet Thursday at the cafe.”"
-                 : "Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”")
+                 : "Runs on this Mac. Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”")
                 .padding(.top, 8)
+            if cleanupStyle.wrappedValue >= 1 {
+                eyebrow("AI model").padding(.top, 20)
+                segmented(Self.aiCleanupChoices.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14)
+                    .padding(.top, 8).help(controller.cleanupChoice.displayName)
+            }
         }
     }
 
@@ -947,12 +949,12 @@ struct SettingsView: View {
             toggleRow("Spoken commands and numbers", "“comma”, “new paragraph”, “two hundred thousand” → 200,000, “at the rate” → @, and “write an email to…” layout.", isOn: $controller.cleanupSpoken)
             help("If an AI rewrite is rejected, clear spoken corrections can still apply. The raw transcript stays in History.").padding(.top, 16)
 
-            if controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() {
+            if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() {
                 help(reason.userMessage + " Until then, local rules clean dictations.").padding(.top, 8)
             }
             toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac. Modes can turn it on or off.", isOn: $controller.screenContext)
-                .padding(.top, 12).disabled(controller.cleanupChoice == .localRules)
-            if controller.cleanupChoice == .customAPI {
+                .padding(.top, 12).disabled(cleanupStyle.wrappedValue < 1)
+            if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .customAPI {
                 customCleanupSettings
             }
         }
@@ -1739,9 +1741,9 @@ struct SettingsView: View {
                                 if guideStep == .transcription { transcriptionRoutes }
                                 else if guideStep == .cleanup {
                                     cleanupChoices
-                                    if controller.cleanupChoice == .customAPI { customCleanupSettings }
-                                    if controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() { help(reason.userMessage).padding(.top, 12) }
-                                    if controller.cleanupChoice == .gemini { keyRow(.gemini).padding(.top, 12) }
+                                    if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .customAPI { customCleanupSettings }
+                                    if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() { help(reason.userMessage).padding(.top, 12) }
+                                    if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .gemini { keyRow(.gemini).padding(.top, 12) }
                                     disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
                                 }
                                 else if guideStep == .meetings {
@@ -1824,7 +1826,7 @@ extension SettingsView {
     var home: some View {
         page("Home", "Dictate anywhere the cursor is.") {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                help("Transcription: \(controller.transcriptionRoute == .local ? "On this Mac" : controller.cloudTranscriber.displayName) · Cleanup: \(controller.cleanupChoice.displayName)")
+                help("Transcription: \(controller.transcriptionRoute == .local ? "On this Mac" : controller.cloudTranscriber.displayName) · Cleanup: \((cleanupStyle.wrappedValue >= 1 ? controller.cleanupChoice : .localRules).displayName)")
                 SettingInfoButton(text: ([controller.routeDisclosure(.transcription), controller.routeDisclosure(.cleanup)].compactMap { $0 } + ["On-device routes process data on this Mac. Custom providers use the server configured in Settings."]).joined(separator: "\n\n"))
                     .accessibilityLabel("Where dictation data goes")
             }.padding(.top, 12)

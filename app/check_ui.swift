@@ -146,6 +146,11 @@ import Combine
             if args.contains("--history") { controller.screenRequest = "history" }
             if args.contains("--settings") { controller.screenRequest = "settings" }
             if args.contains("--dictionary") { controller.screenRequest = "settings-4" }
+            // --cleanup-style -1|0|1|2: Faithful, Strict, Polish or Professional, with an AI model stored.
+            if let flag = args.firstIndex(of: "--cleanup-style"), args.indices.contains(flag + 1), let style = Int(args[flag + 1]) {
+                controller.cleanupChoice = .gemini; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
+                if style == -1 { controller.useFaithfulTranscription() }
+            }
             if let flag = args.firstIndex(of: "--section"), args.indices.contains(flag + 1) {
                 controller.screenRequest = "settings-" + args[flag + 1]
             }

@@ -101,10 +101,10 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
 
         // MARK: Override inheritance
         var settings = ProcessingSettings()
-        settings.options = .standard; settings.screenContext = true
+        settings.options = .standard; settings.options.polish = true; settings.screenContext = true
         let ctx = ScreenContext(selected: "Ayesha", clipboard: "", window: "")
         let inherit = DictationStyle(mode: WritingMode(name: "Inherit"), settings: settings, context: ctx)
-        check(inherit.options == .standard && inherit.tone == .formal && inherit.context == ctx && inherit.instructions.isEmpty, "unset overrides inherit the settings")
+        check(inherit.options == settings.options && inherit.tone == .formal && inherit.context == ctx && inherit.instructions.isEmpty, "unset overrides inherit the settings")
         let override = DictationStyle(mode: WritingMode(options: .faithful, tone: .casual, screenContext: false, instructions: String(repeating: "x", count: 2_500)), settings: settings, context: ctx)
         check(override.options == .faithful && override.tone == .casual && override.context == nil, "set overrides replace the settings, and context off drops it")
         check(override.instructions.count == WritingModeLimits.instructions, "instructions are capped at 2,000 characters")
@@ -165,24 +165,25 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         var local = p.settings
         local.route = .local; local.options = .standard; local.screenContext = true
         try p.update(local)
-        let withContext = DictationStyle(options: .standard, tone: .casual, instructions: "Be brief.", context: ScreenContext(selected: "secret plan", clipboard: "", window: ""))
+        var polished = CleanupOptions.standard; polished.polish = true // Only rewrite styles reach the model.
+        let withContext = DictationStyle(options: polished, tone: .casual, instructions: "Be brief.", context: ScreenContext(selected: "secret plan", clipboard: "", window: ""))
         let localOut = (await p.processAsync("um so we ship it on friday", style: withContext)).outcome
         check(spy.messages.isEmpty, "local rules: the provider is never called, so context and instructions never leave")
         check(localOut == .insert("So we ship it on friday"), "local rules apply the mode's tone: \(localOut)")
 
         var cloud = p.settings
-        cloud.route = .cloud
+        cloud.route = .cloud; cloud.options.polish = true
         try p.update(cloud)
         let cloudOut = (await p.processAsync("we ship it on friday", style: withContext)).outcome
         check(spy.messages.count == 1 && spy.messages[0].user.contains("secret plan") && spy.messages[0].system.contains("Be brief."), "AI route: context and instructions are sent")
         check(cloudOut == .insert("we ship it on friday"), "AI route output is toned: \(cloudOut)")
-        _ = (await p.processAsync("we ship it on friday", style: DictationStyle(options: .standard))).outcome
+        _ = (await p.processAsync("we ship it on friday", style: DictationStyle(options: polished))).outcome
         check(spy.messages.count == 2 && !spy.messages[1].user.contains("context-"), "no context: no context block")
 
         // A model that copies a name from the context is still rejected: the guard sees only the transcript.
         let copier = MockCloudCleaner { $0 + " Ayesha Khan" }
         p.cloudCleaner = copier
-        let result4 = await p.processAsync("send the deck to the client", style: DictationStyle(options: .standard, context: ScreenContext(selected: "", clipboard: "Ayesha Khan", window: "")))
+        let result4 = await p.processAsync("send the deck to the client", style: DictationStyle(options: polished, context: ScreenContext(selected: "", clipboard: "Ayesha Khan", window: "")))
         let copied = result4.outcome
         check(copied != .insert("send the deck to the client Ayesha Khan") && result4.fallback != nil, "content copied from context fails the guard: \(copied)")
         check(result4.rejectedOutput == nil, "a rejected output is not kept for History when context was sent")
@@ -197,7 +198,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         faithful.options = .faithful
         try p.update(faithful)
         p.cloudCleaner = MockCloudCleaner { _ in "We ship it on Friday." }
-        let modeOn = (await p.processAsync("we ship it on friday", style: DictationStyle(mode: WritingMode(options: .standard), settings: p.settings))).outcome
+        let modeOn = (await p.processAsync("we ship it on friday", style: DictationStyle(mode: WritingMode(options: polished), settings: p.settings))).outcome
         check(modeOn == .insert("We ship it on Friday."), "a mode's cleanup options apply over faithful settings: \(modeOn)")
 
         let faithfulSpy = MockCloudCleaner { _ in "Changed." }

@@ -505,7 +505,7 @@ enum SettingsSearch {
         .init("Speech model", 1, "download parakeet local on device offline", target: "top"),
         .init("Where transcription runs", 1, "dictation cloud local on device provider gemini custom api"),
         .init("Model folder", 1, "advanced storage location directory", target: "model-folder"),
-        .init("Cleanup runs with", 2, "location local rules apple intelligence cloud gemini custom provider"),
+        .init("AI model", 2, "cleanup runs with location apple intelligence cloud gemini custom provider polish professional"),
         .init("Cleanup style", 2, "faithful strict polish professional tone rewrite"),
         .init("Remove filler words", 2, "um uh cleanup"),
         .init("Apply spoken corrections", 2, "backtrack no wait cleanup"),
