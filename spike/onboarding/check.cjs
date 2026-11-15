@@ -19,4 +19,7 @@ ids.record.listeners.keyup({code:'Space',preventDefault(){}});assert.equal(ids.t
 ids.finish.listeners.click();assert.equal(ids.handoff.hidden,false);
 ids.reset.listeners.click();assert.equal(steps[0].hidden,false);assert.equal(ids.continue.disabled,true);assert.equal(ids.finish.hidden,true);assert.ok(permissions.every(p=>!p.disabled));
 assert.ok(!/getUserMedia|SpeechRecognition/.test(html));
+assert.ok(html.includes("src:url('dm-sans.woff2')"));
+assert.ok(!/Instrument|serif|#4d6ff0/.test(html));
+assert.ok(['#f4f4ef','#20221f','#50594e','#4568e8','#e5e9ff'].every(color=>html.includes(color)));
 console.log('PASS: navigation, permissions, keyboard dictation, handoff, reset, and no audio APIs');
