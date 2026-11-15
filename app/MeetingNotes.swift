@@ -76,6 +76,16 @@ enum MeetingNotesRoute: String, CaseIterable, Codable {
 // MARK: - Prompt
 
 enum MeetingNotesPrompt {
+    static let lectureRules = """
+    Format: lecture study notes. Override meeting-specific category and ownership rules above:
+    POINT means a concept explained in the lecture; DECISION means an example actually given;
+    ACTION means a perspective or interpretation explicitly expressed, not a task or commitment.
+    For ACTION use - for owner and due. Do not infer the recorder is the lecturer.
+    Preserve these categories in extraction and merging. Cite source L numbers for every item.
+    Explain concepts faithfully using only the transcript. Never invent examples, perspectives,
+    outside facts, study advice or quotations. Leave unsupported categories empty.
+    """
+
     struct Numbered { let number: Int; let line: MeetingLine; let speaker: String }
 
     /// Visible lines only (hidden echo is left out of notes input, PRD 11.2), numbered from 1. Each
@@ -87,7 +97,7 @@ enum MeetingNotesPrompt {
     /// The other side's labels in order of first line, when speakers were separated; empty otherwise.
     static func speakers(_ lines: [Numbered]) -> [String] {
         var seen = Set<String>()
-        let labels = lines.filter { $0.line.stream == .them }.map(\.speaker).filter { seen.insert($0).inserted }
+        let labels = lines.filter { $0.line.stream == .them || $0.line.speaker != nil }.map(\.speaker).filter { seen.insert($0).inserted }
         return labels == ["Them"] ? [] : labels
     }
 
@@ -135,8 +145,11 @@ enum MeetingNotesPrompt {
         let id = nonce.filter { $0.isLetter || $0.isNumber }
         let tag = "lines-\(id)", notesTag = "my-notes-\(id)"
         let speakers = speakers(lines)
-        let side = speakers.isEmpty ? "\"Them\" is the other side." : "The other side's speakers are \(speakers.joined(separator: ", "))."
+        let isRoom = lines.contains { $0.speaker == "Room" || ($0.line.stream == .me && $0.line.speaker != nil) }
+        let side = isRoom ? "Speaker labels identify voices captured by a shared microphone, not necessarily the recorder." : (speakers.isEmpty ? "\"Them\" is the other side." : "The other side's speakers are \(speakers.joined(separator: ", ")).")
+        let room = isRoom ? "Room is a shared microphone; it can contain multiple people. Never identify its speakers as the recorder without evidence." : ""
         let system = """
+        \(room)
         You write meeting notes from a call transcript. Each line starts with [L<number> <speaker> <time>]. "Me" is the user who recorded the call; \(side)
         \(reply(structured))
         \(rules(tag, notesTag, speakers: speakers))
@@ -545,7 +558,10 @@ enum MeetingNotesWriter {
     /// then ground the result against the whole meeting. `structured`: the route answers through a
     /// schema rendered into the reply format (Apple Intelligence).
     static func write(_ meeting: Meeting, route: MeetingNotesRoute, routeName: String, structured: Bool = false, now: Date = Date(),
-                      nonce: () -> String = { UUID().uuidString }, generate: Generate) async throws -> Outcome {
+                      nonce: () -> String = { UUID().uuidString }, lecture: Bool = false, generate originalGenerate: Generate) async throws -> Outcome {
+        let generate: Generate = { system, user in
+            try await originalGenerate(system + (lecture ? "\n" + MeetingNotesPrompt.lectureRules : ""), user)
+        }
         let numbered = MeetingNotesPrompt.number(meeting)
         var notes = MeetingNotes(route: routeName, writtenAt: now)
         var reasons: [NotesGrounding.Reason: Int] = [:]
@@ -558,9 +574,9 @@ enum MeetingNotesWriter {
             parts += try await extract(chunk, myNotes: meeting.myNotes, structured: structured, nonce: nonce, generate: generate, splitOnOverflow: true)
         }
         // Ground each part before merging, so the merge never sees an unsupported item.
-        parts = parts.map { ground($0, in: whole, reasons: &reasons) }
+        parts = parts.map { ground($0, in: whole, reasons: &reasons, lecture: lecture) }
         var draft = parts.count == 1 ? parts[0] : try await reduce(parts, budget: budget, structured: structured, speakers: MeetingNotesPrompt.speakers(numbered), nonce: nonce, generate: generate)
-        draft = ground(draft, in: whole, reasons: &reasons)
+        draft = ground(draft, in: whole, reasons: &reasons, lecture: lecture)
 
         let ids = Dictionary(uniqueKeysWithValues: numbered.map { ($0.number, $0.line.id) })
         func items(_ list: [Draft.Item], action: Bool = false) -> [NoteItem] {
@@ -568,7 +584,7 @@ enum MeetingNotesWriter {
         }
         if let title = draft.title, title.split(whereSeparator: \.isWhitespace).count <= 8, NotesGrounding.freeText(title, title: true, in: whole) { notes.title = title }
         if NotesGrounding.freeText(draft.summary, in: whole) { notes.summary = draft.summary }
-        notes.keyPoints = items(draft.points); notes.decisions = items(draft.decisions); notes.actions = items(draft.actions, action: true)
+        notes.keyPoints = items(draft.points); notes.decisions = items(draft.decisions); notes.actions = items(draft.actions, action: !lecture)
         notes.dropped = reasons.values.reduce(0, +)
         return Outcome(notes: notes, reasons: reasons)
     }
@@ -635,7 +651,7 @@ enum MeetingNotesWriter {
     }
 
     /// Drops what the check rejects, and duplicate citations within an item.
-    static func ground(_ draft: Draft, in source: NotesGrounding.Source, reasons: inout [NotesGrounding.Reason: Int]) -> Draft {
+    static func ground(_ draft: Draft, in source: NotesGrounding.Source, reasons: inout [NotesGrounding.Reason: Int], lecture: Bool = false) -> Draft {
         func keep(_ list: [Draft.Item], kind: NotesGrounding.Kind) -> [Draft.Item] {
             list.compactMap { item in
                 var item = item
@@ -646,8 +662,8 @@ enum MeetingNotesWriter {
         }
         var out = draft
         out.points = keep(draft.points, kind: .point)
-        out.decisions = keep(draft.decisions, kind: .decision)
-        out.actions = keep(draft.actions, kind: .action)
+        out.decisions = keep(draft.decisions, kind: lecture ? .point : .decision)
+        out.actions = keep(draft.actions, kind: lecture ? .point : .action)
         return out
     }
 }

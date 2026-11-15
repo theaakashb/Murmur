@@ -44,7 +44,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     /// Set by AppController: the notes route in Settings, nil until the first Stop asks (Q3).
     var notesRoute: () -> MeetingNotesRoute? = { nil }
     /// Set by AppController: writes notes with the route chosen now. Throws `NotesFailure`.
-    var notesWriter: ((Meeting) async throws -> MeetingNotesWriter.Outcome)?
+    var notesWriter: ((Meeting, Bool) async throws -> MeetingNotesWriter.Outcome)?
     /// Called when the notes question waits after a Stop the user clicked, to open the Meetings page.
     var onNotesChoiceNeeded: (() -> Void)?
     /// Meetings stopped by the user, whose notes question may open the Meetings page; automatic stops
@@ -81,6 +81,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     /// Set by AppController: the verified diarizer folder while speaker separation is on; nil otherwise.
     /// Read when a meeting starts, so a change never affects a meeting in progress.
     var speakerModel: URL?
+    var separateRoomSpeakers = false
     /// Set by AppController: the ModelBench helper, which also runs diarization.
     var helper: URL?
     /// Set by SpeakerModelSettings: false once the switch is off or the model is removed. Finished
@@ -128,11 +129,11 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         var meeting = Meeting(id: UUID().uuidString, recordedAt: Date(), source: source)
         meeting.transcribedBy = cloud == nil ? nil : cloudName
         // Fixed when the meeting starts, like the route: keep the Them stream for diarization (Q4).
-        if !source.micOnly, speakerModel != nil { meeting.speakers = SpeakerSeparation(state: .pending, threshold: MeetingSpeakers.threshold) }
+        if (!source.micOnly || separateRoomSpeakers), speakerModel != nil { meeting.speakers = SpeakerSeparation(state: .pending, threshold: MeetingSpeakers.threshold) }
         let folder = MeetingAudio.folder(audioRoot, meeting: meeting.id)
         do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
         catch { message = "Meeting notes could not create private storage."; return false }
-        let pump = makePump(meeting.id, cloud: cloud, timed: meeting.speakers != nil && cloud == nil)
+        let pump = makePump(meeting.id, cloud: cloud, timed: meeting.speakers != nil && cloud == nil, timedStream: source.micOnly ? .me : .them)
         started = ProcessInfo.processInfo.systemUptime; lastVoice = started; lastSave = started
         systemAudioProblem = nil; warning = nil; askEnded = false; behind = false; elapsed = 0; message = nil
         callApp = source.bundleID; callWasUsingMic = false
@@ -244,7 +245,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     /// Leftovers are always finished on this Mac (`cloud` nil): nothing falls back to the cloud.
     /// `timed`: Them chunks ask the warm helper for word times too, so a line can be split where the
     /// voice changes (W7d). Only on this Mac; cloud lines are assigned whole.
-    private func makePump(_ id: String, cloud: MeetingRoute.Cloud? = nil, timed: Bool = false) -> MeetingPump {
+    private func makePump(_ id: String, cloud: MeetingRoute.Cloud? = nil, timed: Bool = false, timedStream: MeetingStream = .them) -> MeetingPump {
         let transcribe = transcribe
         let local: MeetingRoute.Local = { url, done in
             guard let transcribe else { done(nil); return }
@@ -253,7 +254,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         var transcriber = MeetingRoute.transcriber(cloud: cloud, local: local)
         if timed, let transcribeTimed {
             let base = transcriber
-            transcriber = { url, done in MeetingAudio.parse(url)?.stream == .them ? transcribeTimed(url, done) : base(url, done) }
+            transcriber = { url, done in MeetingAudio.parse(url)?.stream == timedStream ? transcribeTimed(url, done) : base(url, done) }
         }
         let pump = MeetingPump(transcribe: transcriber, deliver: { [weak self] job, text in
             DispatchQueue.main.async { self?.deliver(id, job, text) }
@@ -273,9 +274,13 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         update(id) {
             $0.insert(stream: job.stream, start: job.start, end: job.start + job.duration, text: spelled, localFallback: chunk.localFallback, words: chunk.words)
             // A leftover finished after notes were written: they no longer cover the whole transcript.
-            if $0.notes != nil, !spelled.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { $0.notes?.outdated = true }
+            if !spelled.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                $0.lectureNotes?.outdated = true
+                $0.notes?.outdated = true
+            }
         }
-        if job.stream == .them { keepAudio(id, job) }
+        let meeting = live?.id == id ? live : meetings.first { $0.id == id }
+        if job.stream == (meeting?.source.micOnly == true ? .me : .them) { keepAudio(id, job) }
         try? FileManager.default.removeItem(at: job.url)
         settle(id)
     }
@@ -310,14 +315,14 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
 
     /// Writes (or rewrites: "Update Notes") a finished meeting's notes. Failure keeps the meeting and says why.
     /// Not while its speakers are being separated: the notes would say Them instead of their names.
-    func writeNotes(_ id: String) {
+    func writeNotes(_ id: String, lecture: Bool = false) {
         guard let writer = notesWriter, !notesWriting.contains(id), !finishing.contains(id),
               let meeting = meetings.first(where: { $0.id == id }), meeting.speakers?.state != .pending else { return }
         guard meeting.lines.contains(where: { !$0.isHidden }) else { notesProblem[id] = "There is no transcript to write notes from."; return }
         notesWriting.insert(id); notesProblem[id] = nil
         Task { [weak self] in
             let result: Result<MeetingNotesWriter.Outcome, Error>
-            do { result = .success(try await writer(meeting)) } catch { result = .failure(error) }
+            do { result = .success(try await writer(meeting, lecture)) } catch { result = .failure(error) }
             guard let self else { return }
             self.notesWriting.remove(id)
             switch result {
@@ -329,8 +334,8 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
                     var notes = outcome.notes
                     // Keep ticked action items that were written again word for word.
                     let ticked = Set((meeting.notes?.actions ?? []).filter { $0.done == true }.map(\.text))
-                    for i in notes.actions.indices where ticked.contains(notes.actions[i].text) { notes.actions[i].done = true }
-                    meeting.notes = notes
+                    for i in notes.actions.indices where !lecture && ticked.contains(notes.actions[i].text) { notes.actions[i].done = true }
+                    if lecture { meeting.lectureNotes = notes } else { meeting.notes = notes }
                 }
             case .failure(let error):
                 let reason: String
@@ -385,6 +390,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
             guard meeting.myNotes != text else { return }
             meeting.myNotes = text
             if meeting.notes != nil { meeting.notes?.outdated = true }
+            meeting.lectureNotes?.outdated = true
         }
     }
 
@@ -611,6 +617,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
                 MeetingSpeakers.apply(segments, to: &meeting)
                 // Written before separation (an older version of Murmur): they say Them, not the speakers.
                 if meeting.notes != nil { meeting.notes?.outdated = true }
+                meeting.lectureNotes?.outdated = true
             }
             else {
                 meeting.speakers?.state = .failed; meeting.speakers?.failure = reason
@@ -675,6 +682,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
 /// It tells the recorder which verified model folder to use; nil while off, missing or unverified.
 @MainActor final class SpeakerModelSettings: ObservableObject {
     @Published var enabled: Bool { didSet { defaults.set(enabled, forKey: SpeakerFacts.key); refresh() } }
+    @Published var separateRoom: Bool { didSet { defaults.set(separateRoom, forKey: "meetingRoomSpeakers"); refresh() } }
     @Published private(set) var status: ModelStatus = .notDownloaded
     @Published var message = ""
     let downloader: ModelDownloader?
@@ -690,6 +698,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         enabled = defaults.bool(forKey: SpeakerFacts.key)
+        separateRoom = defaults.bool(forKey: "meetingRoomSpeakers")
         if let manifest, let pins = try? ModelManifest(contentsOf: manifest, repository: SpeakerFacts.repository) {
             downloader = ModelDownloader(manifest: pins, target: SpeakerFacts.directory(home: FileManager.default.homeDirectoryForCurrentUser))
         } else { downloader = nil }
@@ -710,6 +719,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     func refresh() {
         guard let recorder, !preview else { return }
         recorder.speakerModel = enabled && verified ? downloader?.target : nil
+        recorder.separateRoomSpeakers = enabled && separateRoom
         let wanted = enabled && (row.isReady || inFlight)
         if recorder.speakersWanted != wanted { recorder.speakersWanted = wanted; if !wanted { recorder.reload() } }
         guard enabled, !verified, !verifying, !inFlight, row.isReady else { return }

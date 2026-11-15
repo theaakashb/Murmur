@@ -81,24 +81,24 @@ enum AppleSystemModel {
     /// instructions, 1,200 still fits the 4,096-token context.
     static let maximumNotesTokens = 1_200
 
-    @Sendable static func notes(system: String, user: String) async throws -> String {
+    @Sendable static func notes(system: String, user: String, lecture: Bool = false) async throws -> String {
         let int = DynamicGenerationSchema(type: Int.self), text = DynamicGenerationSchema(type: String.self)
         let cites = DynamicGenerationSchema.Property(name: "lines", description: "The L numbers of the lines it rests on", schema: DynamicGenerationSchema(arrayOf: int))
         let item = DynamicGenerationSchema(name: "Item", properties: [cites, .init(name: "text", schema: text)])
         let action = DynamicGenerationSchema(name: "Action", properties: [
             cites,
-            .init(name: "owner", description: "Who took it on, as named in the lines, or Me, or the other side’s speaker label as written in the lines (Them, Speaker 2 or a name)", schema: text, isOptional: true),
-            .init(name: "due", description: "When it is due, only if said", schema: text, isOptional: true),
-            .init(name: "text", description: "The task", schema: text),
+            .init(name: "owner", description: lecture ? "Leave empty" : "Who took it on, as named in the lines, or Me, or the other side’s speaker label as written in the lines (Them, Speaker 2 or a name)", schema: text, isOptional: true),
+            .init(name: "due", description: lecture ? "Leave empty" : "When it is due, only if said", schema: text, isOptional: true),
+            .init(name: "text", description: lecture ? "The perspective expressed" : "The task", schema: text),
         ])
         let root = DynamicGenerationSchema(name: "Notes", properties: [
             .init(name: "title", description: "At most 8 words, in sentence case: only the first word and names capitalized", schema: text),
             .init(name: "summary", description: "2 to 4 sentences", schema: text),
             // Generated in this order: decisions and action items before key points, so a reply that
             // reaches the token cap loses points, not commitments.
-            .init(name: "decisions", description: "Choices the group agreed on", schema: DynamicGenerationSchema(arrayOf: DynamicGenerationSchema(referenceTo: "Item"), maximumElements: 10)),
-            .init(name: "actions", description: "Tasks someone committed to or accepted", schema: DynamicGenerationSchema(arrayOf: DynamicGenerationSchema(referenceTo: "Action"), maximumElements: 12)),
-            .init(name: "points", description: "Key points, each a short phrase", schema: DynamicGenerationSchema(arrayOf: DynamicGenerationSchema(referenceTo: "Item"), maximumElements: 8)),
+            .init(name: "decisions", description: lecture ? "Examples actually given in the lecture" : "Choices the group agreed on", schema: DynamicGenerationSchema(arrayOf: DynamicGenerationSchema(referenceTo: "Item"), maximumElements: 10)),
+            .init(name: "actions", description: lecture ? "Perspectives explicitly expressed in the lecture" : "Tasks someone committed to or accepted", schema: DynamicGenerationSchema(arrayOf: DynamicGenerationSchema(referenceTo: "Action"), maximumElements: 12)),
+            .init(name: "points", description: lecture ? "Concepts explained in the lecture" : "Key points, each a short phrase", schema: DynamicGenerationSchema(arrayOf: DynamicGenerationSchema(referenceTo: "Item"), maximumElements: 8)),
         ])
         let session = LanguageModelSession(instructions: system)
         let content: GeneratedContent
@@ -144,7 +144,7 @@ enum AppleSystemModel {
     @Sendable static func respond(_ messages: CleanupMessages) async throws -> String {
         throw ProviderError.modelUnavailable(.appleIntelligence, .deviceNotEligible)
     }
-    @Sendable static func notes(system: String, user: String) async throws -> String {
+    @Sendable static func notes(system: String, user: String, lecture: Bool = false) async throws -> String {
         throw ProviderError.modelUnavailable(.appleIntelligence, .deviceNotEligible)
     }
 #endif

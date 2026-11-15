@@ -16,6 +16,40 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(MeetingEcho.shown(me: "I think the budget works", them: ["the budget is late"]) == nil, "two shared words are not echo")
             check(MeetingEcho.shown(me: "Yes, let's ship it", them: []) == nil, "no Them lines, nothing hidden")
 
+            var lecture = Meeting(id: UUID().uuidString, recordedAt: Date(), source: .microphoneOnly)
+            lecture.insert(stream: .me, start: 0, end: 10, text: "Gravity attracts objects. A falling apple illustrates gravity.")
+            lecture.finished = true
+            lecture.notes = MeetingNotes(summary: "Meeting preserved", route: "fixture", writtenAt: Date())
+            var lectureCalls = 0
+            let lectureResult = try await MeetingNotesWriter.write(lecture, route: .appleIntelligence, routeName: "fixture", lecture: true) { system, _ in
+                lectureCalls += 1
+                check(system.contains("Format: lecture study notes"), "lecture format reaches every request")
+                return "POINT | L1 | Gravity attracts objects.\nDECISION | L1 | A falling apple illustrates gravity."
+            }
+            lecture.lectureNotes = lectureResult.notes
+            check(lectureCalls == 1 && lecture.lectureNotes?.decisions.count == 1, "lecture examples use point grounding")
+            check(lecture.notes?.summary == "Meeting preserved", "lecture generation preserves meeting notes")
+            check(MeetingSpeakers.label(lecture.lines[0], in: lecture) == "Room", "shared microphone does not identify recorder")
+            check(MeetingExport.markdown(lecture).contains("## Lecture notes"), "export includes separate lecture notes")
+            check(lecture.matches(query: "falling apple", from: nil, through: nil), "lecture notes remain searchable")
+            var longLecture = lecture
+            for n in 1...5 {
+                longLecture.insert(stream: .me, start: Double(n * 20), end: Double(n * 20 + 10), text: String(repeating: "Gravity attracts objects. ", count: 130))
+            }
+            var maps = 0, merges = 0
+            _ = try await MeetingNotesWriter.write(longLecture, route: .appleIntelligence, routeName: "fixture", lecture: true) { system, user in
+                check(system.contains("Format: lecture study notes"), "long lecture keeps format")
+                if user.contains("<parts-") { merges += 1 } else { maps += 1 }
+                return "POINT | L1 | Gravity attracts objects."
+            }
+            check(maps > 1 && merges > 0, "long lecture extracts and merges with lecture format")
+
+            let legacyData = try JSONEncoder().encode(lecture)
+            var legacyObject = try JSONSerialization.jsonObject(with: legacyData) as! [String: Any]
+            legacyObject.removeValue(forKey: "lectureNotes")
+            let legacy = try JSONDecoder().decode(Meeting.self, from: JSONSerialization.data(withJSONObject: legacyObject))
+            check(legacy.lectureNotes == nil && legacy.notes == lecture.notes, "legacy records decode without lecture notes")
+
             var meeting = Meeting(id: UUID().uuidString, recordedAt: Date(), source: MeetingSource(name: "Zoom", bundleID: "us.zoom.xos"))
             meeting.insert(stream: .me, start: 16, end: 30, text: "Right. we should move the launch to next week")
             meeting.insert(stream: .them, start: 0, end: 15, text: "Hello everyone.")

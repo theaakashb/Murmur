@@ -57,7 +57,7 @@ struct MeetingsPage: View {
     /// A cited line to scroll to and highlight on the Transcript tab.
     @State private var jump: Int?
 
-    enum DetailTab: String, CaseIterable { case notes = "Notes", transcript = "Transcript", mine = "My notes" }
+    enum DetailTab: String, CaseIterable { case notes = "Notes", lecture = "Lecture notes", transcript = "Transcript", mine = "My notes" }
 
     private enum MeetingDateFilter: String, CaseIterable {
         case all = "All dates", today = "Today", week = "Last 7 days", month = "Last 30 days", custom = "Date range…"
@@ -86,7 +86,7 @@ struct MeetingsPage: View {
                         .font(WindowType.body(14)).foregroundStyle(Palette.ink70)
                     DisclosureGroup("Audio and privacy") {
                         lede(controller.speakerSettings.enabled
-                         ? "Your microphone as Me and the call’s audio as Them, transcribed on this Mac. Your audio is deleted as soon as it is transcribed; the call’s is kept until its speakers are separated, at most 24 hours."
+                         ? (controller.speakerSettings.separateRoom ? "For calls, the call’s audio is kept until speakers are separated. For microphone-only recordings, microphone audio is kept instead. Both are deleted after separation, at most 24 hours." : "Your microphone as Me and the call’s audio as Them, transcribed on this Mac. Your audio is deleted as soon as it is transcribed; the call’s is kept until its speakers are separated, at most 24 hours.")
                          : "Your microphone as Me and the call’s audio as Them, transcribed on this Mac. Audio is deleted as soon as it is transcribed.")
                     }
                     .font(WindowType.body(13))
@@ -342,6 +342,7 @@ struct MeetingsPage: View {
                     .padding(.top, 4)
                     switch tab {
                     case .notes: notesTab(meeting)
+                    case .lecture: lectureTab(meeting)
                     case .mine:
                         TextEditor(text: $notesDraft).font(WindowType.body(14)).scrollContentBackground(.hidden).frame(minHeight: 160)
                             .padding(6).overlay(Rectangle().strokeBorder(Palette.ink, lineWidth: 1.5))
@@ -360,7 +361,7 @@ struct MeetingsPage: View {
                         LazyVStack(alignment: .leading, spacing: 8) {
                             ForEach(meeting.lines.filter { showEcho || !$0.isHidden }) { line in
                                 MeetingLineRow(line: line, showEcho: showEcho, label: MeetingSpeakers.label(line, in: meeting),
-                                               moveTo: meeting.speakers?.state == .done && line.stream == .them ? { recorder.reassignLine(line.id, to: $0, in: meeting.id) } : nil,
+                                               moveTo: meeting.speakers?.state == .done && line.stream == (meeting.source.micOnly ? .me : .them) ? { recorder.reassignLine(line.id, to: $0, in: meeting.id) } : nil,
                                                speakers: MeetingSpeakers.numbers(meeting).map { ($0, meeting.speakers?.names[$0] ?? "Speaker \($0)") }).id(line.id)
                                     .padding(.vertical, 2).background(jump == line.id ? Palette.accent16 : Color.clear)
                             }
@@ -433,10 +434,35 @@ struct MeetingsPage: View {
         }
     }
 
+    @ViewBuilder private func lectureTab(_ meeting: Meeting) -> some View {
+        let route = controller.meetingNotesRoute ?? .none
+        lede("Lecture notes use concepts, examples and perspectives from the transcript, with citations.")
+        lede("Provider: \(route.label). " + controller.meetingNotesDisclosure(route))
+        if let notes = meeting.lectureNotes {
+            if notes.outdated == true { lede("The source changed after these lecture notes were written.") }
+            if let summary = notes.summary { Text(summary).textSelection(.enabled) }
+            noteSection("Concepts", notes.keyPoints, meeting: meeting)
+            noteSection("Examples", notes.decisions, meeting: meeting)
+            noteSection("Perspectives", notes.actions, meeting: meeting)
+            lede("Written by \(notes.route). Unsupported items dropped: \(notes.dropped).")
+            Button("Copy Lecture Notes") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(MeetingExport.notes(meeting, lecture: true), forType: .string)
+            }.buttonStyle(InkButtonStyle(kind: .outline))
+        }
+        if let problem = recorder.notesProblem[meeting.id] { lede(problem) }
+        if recorder.notesWriting.contains(meeting.id) { lede("Writing notes…") }
+        Button(meeting.lectureNotes == nil ? "Generate Lecture Notes" : "Update Lecture Notes") {
+            recorder.writeNotes(meeting.id, lecture: true)
+        }.buttonStyle(InkButtonStyle(kind: .filled))
+            .disabled(route == .none || !meeting.finished || recorder.notesWriting.contains(meeting.id) || recorder.finishing.contains(meeting.id) || meeting.speakers?.state == .pending || meeting.lines.allSatisfy(\.isHidden))
+        if route == .none { lede("Choose a notes provider in Settings → Meetings first.") }
+    }
+
     /// Speaker separation (W7d, PRD 11.8 and 11.9): progress with Skip, then each speaker with
     /// Rename and Merge. Names and merges belong to this meeting only.
     @ViewBuilder private func speakers(_ meeting: Meeting) -> some View {
-        if let status = SpeakerFacts.status(meeting.speakers, running: recorder.separating.contains(meeting.id)) {
+        if let status = SpeakerFacts.status(meeting.speakers, running: recorder.separating.contains(meeting.id), room: meeting.source.micOnly) {
             HStack(spacing: 12) {
                 lede(status, color: meeting.speakers?.state == .failed ? Palette.ink70 : Palette.accentDeep)
                 Spacer()
@@ -833,11 +859,14 @@ struct SpeakerSettingsSection: View {
             Toggle(isOn: $settings.enabled) {
                 HStack(spacing: 4) {
                     Text(SpeakerFacts.displayName).font(.system(size: 16, weight: .semibold))
-                    SettingInfoButton(text: SpeakerFacts.explanation + (settings.row.isReady ? "" : "\n\nUntil it is downloaded, the call’s side is labelled Them and no audio is kept."))
+                    SettingInfoButton(text: SpeakerFacts.explanation.replacingOccurrences(of: "never your microphone", with: settings.separateRoom ? "or your microphone for microphone-only recordings" : "never your microphone") + (settings.row.isReady ? "" : "\n\nUntil it is downloaded, the call’s side is labelled Them and no audio is kept."))
                 }
             }
             .toggleStyle(MurmurToggleStyle())
             if settings.enabled {
+                Toggle("Separate speakers in microphone-only recordings", isOn: $settings.separateRoom)
+                    .toggleStyle(MurmurToggleStyle())
+                lede("For microphone-only recordings, microphone audio is kept on this Mac until speaker separation finishes, up to 24 hours, then deleted.")
                 HStack(alignment: .center, spacing: 16) {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 4) {

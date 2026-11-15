@@ -35,7 +35,7 @@ enum MeetingSpeakers {
 
     /// "Speaker 2", or the name the user gave; Me and unassigned Them lines keep their stream label.
     static func label(_ line: MeetingLine, in meeting: Meeting) -> String {
-        guard line.stream == .them, let number = line.speaker else { return MeetingExport.label(line.stream) }
+        guard let number = line.speaker, line.stream == (meeting.source.micOnly ? .me : .them) else { return meeting.source.micOnly ? "Room" : MeetingExport.label(line.stream) }
         return label(number, in: meeting)
     }
 
@@ -76,11 +76,11 @@ enum MeetingSpeakers {
         for var line in meeting.lines {
             let words = line.words
             line.words = nil
-            guard line.stream == .them else { out.append(line); continue }
+            guard line.stream == (meeting.source.micOnly ? .me : .them) else { out.append(line); continue }
             let pieces = split(line, words: words, segments: segments)
             for (index, piece) in pieces.enumerated() {
                 var part = piece.line
-                if index > 0 { part = MeetingLine(id: nextID, stream: .them, start: part.start, end: part.end, text: part.text, localFallback: line.localFallback); nextID += 1 }
+                if index > 0 { part = MeetingLine(id: nextID, stream: line.stream, start: part.start, end: part.end, text: part.text, localFallback: line.localFallback); nextID += 1 }
                 if let speaker = piece.speaker { raw[part.id] = speaker }
                 out.append(part)
             }
@@ -121,7 +121,7 @@ enum MeetingSpeakers {
         for i in 1...tokens.count where i == tokens.count || who[i] != who[first] {
             let start = first == 0 ? line.start : line.start + words[first][0]
             let end = i == tokens.count ? line.end : max(start, line.start + words[i - 1][1])
-            pieces.append((MeetingLine(id: line.id, stream: .them, start: start, end: end, text: tokens[first..<i].joined(separator: " "), localFallback: line.localFallback), who[first]))
+            pieces.append((MeetingLine(id: line.id, stream: line.stream, start: start, end: end, text: tokens[first..<i].joined(separator: " "), localFallback: line.localFallback), who[first]))
             first = i
         }
         return pieces
@@ -149,6 +149,7 @@ extension Meeting {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         speakers?.names[number] = trimmed.isEmpty ? nil : String(trimmed.prefix(60))
         speakers?.editedAt = Date()
+        lectureNotes?.outdated = true
         relabelNotes(old, as: MeetingSpeakers.label(number, in: self), number: number)
     }
 
@@ -159,15 +160,17 @@ extension Meeting {
         for i in lines.indices where lines[i].speaker == from { lines[i].speaker = into }
         speakers?.names[from] = nil
         speakers?.editedAt = Date()
+        lectureNotes?.outdated = true
         relabelNotes(old, as: MeetingSpeakers.label(into, in: self), number: into)
     }
 
     /// Moves one Them line to another speaker, or to a new one when `to` is not in use. Which items
     /// rested on that line's speaker is the model's reading, so notes are only marked out of date.
     mutating func reassignLine(_ id: Int, to speaker: Int) {
-        guard speakers != nil, speaker > 0, let i = lines.firstIndex(where: { $0.id == id && $0.stream == .them }) else { return }
+        guard speakers != nil, speaker > 0, let i = lines.firstIndex(where: { $0.id == id && $0.stream == (source.micOnly ? .me : .them) }) else { return }
         lines[i].speaker = speaker
         speakers?.editedAt = Date()
+        lectureNotes?.outdated = true
         if notes != nil { notes?.outdated = true }
     }
 
@@ -307,10 +310,10 @@ enum SpeakerFacts {
     /// Credits required by the repository's NOTICE.md (CC-BY-4.0 attribution).
     static let credits = "Speaker separation uses modified Core ML conversions by Fluid Inference of the pyannote speaker-diarization-community-1 pipeline (pyannote segmentation, WeSpeaker embeddings) with PLDA parameters from BUT Speech@FIT, licensed under CC-BY-4.0: https://creativecommons.org/licenses/by/4.0/"
     /// The meeting page's line while speakers are being separated, or waiting to be.
-    static func status(_ separation: SpeakerSeparation?, running: Bool) -> String? {
+    static func status(_ separation: SpeakerSeparation?, running: Bool, room: Bool = false) -> String? {
         switch separation?.state {
-        case .pending?: return running ? "Separating speakers…" : "Waiting to separate speakers. The call’s audio is kept for up to 24 hours."
-        case .failed?: return "Speakers could not be separated, so the call’s side is labelled Them. Its audio was deleted."
+        case .pending?: return running ? "Separating speakers…" : "Waiting to separate speakers. \(room ? "Microphone audio" : "The call’s audio") is kept for up to 24 hours."
+        case .failed?: return "Speakers could not be separated, so \(room ? "the microphone is labelled Room" : "the call’s side is labelled Them"). Its audio was deleted."
         default: return nil
         }
     }

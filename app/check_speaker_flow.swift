@@ -42,6 +42,12 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         }
         func kept(_ m: Meeting) -> Bool { fm.fileExists(atPath: SpeakerAudio.file(speakerRoot, meeting: m.id).path) }
 
+        let roomDefaults = UserDefaults(suiteName: "murmur-room-setting-\(UUID().uuidString)")!
+        let roomSettings = SpeakerModelSettings(defaults: roomDefaults)
+        check(!roomSettings.separateRoom, "microphone retention is off by default")
+        roomSettings.separateRoom = true
+        check(SpeakerModelSettings(defaults: roomDefaults).separateRoom, "room separation opt-in persists")
+
         let recorder = MeetingRecorder(defaults: UserDefaults(suiteName: "murmur-speaker-flow-\(UUID().uuidString)")!)
         check(!recorder.hasPendingUpdateWork, "idle meetings allow application updates")
         recorder.transcribe = { _, done in done(nil) }
@@ -49,7 +55,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         // Notes are written by the real writer; the stand-in model records what it was sent.
         var prompts: [String: String] = [:], states: [String: SpeakerSeparation.State?] = [:]
         recorder.notesRoute = { .customAPI }
-        recorder.notesWriter = { meeting in
+        recorder.notesWriter = { meeting, _ in
             states[meeting.id] = meeting.speakers?.state
             return try await MeetingNotesWriter.write(meeting, route: .customAPI, routeName: "Stand-in") { _, user in
                 prompts[meeting.id] = user; return "POINT | L1 | First voice"
@@ -65,6 +71,14 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         spin(until: { false }, seconds: 0.3)
         check(states[waiting.id] == nil && !recorder.notesWriting.contains(waiting.id) && notes(waiting) == nil, "no notes while speakers wait to be separated, even on Write Notes")
 
+        var room = Meeting(id: UUID().uuidString, recordedAt: Date(), source: .microphoneOnly)
+        room.speakers = SpeakerSeparation(state: .pending, threshold: MeetingSpeakers.threshold)
+        room.insert(stream: .me, start: 0, end: 5, text: "First voice.")
+        room.insert(stream: .me, start: 5, end: 10, text: "Second voice.")
+        room.finished = true
+        try store.save(room)
+        try SpeakerAudio.write([Int16](repeating: 1, count: 160_000), at: 0, to: SpeakerAudio.file(speakerRoot, meeting: room.id))
+
         // With the model: separation runs, labels apply and saved, the audio is deleted.
         recorder.helper = helper; recorder.speakerModel = models
         recorder.reload()
@@ -73,6 +87,12 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         let done = recorder.meetings.first { $0.id == waiting.id }
         check(done?.speakers?.state == .done && done?.lines.map(\.speaker) == [1, 2], "the helper's segments label the lines")
         check(!kept(waiting), "the call audio is deleted once diarization finishes")
+        spin { recorder.meetings.first { $0.id == room.id }?.speakers?.state != .pending }
+        let roomDone = recorder.meetings.first { $0.id == room.id }
+        check(roomDone?.lines.map(\.speaker) == [1, 2] && roomDone?.lines.allSatisfy { $0.stream == .me } == true, "room audio labels microphone lines")
+        check(!kept(room), "room audio is deleted after separation")
+        spin { notes(room) != nil }
+        check(prompts[room.id]?.contains("[L1 Speaker 1 0:00]") == true, "room speaker labels reach notes")
         spin { notes(done!) != nil }
         check(states[waiting.id] == .done && prompts[waiting.id]?.contains("[L1 Speaker 1 0:00] First voice.") == true && prompts[waiting.id]?.contains("[L2 Speaker 2 0:05]") == true && notes(waiting)?.keyPoints.count == 1, "notes are written after separation, with speaker labels")
         check(!recorder.hasPendingUpdateWork, "application updates resume after separation and notes finish")
@@ -152,6 +172,22 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         // Delete All Data stops everything.
         recorder.discardAll()
         check(recorder.separating.isEmpty && recorder.meetings.isEmpty, "Delete All Data forgets separations")
+
+        var saved = waiting
+        saved.finished = true
+        saved.speakers = nil
+        saved.notes = MeetingNotes(summary: "Original meeting", route: "fixture", writtenAt: Date())
+        saved.lectureNotes = MeetingNotes(summary: "Original lecture", route: "fixture", writtenAt: Date())
+        let preservation = MeetingRecorder()
+        preservation.showFixture([saved], live: nil)
+        preservation.notesWriter = { _, lecture in
+            check(lecture, "recorder forwards lecture selection")
+            throw NotesFailure.failed("Synthetic failure")
+        }
+        preservation.writeNotes(saved.id, lecture: true)
+        spin(until: { !preservation.notesWriting.contains(saved.id) })
+        check(preservation.notesProblem[saved.id]?.contains("Synthetic failure") == true, "lecture failure is reported")
+        check(preservation.meetings.first?.notes == saved.notes && preservation.meetings.first?.lectureNotes == saved.lectureNotes, "failed lecture generation preserves both note sets")
 
         print(failures == 0 ? "All speaker flow checks passed." : "\(failures) speaker flow check(s) failed.")
         exit(failures == 0 ? 0 : 1)
