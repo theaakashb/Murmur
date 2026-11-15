@@ -1,23 +1,11 @@
 #!/bin/zsh
 # Builds and runs only the isolated synthetic UI fixture.
 set -eu
-project_root="$(cd "$(dirname "$0")/.." && pwd)"
-# The Command Line Tools' macOS 27 SDK needs a SwiftUI macro plugin they do not ship; use their
-# macOS 26 SDK when it is installed. Set SDKROOT to choose another SDK.
-sdk26="$(dirname "$(xcrun --show-sdk-path)")/MacOSX26.sdk"
-if [[ -z "${SDKROOT:-}" && -d "$sdk26" ]]; then export SDKROOT="$sdk26"; fi
+. "$(dirname "$0")/sources.sh"
 fixture_path="$project_root/runtime/UIQA.app"
 mkdir -p "$fixture_path/Contents/MacOS"
 swiftc -swift-version 5 -target arm64-apple-macos26.0 \
-  "$project_root/spike/Shortcut.swift" "$project_root/spike/Insertion.swift" "$project_root/spike/Observation.swift" \
-  "$project_root/module-one/capture/Capture.swift" "$project_root/module-one/session/Session.swift" \
-  "$project_root/app/History.swift" "$project_root/app/Insights.swift" "$project_root/app/Delivery.swift" "$project_root/app/Controller.swift" \
-  "$project_root/app/Cleanup.swift" "$project_root/app/Dictionary.swift" "$project_root/app/Learning.swift" \
-  "$project_root/app/Retention.swift" "$project_root/app/Providers.swift" "$project_root/app/Credentials.swift" \
-  "$project_root/app/Processing.swift" "$project_root/app/ModelDownload.swift" "$project_root/app/Updates.swift" "$project_root/app/AppUpdater.swift" \
-  "$project_root/app/AppServices.swift" "$project_root/app/Routes.swift" "$project_root/app/AppleCleanup.swift" \
-  "$project_root/app/UI.swift" "$project_root/app/Meetings.swift" "$project_root/app/MeetingNotes.swift" "$project_root/app/MeetingSpeakers.swift" "$project_root/app/MeetingCapture.swift" "$project_root/app/MeetingRecorder.swift" "$project_root/app/MeetingsUI.swift" "$project_root/app/check_ui.swift" \
-  "$project_root/app/CallDetection.swift" "$project_root/app/CallOfferUI.swift" \
+  "${app_sources[@]}" "$project_root/app/check_ui.swift" \
   -o "$fixture_path/Contents/MacOS/UIQA"
 mkdir -p "$fixture_path/Contents/Resources"
 cp -R "$project_root/app/Fonts" "$fixture_path/Contents/Resources/"

@@ -6,7 +6,7 @@
 //
 //   SDKROOT="$(dirname "$(xcrun --show-sdk-path)")/MacOSX26.sdk" swiftc -swift-version 5 -parse-as-library -suppress-warnings \
 //     app/Cleanup.swift app/Dictionary.swift app/Learning.swift app/Retention.swift app/Providers.swift app/Credentials.swift \
-//     app/Processing.swift app/Routes.swift app/AppleCleanup.swift spike/Observation.swift app/tools/measure_cleanup_route.swift \
+//     app/Processing.swift app/Routes.swift app/AppleCleanup.swift app/Observation.swift app/tools/measure_cleanup_route.swift \
 //     -o /tmp/mcr && [MCR_DELAY=4.5] /tmp/mcr apple|gemini|custom [strict,polish,professional] [--verbose]
 import Foundation
 

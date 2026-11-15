@@ -1,8 +1,6 @@
 import Foundation
 
 // Deterministic, network-free checks for ModelDownload.swift. A fake transport serves fixture bytes.
-// Run from the repository root:
-// /opt/swift/usr/bin/swiftc -swift-version 5 app/ModelDownload.swift app/check_model_download.swift -o /tmp/cm && /tmp/cm
 
 private var failures = 0
 private var passes = 0

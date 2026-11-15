@@ -3,8 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-// Network-free checks for AppServices.swift. Run from the repository root:
-// swiftc app/Retention.swift app/ModelDownload.swift app/Updates.swift app/AppServices.swift app/check_app_services.swift -o /tmp/murmur-app-services-check && /tmp/murmur-app-services-check
+// Network-free checks for AppServices.swift.
 
 var failures = 0
 func check(_ condition: Bool, _ name: String) {

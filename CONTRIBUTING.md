@@ -39,48 +39,15 @@ Run the redacted secret scans in [SECURITY.md](SECURITY.md) before sharing a bra
 
 ## Checks
 
-The commands in this section use offline or loopback synthetic checks; they do not record audio, insert text or inject keys. Run the ones that cover your change, and all of them before a release. Commands below run from the repository root. When using Command Line Tools with its macOS 27 SDK, select its macOS 26 SDK if available, as the build scripts do:
+The checks are offline or loopback and synthetic; they do not record audio, insert text or inject keys. Run the ones that cover your change, and all of them before a release, from the repository root:
 
 ```sh
-# In the same shell used for the swiftc checks below.
-murmur_sdk26="$(dirname "$(xcrun --show-sdk-path)")/MacOSX26.sdk"
-if [ -z "${SDKROOT:-}" ] && [ -d "$murmur_sdk26" ]; then export SDKROOT="$murmur_sdk26"; fi
+app/check.sh                      # all checks
+app/check.sh cleanup providers    # only these
+app/check.sh --list               # names
 ```
 
-App, history and controller (macOS):
-
-```sh
-swiftc app/LaunchOptions.swift app/check_launch.swift -o /tmp/dictation-launch-check && /tmp/dictation-launch-check
-swiftc spike/Shortcut.swift module-one/capture/Capture.swift module-one/session/Session.swift app/Cleanup.swift app/History.swift app/check_history.swift -o /tmp/dictation-history-check && /tmp/dictation-history-check
-swiftc -swift-version 5 spike/Shortcut.swift spike/Insertion.swift spike/Observation.swift module-one/capture/Capture.swift module-one/session/Session.swift app/History.swift app/Insights.swift app/Delivery.swift app/Controller.swift app/Cleanup.swift app/Dictionary.swift app/Learning.swift app/Retention.swift app/Providers.swift app/Credentials.swift app/Processing.swift app/ModelDownload.swift app/Updates.swift app/AppUpdater.swift app/AppServices.swift app/Routes.swift app/AppleCleanup.swift app/UI.swift app/Meetings.swift app/MeetingNotes.swift app/MeetingSpeakers.swift app/MeetingCapture.swift app/MeetingRecorder.swift app/MeetingsUI.swift app/CallDetection.swift app/CallOfferUI.swift app/check_controller.swift -o /tmp/dictation-controller-check && /tmp/dictation-controller-check
-swiftc -swift-version 5 spike/Shortcut.swift spike/Insertion.swift spike/Observation.swift module-one/capture/Capture.swift module-one/session/Session.swift app/History.swift app/Insights.swift app/Delivery.swift app/Controller.swift app/Cleanup.swift app/Dictionary.swift app/Learning.swift app/Retention.swift app/Providers.swift app/Credentials.swift app/Processing.swift app/ModelDownload.swift app/Updates.swift app/AppUpdater.swift app/AppServices.swift app/Routes.swift app/AppleCleanup.swift app/UI.swift app/Meetings.swift app/MeetingNotes.swift app/MeetingSpeakers.swift app/MeetingCapture.swift app/MeetingRecorder.swift app/MeetingsUI.swift app/CallDetection.swift app/CallOfferUI.swift app/check_meeting_start.swift -o /tmp/murmur-meeting-start-check && /tmp/murmur-meeting-start-check
-swiftc spike/Shortcut.swift module-one/capture/Capture.swift module-one/session/Session.swift app/check_recording.swift -o /tmp/murmur-recording-check && /tmp/murmur-recording-check
-swiftc -swift-version 5 spike/Shortcut.swift module-one/capture/Capture.swift module-one/session/Session.swift app/History.swift app/Retention.swift app/ModelDownload.swift app/Updates.swift app/AppServices.swift app/Cleanup.swift app/Meetings.swift app/MeetingNotes.swift app/MeetingSpeakers.swift app/MeetingCapture.swift app/MeetingRecorder.swift app/check_speaker_flow.swift -o /tmp/murmur-speaker-flow-check && /tmp/murmur-speaker-flow-check
-```
-
-Foundation-only modules (macOS or Linux):
-
-```sh
-swiftc app/Delivery.swift app/check_delivery.swift -o /tmp/murmur-delivery-check && /tmp/murmur-delivery-check
-swiftc app/Cleanup.swift app/Dictionary.swift app/Learning.swift app/Retention.swift app/check_dictionary.swift -o /tmp/cd && /tmp/cd
-swiftc app/Cleanup.swift app/Dictionary.swift app/Learning.swift app/Retention.swift app/Providers.swift app/Credentials.swift app/Processing.swift spike/Observation.swift app/check_processing.swift -o /tmp/murmur-processing-check && /tmp/murmur-processing-check
-swiftc app/Cleanup.swift app/Dictionary.swift app/Learning.swift app/Retention.swift app/Providers.swift app/Credentials.swift app/Processing.swift spike/Observation.swift app/check_modes.swift -o /tmp/murmur-modes-check && /tmp/murmur-modes-check
-swiftc app/Cleanup.swift app/Dictionary.swift app/Learning.swift app/Retention.swift app/Providers.swift app/Credentials.swift app/Processing.swift app/Routes.swift app/AppleCleanup.swift spike/Observation.swift app/check_apple_cleanup.swift -o /tmp/murmur-apple-check && /tmp/murmur-apple-check
-swiftc app/Cleanup.swift app/Dictionary.swift app/Learning.swift app/Retention.swift app/Providers.swift app/Credentials.swift app/Processing.swift app/Routes.swift app/AppleCleanup.swift app/check_routes.swift -o /tmp/murmur-routes-check && /tmp/murmur-routes-check
-swiftc app/Cleanup.swift app/Providers.swift app/Credentials.swift app/check_providers.swift -o /tmp/murmur-providers-check && /tmp/murmur-providers-check
-python3 app/check_http.py
-swiftc app/Updates.swift app/check_updates.swift -o /tmp/murmur-updates-check && /tmp/murmur-updates-check
-swiftc app/Insights.swift app/check_insights.swift -o /tmp/murmur-insights-check && /tmp/murmur-insights-check
-swiftc app/Retention.swift app/Cleanup.swift app/Meetings.swift app/MeetingNotes.swift app/MeetingSpeakers.swift app/check_meetings.swift -o /tmp/murmur-meetings-check && /tmp/murmur-meetings-check
-swiftc app/Retention.swift app/Cleanup.swift app/Meetings.swift app/MeetingNotes.swift app/MeetingSpeakers.swift app/CallDetection.swift app/check_call_detection.swift -o /tmp/murmur-detection-check && /tmp/murmur-detection-check
-swiftc app/Retention.swift app/Cleanup.swift app/Meetings.swift app/MeetingNotes.swift app/MeetingSpeakers.swift app/check_speakers.swift -o /tmp/murmur-speakers-check && /tmp/murmur-speakers-check
-swiftc -swift-version 5 app/ModelDownload.swift app/check_model_download.swift -o /tmp/murmur-model-check && /tmp/murmur-model-check
-python3 app/tools/check_update_config.py
-swiftc app/Retention.swift app/ModelDownload.swift app/Updates.swift app/AppServices.swift app/check_app_services.swift -o /tmp/murmur-app-services-check && /tmp/murmur-app-services-check
-swiftc module-one/models/Runner/Sources/ModelBench/BoostFilter.swift app/check_boost_filter.swift -o /tmp/murmur-boost-check && /tmp/murmur-boost-check
-python3 app/tools/build_cleanup_corpus.py
-swiftc app/Cleanup.swift app/check_cleanup.swift -o /tmp/cc && /tmp/cc app/cleanup-corpus.json
-```
+`app/check.sh` holds each check's source list, which is that module's whole dependency set: add a source file there only when a check really needs it. `controller` and `meeting_start` compile the whole app and need macOS; `launch`, `history`, `recording` and `speaker_flow` also need macOS. The rest are Foundation-only and also build on Linux. The app itself is every `app/*.swift` except `main.swift` and `check_*.swift` (`app/sources.sh`), so a new source file needs no build-script edit. When using Command Line Tools with its macOS 27 SDK, the scripts select its macOS 26 SDK if installed; set `SDKROOT` to choose another.
 
 Visual fixture (macOS, temporary storage, no capture or insertion):
 
@@ -102,7 +69,7 @@ app/check_ui.sh --meetings --speakers --meeting-notes
 app/check_ui.sh --meetings --separating
 ```
 
-Additional fixture flags and their side effects are described in [app/README.md](app/README.md). Standalone checks are in the [insertion spike](spike/README.md), [capture probe](module-one/capture/README.md), [capture session](module-one/session/README.md), and [model tooling](module-one/models/README.md) guides. A synthetic fixture is not live capture, insertion, or provider evidence.
+Additional fixture flags and their side effects are described in [app/README.md](app/README.md). Standalone probes are in the [insertion spike](spike/README.md), [capture probe](module-one/capture/README.md) and [model tooling](module-one/models/README.md) guides. A synthetic fixture is not live capture, insertion, or provider evidence.
 
 ## Conventions
 
@@ -110,7 +77,7 @@ These are the patterns in the existing code and docs.
 
 - Native Swift with Apple frameworks (Foundation, AppKit, SwiftUI, AVFoundation, Security). FluidAudio is the pinned Swift package; Sparkle is a separately pinned framework archive. Keep new logic Foundation-only where possible, so its checks run on Linux too.
 - Small concrete types per concern (one file per module, such as `Cleanup.swift` or `Providers.swift`), not a plugin framework.
-- Checks are standalone executables named `check_<module>.swift`, compiled with `swiftc` next to the files they test. They exit non-zero on failure and need no external network, real keys or microphone; `check_http.py` uses a loopback server with synthetic data.
+- Checks are standalone executables named `check_<module>.swift`, compiled by `app/check.sh` with the files they test. They exit non-zero on failure and need no external network, real keys or microphone; `check_http.py` uses a loopback server with synthetic data.
 - Code must compile under `-swift-version 5`, which `build.sh` uses.
 - Treat dictated text as untrusted data. Never log transcript text, API keys or response bodies; error reasons are content-free enums.
 - Store API keys only in the Keychain. Never send transcripts, audio, dictionary entries or keys in update checks.

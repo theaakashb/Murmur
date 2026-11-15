@@ -1,5 +1,4 @@
 // Speaker separation W7d checks (PRD 11.8). No audio models, no network; the helper is a stand-in script.
-// swiftc app/Retention.swift app/Meetings.swift app/MeetingSpeakers.swift app/check_speakers.swift -o /tmp/murmur-speakers-check && /tmp/murmur-speakers-check
 import Foundation
 
 nonisolated(unsafe) var failures = 0

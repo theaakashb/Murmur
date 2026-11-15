@@ -3,10 +3,6 @@ import Foundation
 // Deterministic checks for AppleCleanup.swift: availability gating, the route wiring, and the
 // local-rules fallback through ProcessingCoordinator. A fake status and model replace
 // FoundationModels, so this runs without Apple Intelligence (and on Linux).
-//
-//   swiftc app/Cleanup.swift app/Dictionary.swift app/Learning.swift app/Retention.swift app/Providers.swift \
-//     app/Credentials.swift app/Processing.swift app/Routes.swift app/AppleCleanup.swift spike/Observation.swift \
-//     app/check_apple_cleanup.swift -o /tmp/murmur-apple-check && /tmp/murmur-apple-check
 
 private var failures = 0
 private var passes = 0

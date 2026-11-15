@@ -1,7 +1,6 @@
 import Foundation
 
 // Checks for the dictionary rescoring filter in the transcription helper.
-// swiftc module-one/models/Runner/Sources/ModelBench/BoostFilter.swift app/check_boost_filter.swift -o /tmp/murmur-boost-check && /tmp/murmur-boost-check
 
 private var failures = 0, passes = 0
 private func check(_ condition: Bool, _ label: String, line: Int = #line) {

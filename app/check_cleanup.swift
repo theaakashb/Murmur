@@ -3,8 +3,6 @@ import Foundation
 // Cleanup corpus checks: RuleCleaner accuracy per option set, unintended name/number/negation
 // edits (PRD bar <= 1%), guard false rejects on labeled outputs, and guard rejection of
 // synthetic adversarial outputs. Exits non-zero if the bar or any adversarial case fails.
-//
-//   swiftc app/Cleanup.swift app/check_cleanup.swift -o /tmp/cc && /tmp/cc [app/cleanup-corpus.json] [--verbose]
 
 struct CorpusEntry: Decodable {
     var id: String

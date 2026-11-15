@@ -1,7 +1,6 @@
 import Foundation
 
-// Checks for Insights.swift (gap #19). Run from the repository root (macOS or Linux):
-// swiftc app/Insights.swift app/check_insights.swift -o /tmp/murmur-insights-check && /tmp/murmur-insights-check
+// Checks for Insights.swift (gap #19).
 
 nonisolated(unsafe) var failures = 0
 func check(_ condition: Bool, _ name: String) {

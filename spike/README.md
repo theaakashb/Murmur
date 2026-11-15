@@ -6,7 +6,7 @@ Build from the repository root on macOS with the Swift command-line tools:
 
 ```sh
 mkdir -p spike/.build
-swiftc -module-name DictationSpike spike/Shortcut.swift spike/ShortcutChecks.swift spike/Insertion.swift spike/Observation.swift spike/main.swift -o spike/.build/dictation-spike
+swiftc -module-name DictationSpike app/Shortcut.swift spike/ShortcutChecks.swift app/Insertion.swift app/Observation.swift spike/main.swift -o spike/.build/dictation-spike
 spike/.build/dictation-spike --check
 python3 spike/check_cli.py
 ```

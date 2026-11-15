@@ -1,7 +1,6 @@
 import Foundation
 
 // Deterministic checks for Dictionary.swift, Learning.swift and Retention.swift over a temp directory.
-// swiftc app/Dictionary.swift app/Learning.swift app/Retention.swift app/check_dictionary.swift -o /tmp/cd && /tmp/cd
 
 private var failures = 0
 private var passes = 0

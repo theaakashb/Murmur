@@ -1,5 +1,4 @@
 // Meeting detection W7c checks (PRD 11.7). No Core Audio, no UI, no network.
-// swiftc app/Retention.swift app/Meetings.swift app/CallDetection.swift app/check_call_detection.swift -o /tmp/murmur-detection-check && /tmp/murmur-detection-check
 import Foundation
 
 nonisolated(unsafe) var failures = 0
