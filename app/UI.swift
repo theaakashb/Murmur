@@ -379,21 +379,22 @@ struct SettingsView: View {
         else { SettingInfoButton(text: text) }
     }
 
+    private var microphoneInfo: String {
+        (controller.inputDeviceUID == MicrophoneChoice.automatic
+            ? "Uses the Mac’s built-in microphone instead of a Bluetooth headset’s while available, so AirPods keep full playback quality. Otherwise uses the system default.\n\n" : "")
+            + "If the microphone changes while you dictate, recording continues on the new one and keeps what was already recorded."
+    }
+
     private var microphonePicker: some View {
         let devices = controller.inputDevices
         let saved = controller.inputDeviceUID
-        return VStack(alignment: .leading, spacing: 8) {
-            Picker("Microphone", selection: $controller.inputDeviceUID) {
-                Text("System default").tag("")
-                Text("Automatic").tag(MicrophoneChoice.automatic)
-                ForEach(devices, id: \.uid) { device in Text(device.name).tag(device.uid) }
-                if !saved.isEmpty && saved != MicrophoneChoice.automatic && !devices.contains(where: { $0.uid == saved }) { Text("Chosen microphone (not connected)").tag(saved) }
-            }
-            .labelsHidden()
-            settingInfo((saved == MicrophoneChoice.automatic
-                ? "Uses the Mac’s built-in microphone instead of a Bluetooth headset’s while available, so AirPods keep full playback quality. Otherwise uses the system default.\n\n" : "")
-                + "If the microphone changes while you dictate, recording continues on the new one and keeps what was already recorded.")
+        return Picker("Microphone", selection: $controller.inputDeviceUID) {
+            Text("System default").tag("")
+            Text("Automatic").tag(MicrophoneChoice.automatic)
+            ForEach(devices, id: \.uid) { device in Text(device.name).tag(device.uid) }
+            if !saved.isEmpty && saved != MicrophoneChoice.automatic && !devices.contains(where: { $0.uid == saved }) { Text("Chosen microphone (not connected)").tag(saved) }
         }
+        .labelsHidden()
     }
 
     private func toggleRow(_ title: String, _ detail: String, isOn: Binding<Bool>) -> some View {
@@ -739,7 +740,7 @@ struct SettingsView: View {
             softRule.padding(.vertical, 12)
             eyebrow("Audio")
             HStack(alignment: .top, spacing: 16) {
-                Text("Microphone").font(.system(size: 13))
+                titled("Microphone", microphoneInfo)
                 Spacer(minLength: 16)
                 microphonePicker.frame(maxWidth: 280, alignment: .trailing)
             }.padding(.top, 16).id("Microphone")
