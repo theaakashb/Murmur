@@ -129,6 +129,20 @@ import AVFoundation
         let before = Set(try manager.contentsOfDirectory(atPath: temp.path))
         let controller = AppController(preview: true)
         defer { controller.shutdown() }
+        controller.useFaithfulTranscription()
+        controller.cleanupChoice = .localRules
+        let settingsView = SettingsView(controller: controller)
+        settingsView.cleanupStyle.wrappedValue = 1
+        precondition(controller.cleanupChoice == .appleIntelligence && controller.cleanupPolish && !controller.cleanupProfessional,
+                     "Polish without a model selects Apple Intelligence")
+        controller.cleanupChoice = .customAPI
+        settingsView.cleanupStyle.wrappedValue = 0
+        precondition(controller.cleanupChoice == .customAPI && !controller.cleanupPolish && !controller.cleanupProfessional,
+                     "Strict remembers the AI provider without using it")
+        settingsView.cleanupStyle.wrappedValue = 2
+        precondition(controller.cleanupChoice == .customAPI && controller.cleanupProfessional,
+                     "Professional restores the chosen provider")
+
         let created = Set(try manager.contentsOfDirectory(atPath: temp.path)).subtracting(before)
         guard let name = created.first(where: { $0.hasPrefix("Dictation-preview-") }) else { preconditionFailure("Preview storage missing") }
         let retry = try RetryAudio(directory: temp.appendingPathComponent(name).appendingPathComponent("retry-audio"))

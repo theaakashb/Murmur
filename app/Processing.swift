@@ -163,6 +163,14 @@ struct DictationStyle: Equatable, Sendable {
         if !usesModel { self.context = nil } // Strict and Faithful run on this Mac; nothing to send context to.
     }
 
+    /// Trigger modes are chosen after transcription, so capture for any enabled candidate that needs it.
+    static func needsScreenContext(mode: WritingMode?, modes: [WritingMode], settings: ProcessingSettings) -> Bool {
+        func needs(_ mode: WritingMode?) -> Bool {
+            (mode?.screenContext ?? settings.screenContext) && DictationStyle(mode: mode, settings: settings).usesModel
+        }
+        return needs(mode) || modes.contains { $0.enabled && !$0.triggers.isEmpty && needs($0) }
+    }
+
     /// Only the rewrite styles and preset rewrites use the AI model.
     var usesModel: Bool { options.polish || options.professional || transform != nil }
 }
