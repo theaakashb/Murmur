@@ -912,7 +912,7 @@ struct SettingsView: View {
         })
     }
 
-    static let aiCleanupChoices = CleanupChoice.allCases.filter { $0 != .localRules }
+    static let aiCleanupChoices = CleanupChoice.selectable.filter { $0 != .localRules }
 
     private var cleanupChoices: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -934,8 +934,46 @@ struct SettingsView: View {
                 eyebrow("AI model").padding(.top, 20)
                 segmented(Self.aiCleanupChoices.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14)
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
+                if controller.cleanupChoice == .localModel { localModelSection }
+            }
+            if controller.geminiCleanupNotice {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    help(LocalCleanupFacts.removedGeminiNotice)
+                    Button("Dismiss", action: controller.dismissGeminiCleanupNotice).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize()
+                }.padding(.top, 12)
             }
         }
+    }
+
+    /// Download row and capabilities of the managed local cleanup model, shown in both the Settings and the setup flows.
+    private var localModelSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 4) {
+                        Text(LocalCleanupFacts.modelName).font(Font.system(size: 18, weight: .semibold))
+                        ModelInfoIcons(license: controller.localModelLicense.map(ModelFacts.licenseText), details: controller.localModelSummary)
+                    }
+                    Group {
+                        if controller.localModelRow.isReady { mono("Ready ✓", color: EditorialPalette.accentInk) }
+                        else { Text(controller.localModelRow.statusText).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
+                    }.padding(.top, 5)
+                }
+                Spacer()
+                let row = controller.localModelRow
+                if row.actions.contains(.download) { Button("Download…", action: controller.downloadLocalModel).buttonStyle(InkButtonStyle()).fixedSize() }
+                if row.actions.contains(.retry) { Button("Retry…", action: controller.downloadLocalModel).buttonStyle(InkButtonStyle()).fixedSize() }
+                if row.actions.contains(.cancel) { Button("Cancel", action: controller.cancelLocalModelDownload).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
+                if row.actions.contains(.remove) { Button("Remove…", role: .destructive, action: controller.removeLocalModel).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
+            }
+            help(LocalCleanupFacts.explanation)
+            if let progress = controller.localModelRow.progress { progressBar(progress) }
+            if !controller.localModelRow.isReady && controller.localModelRow.progress == nil && controller.localModelRow.actions.contains(.download) {
+                help("Until it is downloaded, dictations are cleaned with Local rules.")
+            }
+            if !controller.localModelMessage.isEmpty { help(controller.localModelMessage) }
+        }
+        .padding(.top, 16)
     }
 
     private var cleanup: some View {
@@ -952,7 +990,7 @@ struct SettingsView: View {
             if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() {
                 help(reason.userMessage + " Until then, local rules clean dictations.").padding(.top, 8)
             }
-            toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac. Modes can turn it on or off.", isOn: $controller.screenContext)
+            toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac or Local model. Modes can turn it on or off.", isOn: $controller.screenContext)
                 .padding(.top, 12).disabled(cleanupStyle.wrappedValue < 1)
             if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .customAPI {
                 customCleanupSettings
@@ -1743,8 +1781,7 @@ struct SettingsView: View {
                                     cleanupChoices
                                     if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .customAPI { customCleanupSettings }
                                     if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() { help(reason.userMessage).padding(.top, 12) }
-                                    if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .gemini { keyRow(.gemini).padding(.top, 12) }
-                                    disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
+                                                    disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
                                 }
                                 else if guideStep == .meetings {
                                     meetingRoutes

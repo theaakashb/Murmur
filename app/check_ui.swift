@@ -148,8 +148,18 @@ import Combine
             if args.contains("--dictionary") { controller.screenRequest = "settings-4" }
             // --cleanup-style -1|0|1|2: Faithful, Strict, Polish or Professional, with an AI model stored.
             if let flag = args.firstIndex(of: "--cleanup-style"), args.indices.contains(flag + 1), let style = Int(args[flag + 1]) {
-                controller.cleanupChoice = .gemini; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
+                controller.cleanupChoice = args.contains("--custom-cleanup") ? .customAPI : .localModel; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
                 if style == -1 { controller.useFaithfulTranscription() }
+            }
+            // --local-model ready|downloading|failed|notice: the managed local cleanup row in its states (no download runs).
+            if let flag = args.firstIndex(of: "--local-model"), args.indices.contains(flag + 1) {
+                switch args[flag + 1] {
+                case "ready": controller.showLocalModelFixture(.ready)
+                case "downloading": controller.showLocalModelFixture(.downloading(ModelDownloadProgress(bytesDone: 214_000_000, totalBytes: 560_000_000)))
+                case "failed": controller.showLocalModelFixture(.failed(.diskFull))
+                case "notice": controller.showLocalModelFixture(.notDownloaded); controller.geminiCleanupNotice = true
+                default: controller.showLocalModelFixture(.notDownloaded)
+                }
             }
             if let flag = args.firstIndex(of: "--section"), args.indices.contains(flag + 1) {
                 controller.screenRequest = "settings-" + args[flag + 1]

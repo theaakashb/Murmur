@@ -1702,6 +1702,60 @@
           "git_blob_sha1": "104dc2572aec3eb7d606a619fa738cdc43824cff"
         }
       ]
+    },
+    "heyvedu/vedu-scribe-0.8b": {
+      "revision": "7dced5841c58d7d6e0118c4c123f222b35057871",
+      "files": [
+        {
+          "rfilename": "chat_template.jinja",
+          "size": 7755,
+          "git_blob_sha1": "0ef09f214eaa6d9bca297988afc1454b5827b2c7"
+        },
+        {
+          "rfilename": "config.json",
+          "size": 60445,
+          "git_blob_sha1": "2788bed4cb03ef483acfd55ab002831e2f21337d"
+        },
+        {
+          "rfilename": "model.safetensors",
+          "size": 540713766,
+          "lfs": {
+            "sha256": "9912660269b0a57dec85a368fa37b23ed7e76ca438b05b9b2238b4b887e7d2e6",
+            "size": 540713766
+          }
+        },
+        {
+          "rfilename": "model.safetensors.index.json",
+          "size": 60784,
+          "git_blob_sha1": "cb0993241b2ce12100e02d1d709b30494e9715df"
+        },
+        {
+          "rfilename": "tokenizer.json",
+          "size": 19989339,
+          "lfs": {
+            "sha256": "a5cd9732badce41de57e6efce8302930ded1c1188c5f81feb2bd6c24c4a1941f",
+            "size": 19989339
+          }
+        },
+        {
+          "rfilename": "tokenizer_config.json",
+          "size": 1502,
+          "git_blob_sha1": "14e7c409ce2deb1d394bb5059a06553d7beb1e34"
+        }
+      ],
+      "batch_files": [
+        "chat_template.jinja",
+        "config.json",
+        "model.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0"
+      },
+      "repository_bytes": 560833591
     }
   }
 }

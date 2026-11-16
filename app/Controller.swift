@@ -400,6 +400,17 @@ final class PreStart: @unchecked Sendable {
     var dictionaryModelRow: ModelRowPresentation { ModelRowPresentation.make(dictionaryDownloader == nil ? nil : dictionaryModelStatus) }
     var dictionaryModelLicense: ModelLicenseInfo? { dictionaryDownloader?.license }
     var dictionaryModelSummary: String { dictionaryDownloader.map { DictionaryModelFacts.summary(downloadSize: $0.downloadSize) } ?? "" }
+    /// The managed local cleanup model (Vedu): downloaded only after the user asks, in the app's own model folder.
+    @Published var localModelStatus: ModelStatus = .notDownloaded
+    @Published var localModelMessage = ""
+    /// A saved Gemini cleanup choice was replaced by local rules; Settings says so until dismissed.
+    @Published var geminiCleanupNotice = false
+    var localModelRow: ModelRowPresentation { ModelRowPresentation.make(localCleanupDownloader == nil ? nil : localModelStatus) }
+    var localModelLicense: ModelLicenseInfo? { localCleanupDownloader?.license }
+    var localModelSummary: String { localCleanupDownloader.map { LocalCleanupFacts.summary(downloadSize: $0.downloadSize) } ?? "" }
+    /// UI fixture only: shows a download state without any download.
+    func showLocalModelFixture(_ status: ModelStatus, message: String = "") { localModelStatus = status; localModelMessage = message }
+    func dismissGeminiCleanupNotice() { UserDefaults.standard.removeObject(forKey: RouteSettings.Key.geminiCleanupRemovedNotice); geminiCleanupNotice = false }
     var usesCustomModelFolder: Bool { downloader.map { URL(fileURLWithPath: modelDirectory).standardizedFileURL.path != $0.target.path } ?? false }
     // History-off mode and the size cap (R9, §6). History-off and update checks apply as soon as they change.
     @Published var historyMode: HistoryMode
@@ -478,6 +489,8 @@ final class PreStart: @unchecked Sendable {
     /// vocabulary file the helper reads; see DictionaryModelFacts.
     private let dictionaryDownloader: ModelDownloader?
     private let liveWordsDownloader: ModelDownloader?
+    private let localCleanupDownloader: ModelDownloader?
+    private var localDownloadInFlight = false
     private var liveWordsDownloadInFlight = false
     /// Set once the live folder's hashes were checked this launch (and the model compiled).
     private var liveWordsVerified = false
@@ -588,6 +601,13 @@ final class PreStart: @unchecked Sendable {
            let manifest = try? ModelManifest(contentsOf: pins, list: liveWordsFileList) {
             liveWordsDownloader = ModelDownloader(manifest: manifest, target: LiveWordsFacts.directory(home: FileManager.default.homeDirectoryForCurrentUser))
         } else { liveWordsDownloader = nil }
+        if let pins = Bundle.main.url(forResource: "artifact-pins", withExtension: "json"),
+           let manifest = try? ModelManifest(contentsOf: pins, repository: LocalCleanupFacts.repository) {
+            let local = ModelDownloader(manifest: manifest, target: LocalCleanupFacts.directory(home: FileManager.default.homeDirectoryForCurrentUser))
+            localCleanupDownloader = local
+            // The first launch of the helper in a session checks every file's size and checksum against the pins.
+            LocalCleanupRunner.verifier = { local.verifyInstalled() == .ready }
+        } else { localCleanupDownloader = nil }
         shortcut = defaults.string(forKey: "shortcut") ?? "right-option"
         showMenuBar = defaults.object(forKey: "showMenuBar") as? Bool ?? true
         showInDock = defaults.bool(forKey: "showInDock")
@@ -657,6 +677,7 @@ final class PreStart: @unchecked Sendable {
         modelStatus = downloader?.status() ?? .notDownloaded
         dictionaryModelStatus = dictionaryDownloader?.status() ?? .notDownloaded
         liveWordsStatus = liveWordsDownloader?.status() ?? .notDownloaded
+        localModelStatus = localCleanupDownloader?.status() ?? .notDownloaded
         warm.onDictionaryStatus = { [weak self] failed in DispatchQueue.main.async { self?.dictionarySupportFailed = failed } }
         if !preview {
             do { try RouteSettings.migrateCustomAPI(in: defaults, credentials: credentials) }
@@ -665,6 +686,7 @@ final class PreStart: @unchecked Sendable {
                 keyMessages[.customCleanup] = KeyText.storeFailed
             }
         }
+        geminiCleanupNotice = defaults.bool(forKey: RouteSettings.Key.geminiCleanupRemovedNotice)
         refreshKeys()
         // Choose Folder, Use Default and a finished download all change the folder, even with
         // Settings closed; apply each so the folder survives a relaunch.
@@ -709,6 +731,7 @@ final class PreStart: @unchecked Sendable {
                 // Download progress and the verifying phase are sampled here, on the main thread.
                 if self.modelDownloadInFlight, let status = self.downloader?.status(), status != self.modelStatus { self.modelStatus = status }
                 if self.dictionaryDownloadInFlight, let status = self.dictionaryDownloader?.status(), status != self.dictionaryModelStatus { self.dictionaryModelStatus = status }
+                if self.localDownloadInFlight, let status = self.localCleanupDownloader?.status(), status != self.localModelStatus { self.localModelStatus = status }
                 if self.liveWordsDownloadInFlight, let status = self.liveWordsDownloader?.status(), status != self.liveWordsStatus { self.liveWordsStatus = status }
                 if self.sessionAvailable && self.session.state == .listening, let capture = self.capture,
                    // A device change stops the engine; it restarts on the current device (gap #16) and only
@@ -1017,7 +1040,8 @@ final class PreStart: @unchecked Sendable {
         }
         // Read only if this dictation could use it: the start mode (or the global setting) has it on,
         // or a mode that a trigger word could still pick does.
-        guard aiCleanup, let settings = processing?.settings,
+        // The managed local model never uses screen text, so none is read for it.
+        guard aiCleanup, appliedRoutes.cleanup != .localModel, let settings = processing?.settings,
               DictationStyle.needsScreenContext(mode: sessionMode, modes: modes, settings: settings),
               !IsSecureEventInputEnabled(), destination?.secure != true else { return }
         let pasteboard = NSPasteboard.general
@@ -1419,6 +1443,7 @@ final class PreStart: @unchecked Sendable {
         // Read after the call: a rate limit during this dictation moves Gemini to its fallback model.
         if let p = provider as? GeminiCleanupProvider { return p.onFallback ? p.fallback : p.model }
         if let p = provider as? OpenAICompatibleCleanupProvider { return p.model }
+        if provider is LocalModelCleanupProvider { return LocalCleanupIdentity.modelID }
         if let p = provider as? GeminiTranscriptionProvider { return p.model }
         if let p = provider as? GeminiTranscribeProvider { return p.model }
         return (provider as? OpenAICompatibleTranscriptionProvider)?.server.model
@@ -2140,6 +2165,40 @@ final class PreStart: @unchecked Sendable {
         dictionaryModelStatus = dictionaryDownloader.status(); dictionarySupportFailed = false
         prewarm()
     }
+    func downloadLocalModel() {
+        guard let localCleanupDownloader else { localModelMessage = ModelDownloadError.invalidManifest.userMessage; return }
+        if localDownloadInFlight { return }
+        let text = LocalCleanupFacts.confirmation(downloadSize: localCleanupDownloader.downloadSize, license: localCleanupDownloader.license)
+        let alert = NSAlert(); alert.messageText = text.title; alert.informativeText = text.body
+        alert.addButton(withTitle: "Download"); alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        localDownloadInFlight = true; localModelMessage = ""
+        localModelStatus = .downloading(ModelDownloadProgress(bytesDone: 0, totalBytes: localCleanupDownloader.downloadSize))
+        localCleanupDownloader.start { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.localDownloadInFlight = false
+                self.localModelStatus = localCleanupDownloader.status()
+                Task { await LocalCleanupRunner.shared.shutdown() }
+                self.localModelMessage = { if case .failure(.cancelled) = result { return "The download was cancelled. Retry continues from the files already downloaded." }; if case .failure(let error) = result { return error.userMessage }; return "The model is downloaded and verified." }()
+            }
+        }
+    }
+    func cancelLocalModelDownload() { localCleanupDownloader?.cancel() }
+    func removeLocalModel() {
+        guard let localCleanupDownloader, !localDownloadInFlight else { return }
+        let alert = NSAlert(); alert.messageText = LocalCleanupFacts.removeTitle; alert.informativeText = LocalCleanupFacts.removeBody
+        alert.addButton(withTitle: "Remove"); alert.addButton(withTitle: "Cancel")
+        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
+        Task {
+            await LocalCleanupRunner.shared.shutdown() // Release the model files before deleting them.
+            await MainActor.run {
+                do { try localCleanupDownloader.remove(); self.localModelMessage = "The local cleanup model was removed." }
+                catch { self.localModelMessage = (error as? ModelDownloadError)?.userMessage ?? ModelDownloadError.fileSystem.userMessage }
+                self.localModelStatus = localCleanupDownloader.status()
+            }
+        }
+    }
     // MARK: Live words (gap #13)
 
     /// Checks the live folder's hashes once per launch, then loads the model once with no audio, so
@@ -2530,7 +2589,8 @@ final class PreStart: @unchecked Sendable {
         watchTick(ending: true)
         flushClipboardRestore()
         downloader?.cancel()  // Verified and partial files stay staged; Retry resumes them.
-        dictionaryDownloader?.cancel()
+        dictionaryDownloader?.cancel(); localCleanupDownloader?.cancel()
+        Task { await LocalCleanupRunner.shared.shutdown() }
         if sessionAvailable { session.shutdown() }
         meetingRecorder.shutdown()
         if let runner, runner.isRunning {

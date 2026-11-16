@@ -58,6 +58,7 @@ enum ModelFacts {
 /// boosting). It lives in FluidAudio's own cache folder, because FluidAudio's rescorer reads the CTC
 /// tokenizer only from there; that folder can be shared with other apps built on FluidAudio, so
 /// Murmur checks it against the pinned hashes before every use and runs without it otherwise.
+
 enum DictionaryModelFacts {
     static let displayName = "Dictionary support for on-device transcription"
     static let modelName = "Parakeet CTC 110M"

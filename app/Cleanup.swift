@@ -1365,9 +1365,18 @@ enum CleanupGuard {
 
 // MARK: - Prompt
 
+/// The typed request behind a built prompt, for providers with their own fixed prompt (the managed local model).
+struct CleanupInput: Equatable, Sendable {
+    var raw: String
+    var options: CleanupOptions
+    var terms: [String]
+}
+
 struct CleanupMessages: Equatable, Sendable {
     var system: String
     var user: String
+    /// Set only by `CleanupPrompt.build`; nil for rewrite presets and meeting notes.
+    var input: CleanupInput? = nil
 }
 
 enum CleanupPrompt {
@@ -1457,7 +1466,7 @@ enum CleanupPrompt {
         }
         // The nonce stays out of the system prompt (style notes aside), so local servers can reuse its cached prefix.
         let names = "Transcript tags: <\(tag)> and </\(tag)>." + (context?.isEmpty == false ? " Context tags: <\(contextTag)> and </\(contextTag)>." : "")
-        return CleanupMessages(system: system, user: user + "\n" + names)
+        return CleanupMessages(system: system, user: user + "\n" + names, input: CleanupInput(raw: transcript, options: options, terms: dictionaryTerms))
     }
 }
 
@@ -1614,7 +1623,8 @@ protocol AsyncCleaner: Sendable {
 /// cleanup model (Gemma 4, about 44 tokens per second) can clean them in parallel. Short text and
 /// spoken lists ("first … second …", which must be formatted as one) stay whole.
 enum CleanupSections {
-    static func split(_ text: String, target: Int = 100) -> [String] {
+    /// `keepingCorrectionsAttached`: a sentence that opens with a correction cue ("No, actually Monday") is never cut off from the one it repairs.
+    static func split(_ text: String, target: Int = 100, keepingCorrectionsAttached: Bool = false) -> [String] {
         let words = text.split(whereSeparator: \.isWhitespace).count
         // An email frame stays whole too, so its greeting and sign-off are laid out together.
         guard words >= target * 3 / 2, RuleCleaner.emailLayout(text) == nil,
@@ -1625,6 +1635,11 @@ enum CleanupSections {
             parts[parts.count - 1] += (parts[parts.count - 1].isEmpty ? "" : " ") + word
             if let last = word.last, ".?!".contains(last) { parts.append("") }
         }) where !sentence.isEmpty {
+            // A repair belongs with the sentence it repairs: reopen the section just closed.
+            if keepingCorrectionsAttached, current.isEmpty, !sections.isEmpty,
+               sentence.range(of: #"^(no|actually|wait|sorry|instead|scratch that|i mean|i meant)\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
+                current = sections.removeLast(); count = current.split(whereSeparator: \.isWhitespace).count
+            }
             current += (current.isEmpty ? "" : " ") + sentence
             count += sentence.split(whereSeparator: \.isWhitespace).count
             if count >= target { sections.append(current); current = ""; count = 0 }

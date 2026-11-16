@@ -16,6 +16,8 @@ enum ProviderID: String, CaseIterable, Codable, Sendable {
     case localServer
     /// Apple's on-device system model (FoundationModels). It has no key; listed so it can name errors.
     case appleIntelligence
+    /// The managed local cleanup model (LocalCleanup.swift). No key; nothing leaves this Mac.
+    case localModel = "local-model"
 
     var displayName: String {
         switch self {
@@ -27,6 +29,7 @@ enum ProviderID: String, CaseIterable, Codable, Sendable {
         case .customCleanup: return "Custom cleanup"
         case .localServer: return "Local model server"
         case .appleIntelligence: return "Apple Intelligence"
+        case .localModel: return "Local model"
         }
     }
 }
