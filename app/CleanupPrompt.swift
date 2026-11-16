@@ -2,7 +2,6 @@ import Foundation
 
 // Prompts sent to cleanup models: the cleanup messages and the mode-transform contract.
 
-// MARK: - Prompt
 
 /// The typed request behind a built prompt, for providers with their own fixed prompt (the managed local model).
 struct CleanupInput: Equatable, Sendable {
@@ -116,7 +115,6 @@ enum CleanupPrompt {
     }
 }
 
-// MARK: - Mode transforms
 
 /// The built-in presets' rewrite contract. Separate from `CleanupPrompt` so the strict cleanup
 /// rules stay as they are; `TransformGuard` checks the output instead of `CleanupGuard`.

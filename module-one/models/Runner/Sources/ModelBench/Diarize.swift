@@ -2,7 +2,7 @@
 import FluidAudio
 import Foundation
 
-/// `ModelBench DIARIZER_DIRECTORY --diarize KEPT_WAV THRESHOLD` (PRD 11.8): FluidAudio's offline
+/// `ModelBench DIARIZER_DIRECTORY --diarize KEPT_WAV THRESHOLD`: FluidAudio's offline
 /// pipeline (community-1 segmentation, WeSpeaker embeddings, PLDA and VBx) over a meeting's kept
 /// Them stream, a 16 kHz mono 16-bit WAV. Prints one JSON line, {"segments":[{"speaker","start","end"}]},
 /// then exits, so the memory goes back when it is done.

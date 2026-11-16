@@ -97,7 +97,7 @@ import Foundation
         }
     }
 
-    /// Live words (gap #13), display only: loads the streaming encoder folder, prints {"ready":true},
+    /// Live words, display only: loads the streaming encoder folder, prints {"ready":true},
     /// then reads raw mono little-endian Float32 samples at `sampleRate` from stdin and prints
     /// {"partial": TEXT} whenever the running transcript changes. Audio stays in memory; the
     /// process exits when stdin closes. No vocabulary boosting: emitted words are never revised.
@@ -171,7 +171,7 @@ import Foundation
         }
     }
 
-    /// A meeting's Them chunk with speaker separation on (PRD 11.8): the text as `transcribe` gives
+    /// A meeting's Them chunk with speaker separation on: the text as `transcribe` gives
     /// it, plus `words`, one [start, end] in seconds per word of the raw transcript, so the app can
     /// split a line where the voice changes. `words` is left out when the dictionary changed the
     /// word count, since the times would no longer line up with the text.

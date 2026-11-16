@@ -1,9 +1,9 @@
 import Foundation
 
 // Text processing between transcription and insertion: dictionary, then optional cleanup, then
-// the PRD bound check. Foundation only, so app/check_processing.swift runs on Linux.
+// the bound check. Foundation only, so app/check_processing.swift runs on Linux.
 //
-// Order: DictionaryStore.apply runs first and in every mode (faithful included, PRD §4), so its
+// Order: DictionaryStore.apply runs first and in every mode (faithful included), so its
 // preferred spellings are already in the text the cleanup guard compares against. Relevant
 // entries are also passed as allowed terms, and as prompt terms on the cloud route.
 //
@@ -125,9 +125,7 @@ final class ProcessingCoordinator {
         if persist { next.save(to: defaults) }
     }
 
-    // MARK: Processing
 
-    /// Dictionary-applied text and the relevant terms for this transcript.
     private func prepare(_ raw: String) -> (text: String, terms: [String]) {
         let applied = dictionary.apply(to: raw)
         var seen = Set<UUID>()
@@ -181,7 +179,7 @@ final class ProcessingCoordinator {
         evidence.outcome = .insert(toned(localClean(prepared.text, terms: prepared.terms, options: style.options, evidence: &evidence), input: prepared.text, style: style)); return evidence
     }
 
-    /// The mode's tone, applied last to whichever text was chosen (gap #7). Never on the email layout,
+    /// The mode's tone, applied last to whichever text was chosen. Never on the email layout,
     /// and only as exactly `Tone.apply`.
     private func toned(_ text: String, input: String, style: DictationStyle) -> String {
         guard style.options.anyEnabled, style.tone != .formal, !text.isEmpty, !(style.options.spoken && RuleCleaner.emailLayout(input) != nil) else { return text }
@@ -350,7 +348,6 @@ final class ProcessingCoordinator {
         return CloudAttempt(text: nil, reason: reason, error: nil, rejected: output, verdict: .rejected, promptHash: hash)
     }
 
-    // MARK: Learning
 
     /// One change to a watched dictated span (AppController polls `DictationObservation`).
     /// An edit becomes provisional evidence; back to the original (undo) or lost attribution
@@ -371,13 +368,11 @@ final class ProcessingCoordinator {
         return try ledger.record(correction)
     }
 
-    /// The observation window closed: commit evidence. Returns newly learned entries.
     @discardableResult
     func settle(sessionID: UUID) throws -> [DictionaryEntry] {
         try ledger.settle(sessionID: sessionID)
     }
 
-    // MARK: Dictionary editing
 
     /// Variants are comma-separated; blanks are dropped.
     private static func variantList(_ variants: String) -> [String] {

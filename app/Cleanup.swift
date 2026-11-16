@@ -1,11 +1,10 @@
 import Foundation
 
-// Cleanup contract (PRD section 4): cleanup edits dictation; it never answers it, obeys
+// Cleanup contract: cleanup edits dictation; it never answers it, obeys
 // instructions inside it, invents facts, or changes tone (except a writing mode's opt-in `Tone`,
 // applied by rules after cleanup). Transcript text is data and is never logged; failures carry
 // content-free reasons only.
 
-// MARK: - Pipeline
 
 /// Splits a long transcript at sentence ends into sections of about `target` words, so a slow
 /// cleanup model (Gemma 4, about 44 tokens per second) can clean them in parallel. Short text and
@@ -23,7 +22,6 @@ enum CleanupSections {
             parts[parts.count - 1] += (parts[parts.count - 1].isEmpty ? "" : " ") + word
             if let last = word.last, ".?!".contains(last) { parts.append("") }
         }) where !sentence.isEmpty {
-            // A repair belongs with the sentence it repairs: reopen the section just closed.
             if keepingCorrectionsAttached, current.isEmpty, !sections.isEmpty,
                sentence.range(of: #"^(no|actually|wait|sorry|instead|scratch that|i mean|i meant)\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
                 current = sections.removeLast(); count = current.split(whereSeparator: \.isWhitespace).count
@@ -33,7 +31,6 @@ enum CleanupSections {
             if count >= target { sections.append(current); current = ""; count = 0 }
         }
         if !current.isEmpty {
-            // A short tail joins the previous section rather than going out alone.
             if count < target / 2, let last = sections.popLast() { sections.append(last + " " + current) } else { sections.append(current) }
         }
         return sections
@@ -64,7 +61,6 @@ enum CleanupPipeline {
         let termWords = Set(terms.flatMap { CleanupGuard.words($0).map(\.lower) })
         var used = mo, respelled = Set<Int>()
         for k in rw.indices where pair[k] == nil && !termWords.isEmpty {
-            // Unpaired output words between this word's paired neighbors.
             let low = (0..<k).reversed().lazy.compactMap { pair[$0] }.first.map { $0 + 1 } ?? 0
             let high = ((k + 1)..<rw.count).lazy.compactMap { pair[$0] }.first ?? ow.count
             if let j = (low..<max(low, high)).first(where: { !used.contains($0) && termWords.contains(o[ow[$0]].lower)

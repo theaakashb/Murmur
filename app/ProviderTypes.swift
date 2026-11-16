@@ -7,9 +7,7 @@ import Foundation
 // - Error messages are built from fixed strings, the provider name and status codes. They never
 //   include response bodies, API keys or transcript text.
 
-// MARK: - Shared contracts
 
-// `CleanupMessages` (the already-built cleanup prompt) is defined in CleanupPrompt.swift.
 
 /// Recorded audio sent to a transcription provider.
 struct AudioPayload: Sendable {
@@ -62,7 +60,7 @@ protocol DetailedTranscriber: TranscriptionProvider {
 
 enum ProcessingStage: String, Sendable { case transcription, cleanup }
 
-/// What leaves the device for one route. Show it before the first cloud use (PRD R4).
+/// What leaves the device for one route. Show it before the first cloud use.
 struct DataDisclosure: Equatable, Sendable {
     let provider: ProviderID
     let stage: ProcessingStage

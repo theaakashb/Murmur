@@ -1,5 +1,5 @@
-// Speaker separation evidence (PRD 11.10, W7d). Builds synthetic calls of 2–6 speakers from
-// LibriSpeech test-clean (read speech, not call audio), runs the Them stream through the real W7a/W7d
+// Speaker separation evidence. Builds synthetic calls of 2–6 speakers from
+// LibriSpeech test-clean (read speech, not call audio), runs the Them stream through the real meeting
 // path (Chunker at 16 kHz mono, MeetingStreamFeed, MeetingPump, the warm helper's timed request,
 // the kept WAV, `ModelBench --diarize`, MeetingSpeakers.apply) and prints DER, speaker count and
 // word attribution. `--long MINUTES` instead times diarization alone on one long stream and reports
@@ -67,7 +67,7 @@ func samples(_ url: URL) -> [Float] {
 }
 
 /// A conversation: speakers take turns of one or two utterances, 0.2–1.0 s apart, no overlap.
-/// ponytail: no overlapping speech, no channel effects; real calls (PRD 11.10) have both.
+/// ponytail: no overlapping speech, no channel effects; real calls have both.
 func conversation(_ corpus: [String: [Utterance]], speakers: [String], minutes: Double, seed: UInt64) -> (audio: [Float], turns: [Turn]) {
     var random = Random(state: seed), audio: [Float] = [], turns: [Turn] = [], used: [String: Int] = [:], previous = ""
     while Double(audio.count) / 16_000 < minutes * 60 {

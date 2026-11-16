@@ -2,18 +2,14 @@ import Foundation
 
 // The deterministic local cleaner: fillers, corrections, lists, spoken commands and email layout.
 
-// MARK: - Cleaner protocols
 
-/// A synchronous cleanup provider (e.g. the deterministic local baseline).
 protocol Cleaner {
     func clean(_ raw: String, options: CleanupOptions) throws -> String
 }
 
 
-// MARK: - Rule-based baseline
 
 /// Deterministic, conservative local baseline. When a rule is unsure it leaves text unchanged.
-/// This is not the PRD's cleanup-model selection; it is a working local route until one is chosen.
 struct RuleCleaner: Cleaner {
     init() {}
 
@@ -49,7 +45,6 @@ struct RuleCleaner: Cleaner {
         return out.replacingOccurrences(of: #"\bi(?=\b|')"#, with: "I", options: .regularExpression)
     }
 
-    // MARK: Fillers
 
     static let stutterWords: Set<String> = ["i", "the", "a", "an", "we", "you", "and", "to", "my", "he", "she", "they", "it's", "i'm"]
     /// Words after which a comma stays when a following hesitation is removed ("So, um, I think").
@@ -68,7 +63,6 @@ struct RuleCleaner: Cleaner {
     static func removeFillers(_ text: String) -> String {
         var t = CleanupText.tokenize(text)
         var changed = false
-        // Pass 1: hesitations and comma-delimited "like" / "you know".
         var i = 0
         while i < t.count {
             let mask = CleanupText.quotedMask(t)
@@ -122,7 +116,6 @@ struct RuleCleaner: Cleaner {
             }
             i += 1
         }
-        // Pass 2: stutters ("I I think", "the, the plan").
         i = 0
         while i < t.count {
             let mask = CleanupText.quotedMask(t)
@@ -138,7 +131,6 @@ struct RuleCleaner: Cleaner {
         return changed ? CleanupText.render(CleanupText.normalize(t)) : text
     }
 
-    /// Remove tokens lo...hi plus trailing spaces; optionally capitalize the following word.
     static func remove(_ t: inout [CleanupToken], _ lo: Int, _ hi: Int, capitalizeNext: Bool) {
         var end = hi + 1
         while end < t.count, t[end].kind == .space { end += 1 }
@@ -151,7 +143,6 @@ struct RuleCleaner: Cleaner {
         }
     }
 
-    // MARK: Corrections
 
     enum Cue { case sorry, no, iMean, actually, orRather, noWait, scratch }
 
@@ -309,7 +300,6 @@ struct RuleCleaner: Cleaner {
             guard !repair.isEmpty else { i += 1; continue }
             let repairBoundary = k < t.count ? k : nil
 
-            // Reparandum window: words before the cue back to the previous boundary.
             var window: [Int] = []
             var w = p - 1
             if scratch {
@@ -373,13 +363,11 @@ struct RuleCleaner: Cleaner {
         if capitalize, from < t.count, t[from].kind == .word { t[from].text = CleanupText.capitalized(t[from].text) }
     }
 
-    // MARK: Lists
 
     static let strongListCues: Set<String> = ["list", "checklist", "agenda", "steps", "to-do", "todo", "to-dos", "todos", "items", "groceries"]
     static let cardinalWords = [""] + (1...10).map { n in CleanupText.cardinals.first { $0.value == n }!.key }
     static let ordinalWords = [""] + (1...10).map { n in CleanupText.ordinals.first { $0.value == n && !$0.key.hasSuffix("ly") }!.key }
 
-    /// Matches enumeration marker k at token i; returns the last token index of the marker.
     static func matchMarker(_ t: [CleanupToken], _ i: Int, _ k: Int) -> Int? {
         guard k < ordinalWords.count, t[i].kind == .word else { return nil }
         let w = t[i].lower
@@ -471,7 +459,6 @@ struct RuleCleaner: Cleaner {
     }
 }
 
-// MARK: - Spoken commands, numbers, symbols and email layout
 
 extension RuleCleaner {
     /// Dictated marks and layout. "dash" is an em dash between words; "hyphen" joins its neighbors.
@@ -571,7 +558,6 @@ extension RuleCleaner {
         let mask = CleanupText.quotedMask(t)
         var out: [CleanupToken] = [], changed = false, capitalizeNext = false, i = 0
         func word(_ k: Int) -> String? { k < t.count && t[k].kind == .word && !mask[k] ? t[k].lower : nil }
-        /// The word right after token `k`, across one plain space.
         func after(_ k: Int) -> Int? { k + 2 < t.count && t[k + 1].kind == .space && !t[k + 1].text.contains("\n") && word(k + 2) != nil ? k + 2 : nil }
         func phrase(_ k: Int, _ ws: [String]) -> Int? {
             var idx = k
@@ -640,7 +626,6 @@ extension RuleCleaner {
             let tok = t[i]
             guard tok.kind == .word, let w = word(i) else { emit(tok); i += 1; continue }
 
-            // Marks and layout.
             if let (ws, mark) = markCommands.first(where: { phrase(i, $0.0) != nil }), let e = phrase(i, ws) {
                 let prev = prevWord(), next = after(e).flatMap(word)
                 let isDash = mark == "-" || mark == "\u{2014}"

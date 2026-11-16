@@ -1,4 +1,4 @@
-// Feeds two synthetic meeting streams from LibriSpeech clips through the real W7a pipeline (Chunker
+// Feeds two synthetic meeting streams from LibriSpeech clips through the real meeting pipeline (Chunker
 // at 16 kHz mono, MeetingStreamFeed, MeetingPump with one chunk in flight, Meeting.insert) into a
 // warm `ModelBench --serve` helper, and prints transcript accuracy, timing, CPU and memory. No
 // microphone, tap or network. The helper client is a serial queue, like WarmRunner.

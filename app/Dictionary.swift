@@ -163,7 +163,7 @@ final class DictionaryStore {
         return removed
     }
 
-    /// Gap #12: spoken commands a dictionary entry may target ("Kocia Mark" -> "question mark").
+    /// Spoken commands a dictionary entry may target ("Kocia Mark" -> "question mark").
     /// Derived from `RuleCleaner.markCommands` (plus `RuleCleaner.atPhrases`) so the two never drift. Dictionary
     /// application runs before cleanup (`ProcessingCoordinator.prepare`), so these entries apply first.
     static let commandPhrases: Set<String> = Set((RuleCleaner.markCommands.map(\.0) + RuleCleaner.atPhrases).map { $0.joined(separator: " ") })
@@ -242,7 +242,7 @@ final class DictionaryStore {
     /// exactly after case folding. With a lexicon, an unfamiliar single word may also use one
     /// unique phonetic term; names allow only a single doubled letter, and ordinary words stay
     /// unchanged. Punctuation or a line break ends a phrase. At each position a command-target
-    /// phrase wins (gap #12), then the longest phrase; replaced text is never matched again, so
+    /// phrase wins, then the longest phrase; replaced text is never matched again, so
     /// another entry cannot rewrite words inside an inserted command ("question mark" stays).
     func apply(to text: String, isCommonWord override: ((String) -> Bool)? = nil) -> String {
         let isCommonWord = override ?? self.isCommonWord

@@ -24,7 +24,6 @@ enum GeminiAPI {
     static let maxInlineAudioBytes = (requestLimitBytes - 64_000) / 4 * 3
 }
 
-// MARK: - Gemini cleanup
 
 struct GeminiCleanupProvider: CleanupProvider {
     /// Fastest on this task (about 0.8 s round trip), but a smaller free-tier daily quota.
@@ -182,7 +181,6 @@ enum GeminiResponse {
     }
 }
 
-// MARK: - Gemini speech to text (LLM transcriber)
 
 /// Gemini audio-in transcription through `generateContent` with inline audio.
 ///
@@ -313,7 +311,6 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
         return transcript
     }
 
-    /// Transcribes and flags reply-shaped output. See `LLMTranscriptCheck`.
     func transcribeChecked(_ audio: AudioPayload) async throws -> LLMTranscript {
         let text = try await transcribe(audio)
         return LLMTranscript(text: text, answerSuspected: LLMTranscriptCheck.answerSuspected(text))
@@ -374,7 +371,6 @@ enum LLMTranscriptCheck {
     }
 }
 
-// MARK: - Gemini 3.5 Transcribe (dedicated ASR, Interactions API)
 
 /// Monotonic time and sleeping for polling, injectable so checks can run on virtual time.
 protocol PollingClock: Sendable {
@@ -477,7 +473,6 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
                               warning: "Uses Google's Beta Interactions API.")
     }
 
-    // MARK: Request building (pure)
 
     private struct AudioInput: Encodable { let type = "audio"; let data: String; let mime_type: String }
     private struct ModeValue: Encodable {
@@ -580,7 +575,6 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
         return request
     }
 
-    // MARK: Response parsing (pure)
 
     enum Outcome: Equatable, Sendable {
         case completed(text: String, interactionID: String?)
@@ -628,7 +622,6 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
         }
     }
 
-    // MARK: Calls
 
     func transcribe(_ audio: AudioPayload) async throws -> String {
         try await transcribeDetailed(audio).text

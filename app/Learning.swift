@@ -4,7 +4,7 @@ import Foundation
 // candidate filter, and promotion of consistent mappings into learned dictionary entries.
 // Stores only short source/target strings, never surrounding document text.
 
-/// One attributed replacement from the observation layer (spike `DictationObservation`).
+/// One attributed replacement from the observation layer (`DictationObservation`).
 struct ObservedCorrection: Codable, Equatable {
     let sessionID: UUID
     let source: String
@@ -23,8 +23,6 @@ enum CandidateVerdict: Equatable {
     case rejected(CandidateRejection)
 }
 
-/// Proposed semantic promotion rule (pending user approval; see PRD Milestone 1 decisions).
-///
 /// A replacement is a learning candidate only when the target is a plausible respelling of the
 /// source, i.e. the kind of error a transcriber makes on a name or term, not a change in meaning:
 ///
@@ -451,7 +449,6 @@ final class CorrectionLedger {
         try PrivateFiles.write(try encoder.encode(state), to: file)
     }
 
-    // MARK: Inspection
 
     var learningEnabled: Bool { state.learningEnabled }
     var evidence: [ObservedCorrection] { state.evidence.map(\.correction) }
@@ -477,7 +474,6 @@ final class CorrectionLedger {
         try save()
     }
 
-    // MARK: Controls
 
     /// Off records nothing and drops in-flight provisional evidence. Existing learned entries keep
     /// applying until the user deletes or resets them.
@@ -488,7 +484,7 @@ final class CorrectionLedger {
     }
 
     /// Feed the latest attributed replacement for a session while its window is open. A session
-    /// that already settled early (stable text, gap #9) is reconciled pair by pair: a settled pair
+    /// that already settled early (stable text) is reconciled pair by pair: a settled pair
     /// missing from the new reading is withdrawn with whatever it promoted, a settled pair still
     /// present stays as it is (so one session never counts twice), and only new pairs are recorded.
     @discardableResult
@@ -548,7 +544,7 @@ final class CorrectionLedger {
         return (fresh, outcome ?? .rejected(rejection))
     }
 
-    /// The session's observation window closed, or its text has been stable long enough (gap #9):
+    /// The session's observation window closed, or its text has been stable long enough:
     /// commit its evidence and promote if consistent. Settling again without new evidence does nothing.
     /// Returns the entries that gained a replacement: new ones, and existing ones given a variant.
     @discardableResult
@@ -620,9 +616,9 @@ final class CorrectionLedger {
         return promoted
     }
 
-    /// Gap #10: the user corrected a dictation's final text in History. The edit is one more
+    /// The user corrected a dictation's final text in History. The edit is one more
     /// observation (a fresh session, settled at once) through the same filter, ledger, thresholds,
-    /// tombstones and conflicts; it adds to automatic learning and never replaces it (PRD R10).
+    /// tombstones and conflicts; it adds to automatic learning and never replaces it.
     /// Returns the entries that gained a replacement.
     @discardableResult
     func learnFromEdit(original: String, edited: String, at date: Date = Date()) throws -> [DictionaryEntry] {

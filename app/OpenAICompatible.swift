@@ -163,7 +163,6 @@ enum OpenAIChatFormat {
     }
 }
 
-// MARK: - Custom OpenAI-compatible speech to text
 
 /// Uses the same endpoint validation and credential transport policy as custom cleanup.
 struct OpenAICompatibleTranscriptionProvider: DetailedTranscriber {
@@ -211,7 +210,6 @@ struct OpenAICompatibleTranscriptionProvider: DetailedTranscriber {
     }
 }
 
-// MARK: - Local endpoint classification
 
 /// Where a user-configured server address sends data.
 enum EndpointLocality: Equatable, Sendable {
@@ -353,7 +351,6 @@ enum LocalEndpoint {
     }
 }
 
-// MARK: - Local OpenAI-compatible cleanup
 
 /// Cleanup through a user-run OpenAI-compatible server: Ollama, LM Studio, llama.cpp
 /// `llama-server` or vLLM. `POST {base}/v1/chat/completions`, one request, no fallback.

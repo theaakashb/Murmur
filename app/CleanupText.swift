@@ -2,7 +2,6 @@ import Foundation
 
 // Tokenizer, normalization, similarity and the negation/number lexicons shared by the guards and rules.
 
-// MARK: - Shared tokenizer
 
 struct CleanupToken: Equatable {
     enum Kind { case word, punct, space }
@@ -84,7 +83,6 @@ enum CleanupText {
             }
             if tok.kind == .punct, [",", ".", "?", "!", ";", ":"].contains(tok.text) {
                 while let last = t.last, last.kind == .space { t.removeLast() }
-                // Drop a comma that would now be orphaned or doubled.
                 if tok.text == "," {
                     if t.isEmpty || t.last!.isTerminal || t.last!.isComma || t.last!.text == ":" { continue }
                 } else if let last = t.last, last.isComma {

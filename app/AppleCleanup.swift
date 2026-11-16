@@ -6,7 +6,7 @@ import FoundationModels
 // Apple's on-device system model through
 // FoundationModels. Nothing to download, no key, and nothing leaves this Mac, so the route has no
 // disclosure. Prompts come from `CleanupPrompt.build` unchanged. ProcessingCoordinator guards the
-// output and falls back to local rules on any error, as for every provider route (PRD section 4).
+// output and falls back to local rules on any error, as for every provider route.
 // The context is about 4,096 tokens, so ProcessingCoordinator cleans text of 600 words or more in
 // sections of about 400. The Professional prompt is about 3,300 characters. Measured October 14,
 // 2026: a single 900-word unpunctuated request did not exceed the context, but long text is slow
@@ -71,7 +71,7 @@ enum AppleSystemModel {
         }
     }
 
-    /// Meeting notes (W7b) with guided generation: the on-device model breaks free-form formats, so a
+    /// Meeting notes with guided generation: the on-device model breaks free-form formats, so a
     /// schema fixes the shape. The result is rendered in the notes reply format (MeetingNotes.swift),
     /// so grounding is the same on every route. A fresh session per call, like cleanup.
     /// Notes for one chunk are short. Without a cap, a few replies ran on for over 3 minutes

@@ -2,7 +2,6 @@ import Foundation
 
 // The bound checks between raw text and rewritten text: `CleanupGuard` (cleanup) and `TransformGuard` (mode rewrites).
 
-// MARK: - Guard
 
 /// Bound check between raw transcript and cleanup output. Rejects output that answers or
 /// obeys the dictation, adds facts, or makes edits the enabled options cannot explain.
@@ -380,7 +379,6 @@ enum CleanupGuard {
         return rawNeg > 0 && !b.contains(where: { CleanupText.isNegation($0) || $0 == "without" })
     }
 
-    /// LCS alignment over lowercased words; returns matched raw and cleaned indices.
     static func align(_ a: [String], _ b: [String]) -> (Set<Int>, Set<Int>) {
         let n = a.count, m = b.count
         if n == 0 || m == 0 { return ([], []) }
@@ -479,7 +477,6 @@ enum CleanupGuard {
             return .fail(.structureAdded)
         }
 
-        // Length ratio, by option.
         let rawLen = Double(raw.count), outLen = Double(cleaned.count)
         var minRatio = 0.9
         if options.lists { minRatio = min(minRatio, 0.5) } // "number three, " becomes "3. "
@@ -669,7 +666,6 @@ enum CleanupGuard {
         let negInWindow = rawWords.enumerated().filter { dropAllowed($0.offset) && CleanupText.isNegation($0.element.lower) }.count
         if outNeg > rawNeg || outNeg < rawNeg - negInWindow { return .fail(.negationChanged) }
 
-        // Names and inserted words.
         let rawSet = Set(a)
         let termWords = Set(allowedTerms.flatMap { words($0).map(\.lower) })
         // Cleanup never inserts words: every unaligned output word must be a supplied dictionary term.

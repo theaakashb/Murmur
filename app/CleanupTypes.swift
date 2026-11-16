@@ -3,7 +3,6 @@ import Foundation
 // The cleanup value vocabulary: options, tone, screen context, failure reasons, paths, guard results and outcomes.
 // Shared by History, meetings and writing modes.
 
-// MARK: - Options
 
 struct CleanupOptions: Codable, Equatable, Hashable, Sendable {
     var fillers: Bool
@@ -55,9 +54,8 @@ struct CleanupOptions: Codable, Equatable, Hashable, Sendable {
     var anyEnabled: Bool { fillers || corrections || lists || punctuation || spoken }
 }
 
-// MARK: - Tone (gap #7)
 
-/// A writing mode's opt-in tone, applied by rules after cleanup (PRD decision, October 14, 2026).
+/// A writing mode's opt-in tone, applied by rules after cleanup.
 /// Formal leaves text unchanged. Commas inside numbers ("250,000") are part of the word and stay.
 enum Tone: String, Codable, CaseIterable, Sendable {
     case formal, casual
@@ -118,7 +116,6 @@ enum WritingModeLimits {
     static let instructions = 2_000
 }
 
-// MARK: - Screen context (gap #8)
 
 /// Reference-only text from the screen for AI cleanup routes: the selected text, the clipboard and
 /// the focused window's text. Never sent on the local-rules route, never inserted, never stored.
@@ -152,7 +149,6 @@ struct ScreenContext: Equatable, Sendable {
     }
 }
 
-// MARK: - Failure reasons (content-free)
 
 /// Why cleanup output was rejected (and a fallback used). Never carries transcript text.
 enum CleanupFailureReason: String, Codable, Equatable, Sendable, CaseIterable {

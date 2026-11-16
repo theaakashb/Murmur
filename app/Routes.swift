@@ -3,7 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-// Processing routes (PRD R4, R5): which transcriber and cleaner a dictation uses, what each one
+// Processing routes: which transcriber and cleaner a dictation uses, what each one
 // sends off this Mac, and the async glue between the providers and the controller.
 // Foundation only, so app/check_routes.swift runs on Linux. Controller.swift keeps the AppKit
 // calls (NSAlert, Keychain-backed store, NSSpellChecker) and only acts on these decisions.
@@ -16,7 +16,6 @@ import FoundationNetworking
 // - Messages are built from fixed strings and `ProviderError.userMessage`; they never contain a
 //   key, a response body or transcript text.
 
-// MARK: - Route settings
 
 enum TranscriptionRoute: String, CaseIterable, Sendable {
     /// Parakeet through the bundled ModelBench helper. The default.
@@ -295,7 +294,6 @@ enum CustomAPIKeyBinding {
     static func clear(defaults: UserDefaults, provider: ProviderID = .customAPI) { defaults.removeObject(forKey: preference(provider)) }
 }
 
-// MARK: - Route plan
 
 /// What a dictation would use with these settings and keys, decided before recording starts.
 struct RoutePlan {
@@ -350,7 +348,6 @@ enum DisclosureText {
     }
 }
 
-// MARK: - Cloud transcription
 
 /// A transcriber that can tell from the recording's level that it should not be called.
 protocol SilencePrecheckedTranscriber: TranscriptionProvider {
@@ -479,7 +476,6 @@ enum CloudTranscription {
     }
 }
 
-// MARK: - Async glue
 
 /// Runs one async request at a time for the controller. Main actor only. `cancel()` cancels the
 /// Task (which cancels the HTTP request) and guarantees `deliver` is never called for it, even

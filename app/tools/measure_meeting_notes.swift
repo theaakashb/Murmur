@@ -1,5 +1,5 @@
 // Runs app/meeting-notes-corpus.json through a meeting notes route with the real writer (prompt,
-// map-reduce, grounding check) and prints the PRD 11.10 W7b measures. `apple` uses Apple's on-device
+// map-reduce, grounding check) and prints the notes measures. `apple` uses Apple's on-device
 // model; `gemini` and `custom` read Murmur's key from the Keychain (never printed) and cost API calls.
 // `--long` also times notes for synthetic 1-hour and 2-hour meetings built from the corpus.
 //

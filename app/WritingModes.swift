@@ -54,7 +54,7 @@ struct DictationStyle: Equatable, Sendable {
         self.init(options: mode?.options ?? settings.options, tone: mode?.tone ?? .formal,
                   instructions: String((mode?.instructions ?? "").prefix(WritingModeLimits.instructions)),
                   context: (mode?.screenContext ?? settings.screenContext) ? context : nil)
-        options.trustModel = settings.options.trustModel // Modes use the processing setting.
+        options.trustModel = settings.options.trustModel
         transform = mode?.transform
         if !usesModel { self.context = nil } // Strict and Faithful run on this Mac; nothing to send context to.
     }

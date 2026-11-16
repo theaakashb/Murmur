@@ -1,6 +1,6 @@
 // Runs app/cleanup-corpus.json through a cleanup route with the real ProcessingCoordinator path
-// (prompt, guard, local-rules fallback) for Strict, Polish and Professional, and prints the PRD
-// section 4 measures plus model latency. `apple` uses Apple's on-device model; `gemini` (primary model only) and `custom` (the Custom Provider cleanup
+// (prompt, guard, local-rules fallback) for Strict, Polish and Professional, and prints the
+// cleanup measures plus model latency. `apple` uses Apple's on-device model; `gemini` (primary model only) and `custom` (the Custom Provider cleanup
 // settings) read Murmur's key from the Keychain (never printed) and costs API calls. Corpus text is
 // synthetic, so per-utterance misses may be printed with --verbose.
 //

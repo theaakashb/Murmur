@@ -8,7 +8,6 @@ import FoundationNetworking
 
 // HTTP transport, deadline, error classification and multipart bodies shared by every provider.
 
-// MARK: - HTTP
 
 struct HTTPResult: Sendable {
     let status: Int
@@ -155,7 +154,6 @@ struct ProviderHTTP: Sendable {
     }
 }
 
-// MARK: - Error classification (pure)
 
 enum ProviderErrorClassifier {
     /// `url` is only used to name the address of a local server that refused the connection.

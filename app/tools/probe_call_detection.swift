@@ -1,6 +1,6 @@
 // Runs the real meeting-detection rules (CallDetector) against the real Core Audio process list
 // (AudioProcessList), once a second as the app does, and prints every change in microphone use and
-// every offer. For the W7c evidence (PRD 11.10). Reads bundle IDs only; records nothing.
+// every offer. Reads bundle IDs only; records nothing.
 //
 //   app/tools/build.sh probe_call_detection   # prints the executable path, called /tmp/probe-detection below
 //   /tmp/probe-detection SECONDS [--own BUNDLE_ID] [--meeting-live] [--dictating] [--never BUNDLE_ID] [--off]
