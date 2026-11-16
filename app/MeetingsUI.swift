@@ -361,7 +361,7 @@ struct MeetingsPage: View {
                         LazyVStack(alignment: .leading, spacing: 8) {
                             ForEach(meeting.lines.filter { showEcho || !$0.isHidden }) { line in
                                 MeetingLineRow(line: line, showEcho: showEcho, label: MeetingSpeakers.label(line, in: meeting),
-                                               moveTo: meeting.speakers?.state == .done && line.stream == (meeting.source.micOnly ? .me : .them) ? { recorder.reassignLine(line.id, to: $0, in: meeting.id) } : nil,
+                                               moveTo: meeting.speakers?.state == .done && line.stream == meeting.source.speakerStream ? { recorder.reassignLine(line.id, to: $0, in: meeting.id) } : nil,
                                                speakers: MeetingSpeakers.numbers(meeting).map { ($0, meeting.speakers?.names[$0] ?? "Speaker \($0)") }).id(line.id)
                                     .padding(.vertical, 2).background(jump == line.id ? Palette.accent16 : Color.clear)
                             }
@@ -592,7 +592,7 @@ struct MeetingLineRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             mono(MeetingExport.clock(line.start), size: 11, color: Palette.ink64).frame(width: 56, alignment: .leading)
-            let name = label ?? MeetingExport.label(line.stream)
+            let name = label ?? line.stream.label
             Group {
                 if let moveTo {
                     Menu {
@@ -698,9 +698,9 @@ struct MeetingLiveView: View {
             if recorder.askEnded {
                 HStack { Text("Call ended?").font(.system(size: 13, weight: .semibold)); Spacer(); Button("Stop", action: recorder.stop) }
             }
-            meter("Me", recorder.meLevel)
+            meter(MeetingStream.me.label, recorder.meLevel)
             if recorder.live?.source.micOnly == false {
-                meter("Them", recorder.themLevel)
+                meter(MeetingStream.them.label, recorder.themLevel)
                 if recorder.live?.source.bundleID == "com.apple.Safari" { Text("Safari plays audio through a shared WebKit process, so Mail and other WebKit apps are recorded too.").font(.system(size: 11)).foregroundStyle(Palette.ink64).fixedSize(horizontal: false, vertical: true) }
                 if recorder.live?.source.allApps == true { Text("All apps: music and notification sounds are recorded too.").font(.system(size: 11)).foregroundStyle(Palette.ink64) }
             }

@@ -109,16 +109,22 @@ struct ShortcutMachine {
 
 enum ShortcutBinding: Equatable {
     case rightOption, fn, controlOptionSpace
+    /// The presets: stored id and display name; the first is the default.
+    static let presets: [(id: String, name: String, binding: ShortcutBinding)] = [
+        ("right-option", "Right Option", .rightOption), ("fn", "Fn / Globe", .fn), ("ctrl-option-space", "Control–Option–Space", .controlOptionSpace)
+    ]
+    static var defaultID: String { presets[0].id }
+    /// What Settings and the setup screen call the shortcut.
+    var displayName: String {
+        if case .custom(let shortcut) = self { return shortcut.label }
+        return Self.presets.first { $0.binding == self }?.name ?? ""
+    }
     /// A recorded key (gap #14); see `CustomShortcut.refusal` for what can be recorded.
     case custom(CustomShortcut)
     /// The stored `shortcut` setting: a preset name or `CustomShortcut.stored`. Anything else is
     /// the default, Right Option.
     init(stored: String) {
-        switch stored {
-        case "fn": self = .fn
-        case "ctrl-option-space": self = .controlOptionSpace
-        default: self = CustomShortcut(stored: stored).map { .custom($0) } ?? .rightOption
-        }
+        self = Self.presets.first { $0.id == stored }?.binding ?? CustomShortcut(stored: stored).map { .custom($0) } ?? .rightOption
     }
     var keyCode: Int64 {
         switch self {
@@ -464,12 +470,11 @@ func runShortcutListener(arguments: [String],
         return arguments[index + 1]
     }
     let binding: ShortcutBinding
-    switch try value("--binding", default: "right-option") {
-    case "right-option": binding = .rightOption
-    case "fn": binding = .fn
-    case "ctrl-option-space": binding = .controlOptionSpace
-    default: throw ShortcutError(description: "Supported bindings: right-option, fn, ctrl-option-space")
+    let bindingID = try value("--binding", default: ShortcutBinding.defaultID)
+    guard let preset = ShortcutBinding.presets.first(where: { $0.id == bindingID }) else {
+        throw ShortcutError(description: "Supported bindings: " + ShortcutBinding.presets.map(\.id).joined(separator: ", "))
     }
+    binding = preset.binding
     guard let seconds = Double(try value("--processing-seconds", default: "1")),
           seconds.isFinite, seconds >= 0 else {
         throw ShortcutError(description: "--processing-seconds must be finite and nonnegative")

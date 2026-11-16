@@ -3,9 +3,67 @@ import SwiftUI
 import Charts
 import CoreText
 
-private extension Notification.Name {
+extension Notification.Name {
     static let dictationShowHistory = Notification.Name("DictationShowHistory")
     static let dictationShowError = Notification.Name("DictationShowError")
+}
+
+/// How much cleanup does: Faithful leaves the words, Strict runs rules on this Mac, Polish and Professional need an AI model.
+enum CleanupStyle: CaseIterable {
+    case faithful, strict, polish, professional
+    var label: String {
+        switch self { case .faithful: "Faithful"; case .strict: "Strict"; case .polish: "Polish"; case .professional: "Professional" }
+    }
+    var needsModel: Bool { self == .polish || self == .professional }
+    /// One line of the style picker's info popover.
+    var info: String {
+        switch self {
+        case .faithful: "Faithful keeps your words as dictated."
+        case .strict: "Strict runs on this Mac: it removes fillers and applies clear spoken corrections."
+        case .polish: "Polish uses an AI model to also resolve backtracks and small grammar slips, keeping your voice."
+        case .professional: "Professional uses an AI model to rewrite into clear writing of what you meant."
+        }
+    }
+    /// What the style does, with an example.
+    var help: String {
+        switch self {
+        case .faithful: "Keeps the words as dictated, apart from dictionary spellings: “Um, let’s meet Tuesday, no, I mean, Thursday, at the cafe.”"
+        case .strict: "Runs on this Mac. Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”"
+        case .polish: "Also resolves backtracks and false starts, and fixes small grammar slips, keeping your voice: “Let’s meet Thursday at the cafe.”"
+        case .professional: "Rewrites into clear, professional writing of what you meant: “Let’s meet on Thursday at the café.”"
+        }
+    }
+}
+
+/// The five cleanup switches, shown in Settings → Cleanup and in each writing mode's editor.
+enum CleanupToggle: CaseIterable {
+    case fillers, corrections, lists, punctuation, spoken
+    var title: String {
+        switch self {
+        case .fillers: "Remove filler words"
+        case .corrections: "Apply spoken corrections"
+        case .lists: "Format spoken lists"
+        case .punctuation: "Fix punctuation and capitalization"
+        case .spoken: "Spoken commands and numbers"
+        }
+    }
+    /// The mode editor words the last one more briefly.
+    func help(inMode: Bool) -> String {
+        switch self {
+        case .fillers: "Takes out “um”, “uh” and similar."
+        case .corrections: "Uses your final wording for clear corrections, including “Monday. Actually, Thursday.” Ambiguous corrections stay."
+        case .lists: "Turns “one, two, three” into a numbered list."
+        case .punctuation: "Adds commas, periods and capitals."
+        case .spoken: inMode ? "“comma”, “new paragraph”, numbers as digits, “at the rate” → @."
+            : "“comma”, “new paragraph”, “two hundred thousand” → 200,000, “at the rate” → @, and “write an email to…” layout."
+        }
+    }
+    var global: ReferenceWritableKeyPath<AppController, Bool> {
+        switch self { case .fillers: \.cleanupFillers; case .corrections: \.cleanupCorrections; case .lists: \.cleanupLists; case .punctuation: \.cleanupPunctuation; case .spoken: \.cleanupSpoken }
+    }
+    var option: WritableKeyPath<CleanupOptions, Bool> {
+        switch self { case .fillers: \.fillers; case .corrections: \.corrections; case .lists: \.lists; case .punctuation: \.punctuation; case .spoken: \.spoken }
+    }
 }
 
 // Only the isolated visual fixture supplies this override; production uses system preferences.
@@ -205,7 +263,7 @@ struct SettingsView: View {
     /// The welcome guide's current step (gap #21), saved as it changes so the guide resumes there.
     @State private var guideStep = WelcomeGuide.Step.microphone
     /// The last settings pane, restored by ⌘, and on relaunch.
-    @AppStorage("settingsSection") private var section = 0
+    @AppStorage("settingsSection") private var section = SettingsPane.general
     @State private var showAdvanced = false
     @State private var showLiveModel = false
     /// The expanded History row.
@@ -237,20 +295,6 @@ struct SettingsView: View {
     /// API address and model apply when editing ends (Return or leaving the field), not per keystroke.
     @FocusState private var apiFieldFocused: Bool
 
-    private static let sections = SettingsSearch.sections
-    private static let sectionIcons = ["slider.horizontal.3", "waveform", "wand.and.stars", "switch.2", "character.book.closed", "hand.raised", "key", "arrow.triangle.2.circlepath", "gearshape.2"]
-    private static let ledes = [
-        "Make Murmur feel at home on your Mac.",
-        "Where your voice is turned into text. On this Mac by default.",
-        "Tidy the transcript before it is typed. Each option works on its own.",
-        "Different cleanup for an app, a website or a word you say.",
-        "Words Murmur should spell your way, in every mode.",
-        "Choose what Murmur saves on this Mac, and for how long.",
-        "Needed only for cloud routes. Stored in your Keychain.",
-        "Verified updates from GitHub. Choose when they install.",
-        "Where meeting audio is transcribed, apart from dictation, and how notes are written."
-    ]
-
     private var windowTitle: String {
         switch screen {
         case .home: "Murmur"
@@ -258,7 +302,7 @@ struct SettingsView: View {
         case .meetings: "Murmur: Meetings"
         case .history: "Murmur: History"
         case .setup: "Murmur: Welcome"
-        case .settings: "Murmur Settings: " + SettingsNavigation.titles[SettingsNavigation.group(for: section)]
+        case .settings: "Murmur Settings: " + section.title
         }
     }
 
@@ -295,7 +339,6 @@ struct SettingsView: View {
         .modifier(AutoApplyRoutes(controller: controller, apiFieldFocused: apiFieldFocused))
         .onAppear {
             controller.refreshPermissions(); controller.refreshHistory(); controller.refreshInputDevices()
-            if !Self.sections.indices.contains(section) { section = 0 }
             if !checkedSetup {
                 checkedSetup = true
                 guideStep = WelcomeGuide.resumeStep(.standard)
@@ -319,20 +362,16 @@ struct SettingsView: View {
         guard let request = controller.screenRequest else { return }
         controller.screenRequest = nil
         switch request {
-        case "settings-search":
-            screen = .settings; section = 0
+        case .settingsSearch:
+            screen = .settings; section = .general
             settingsQuery = "meeting"; settingsSearchOpen = true
-        case "guide": WelcomeGuide.replay(.standard); guideStep = .microphone; screen = .setup
-        case "insights": screen = .insights
-        case "meetings": screen = .meetings
-        case "meeting-settings": section = 8; screen = .settings
-        case "settings": screen = .settings
-        case let value where value.hasPrefix("settings-"):
-            if let index = Int(value.dropFirst("settings-".count)), Self.sections.indices.contains(index) {
-                settingsTarget = "top"; section = index; screen = .settings
-            }
-        case "history": screen = .history
-        default: screen = .home
+        case .guide: WelcomeGuide.replay(.standard); guideStep = .microphone; screen = .setup
+        case .insights: screen = .insights
+        case .meetings: screen = .meetings
+        case .settings: screen = .settings
+        case .settingsPane(let pane): settingsTarget = "top"; section = pane; screen = .settings
+        case .history: screen = .history
+        case .home: screen = .home
         }
     }
 
@@ -359,9 +398,9 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
                 Text(title).font(screen == .settings ? .system(size: 13) : WindowType.body(15, weight: .semibold))
-                if let detail, !showDetailedSettingsInfo && section != 5 && section != 10 { SettingInfoButton(text: detail) }
+                if let detail, !showDetailedSettingsInfo && section != .privacy && section != .insertion { SettingInfoButton(text: detail) }
             }
-            if let detail, showDetailedSettingsInfo || (screen == .settings && (section == 5 || section == 10)) { help(detail) }
+            if let detail, showDetailedSettingsInfo || (screen == .settings && (section == .privacy || section == .insertion)) { help(detail) }
         }
     }
 
@@ -493,11 +532,10 @@ struct SettingsView: View {
                 .help("Search all settings (⌘K)").padding(.bottom, 24)
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(SettingsNavigation.destinations.indices, id: \.self) { index in
-                        if index == 4 { Divider().padding(.vertical, 12) }
-                        navigationRow(SettingsNavigation.titles[index], icon: SettingsNavigation.icons[index],
-                                      selected: SettingsNavigation.group(for: section) == index) {
-                            section = SettingsNavigation.destinations[index]; settingsTarget = "top"
+                    ForEach(SettingsPane.groups, id: \.self) { pane in
+                        if pane == .privacy { Divider().padding(.vertical, 12) }
+                        navigationRow(pane.title, icon: pane.icon, selected: section.group == pane) {
+                            section = pane; settingsTarget = "top"
                         }
                     }
                 }
@@ -626,18 +664,17 @@ struct SettingsView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    let group = SettingsNavigation.group(for: section)
-                    Text(SettingsNavigation.titles[group]).id("top")
+                    Text(section.title).id("top")
                         .font(.system(size: 25, weight: .medium)).tracking(-0.5)
-                    Text(group == 1 ? "Set up your voice-to-text workflow." : group == 2 ? "Shape your text and keep your own voice." : Self.ledes[section])
+                    Text(section.lede)
                         .font(.system(size: 13)).foregroundStyle(EditorialPalette.ink70)
                         .padding(.top, 6).padding(.bottom, 24)
-                    let tabs = SettingsNavigation.tabs(for: section)
+                    let tabs = section.tabs
                     if !tabs.isEmpty {
                         HStack(spacing: 24) {
                             ForEach(tabs, id: \.self) { value in
                                 Button { section = value; settingsTarget = "top" } label: {
-                                    Text(Self.sections[value]).font(.system(size: 13, weight: .medium))
+                                    Text(value.name).font(.system(size: 13, weight: .medium))
                                         .foregroundStyle(section == value ? Palette.ink : Palette.ink70)
                                         .padding(.vertical, 12)
                                         .overlay(alignment: .bottom) { Rectangle().fill(section == value ? Palette.accent : .clear).frame(height: 2) }
@@ -664,17 +701,17 @@ struct SettingsView: View {
 
     @ViewBuilder private var sectionBody: some View {
         switch section {
-        case 0: general
-        case 1: transcription
-        case 2: cleanup
-        case 3: modes
-        case 4: dictionary
-        case 5: privacy
-        case 6: apiKeys
-        case 9: recordingSettings
-        case 10: insertionSettings
-        case 8: meetingSettings
-        default: updates
+        case .general: general
+        case .transcription: transcription
+        case .cleanup: cleanup
+        case .modes: modes
+        case .dictionary: dictionary
+        case .privacy: privacy
+        case .apiKeys: apiKeys
+        case .recording: recordingSettings
+        case .insertion: insertionSettings
+        case .meetings: meetingSettings
+        case .updates: updates
         }
     }
 
@@ -718,10 +755,8 @@ struct SettingsView: View {
                 Text("Dictation shortcut").font(.system(size: 13))
                 Spacer()
                 Picker("Dictation shortcut", selection: $controller.shortcut) {
-                    Text("Right Option").tag("right-option")
-                    Text("Fn / Globe").tag("fn")
-                    Text("Control–Option–Space").tag("ctrl-option-space")
-                    if !["right-option", "fn", "ctrl-option-space"].contains(controller.shortcut) {
+                    ForEach(ShortcutBinding.presets, id: \.id) { Text($0.name).tag($0.id) }
+                    if !ShortcutBinding.presets.contains(where: { $0.id == controller.shortcut }) {
                         Text("Custom shortcut").tag(controller.shortcut)
                     }
                 }.labelsHidden().frame(maxWidth: 190)
@@ -887,19 +922,19 @@ struct SettingsView: View {
     }
 
     /// Faithful disables the edit toggles; choosing another style restores the standard edits.
-    var cleanupStyle: Binding<Int> {
+    var cleanupStyle: Binding<CleanupStyle> {
         Binding(get: {
-            guard controller.cleanupFillers || controller.cleanupCorrections || controller.cleanupLists || controller.cleanupPunctuation || controller.cleanupSpoken else { return -1 }
-            return controller.cleanupChoice == .localRules ? 0 : controller.cleanupProfessional ? 2 : controller.cleanupPolish ? 1 : 0
+            guard controller.cleanupFillers || controller.cleanupCorrections || controller.cleanupLists || controller.cleanupPunctuation || controller.cleanupSpoken else { return .faithful }
+            return controller.cleanupChoice == .localRules ? .strict : controller.cleanupProfessional ? .professional : controller.cleanupPolish ? .polish : .strict
         }, set: { style in
-            if style == -1 { controller.useFaithfulTranscription(); return }
-            if self.cleanupStyle.wrappedValue == -1 {
+            if style == .faithful { controller.useFaithfulTranscription(); return }
+            if self.cleanupStyle.wrappedValue == .faithful {
                 controller.cleanupFillers = true; controller.cleanupCorrections = true; controller.cleanupLists = true
                 controller.cleanupPunctuation = true; controller.cleanupSpoken = true
             }
-            controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
+            controller.cleanupPolish = style.needsModel; controller.cleanupProfessional = style == .professional
             // Polish and Professional need a model; Strict keeps the stored one for next time.
-            if style >= 1, controller.cleanupChoice == .localRules, let first = Self.aiCleanupChoices.first { controller.cleanupChoice = first }
+            if style.needsModel, controller.cleanupChoice == .localRules, let first = Self.aiCleanupChoices.first { controller.cleanupChoice = first }
         })
     }
 
@@ -909,19 +944,13 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Cleanup style").padding(.top, 28)
             HStack(spacing: 4) {
-                segmented([(-1, "Faithful"), (0, "Strict"), (1, "Polish"), (2, "Professional")], cleanupStyle, size: 14)
-                SettingInfoButton(text: "Faithful keeps your words as dictated.\nStrict runs on this Mac: it removes fillers and applies clear spoken corrections.\nPolish uses an AI model to also resolve backtracks and small grammar slips, keeping your voice.\nProfessional uses an AI model to rewrite into clear writing of what you meant.")
+                segmented(CleanupStyle.allCases.map { ($0, $0.label) }, cleanupStyle, size: 14)
+                SettingInfoButton(text: CleanupStyle.allCases.map(\.info).joined(separator: "\n"))
                     .accessibilityLabel("About cleanup styles")
             }.padding(.top, 8)
-            help(cleanupStyle.wrappedValue == -1
-                 ? "Keeps the words as dictated, apart from dictionary spellings: “Um, let’s meet Tuesday, no, I mean, Thursday, at the cafe.”"
-                 : cleanupStyle.wrappedValue == 2
-                 ? "Rewrites into clear, professional writing of what you meant: “Let’s meet on Thursday at the café.”"
-                 : cleanupStyle.wrappedValue == 1
-                 ? "Also resolves backtracks and false starts, and fixes small grammar slips, keeping your voice: “Let’s meet Thursday at the cafe.”"
-                 : "Runs on this Mac. Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”")
+            help(cleanupStyle.wrappedValue.help)
                 .padding(.top, 8)
-            if cleanupStyle.wrappedValue >= 1 {
+            if cleanupStyle.wrappedValue.needsModel {
                 eyebrow("AI model").padding(.top, 20)
                 segmented(Self.aiCleanupChoices.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14)
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
@@ -933,19 +962,17 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
             cleanupChoices
             rule.padding(.top, 20)
-            toggleRow("Remove filler words", "Takes out “um”, “uh” and similar.", isOn: $controller.cleanupFillers)
-            toggleRow("Apply spoken corrections", "Uses your final wording for clear corrections, including “Monday. Actually, Thursday.” Ambiguous corrections stay.", isOn: $controller.cleanupCorrections)
-            toggleRow("Format spoken lists", "Turns “one, two, three” into a numbered list.", isOn: $controller.cleanupLists)
-            toggleRow("Fix punctuation and capitalization", "Adds commas, periods and capitals.", isOn: $controller.cleanupPunctuation)
-            toggleRow("Spoken commands and numbers", "“comma”, “new paragraph”, “two hundred thousand” → 200,000, “at the rate” → @, and “write an email to…” layout.", isOn: $controller.cleanupSpoken)
+            ForEach(CleanupToggle.allCases, id: \.self) { toggle in
+                toggleRow(toggle.title, toggle.help(inMode: false), isOn: $controller[dynamicMember: toggle.global])
+            }
             help("If an AI rewrite is rejected, clear spoken corrections can still apply. The raw transcript stays in History.").padding(.top, 16)
 
-            if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() {
+            if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() {
                 help(reason.userMessage + " Until then, local rules clean dictations.").padding(.top, 8)
             }
             toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac. Modes can turn it on or off.", isOn: $controller.screenContext)
-                .padding(.top, 12).disabled(cleanupStyle.wrappedValue < 1)
-            if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .customAPI {
+                .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel)
+            if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .customAPI {
                 customCleanupSettings
             }
         }
@@ -1004,19 +1031,19 @@ struct SettingsView: View {
         return (controller.recentApps + running.sorted { appName($0).localizedCaseInsensitiveCompare(appName($1)) == .orderedAscending }).filter { seen.insert($0).inserted }
     }
 
-    /// Same as Cleanup (-1), Faithful (0), Strict (1), Polish (2), Professional (3).
-    private func modeStyle(_ mode: Binding<WritingMode>) -> Binding<Int> {
+    /// nil is "Same as Cleanup".
+    private func modeStyle(_ mode: Binding<WritingMode>) -> Binding<CleanupStyle?> {
         Binding(get: {
-            guard let o = mode.wrappedValue.options else { return -1 }
-            return !o.anyEnabled ? 0 : o.professional ? 3 : o.polish ? 2 : 1
+            guard let o = mode.wrappedValue.options else { return nil }
+            return !o.anyEnabled ? .faithful : o.professional ? .professional : o.polish ? .polish : .strict
         }, set: { value in
-            guard value >= 0 else { mode.wrappedValue.options = nil; return }
-            guard value > 0 else { mode.wrappedValue.options = .faithful; return }
+            guard let value else { mode.wrappedValue.options = nil; return }
+            guard value != .faithful else { mode.wrappedValue.options = .faithful; return }
             let current = mode.wrappedValue.options.flatMap { $0.anyEnabled ? $0 : nil }
             var o = current ?? CleanupOptions(fillers: controller.cleanupFillers, corrections: controller.cleanupCorrections, lists: controller.cleanupLists,
                                               punctuation: controller.cleanupPunctuation, spoken: controller.cleanupSpoken)
             if !o.anyEnabled { o = .standard } // Over Faithful settings, start from the defaults.
-            o.polish = value >= 2; o.professional = value == 3
+            o.polish = value.needsModel; o.professional = value == .professional
             mode.wrappedValue.options = o
         })
     }
@@ -1092,13 +1119,11 @@ struct SettingsView: View {
                 .font(Font.system(size: 12)).padding(.top, 6)
 
             eyebrow("Cleanup").padding(.top, 20)
-            segmented([(-1, "Same as Cleanup"), (0, "Faithful"), (1, "Strict"), (2, "Polish"), (3, "Professional")], modeStyle(mode), size: 13).padding(.top, 8)
+            segmented([(CleanupStyle?.none, "Same as Cleanup")] + CleanupStyle.allCases.map { ($0, $0.label) }, modeStyle(mode), size: 13).padding(.top, 8)
             if let o = m.options, o.anyEnabled {
-                toggleRow("Remove filler words", "Takes out “um”, “uh” and similar.", isOn: modeFlag(mode, \.fillers))
-                toggleRow("Apply spoken corrections", "Uses your final wording for clear corrections, including “Monday. Actually, Thursday.” Ambiguous corrections stay.", isOn: modeFlag(mode, \.corrections))
-                toggleRow("Format spoken lists", "Turns “one, two, three” into a numbered list.", isOn: modeFlag(mode, \.lists))
-                toggleRow("Fix punctuation and capitalization", "Adds commas, periods and capitals.", isOn: modeFlag(mode, \.punctuation))
-                toggleRow("Spoken commands and numbers", "“comma”, “new paragraph”, numbers as digits, “at the rate” → @.", isOn: modeFlag(mode, \.spoken))
+                ForEach(CleanupToggle.allCases, id: \.self) { toggle in
+                    toggleRow(toggle.title, toggle.help(inMode: true), isOn: modeFlag(mode, toggle.option))
+                }
             }
 
             eyebrow("Tone").padding(.top, 20)
@@ -1732,9 +1757,9 @@ struct SettingsView: View {
                                 if guideStep == .transcription { transcriptionRoutes }
                                 else if guideStep == .cleanup {
                                     cleanupChoices
-                                    if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .customAPI { customCleanupSettings }
-                                    if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() { help(reason.userMessage).padding(.top, 12) }
-                                    if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .gemini { keyRow(.gemini).padding(.top, 12) }
+                                    if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .customAPI { customCleanupSettings }
+                                    if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() { help(reason.userMessage).padding(.top, 12) }
+                                    if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .gemini { keyRow(.gemini).padding(.top, 12) }
                                     disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
                                 }
                                 else if guideStep == .meetings {
@@ -1817,7 +1842,7 @@ extension SettingsView {
     var home: some View {
         page("Home", "Dictate anywhere the cursor is.") {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                help("Transcription: \(controller.transcriptionRoute == .local ? "On this Mac" : controller.cloudTranscriber.displayName) · Cleanup: \((cleanupStyle.wrappedValue >= 1 ? controller.cleanupChoice : .localRules).displayName)")
+                help("Transcription: \(controller.transcriptionRoute == .local ? "On this Mac" : controller.cloudTranscriber.displayName) · Cleanup: \((cleanupStyle.wrappedValue.needsModel ? controller.cleanupChoice : .localRules).displayName)")
                 SettingInfoButton(text: ([controller.routeDisclosure(.transcription), controller.routeDisclosure(.cleanup)].compactMap { $0 } + ["On-device routes process data on this Mac. Custom providers use the server configured in Settings."]).joined(separator: "\n\n"))
                     .accessibilityLabel("Where dictation data goes")
             }.padding(.top, 12)
@@ -1860,7 +1885,7 @@ extension SettingsView {
                 permissionRow("Microphone", allowed: controller.microphoneAuthorized, actionTitle: "Allow", action: controller.requestMicrophone)
                 permissionRow("Accessibility", allowed: controller.accessibilityAuthorized, actionTitle: "Open Settings…") { controller.openPermissionSettings("accessibility") }
                 permissionRow("Input Monitoring", allowed: controller.inputMonitoringAuthorized, actionTitle: "Open Settings…") { controller.openPermissionSettings("input-monitoring") }
-                permissionRow("Speech model", allowed: modelSatisfied, actionTitle: "Open Transcription") { section = 1; screen = .settings }
+                permissionRow("Speech model", allowed: modelSatisfied, actionTitle: "Open Transcription") { section = .transcription; screen = .settings }
             }
             .overlay(alignment: .top) { rule }.padding(.top, 8)
 
@@ -1920,7 +1945,7 @@ extension SettingsView {
         VStack(alignment: .leading, spacing: 12) {
             Text(title).font(WindowType.body(22, weight: .semibold))
             help(detail)
-            Button("Open History & Privacy") { section = 5; screen = .settings }.buttonStyle(InkButtonStyle(kind: .outline))
+            Button("Open History & Privacy") { section = .privacy; screen = .settings }.buttonStyle(InkButtonStyle(kind: .outline))
         }
         .padding(24).frame(maxWidth: .infinity, alignment: .leading).background(Palette.accent16).padding(.top, 28)
     }
@@ -2138,7 +2163,7 @@ private struct ShortcutRecorder: View {
                 Spacer(minLength: 8)
                 Button(monitor != nil ? "Stop" : "Record Shortcut…") { monitor != nil ? stop() : start() }.buttonStyle(InkButtonStyle(kind: .outline))
                 if custom != nil && monitor == nil {
-                    Button("Reset") { refusal = nil; controller.shortcut = "right-option" }.buttonStyle(InkButtonStyle(kind: .outline))
+                    Button("Reset") { refusal = nil; controller.shortcut = ShortcutBinding.defaultID }.buttonStyle(InkButtonStyle(kind: .outline))
                 }
             }
             if let refusal { Text(refusal).font(WindowType.body(13)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }

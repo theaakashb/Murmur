@@ -67,19 +67,19 @@ import Combine
         let styleView = SettingsView(controller: controller)
         let savedChoice = controller.cleanupChoice
         controller.cleanupChoice = .localRules
-        styleView.cleanupStyle.wrappedValue = -1
-        precondition(styleView.cleanupStyle.wrappedValue == -1)
+        styleView.cleanupStyle.wrappedValue = .faithful
+        precondition(styleView.cleanupStyle.wrappedValue == .faithful)
         precondition(!controller.cleanupFillers && !controller.cleanupCorrections && !controller.cleanupLists && !controller.cleanupPunctuation && !controller.cleanupSpoken)
-        styleView.cleanupStyle.wrappedValue = 0
-        precondition(styleView.cleanupStyle.wrappedValue == 0 && controller.cleanupFillers && controller.cleanupPunctuation)
+        styleView.cleanupStyle.wrappedValue = .strict
+        precondition(styleView.cleanupStyle.wrappedValue == .strict && controller.cleanupFillers && controller.cleanupPunctuation)
         controller.cleanupChoice = .customAPI
-        styleView.cleanupStyle.wrappedValue = 2
-        precondition(styleView.cleanupStyle.wrappedValue == 2 && controller.cleanupPolish && controller.cleanupProfessional)
-        styleView.cleanupStyle.wrappedValue = -1
-        precondition(styleView.cleanupStyle.wrappedValue == -1)
-        styleView.cleanupStyle.wrappedValue = 1
-        precondition(styleView.cleanupStyle.wrappedValue == 1 && controller.cleanupPolish && !controller.cleanupProfessional && controller.cleanupSpoken)
-        styleView.cleanupStyle.wrappedValue = 0
+        styleView.cleanupStyle.wrappedValue = .professional
+        precondition(styleView.cleanupStyle.wrappedValue == .professional && controller.cleanupPolish && controller.cleanupProfessional)
+        styleView.cleanupStyle.wrappedValue = .faithful
+        precondition(styleView.cleanupStyle.wrappedValue == .faithful)
+        styleView.cleanupStyle.wrappedValue = .polish
+        precondition(styleView.cleanupStyle.wrappedValue == .polish && controller.cleanupPolish && !controller.cleanupProfessional && controller.cleanupSpoken)
+        styleView.cleanupStyle.wrappedValue = .strict
         controller.cleanupChoice = savedChoice
         let compact = CommandLine.arguments.contains("--compact")
         let opaque = CommandLine.arguments.contains("--opaque")
@@ -141,22 +141,22 @@ import Combine
                                                         DictionarySuggestion(preferred: "Proxmox", heard: ["Proxmox", "Proxmonk"], dictations: 6)]
                 }
             }
-            if CommandLine.arguments.contains("--history") { NotificationCenter.default.post(name: Notification.Name("DictationShowHistory"), object: nil) }
-            if args.contains("--insights") || args.contains("--history-off") { controller.screenRequest = "insights" }
-            if args.contains("--history") { controller.screenRequest = "history" }
-            if args.contains("--settings") { controller.screenRequest = "settings" }
-            if args.contains("--dictionary") { controller.screenRequest = "settings-4" }
+            if CommandLine.arguments.contains("--history") { NotificationCenter.default.post(name: .dictationShowHistory, object: nil) }
+            if args.contains("--insights") || args.contains("--history-off") { controller.screenRequest = .insights }
+            if args.contains("--history") { controller.screenRequest = .history }
+            if args.contains("--settings") { controller.screenRequest = .settings }
+            if args.contains("--dictionary") { controller.screenRequest = .settingsPane(.dictionary) }
             // --cleanup-style -1|0|1|2: Faithful, Strict, Polish or Professional, with an AI model stored.
             if let flag = args.firstIndex(of: "--cleanup-style"), args.indices.contains(flag + 1), let style = Int(args[flag + 1]) {
                 controller.cleanupChoice = .gemini; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
                 if style == -1 { controller.useFaithfulTranscription() }
             }
             if let flag = args.firstIndex(of: "--section"), args.indices.contains(flag + 1) {
-                controller.screenRequest = "settings-" + args[flag + 1]
+                if let pane = Int(args[flag + 1]).flatMap(SettingsPane.init(rawValue:)) { controller.screenRequest = .settingsPane(pane) }
             }
             if args.contains("--speaker-settings") { controller.speakerSettings.showFixture(enabled: true, status: args.contains("--ready") ? .ready : .notDownloaded) }
-            if args.contains("--meeting-settings") { controller.meetingTranscription = args.contains("--cloud") ? .cloud : .local; controller.screenRequest = "meeting-settings" }
-            if args.contains("--settings-search") { controller.screenRequest = "settings-search" }
+            if args.contains("--meeting-settings") { controller.meetingTranscription = args.contains("--cloud") ? .cloud : .local; controller.screenRequest = .settingsPane(.meetings) }
+            if args.contains("--settings-search") { controller.screenRequest = .settingsSearch }
             controller.voiceLevel = 0.6
             controller.phase = CommandLine.arguments.contains("--processing") ? .processing : CommandLine.arguments.contains("--listening") ? .listening : CommandLine.arguments.contains("--saved") ? .saved : .error
             controller.message = CommandLine.arguments.contains("--credential-warning")
@@ -259,7 +259,7 @@ import Combine
                 if args.contains("--notes-choice") { recorder.notesChoicePending = call.id }
                 if args.contains("--transcript") { MeetingsPage.initialTab = .transcript }
                 if args.contains("--lecture-notes") { MeetingsPage.initialTab = .lecture }
-                controller.screenRequest = "meetings"
+                controller.screenRequest = .meetings
                 fixtureMeetingPanel = panel
             }
             if CommandLine.arguments.contains("--bubble-only") { window.orderOut(nil) }

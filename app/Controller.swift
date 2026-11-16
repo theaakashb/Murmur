@@ -318,6 +318,13 @@ extension InsertionStatus {
 /// The raw values are shown in the menu, the sidebar and the accessibility label.
 enum Phase: String { case ready = "Ready", listening = "Listening", processing = "Processing", error = "Error", saved = "Saved" }
 
+/// A screen the window should show, asked for by a menu item, a controller flow or the UI fixture.
+enum ScreenRequest: Equatable {
+    case home, guide, insights, meetings, history, settings, settingsSearch
+    /// Settings, opened on this page.
+    case settingsPane(SettingsPane)
+}
+
 @MainActor final class AppController: ObservableObject {
     @Published var phase = Phase.ready
     @Published var message = "Hold your shortcut to dictate, or double-press it to dictate until you press it again."
@@ -330,9 +337,8 @@ enum Phase: String { case ready = "Ready", listening = "Listening", processing =
     @Published var showMenuBar: Bool
     /// A Dock icon (gap #20); off by default, as in PRD R6. Applies as soon as it changes.
     @Published var showInDock: Bool
-    /// A screen the window should switch to ("guide", "insights", "settings"), set from a menu item or
-    /// the UI fixture. The window clears it once shown.
-    @Published var screenRequest: String?
+    /// A screen the window should switch to, set from a menu item or the UI fixture. The window clears it once shown.
+    @Published var screenRequest: ScreenRequest?
     /// CoreAudio UID of the chosen microphone; empty means the system default.
     @Published var inputDeviceUID: String
     /// Connected microphones, cached: Settings re-renders with every voice-level tick.
@@ -597,7 +603,7 @@ enum Phase: String { case ready = "Ready", listening = "Listening", processing =
            let manifest = try? ModelManifest(contentsOf: pins, list: liveWordsFileList) {
             liveWordsDownloader = ModelDownloader(manifest: manifest, target: LiveWordsFacts.directory(home: FileManager.default.homeDirectoryForCurrentUser))
         } else { liveWordsDownloader = nil }
-        shortcut = defaults.string(forKey: "shortcut") ?? "right-option"
+        shortcut = defaults.string(forKey: "shortcut") ?? ShortcutBinding.defaultID
         showMenuBar = defaults.object(forKey: "showMenuBar") as? Bool ?? true
         showInDock = defaults.bool(forKey: "showInDock")
         let inputDevice = defaults.string(forKey: "inputDeviceUID") ?? ""
@@ -940,14 +946,7 @@ enum Phase: String { case ready = "Ready", listening = "Listening", processing =
     }
     func resumeShortcutAfterRecorder() { if !preview && listener == nil { configureShortcut() } }
     /// What Settings and the setup screen call the shortcut.
-    var shortcutName: String {
-        switch ShortcutBinding(stored: shortcut) {
-        case .rightOption: return "Right Option"
-        case .fn: return "Fn / Globe"
-        case .controlOptionSpace: return "Control–Option–Space"
-        case .custom(let custom): return custom.label
-        }
-    }
+    var shortcutName: String { ShortcutBinding(stored: shortcut).displayName }
     private func removeShortcut() {
         shortcutGeneration = UUID()
         tapThread?.stop(); tapThread = nil
@@ -2242,7 +2241,7 @@ enum Phase: String { case ready = "Ready", listening = "Listening", processing =
             guard let self else { throw NotesFailure.failed("Murmur is closing.") }
             return try await self.writeMeetingNotes(meeting, lecture: lecture)
         }
-        recorder.onNotesChoiceNeeded = { [weak self] in self?.screenRequest = "meetings"; self?.openSettings?() }
+        recorder.onNotesChoiceNeeded = { [weak self] in self?.screenRequest = .meetings; self?.openSettings?() }
         speakerSettings.attach(recorder, preview: preview) { [weak self] in self?.isBusy ?? true }
         guard !preview, let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"), let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json") else { return }
         let warm = warm
@@ -2364,7 +2363,7 @@ enum Phase: String { case ready = "Ready", listening = "Listening", processing =
             let plan = routePlan(routes, cleanupSendsText: false)
             guard let provider = plan.transcriber else {
                 meetingRecorder.message = (plan.refusal ?? "The cloud transcriber is not set up.") + " Set it up in Settings → Transcription, or choose On this Mac in Settings → Meetings."
-                screenRequest = "meetings"; openSettings?(); return
+                screenRequest = .meetings; openSettings?(); return
             }
             let vocabulary = processing?.dictionary.vocabularyTerms ?? []
             cloudName = provider.id.displayName
@@ -2379,7 +2378,7 @@ enum Phase: String { case ready = "Ready", listening = "Listening", processing =
             }
         } else if !modelRow.isReady {
             meetingRecorder.message = "Meeting notes transcribe on this Mac. Download the speech model in Settings → Transcription first."
-            screenRequest = "meetings"; openSettings?(); return
+            screenRequest = .meetings; openSettings?(); return
         }
         if !meetingRecorder.start(source, cloud: cloud, cloudName: cloudName) {
             if let pending = meetingRecorder.consentPending {
@@ -2389,7 +2388,7 @@ enum Phase: String { case ready = "Ready", listening = "Listening", processing =
                     if acknowledged { MeetingConsent.acknowledge(.standard); self.startMeeting(pending) }
                 }
             } else {
-                screenRequest = "meetings"; openSettings?()
+                screenRequest = .meetings; openSettings?()
             }
         }
     }

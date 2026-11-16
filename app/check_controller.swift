@@ -132,14 +132,14 @@ import AVFoundation
         controller.useFaithfulTranscription()
         controller.cleanupChoice = .localRules
         let settingsView = SettingsView(controller: controller)
-        settingsView.cleanupStyle.wrappedValue = 1
+        settingsView.cleanupStyle.wrappedValue = .polish
         precondition(controller.cleanupChoice == .appleIntelligence && controller.cleanupPolish && !controller.cleanupProfessional,
                      "Polish without a model selects Apple Intelligence")
         controller.cleanupChoice = .customAPI
-        settingsView.cleanupStyle.wrappedValue = 0
+        settingsView.cleanupStyle.wrappedValue = .strict
         precondition(controller.cleanupChoice == .customAPI && !controller.cleanupPolish && !controller.cleanupProfessional,
                      "Strict remembers the AI provider without using it")
-        settingsView.cleanupStyle.wrappedValue = 2
+        settingsView.cleanupStyle.wrappedValue = .professional
         precondition(controller.cleanupChoice == .customAPI && controller.cleanupProfessional,
                      "Professional restores the chosen provider")
 

@@ -276,21 +276,22 @@ func checkWelcomeGuide() {
 }
 
 func checkSettingsSearch() {
-    check(SettingsNavigation.destinations.count == 7, "settings has seven top-level destinations")
-    check(Set(SettingsNavigation.destinations.map { SettingsNavigation.group(for: $0) }).count == 7, "destinations select distinct sidebar groups")
-    check(SettingsNavigation.tabs(for: 1) == [9, 1, 10], "dictation tabs preserve legacy transcription destination")
-    check(SettingsNavigation.tabs(for: 4) == [2, 3, 4], "writing tabs preserve cleanup, modes and dictionary destinations")
-    check(SettingsSearch.matches("hotkey").first?.section == 9, "shortcut search opens Recording")
-    check(SettingsSearch.matches("automatic paste").first?.section == 10, "insertion search opens Insertion")
+    check(SettingsPane.groups.count == 7, "settings has seven top-level destinations")
+    check(Set(SettingsPane.groups.map(\.group)).count == 7 && SettingsPane.groups.allSatisfy { $0.group == $0 }, "destinations select distinct sidebar groups")
+    check(SettingsPane.allCases.map(\.rawValue) == Array(0...10) && SettingsPane.allCases.allSatisfy { SettingsPane.groups.contains($0.group) }, "stored pane numbers are stable and every pane has a sidebar group")
+    check(SettingsPane.transcription.tabs == [.recording, .transcription, .insertion], "dictation tabs preserve legacy transcription destination")
+    check(SettingsPane.dictionary.tabs == [.cleanup, .modes, .dictionary], "writing tabs preserve cleanup, modes and dictionary destinations")
+    check(SettingsSearch.matches("hotkey").first?.section == .recording, "shortcut search opens Recording")
+    check(SettingsSearch.matches("automatic paste").first?.section == .insertion, "insertion search opens Insertion")
     check(SettingsSearch.matches("  \n").isEmpty, "empty search has no results")
     check(SettingsSearch.matches("HOTKEY").contains { $0.title == "Shortcut" }, "keyboard alias ignores case")
     check(SettingsSearch.matches("cléanup style").contains { $0.title == "Cleanup style" }, "search folds accents")
     check(SettingsSearch.matches("meeting on-device").contains { $0.title == "Meeting transcription" }, "multiple words and on-device spelling work")
-    check(SettingsSearch.matches("retention").contains { $0.section == 5 && $0.target == "Keep transcripts for" }, "retention opens its setting")
-    check(SettingsSearch.matches("meeting notes").contains { $0.section == 8 && $0.target == "Meeting notes" }, "meeting notes opens its setting")
+    check(SettingsSearch.matches("retention").contains { $0.section == .privacy && $0.target == "Keep transcripts for" }, "retention opens its setting")
+    check(SettingsSearch.matches("meeting notes").contains { $0.section == .meetings && $0.target == "Meeting notes" }, "meeting notes opens its setting")
     check(SettingsSearch.matches("unfindable-feature").isEmpty, "unknown queries return no results")
     check(Set(SettingsSearch.all.map(\.id)).count == SettingsSearch.all.count, "result IDs are unique")
-    check(SettingsSearch.all.allSatisfy { SettingsSearch.sections.indices.contains($0.section) && !$0.target.isEmpty }, "every result has a valid section and destination")
+    check(SettingsSearch.all.allSatisfy { !$0.target.isEmpty }, "every result has a destination")
 }
 
 @main struct AppServicesChecks {

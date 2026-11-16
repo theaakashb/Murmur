@@ -35,7 +35,7 @@ enum MeetingSpeakers {
 
     /// "Speaker 2", or the name the user gave; Me and unassigned Them lines keep their stream label.
     static func label(_ line: MeetingLine, in meeting: Meeting) -> String {
-        guard let number = line.speaker, line.stream == (meeting.source.micOnly ? .me : .them) else { return meeting.source.micOnly ? "Room" : MeetingExport.label(line.stream) }
+        guard let number = line.speaker, line.stream == meeting.source.speakerStream else { return meeting.source.micOnly ? MeetingStream.roomLabel : line.stream.label }
         return label(number, in: meeting)
     }
 
@@ -76,7 +76,7 @@ enum MeetingSpeakers {
         for var line in meeting.lines {
             let words = line.words
             line.words = nil
-            guard line.stream == (meeting.source.micOnly ? .me : .them) else { out.append(line); continue }
+            guard line.stream == meeting.source.speakerStream else { out.append(line); continue }
             let pieces = split(line, words: words, segments: segments)
             for (index, piece) in pieces.enumerated() {
                 var part = piece.line
@@ -167,7 +167,7 @@ extension Meeting {
     /// Moves one Them line to another speaker, or to a new one when `to` is not in use. Which items
     /// rested on that line's speaker is the model's reading, so notes are only marked out of date.
     mutating func reassignLine(_ id: Int, to speaker: Int) {
-        guard speakers != nil, speaker > 0, let i = lines.firstIndex(where: { $0.id == id && $0.stream == (source.micOnly ? .me : .them) }) else { return }
+        guard speakers != nil, speaker > 0, let i = lines.firstIndex(where: { $0.id == id && $0.stream == source.speakerStream }) else { return }
         lines[i].speaker = speaker
         speakers?.editedAt = Date()
         lectureNotes?.outdated = true
@@ -178,7 +178,7 @@ extension Meeting {
     /// new label is another speaker's too, the notes can no longer tell them apart: out of date instead.
     private mutating func relabelNotes(_ old: String, as new: String, number: Int) {
         guard var written = notes, old != new else { return }
-        let others = MeetingSpeakers.numbers(self).filter { $0 != number }.map { MeetingSpeakers.label($0, in: self) } + ["Me", "Them"]
+        let others = MeetingSpeakers.numbers(self).filter { $0 != number }.map { MeetingSpeakers.label($0, in: self) } + [MeetingStream.me.label, MeetingStream.them.label]
         if others.contains(new) { notes?.outdated = true; return }
         func swap(_ text: String) -> String { MeetingSpeakers.replace(old, with: new, in: text) }
         func swap(_ items: [NoteItem]) -> [NoteItem] { items.map { var item = $0; item.text = swap(item.text); item.owner = item.owner.map(swap); return item } }

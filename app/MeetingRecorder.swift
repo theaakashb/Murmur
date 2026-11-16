@@ -133,7 +133,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         let folder = MeetingAudio.folder(audioRoot, meeting: meeting.id)
         do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
         catch { message = "Meeting notes could not create private storage."; return false }
-        let pump = makePump(meeting.id, cloud: cloud, timed: meeting.speakers != nil && cloud == nil, timedStream: source.micOnly ? .me : .them)
+        let pump = makePump(meeting.id, cloud: cloud, timed: meeting.speakers != nil && cloud == nil, timedStream: source.speakerStream)
         started = ProcessInfo.processInfo.systemUptime; lastVoice = started; lastSave = started
         systemAudioProblem = nil; warning = nil; askEnded = false; behind = false; elapsed = 0; message = nil
         callApp = source.bundleID; callWasUsingMic = false
@@ -280,7 +280,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
             }
         }
         let meeting = live?.id == id ? live : meetings.first { $0.id == id }
-        if job.stream == (meeting?.source.micOnly == true ? .me : .them) { keepAudio(id, job) }
+        if job.stream == (meeting?.source.speakerStream ?? .them) { keepAudio(id, job) }
         try? FileManager.default.removeItem(at: job.url)
         settle(id)
     }

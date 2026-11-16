@@ -400,59 +400,130 @@ enum UpdateText {
     static let explanation = "Sparkle checks GitHub daily for updates. This uses the network even when transcription runs on this Mac. Update requests contain no transcripts, audio, dictionary or API keys."
 }
 
+/// A settings page. The raw values are stored (`settingsSection`), so they stay stable. Each page
+/// belongs to a sidebar group (named by its first page); the group supplies title, icon and lede.
+enum SettingsPane: Int, CaseIterable {
+    case general = 0, transcription, cleanup, modes, dictionary, privacy, apiKeys, updates, meetings, recording, insertion
+
+    /// The page's own name: the tab label and the search result's section.
+    var name: String {
+        switch self {
+        case .general: "General"
+        case .transcription: "Transcription"
+        case .cleanup: "Cleanup"
+        case .modes: "Modes"
+        case .dictionary: "Dictionary"
+        case .privacy: "History & Privacy"
+        case .apiKeys: "API Keys"
+        case .updates: "Updates"
+        case .meetings: "Meetings"
+        case .recording: "Recording"
+        case .insertion: "Insertion"
+        }
+    }
+    /// The sidebar entries, in order.
+    static let groups: [SettingsPane] = [.general, .recording, .cleanup, .meetings, .privacy, .apiKeys, .updates]
+    /// The sidebar entry this page sits under, and the tabs shown there.
+    var group: SettingsPane {
+        switch self {
+        case .transcription, .recording, .insertion: .recording
+        case .cleanup, .modes, .dictionary: .cleanup
+        default: self
+        }
+    }
+    var tabs: [SettingsPane] {
+        switch group {
+        case .recording: [.recording, .transcription, .insertion]
+        case .cleanup: [.cleanup, .modes, .dictionary]
+        default: []
+        }
+    }
+    /// Sidebar title (also the page heading), for a group's pages.
+    var title: String {
+        switch group {
+        case .recording: "Dictation"
+        case .cleanup: "Writing"
+        case .privacy: "Privacy & Storage"
+        case .apiKeys: "Providers"
+        default: name
+        }
+    }
+    var icon: String {
+        switch group {
+        case .general: "gearshape"
+        case .recording: "mic"
+        case .cleanup: "pencil"
+        case .meetings: "person.2"
+        case .privacy: "externaldrive"
+        case .apiKeys: "key"
+        default: "arrow.triangle.2.circlepath"
+        }
+    }
+    var lede: String {
+        switch group {
+        case .general: "Make Murmur feel at home on your Mac."
+        case .recording: "Set up your voice-to-text workflow."
+        case .cleanup: "Shape your text and keep your own voice."
+        case .privacy: "Choose what Murmur saves on this Mac, and for how long."
+        case .apiKeys: "Needed only for cloud routes. Stored in your Keychain."
+        case .updates: "Verified updates from GitHub. Choose when they install."
+        default: "Where meeting audio is transcribed, apart from dictation, and how notes are written."
+        }
+    }
+}
+
 /// Search only authored setting labels and aliases; never user text or credentials.
 enum SettingsSearch {
-    static let sections = ["General", "Transcription", "Cleanup", "Modes", "Dictionary", "History & Privacy", "API Keys", "Updates", "Meetings", "Recording", "Insertion"]
     struct Result: Identifiable {
         let title: String
-        let section: Int
+        let section: SettingsPane
         let keywords: String
         let target: String
-        var id: String { "\(section):\(title)" }
-        var sectionName: String { sections[section] }
-        init(_ title: String, _ section: Int, _ keywords: String, target: String? = nil) {
+        var id: String { "\(section.rawValue):\(title)" }
+        var sectionName: String { section.name }
+        init(_ title: String, _ section: SettingsPane, _ keywords: String, target: String? = nil) {
             self.title = title; self.section = section; self.keywords = keywords; self.target = target ?? title
         }
     }
     static let all: [Result] = [
-        .init("Shortcut", 9, "hotkey keyboard fn globe right option hold record"),
-        .init("Press once to start, again to stop", 9, "toggle recording double press"),
-        .init("Start and stop sounds", 9, "sound audio chime feedback"),
-        .init("Live words", 9, "streaming preview real time", target: "live-words"),
-        .init("Show live words on cloud routes", 9, "preview streaming", target: "live-words"),
-        .init("Insert at the cursor", 10, "automatic paste typing clipboard insertion"),
-        .init("Add a leading space when needed", 10, "intelligent spacing whitespace"),
-        .init("Show menu bar icon", 0, "status tray hide"),
-        .init("Show in Dock", 0, "app switcher hide icon"),
-        .init("Open at login", 0, "startup launch background"),
-        .init("Microphone", 9, "input device audio mic"),
-        .init("Permissions", 5, "accessibility input monitoring microphone access"),
-        .init("Show detailed info", 0, "help explanations tooltips", target: "detailed-info"),
-        .init("Speech model", 1, "download parakeet local on device offline", target: "top"),
-        .init("Where transcription runs", 1, "dictation cloud local on device provider gemini custom api"),
-        .init("Model folder", 1, "advanced storage location directory", target: "model-folder"),
-        .init("AI model", 2, "cleanup runs with location apple intelligence cloud gemini custom provider polish professional"),
-        .init("Cleanup style", 2, "faithful strict polish professional tone rewrite"),
-        .init("Remove filler words", 2, "um uh cleanup"),
-        .init("Apply spoken corrections", 2, "backtrack no wait cleanup"),
-        .init("Format spoken lists", 2, "numbered bullets cleanup"),
-        .init("Fix punctuation and capitalization", 2, "commas periods capitals cleanup"),
-        .init("Spoken commands and numbers", 2, "email paragraph digits symbols cleanup"),
-        .init("Use screen context", 2, "clipboard selected text privacy cleanup"),
-        .init("Writing modes", 3, "apps websites trigger words custom instructions tone", target: "top"),
-        .init("Dictionary", 4, "vocabulary preferred spelling aliases words", target: "top"),
-        .init("Learn from my corrections", 4, "automatic learning spelling dictionary"),
-        .init("Limit learning to readable fields", 4, "keystroke learning privacy dictionary"),
-        .init("Transcript history", 5, "save off privacy storage"),
-        .init("Keep transcripts for", 5, "retention delete thirty 30 days six months forever"),
-        .init("Keep recordings for diagnostics (7 days)", 5, "audio wav replay debug developer quality"),
-        .init("Delete all data", 5, "erase wipe reset history recordings keys", target: "delete-data"),
-        .init("API Keys", 6, "credentials password keychain gemini custom transcription cleanup", target: "top"),
-        .init("Updates", 7, "version release download install", target: "top"),
-        .init("Meeting transcription", 8, "call audio cloud local on device provider"),
-        .init("Meeting notes", 8, "summary transcript only none apple intelligence gemini custom provider"),
-        .init("Call detection", 8, "automatic meeting prompt offer take notes zoom teams browser", target: "call-detection"),
-        .init("Speaker separation", 8, "diarization diarizer speakers pyannote model", target: "speaker-separation")
+        .init("Shortcut", .recording, "hotkey keyboard fn globe right option hold record"),
+        .init("Press once to start, again to stop", .recording, "toggle recording double press"),
+        .init("Start and stop sounds", .recording, "sound audio chime feedback"),
+        .init("Live words", .recording, "streaming preview real time", target: "live-words"),
+        .init("Show live words on cloud routes", .recording, "preview streaming", target: "live-words"),
+        .init("Insert at the cursor", .insertion, "automatic paste typing clipboard insertion"),
+        .init("Add a leading space when needed", .insertion, "intelligent spacing whitespace"),
+        .init("Show menu bar icon", .general, "status tray hide"),
+        .init("Show in Dock", .general, "app switcher hide icon"),
+        .init("Open at login", .general, "startup launch background"),
+        .init("Microphone", .recording, "input device audio mic"),
+        .init("Permissions", .privacy, "accessibility input monitoring microphone access"),
+        .init("Show detailed info", .general, "help explanations tooltips", target: "detailed-info"),
+        .init("Speech model", .transcription, "download parakeet local on device offline", target: "top"),
+        .init("Where transcription runs", .transcription, "dictation cloud local on device provider gemini custom api"),
+        .init("Model folder", .transcription, "advanced storage location directory", target: "model-folder"),
+        .init("AI model", .cleanup, "cleanup runs with location apple intelligence cloud gemini custom provider polish professional"),
+        .init("Cleanup style", .cleanup, "faithful strict polish professional tone rewrite"),
+        .init("Remove filler words", .cleanup, "um uh cleanup"),
+        .init("Apply spoken corrections", .cleanup, "backtrack no wait cleanup"),
+        .init("Format spoken lists", .cleanup, "numbered bullets cleanup"),
+        .init("Fix punctuation and capitalization", .cleanup, "commas periods capitals cleanup"),
+        .init("Spoken commands and numbers", .cleanup, "email paragraph digits symbols cleanup"),
+        .init("Use screen context", .cleanup, "clipboard selected text privacy cleanup"),
+        .init("Writing modes", .modes, "apps websites trigger words custom instructions tone", target: "top"),
+        .init("Dictionary", .dictionary, "vocabulary preferred spelling aliases words", target: "top"),
+        .init("Learn from my corrections", .dictionary, "automatic learning spelling dictionary"),
+        .init("Limit learning to readable fields", .dictionary, "keystroke learning privacy dictionary"),
+        .init("Transcript history", .privacy, "save off privacy storage"),
+        .init("Keep transcripts for", .privacy, "retention delete thirty 30 days six months forever"),
+        .init("Keep recordings for diagnostics (7 days)", .privacy, "audio wav replay debug developer quality"),
+        .init("Delete all data", .privacy, "erase wipe reset history recordings keys", target: "delete-data"),
+        .init("API Keys", .apiKeys, "credentials password keychain gemini custom transcription cleanup", target: "top"),
+        .init("Updates", .updates, "version release download install", target: "top"),
+        .init("Meeting transcription", .meetings, "call audio cloud local on device provider"),
+        .init("Meeting notes", .meetings, "summary transcript only none apple intelligence gemini custom provider"),
+        .init("Call detection", .meetings, "automatic meeting prompt offer take notes zoom teams browser", target: "call-detection"),
+        .init("Speaker separation", .meetings, "diarization diarizer speakers pyannote model", target: "speaker-separation")
     ]
     static func matches(_ query: String) -> [Result] {
         let words = normalized(query).split(whereSeparator: { $0.isWhitespace })
@@ -464,30 +535,5 @@ enum SettingsSearch {
     }
     private static func normalized(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX")).replacingOccurrences(of: "-", with: " ")
-    }
-}
-
-/// Legacy section IDs remain stable for menu requests and search destinations.
-enum SettingsNavigation {
-    static let destinations = [0, 9, 2, 8, 5, 6, 7]
-    static let titles = ["General", "Dictation", "Writing", "Meetings", "Privacy & Storage", "Providers", "Updates"]
-    static let icons = ["gearshape", "mic", "pencil", "person.2", "externaldrive", "key", "arrow.triangle.2.circlepath"]
-    static func group(for section: Int) -> Int {
-        switch section {
-        case 1, 9, 10: return 1
-        case 2, 3, 4: return 2
-        case 8: return 3
-        case 5: return 4
-        case 6: return 5
-        case 7: return 6
-        default: return 0
-        }
-    }
-    static func tabs(for section: Int) -> [Int] {
-        switch group(for: section) {
-        case 1: return [9, 1, 10]
-        case 2: return [2, 3, 4]
-        default: return []
-        }
     }
 }

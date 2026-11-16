@@ -98,7 +98,7 @@ enum MeetingNotesPrompt {
     static func speakers(_ lines: [Numbered]) -> [String] {
         var seen = Set<String>()
         let labels = lines.filter { $0.line.stream == .them || $0.line.speaker != nil }.map(\.speaker).filter { seen.insert($0).inserted }
-        return labels == ["Them"] ? [] : labels
+        return labels == [MeetingStream.them.label] ? [] : labels
     }
 
     static func render(_ line: Numbered) -> String {
@@ -145,7 +145,7 @@ enum MeetingNotesPrompt {
         let id = nonce.filter { $0.isLetter || $0.isNumber }
         let tag = "lines-\(id)", notesTag = "my-notes-\(id)"
         let speakers = speakers(lines)
-        let isRoom = lines.contains { $0.speaker == "Room" || ($0.line.stream == .me && $0.line.speaker != nil) }
+        let isRoom = lines.contains { $0.speaker == MeetingStream.roomLabel || ($0.line.stream == .me && $0.line.speaker != nil) }
         let side = isRoom ? "Speaker labels identify voices captured by a shared microphone, not necessarily the recorder." : (speakers.isEmpty ? "\"Them\" is the other side." : "The other side's speakers are \(speakers.joined(separator: ", ")).")
         let room = isRoom ? "Room is a shared microphone; it can contain multiple people. Never identify its speakers as the recorder without evidence." : ""
         let system = """

@@ -4,7 +4,12 @@ import Foundation
 // suppression, the shared transcription pump, limits, consent and export. Foundation only, so
 // check_meetings.swift builds without audio frameworks. Capture lives in MeetingCapture.swift.
 
-enum MeetingStream: String, Codable { case me, them }
+enum MeetingStream: String, Codable {
+    case me, them
+    /// The speaker words in transcripts, exports and the notes prompt's grounding.
+    var label: String { self == .me ? "Me" : "Them" }
+    static let roomLabel = "Room"
+}
 
 struct MeetingLine: Codable, Equatable, Identifiable {
     let id: Int
@@ -36,6 +41,9 @@ struct MeetingSource: Codable, Equatable {
     var bundleID: String?
     var allApps = false
     var micOnly = false
+
+    /// The stream that carries the speakers: the microphone alone in a room, else the call's audio.
+    var speakerStream: MeetingStream { micOnly ? .me : .them }
 
     static let everything = MeetingSource(name: "All apps", bundleID: nil, allApps: true)
     static let microphoneOnly = MeetingSource(name: "Only my microphone", bundleID: nil, micOnly: true)
@@ -486,7 +494,6 @@ enum MeetingExport {
         let total = max(0, Int(seconds))
         return total >= 3600 ? String(format: "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60) : String(format: "%d:%02d", total / 60, total % 60)
     }
-    static func label(_ stream: MeetingStream) -> String { stream == .me ? "Me" : "Them" }
     /// Visible lines only: hidden echo is left out of exports.
     static func transcript(_ meeting: Meeting) -> String {
         meeting.lines.filter { !$0.isHidden }.map { "[\(clock($0.start))] \(MeetingSpeakers.label($0, in: meeting)): \($0.visibleText)" }.joined(separator: "\n")
@@ -498,7 +505,7 @@ enum MeetingExport {
         out += "- Transcribed: \(meeting.transcribedBy.map { "by \($0)" } ?? "on this Mac")\n"
         if meeting.speakers?.state == .done {
             let names = MeetingSpeakers.numbers(meeting).map { meeting.speakers?.names[$0] ?? "Speaker \($0)" }
-            if !names.isEmpty { out += "- Speakers: \(escape((["Me"] + names).joined(separator: ", ")))\n" }
+            if !names.isEmpty { out += "- Speakers: \(escape(([MeetingStream.me.label] + names).joined(separator: ", ")))\n" }
         }
         if let notes = meeting.notes, !notes.isEmpty { out += "\n## Notes\n\n" + self.notes(meeting, markdown: true) + "\n" }
         if meeting.lectureNotes != nil { out += "\n## Lecture notes\n\n" + self.notes(meeting, markdown: true, lecture: true) + "\n" }

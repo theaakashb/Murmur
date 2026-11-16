@@ -56,7 +56,7 @@ import SwiftUI
         attach(app)
         mainMenu.addItem(standardEditMenuItem())
         let view = NSMenu(title: "View")
-        for (index, (title, screen)) in [("Home", "home"), ("Insights", "insights"), ("Meetings", "meetings"), ("History", "history")].enumerated() {
+        for (index, (title, screen)) in [("Home", ScreenRequest.home), ("Insights", .insights), ("Meetings", .meetings), ("History", .history)].enumerated() {
             add(view, title, #selector(showScreen(_:)), "\(index + 1)", target: self)
             view.items.last?.representedObject = screen
         }
@@ -76,7 +76,7 @@ import SwiftUI
         return mainMenu
     }
     @objc func showScreen(_ sender: NSMenuItem) {
-        controller.screenRequest = sender.representedObject as? String
+        controller.screenRequest = sender.representedObject as? ScreenRequest
         showWindow()
     }
     func showWindow() {
@@ -135,14 +135,14 @@ import SwiftUI
         menu.addItem(.separator()); menu.addItem(withTitle: "Quit Murmur", action: #selector(quit), keyEquivalent: "q").target = self
         statusItem?.menu = menu
     }
-    @objc func openCleanupSettings() { controller.screenRequest = "settings-2"; showWindow() }
+    @objc func openCleanupSettings() { controller.screenRequest = .settingsPane(.cleanup); showWindow() }
     @objc func openSettings() {
-        controller.screenRequest = "settings"
+        controller.screenRequest = .settings
         showWindow()
     }
-    @objc func openHistory() { controller.screenRequest = "history"; showWindow() }
+    @objc func openHistory() { controller.screenRequest = .history; showWindow() }
     /// Replays the welcome guide from its first step (gap #21).
-    @objc func openGuide() { controller.screenRequest = "guide"; showWindow() }
+    @objc func openGuide() { controller.screenRequest = .guide; showWindow() }
     /// Keep configuration/recording errors visible even when Sparkle cannot open its dialog.
     @objc func checkForUpdates() { showWindow(); controller.checkForUpdates() }
     @objc func finish() { controller.stopRecording() }
