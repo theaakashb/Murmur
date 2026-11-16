@@ -40,6 +40,7 @@ extension SettingsView {
             .padding(EdgeInsets(top: 16, leading: 24, bottom: 16, trailing: 24))
             .overlay(alignment: .bottom) { rule }
 
+            ScrollViewReader { scroller in
             ScrollView {
                 let groups = historyGroups
                 LazyVStack(spacing: 0) {
@@ -70,6 +71,9 @@ extension SettingsView {
                 }
                 .padding(.horizontal, 24)
             }
+            .onAppear { scrollToTarget(scroller) }
+            .onChange(of: scrollTarget) { scrollToTarget(scroller) }
+            }
 
             HStack {
                 help(controller.historyMode == .on ? "Saved on this Mac only. \(retentionText)" : controller.historySummary)
@@ -79,6 +83,12 @@ extension SettingsView {
             }
             .padding(.horizontal, 24).frame(height: 56).overlay(alignment: .top) { rule }
         }
+    }
+
+    private func scrollToTarget(_ scroller: ScrollViewProxy) {
+        guard let id = scrollTarget else { return }
+        scrollTarget = nil
+        DispatchQueue.main.async { scroller.scrollTo(id, anchor: .top) }
     }
 
     private var retentionText: String {
@@ -172,6 +182,7 @@ extension SettingsView {
             }
         }
         .overlay(alignment: .bottom) { Rectangle().fill(Palette.ink45).frame(height: 1) }
+        .id(entry.id)
     }
 
     private func flashCopied(_ id: String) {
@@ -181,6 +192,11 @@ extension SettingsView {
 
     static func needsAttention(_ status: InsertionStatus?) -> Bool {
         [.insertionPending, .failed, .heldCleanup, .heldTranscript].contains(status)
+    }
+
+    /// The entry History opens expanded: the last dictation's, while it still needs attention.
+    static func recoveryEntryToOpen(_ id: String?, in history: [HistoryEntry]) -> String? {
+        history.first { $0.id == id && needsAttention($0.status) }?.id
     }
 
     static func statusLabel(_ status: InsertionStatus?) -> String? {

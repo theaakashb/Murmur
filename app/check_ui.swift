@@ -101,6 +101,7 @@ extension AppController {
         ]
         entries[0].cleanupOptions = CleanupOptions(professional: true); entries[0].cleanupFallback = CleanupFailureReason.unexplainedDeletion.rawValue
         entries[0].cleanupOutcome = .localRules
+        if CommandLine.arguments.contains("--paste-failed") { entries[0].insertionStatus = InsertionStatus.failed.rawValue }
         if CommandLine.arguments.contains("--empty") { entries = [] }
         // Insights: timed dictations into a few apps on most of the last 24 days.
         if args.contains("--insights") && !args.contains("--empty") {
@@ -150,7 +151,6 @@ extension AppController {
                 controller.addSnippet(cue: "my website", text: "https://example.com/sample")
                 controller.addSnippet(cue: "my address", text: "1 Sample Street\nExample Town, EX 00000")
             }
-            if CommandLine.arguments.contains("--history") { NotificationCenter.default.post(name: .dictationShowHistory, object: nil) }
             if args.contains("--insights") || args.contains("--history-off") { controller.screenRequest = .insights }
             if args.contains("--history") { controller.screenRequest = .history }
             if args.contains("--settings") { controller.screenRequest = .settings }

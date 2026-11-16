@@ -3,10 +3,6 @@ import SwiftUI
 
 // The main window: SettingsView state, body, sidebar, search overlay, banners and shared form helpers.
 
-extension Notification.Name {
-    static let dictationShowHistory = Notification.Name("DictationShowHistory")
-}
-
 /// How much cleanup does: Faithful leaves the words, Strict runs rules on this Mac, Polish and Professional need an AI model.
 enum CleanupStyle: CaseIterable {
     case faithful, strict, polish, professional
@@ -84,6 +80,8 @@ struct SettingsView: View {
     @State var showAdvanced = false
     @State var showLiveModel = false
     @State var selectedID: String?
+    /// An entry History should scroll into view once it is showing.
+    @State var scrollTarget: String?
     @State var copiedID: String?
     @State var editingTextID: String?
     @State var textDraft = ""
@@ -167,10 +165,6 @@ struct SettingsView: View {
         .onChange(of: guideStep) { WelcomeGuide.save(guideStep) }
         // Permissions are granted in System Settings; re-read them on return.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in controller.refreshPermissions() }
-        .onReceive(NotificationCenter.default.publisher(for: .dictationShowHistory)) { _ in
-            searchText = ""; screen = .history
-            selectedID = controller.history.first(where: { $0.id == controller.recoveryEntryID })?.id ?? controller.history.first?.id
-        }
     }
 
     /// A menu item (Welcome Guide…) or the UI fixture asked for a screen.
@@ -186,7 +180,9 @@ struct SettingsView: View {
         case .meetings: screen = .meetings
         case .settings: screen = .settings
         case .settingsPane(let pane): settingsTarget = "top"; section = pane; screen = .settings
-        case .history: screen = .history
+        case .history:
+            screen = .history
+            if let id = Self.recoveryEntryToOpen(controller.recoveryEntryID, in: controller.history) { searchText = ""; selectedID = id; scrollTarget = id }
         case .home: screen = .home
         }
     }
