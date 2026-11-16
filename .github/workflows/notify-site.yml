@@ -1,0 +1,17 @@
+# Needs a repo secret SITE_DISPATCH_TOKEN: fine-grained PAT limited to
+# theaakashb/Murmur-Site with "Contents: Read and write" (required for repository_dispatch).
+name: Notify website of release
+on:
+  release:
+    types: [published]
+jobs:
+  notify:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh api repos/theaakashb/Murmur-Site/dispatches \
+            -f event_type=murmur-release -f "client_payload[tag]=$TAG"
