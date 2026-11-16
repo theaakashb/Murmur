@@ -6,15 +6,15 @@ set -u
 . "$(dirname "$0")/sources.sh"
 text="Cleanup Dictionary Learning Retention"
 cloud="$text Providers Credentials Processing"
-meetings="Retention Cleanup Meetings MeetingNotes MeetingSpeakers"
+meetings="Retention Cleanup Meetings MeetingNotes MeetingSpeakers MeetingStore MeetingExport CallApps"
 deps() {
   case "$1" in
     launch) echo "LaunchOptions" ;;
-    history) echo "Capture Cleanup Retention History ModelFiles" ;;
+    history) echo "Shortcut Capture Session Cleanup Retention History" ;;
     controller) echo "app ../spike/InsertionChecks" ;;
     meeting_start) echo "app" ;;
     recording) echo "Shortcut Capture Session" ;;
-    speaker_flow) echo "Shortcut Capture Session History ModelDownload ModelText ModelFiles $meetings MeetingCapture MeetingRecorder" ;;
+    speaker_flow) echo "Shortcut Capture Session History ModelDownload Digests ModelManifest AppServices $meetings MeetingCapture MeetingRecorder SpeakerModelSettings" ;;
     delivery) echo "Delivery" ;;
     dictionary) echo "$text" ;;
     processing|modes) echo "$cloud Observation" ;;
@@ -23,9 +23,9 @@ deps() {
     providers) echo "Cleanup Providers Credentials" ;;
     insights) echo "Insights" ;;
     meetings|speakers) echo "$meetings" ;;
-    call_detection) echo "$meetings CallDetection" ;;
-    model_download) echo "ModelDownload" ;;
-    app_services) echo "Retention ModelDownload ModelText HistoryRouter WelcomeGuide SettingsPanes AppUpdater" ;;
+    call_detection) echo "CallApps CallDetection" ;;
+    model_download) echo "ModelDownload Digests ModelManifest" ;;
+    app_services) echo "Retention ModelDownload Digests ModelManifest AppServices" ;;
     boost_filter) echo "../module-one/models/Runner/Sources/ModelBench/BoostFilter" ;;
     cleanup) echo "Cleanup" ;;
     *) return 1 ;;

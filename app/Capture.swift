@@ -416,29 +416,6 @@ final class Chunker {
         } catch { try? FileManager.default.removeItem(at: url); return nil }
     }
 
-    /// Applies a boundary clip's dictionary replacement to the two chunk texts around its cut, when
-    /// the replaced words are the last 1–3 words of `tail` plus the first 1–3 of `head` (letters
-    /// only, so a word the cut split in two also matches). The term goes at the end of `tail`; the
-    /// cut's own punctuation on the tail side is dropped, the head's following punctuation kept.
-    /// nil when the replacement does not cross this cut (chunks already handle the rest).
-    static func repair(tail: String, head: String, from: String, to: String) -> (tail: String, head: String)? {
-        func letters(_ text: Substring) -> String { String(text.lowercased().filter { $0.isLetter || $0.isNumber }) }
-        let target = letters(Substring(from))
-        let tailWords = tail.split(separator: " "), headWords = head.split(separator: " ")
-        guard !target.isEmpty, !tailWords.isEmpty, !headWords.isEmpty else { return nil }
-        for t in 1...min(3, tailWords.count) {
-            for h in 1...min(3, headWords.count) {
-                let spoken = tailWords.suffix(t).map(letters).joined() + headWords.prefix(h).map(letters).joined()
-                guard spoken == target else { continue }
-                let last = headWords[h - 1]
-                let trailing = String(last.reversed().prefix { !$0.isLetter && !$0.isNumber }.reversed())
-                let newTail = (tailWords.dropLast(t).map(String.init) + [to + trailing]).joined(separator: " ")
-                return (newTail, headWords.dropFirst(h).joined(separator: " "))
-            }
-        }
-        return nil
-    }
-
     /// 16-bit linear PCM at `format`'s rate and channel count, for meeting chunk files.
     static func int16(_ format: AVAudioFormat) -> [String: Any] {
         [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: format.sampleRate, AVNumberOfChannelsKey: format.channelCount,
@@ -446,42 +423,6 @@ final class Chunker {
     }
 
     private func send(_ event: Event) { if let handler { handler(event) } else { pending.append(event) } }
-
-    /// Joins chunk transcripts. The model punctuates every chunk as if the speaker stopped there:
-    /// it ends each with a period and capitalizes each first word. A cut at a sentence-length
-    /// pause (`sentenceEnds[i]`) keeps or adds the period. At any other cut, an unpunctuated
-    /// chunk's capitalized next word is lowercased. A sentence never ends on a word like "the" or
-    /// "and", so that period always goes. Only words in `lowercaseStarts` lose a capital, so names
-    /// and "I" keep theirs.
-    static func join(_ texts: [String], sentenceEnds: [Bool]) -> String {
-        var out = "", sentenceBreak = false
-        for (i, raw) in texts.enumerated() {
-            var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !text.isEmpty {
-                if !out.isEmpty {
-                    let lastWord = String(out.split(separator: " ").last ?? "").lowercased().trimmingCharacters(in: .punctuationCharacters)
-                    let firstWord = String(text.prefix { $0.isLetter || $0 == "'" || $0 == "’" })
-                    let dangling = danglingWords.contains(lastWord)
-                    if !sentenceBreak || dangling {
-                        let lower = lowercaseStarts.contains(firstWord.lowercased()) && firstWord.first?.isUppercase == true
-                        // A model period is real unless the sentence would end on a word like "the";
-                        // a short pause alone does not prove the speaker kept going.
-                        let period = out.last == "." && !out.hasSuffix("..")
-                        if period && dangling { out.removeLast() }
-                        if lower && (!period || dangling) { text = firstWord.lowercased() + text.dropFirst(firstWord.count) }
-                    } else if let last = out.last, !".?!".contains(last) { out += "." }
-                    out += " "
-                }
-                out += text
-            }
-            sentenceBreak = i < sentenceEnds.count && sentenceEnds[i]
-        }
-        return out
-    }
-    /// Words a sentence cannot end on.
-    static let danglingWords: Set<String> = ["a", "an", "the", "and", "or", "but", "nor", "of", "my", "your", "our", "their", "its", "than", "because"]
-    /// Common words that start a chunk only because the model capitalized it.
-    static let lowercaseStarts: Set<String> = danglingWords.union(["to", "in", "on", "at", "for", "with", "from", "by", "into", "as", "that", "which", "who", "is", "are", "was", "were", "be", "been", "will", "would", "could", "should", "can", "may", "might", "must", "do", "does", "did", "have", "has", "had", "this", "these", "those", "his", "her", "very", "so", "if", "when", "while", "where", "like", "about", "some", "any", "every", "each", "no", "not", "it", "it's", "we", "you", "they", "he", "she", "there", "here", "then", "more", "most", "less", "also", "just", "all", "one", "two", "what", "how", "why", "now", "even", "only", "still", "other", "another", "such", "make", "made", "get", "got", "go", "going", "see", "use", "used", "new", "same", "up", "out", "over", "after", "before", "between", "through", "during", "without", "within", "instead", "rather", "well", "really", "much", "many", "few", "things", "thing", "way", "people"])
 }
 
 struct RetryAudio {

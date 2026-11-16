@@ -6,7 +6,7 @@
 // the helper's peak memory. No microphone, tap or network.
 //
 //   SDKROOT="$(dirname "$(xcrun --show-sdk-path)")/MacOSX26.sdk" swiftc -O -swift-version 5 -parse-as-library -suppress-warnings \
-//     app/Capture.swift app/Retention.swift app/Meetings.swift app/MeetingSpeakers.swift app/MeetingCapture.swift app/tools/measure_speakers.swift -o /tmp/ms
+//     app/Capture.swift app/Retention.swift app/Meetings.swift app/MeetingStore.swift app/MeetingExport.swift app/CallApps.swift app/MeetingSpeakers.swift app/MeetingCapture.swift app/tools/measure_speakers.swift -o /tmp/ms
 //   /tmp/ms HELPER ASR_MODELS DIARIZER_MODELS LIBRISPEECH_TEST_CLEAN [--long MINUTES] [--threshold T]
 import Foundation
 import AVFoundation
