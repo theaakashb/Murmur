@@ -86,7 +86,7 @@ func observe(_ insertion: InsertionResult, insertedText: String, insertionOffset
         }
         if !tracker.stopped { Thread.sleep(forTimeInterval: 0.1) }
     }
-    print("observationStopped=\(tracker.stopReason ?? "unknown") candidateRetained=\(tracker.candidate != nil)")
+    print("observationStopped=\(tracker.stopReason?.rawValue ?? "unknown") candidateRetained=\(tracker.candidate != nil)")
 }
 
 do {

@@ -3,6 +3,13 @@ import Foundation
 /// Pure snapshots only: the caller owns AX access, monotonic time, focus identity and polling.
 /// Start only after verified insertion, in a nonsecure field with readable value/selection.
 struct DictationObservation {
+    /// Why observation ended; the raw values are logged and stored in History's `AfterPaste.endReason`.
+    enum StopReason: String {
+        case accessLost = "access or security lost", invalidClock = "invalid clock", focusDeparted = "focus departed", windowEnded = "window ended"
+        case outsideAnchorsChanged = "outside anchors changed", selectionLeftSpan = "selection left dictated span", spanCleared = "span cleared", finished
+        /// A valid prior edit survives these (the text it was read from is unchanged); any other reason removes it.
+        var keepsEdit: Bool { [.windowEnded, .focusDeparted, .selectionLeftSpan, .spanCleared].contains(self) }
+    }
     let sessionID: UUID
     /// The dictated span as inserted, original casing.
     let initial: String
@@ -11,7 +18,7 @@ struct DictationObservation {
     private let start: TimeInterval
     private(set) var range: NSRange
     private(set) var stopped = false
-    private(set) var stopReason: String?
+    private(set) var stopReason: StopReason?
     /// The span's current text, original casing; nil once attribution is lost. The app feeds
     /// `initial` -> `edited` to the ledger.
     private(set) var edited: String?
@@ -41,10 +48,10 @@ struct DictationObservation {
     mutating func observe(value: String, selection: NSRange, now: TimeInterval,
                           sameFocusedField: Bool, readableNonsecure: Bool) {
         guard !stopped else { return }
-        guard readableNonsecure else { return stop("access or security lost") }
-        guard now.isFinite, now >= start else { return stop("invalid clock") }
-        guard sameFocusedField else { return stop("focus departed") }
-        guard now - start < 60 else { return stop("window ended") }
+        guard readableNonsecure else { return stop(.accessLost) }
+        guard now.isFinite, now >= start else { return stop(.invalidClock) }
+        guard sameFocusedField else { return stop(.focusDeparted) }
+        guard now - start < 60 else { return stop(.windowEnded) }
         let text = value as NSString
         let prefixLength = (prefix as NSString).length
         let suffixLength = (suffix as NSString).length
@@ -52,31 +59,29 @@ struct DictationObservation {
         guard text.length >= prefixLength + suffixLength,
               text.substring(to: prefixLength) == prefix,
               text.substring(from: text.length - suffixLength) == suffix else {
-            return stop("outside anchors changed")
+            return stop(.outsideAnchorsChanged)
         }
         let updatedRange = NSRange(location: prefixLength, length: text.length - prefixLength - suffixLength)
         guard Range(updatedRange, in: value) != nil, Self.validBoundaries(updatedRange, value),
               selection.location >= updatedRange.location,
               selection.length >= 0, selection.location <= NSMaxRange(updatedRange),
               selection.length <= NSMaxRange(updatedRange) - selection.location,
-              Range(selection, in: value) != nil, Self.validBoundaries(selection, value) else { return stop("selection left dictated span") }
+              Range(selection, in: value) != nil, Self.validBoundaries(selection, value) else { return stop(.selectionLeftSpan) }
         // Text typed after the span stays in it; the ledger's word diff ignores added words.
         let current = text.substring(with: updatedRange)
         // A chat composer empties when Return sends it: keep the fix made before that.
-        if current.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return stop("span cleared") }
+        if current.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return stop(.spanCleared) }
         range = updatedRange
         edited = current
     }
 
     /// Finish after a final snapshot; evidence remains reversible by session ID in the ledger.
-    mutating func finish() { stopped = true; stopReason = stopReason ?? "finished" }
+    mutating func finish() { stopped = true; stopReason = stopReason ?? .finished }
 
-    private mutating func stop(_ reason: String) {
+    private mutating func stop(_ reason: StopReason) {
         stopped = true
         stopReason = reason
-        // A valid prior edit survives focus departure, expiry or the caret moving elsewhere
-        // (the text it was read from is unchanged). An invalidating edit removes it.
-        if !["window ended", "focus departed", "selection left dictated span", "span cleared"].contains(reason) { edited = nil }
+        if !reason.keepsEdit { edited = nil }
     }
 
     private static func validBoundaries(_ range: NSRange, _ value: String) -> Bool {

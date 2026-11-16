@@ -102,7 +102,7 @@ import SwiftUI
         statusItem?.button?.image = recording ? NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Murmur: recording meeting notes")
             : controller.cleanupWarning ? NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Murmur: AI cleanup unavailable") : Logo.menuBarImage
         let menu = NSMenu()
-        let state = NSMenuItem(title: controller.phase, action: nil, keyEquivalent: ""); state.isEnabled = false; menu.addItem(state)
+        let state = NSMenuItem(title: controller.phase.rawValue, action: nil, keyEquivalent: ""); state.isEnabled = false; menu.addItem(state)
         if controller.cleanupWarning {
             let warning = NSMenuItem(title: "⚠ AI cleanup unavailable", action: nil, keyEquivalent: ""); warning.isEnabled = false; menu.addItem(warning)
             let detail = NSMenuItem(title: "Dictation uses basic cleanup until AI returns.", action: nil, keyEquivalent: ""); detail.isEnabled = false; menu.addItem(detail)
@@ -125,7 +125,7 @@ import SwiftUI
             start.submenu = sources; menu.addItem(start)
         }
         menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "").target = self
-        if controller.phase == "Listening" {
+        if controller.phase == .listening {
             menu.addItem(withTitle: "Finish Dictation", action: #selector(finish), keyEquivalent: "").target = self
             menu.addItem(withTitle: "Cancel Recording", action: #selector(cancel), keyEquivalent: "").target = self
         } else if controller.canCancelRequest {

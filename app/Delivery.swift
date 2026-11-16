@@ -8,10 +8,10 @@ enum Delivery {
         case statusSaveFailed
     }
 
-    static func deliver<Entry, Value>(_ entry: inout Entry, status: WritableKeyPath<Entry, String>,
+    static func deliver<Entry, Value>(_ entry: inout Entry, status: WritableKeyPath<Entry, String>, pending: String,
                                       save: (Entry) throws -> Void,
                                       insert: (inout Entry) -> (status: String, value: Value)) -> Result<Value> {
-        entry[keyPath: status] = "insertion-pending"
+        entry[keyPath: status] = pending
         do { try save(entry) } catch { return .pendingSaveFailed }
         let insertion = insert(&entry)
         entry[keyPath: status] = insertion.status

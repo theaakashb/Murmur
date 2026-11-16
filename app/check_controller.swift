@@ -103,8 +103,8 @@ import AVFoundation
         warning.recordCleanup(outcome: .modelAccepted, fallback: nil)
         warning.recordCleanup(outcome: .localRules, fallback: .answerPattern, error: .quota(.gemini))
         precondition(warning.cleanupWarning)
-        for phase in ["Listening", "Processing", "Error"] { precondition(showsFloatingIndicator(phase: phase)) }
-        for phase in ["Saved", "Inserted", "Ready"] { precondition(!showsFloatingIndicator(phase: phase)) }
+        for phase in [Phase.listening, .processing, .error] { precondition(showsFloatingIndicator(phase: phase)) }
+        for phase in [Phase.saved, .ready] { precondition(!showsFloatingIndicator(phase: phase)) }
         func spaced(_ text: String, _ value: String?, _ location: Int, _ length: Int = 0, _ enabled: Bool = true) -> String {
             textWithLeadingSpace(text, value: value, selection: CFRange(location: location, length: length), enabled: enabled)
         }
@@ -148,34 +148,34 @@ import AVFoundation
         let retry = try RetryAudio(directory: temp.appendingPathComponent(name).appendingPathComponent("retry-audio"))
         let recovery = try retry.create()
         try Data([1, 2, 3]).write(to: recovery)
-        let entry = HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "retained", finalText: "retained", insertionStatus: "saved-not-inserted")
+        let entry = HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "retained", finalText: "retained", insertionStatus: InsertionStatus.savedNotInserted.rawValue)
         controller.history = [entry]; controller.recoveryEntryID = entry.id
         controller.lastDictationText = entry.finalText
         for status in [InsertionResult.Status.verified, .unverified] {
-            controller.setPhase("Processing", "Processing synthetic dictation")
+            controller.setPhase(.processing, "Processing synthetic dictation")
             controller.showInsertionResult(InsertionResult(status: status, detail: "synthetic", snapshot: nil), entryID: entry.id, text: entry.finalText)
             precondition(controller.pasteFailure == nil, "a posted paste shows no card")
-            precondition(controller.phase == "Ready" && !controller.hasStatusToShow, "posted pastes finish quietly regardless of read-back")
+            precondition(controller.phase == .ready && !controller.hasStatusToShow, "posted pastes finish quietly regardless of read-back")
             precondition(controller.lastDictationText == entry.finalText, "paste-last remains available after delivery")
-            precondition(SettingsView.statusLabel(status.rawValue) == nil && SettingsView.statusNote(status.rawValue) == nil)
-            precondition(!SettingsView.needsAttention(status.rawValue), "unreadable fields do not trigger the attention filter")
+            precondition(SettingsView.statusLabel(InsertionStatus(status)) == nil && SettingsView.statusNote(InsertionStatus(status)) == nil)
+            precondition(!SettingsView.needsAttention(InsertionStatus(status)), "unreadable fields do not trigger the attention filter")
         }
         controller.showInsertionResult(InsertionResult(status: .failed, detail: "synthetic", snapshot: nil), entryID: entry.id, text: entry.finalText)
-        precondition(controller.phase == "Error" && controller.message.contains("⌃⌘V") && controller.lastDictationText == entry.finalText)
+        precondition(controller.phase == .error && controller.message.contains("⌃⌘V") && controller.lastDictationText == entry.finalText)
         precondition(controller.pasteFailure == AppController.PasteFailure(entryID: entry.id, text: entry.finalText), "a failed paste shows the text card (gap #17)")
         precondition(controller.pasteFailure?.title == "Couldn’t paste here", "a failed paste (app quit, focus moved, secure field, Secure Input) is titled as a failure")
-        controller.setPhase("Error", "Another failure")
+        controller.setPhase(.error, "Another failure")
         precondition(controller.pasteFailure == nil, "any later status replaces the card")
         // Paths where Murmur deliberately did not paste also show the card (follow-up, Oct 15, 2026).
         controller.showNotPasted(.insertionOff, saved: "Saved.", entryID: entry.id, text: entry.finalText)
-        precondition(controller.phase == "Saved" && controller.message.contains("⌃⌘V") && controller.pasteFailure == AppController.PasteFailure(entryID: entry.id, text: entry.finalText, title: "Saved, not pasted"), "insertion off: Saved, with the card")
+        precondition(controller.phase == .saved && controller.message.contains("⌃⌘V") && controller.pasteFailure == AppController.PasteFailure(entryID: entry.id, text: entry.finalText, title: "Saved, not pasted"), "insertion off: Saved, with the card")
         controller.showNotPasted(.unsaved, saved: "Saved.", entryID: entry.id, text: entry.finalText)
-        precondition(controller.phase == "Error" && controller.pasteFailure?.text == entry.finalText && controller.message.contains("nothing was pasted"), "text that could not be saved first: not pasted, with the card")
+        precondition(controller.phase == .error && controller.pasteFailure?.text == entry.finalText && controller.message.contains("nothing was pasted"), "text that could not be saved first: not pasted, with the card")
         controller.showInsertionResult(InsertionResult(status: .unverified, detail: "clipboard paste into an unreadable field", snapshot: nil), entryID: entry.id, text: entry.finalText)
-        precondition(controller.pasteFailure == nil && controller.phase == "Ready", "an unconfirmed paste (Electron, no readable field) stays quiet")
-        precondition(SettingsView.needsAttention("failed") && SettingsView.statusLabel("failed") == "Not inserted")
-        precondition(SettingsView.needsAttention("insertion-pending") && SettingsView.statusLabel("insertion-pending") == "Saved")
-        precondition(SettingsView.statusNote("insertion-pending")?.contains("avoid a duplicate") == true)
+        precondition(controller.pasteFailure == nil && controller.phase == .ready, "an unconfirmed paste (Electron, no readable field) stays quiet")
+        precondition(SettingsView.needsAttention(.failed) && SettingsView.statusLabel(.failed) == "Not inserted")
+        precondition(SettingsView.needsAttention(.insertionPending) && SettingsView.statusLabel(.insertionPending) == "Saved")
+        precondition(SettingsView.statusNote(.insertionPending)?.contains("avoid a duplicate") == true)
         controller.setupTestTranscript = entry.finalText
         controller.deleteEntry(entry)
         precondition(controller.lastDictationText == entry.finalText && controller.recoveryEntryID == entry.id, "failed deletion preserves recovery")
@@ -184,61 +184,61 @@ import AVFoundation
         controller.deleteEntry(entry)
         precondition(controller.lastDictationText == nil && controller.setupTestTranscript.isEmpty && controller.recoveryEntryID == nil, "deleting the transcript clears recovery buffers")
         controller.history = [entry]; controller.recoveryEntryID = entry.id
-        controller.shortcut = "fn"; controller.phase = "Error"
+        controller.shortcut = "fn"; controller.phase = .error
         controller.dismissStatus()
-        precondition(controller.phase == "Ready" && !controller.message.contains("Right Option"))
+        precondition(controller.phase == .ready && !controller.message.contains("Right Option"))
         precondition(controller.history.first?.id == entry.id && controller.recoveryEntryID == entry.id)
         precondition(controller.hasRecoveryAudio && manager.fileExists(atPath: recovery.path))
-        controller.phase = "Processing"; controller.message = "busy"
+        controller.phase = .processing; controller.message = "busy"
         controller.dismissStatus()
-        precondition(controller.phase == "Processing" && controller.message == "busy")
+        precondition(controller.phase == .processing && controller.message == "busy")
         precondition(controller.history.first?.id == entry.id && manager.fileExists(atPath: recovery.path))
         // Any folder change (Use Default, a finished download) is applied and saved, not only Choose Folder.
-        controller.phase = "Ready"
+        controller.phase = .ready
         controller.modelDirectory = "/tmp/murmur-check-folder-\(UUID().uuidString)"
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
         precondition(UserDefaults.standard.string(forKey: "modelDirectory") == controller.modelDirectory, "a model folder change is saved without an Apply button")
         UserDefaults.standard.removeObject(forKey: "modelDirectory")
         // "No speech" clears itself after 2 s; a status that replaced it in the meantime stays.
-        controller.phase = "Ready"
-        controller.setPhase("Error", "No speech was detected. Check your microphone and try again.")
+        controller.phase = .ready
+        controller.setPhase(.error, "No speech was detected. Check your microphone and try again.")
         RunLoop.main.run(until: Date().addingTimeInterval(2.3))
-        precondition(controller.phase == "Ready", "no-speech popup dismisses itself")
-        controller.setPhase("Error", "No speech was detected. Check your microphone and try again.")
+        precondition(controller.phase == .ready, "no-speech popup dismisses itself")
+        controller.setPhase(.error, "No speech was detected. Check your microphone and try again.")
         RunLoop.main.run(until: Date().addingTimeInterval(1))
-        controller.setPhase("Error", "Transcription failed. Audio is saved for retry for up to 24 hours.")
+        controller.setPhase(.error, "Transcription failed. Audio is saved for retry for up to 24 hours.")
         RunLoop.main.run(until: Date().addingTimeInterval(1.5))
-        precondition(controller.phase == "Error" && controller.message.hasPrefix("Transcription failed"), "a newer error is not dismissed")
+        precondition(controller.phase == .error && controller.message.hasPrefix("Transcription failed"), "a newer error is not dismissed")
         controller.history = [entry]; controller.recoveryEntryID = entry.id
-        controller.setPhase("Saved", "Saved in History. Press ⌃⌘V to paste it where your cursor is.")
+        controller.setPhase(.saved, "Saved in History. Press ⌃⌘V to paste it where your cursor is.")
         RunLoop.main.run(until: Date().addingTimeInterval(2.5))
-        precondition(controller.phase == "Saved", "saved notice stays visible before five seconds")
+        precondition(controller.phase == .saved, "saved notice stays visible before five seconds")
         RunLoop.main.run(until: Date().addingTimeInterval(2.8))
-        precondition(controller.phase == "Ready", "saved notice dismisses after five seconds")
+        precondition(controller.phase == .ready, "saved notice dismisses after five seconds")
         precondition(controller.history.first?.id == entry.id && manager.fileExists(atPath: recovery.path), "automatic dismissal preserves recovery")
-        controller.setPhase("Saved", "Older saved notice")
+        controller.setPhase(.saved, "Older saved notice")
         RunLoop.main.run(until: Date().addingTimeInterval(2.5))
-        controller.setPhase("Saved", "Newer saved notice")
+        controller.setPhase(.saved, "Newer saved notice")
         RunLoop.main.run(until: Date().addingTimeInterval(2.8))
-        precondition(controller.phase == "Saved" && controller.message == "Newer saved notice", "an old timer cannot dismiss a newer saved notice")
-        controller.setPhase("Inserted", "Inserted.")
+        precondition(controller.phase == .saved && controller.message == "Newer saved notice", "an old timer cannot dismiss a newer saved notice")
+        controller.setPhase(.saved, "Inserted.")
         RunLoop.main.run(until: Date().addingTimeInterval(5.3))
         precondition(!controller.hasStatusToShow, "inserted notice dismisses after five seconds")
-        controller.setPhase("Error", "Transcription failed. Audio is saved for retry for up to 24 hours.")
+        controller.setPhase(.error, "Transcription failed. Audio is saved for retry for up to 24 hours.")
         RunLoop.main.run(until: Date().addingTimeInterval(5.3))
-        precondition(controller.phase == "Error", "an error stays readable past five seconds")
+        precondition(controller.phase == .error, "an error stays readable past five seconds")
         RunLoop.main.run(until: Date().addingTimeInterval(3))
         precondition(!controller.hasStatusToShow, "an error notice dismisses after eight seconds")
-        controller.phase = "Saved"
+        controller.phase = .saved
         // The check binary has no bundled artifact-pins.json: the model row offers nothing and refuses quietly, without an alert.
         precondition(controller.modelRow.actions.isEmpty && !controller.usesCustomModelFolder)
         controller.downloadModel()
-        precondition(controller.modelMessage == ModelDownloadError.invalidManifest.userMessage && controller.phase == "Saved")
+        precondition(controller.modelMessage == ModelDownloadError.invalidManifest.userMessage && controller.phase == .saved)
         precondition(controller.historySummary.hasPrefix(controller.historyMode == .on ? "Saved locally" : "History is off"))
         // Routes and keys (R4, R5): nothing to cancel while idle; preview keeps keys in memory and publishes only presence.
         precondition(!controller.canCancelRequest)
         controller.cancelCloudRequest()
-        precondition(controller.phase == "Saved")
+        precondition(controller.phase == .saved)
         precondition(!controller.saveKey(.gemini, "sk bad 99") && controller.keyMessages[.gemini] == KeyText.invalid && !controller.savedKeys.contains(.gemini))
         precondition(controller.saveKey(.gemini, "test-key-123") && controller.savedKeys.contains(.gemini) && controller.keyMessages[.gemini] == KeyText.saved)
         controller.removeKey(.gemini)
@@ -258,24 +258,24 @@ import AVFoundation
         precondition(isCommonEnglishWord("lunch") && isCommonEnglishWord("launch") && !isCommonEnglishWord("akmeq"))
         // Gap #11 with the real lexicon: one History edit learns the replacement, the notice's Undo
         // removes and tombstones it, and an ordinary-word swap is never learned.
-        let edited = HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "Ask Acme today", finalText: "Ask Acme today", insertionStatus: "saved-not-inserted")
+        let edited = HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "Ask Acme today", finalText: "Ask Acme today", insertionStatus: InsertionStatus.savedNotInserted.rawValue)
         controller.history = [edited]
         precondition(controller.editEntryText(edited, to: "Ask Akme today"), "history edit saves")
         guard let akme = controller.dictionaryEntries.first(where: { $0.source == .learned && $0.preferred == "Akme" }) else { preconditionFailure("one history edit learns") }
         precondition(akme.variants == ["Acme"], "one history edit adds the misheard form")
         controller.undoLearned(akme.id)
         precondition(!controller.dictionaryEntries.contains { $0.source == .learned } && controller.blockedWords == [.spelling("akme")], "notice Undo removes and tombstones")
-        let lunch = HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "Go to lunch", finalText: "Go to lunch", insertionStatus: "saved-not-inserted")
+        let lunch = HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "Go to lunch", finalText: "Go to lunch", insertionStatus: InsertionStatus.savedNotInserted.rawValue)
         controller.history = [lunch]
         precondition(controller.editEntryText(lunch, to: "Go to launch") && !controller.dictionaryEntries.contains { $0.source == .learned }, "ordinary-word swap not learned")
         controller.history = []
         controller.lastDictationText = "held synthetic text"; controller.setupTestTranscript = "setup synthetic text"
         let chunk = temp.appendingPathComponent(name).appendingPathComponent("chunks/abandoned.wav")
         try Data([4, 5, 6]).write(to: chunk)
-        controller.phase = "Processing"
+        controller.phase = .processing
         controller.deleteConfirmedData()
         precondition(controller.lastDictationText != nil && !controller.setupTestTranscript.isEmpty && manager.fileExists(atPath: recovery.path), "busy wipe refuses")
-        controller.phase = "Ready"
+        controller.phase = .ready
         controller.deleteConfirmedData()
         precondition(controller.lastDictationText == nil && controller.setupTestTranscript.isEmpty, "wipe clears paste and setup buffers")
         precondition(controller.history.isEmpty && !controller.hasRecoveryAudio && !manager.fileExists(atPath: recovery.path), "wipe refreshes empty storage")

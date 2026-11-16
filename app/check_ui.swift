@@ -91,8 +91,8 @@ import Combine
         window.isReleasedWhenClosed = false
         window.center(); window.makeKeyAndOrderFront(nil)
         var entries = [
-            HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "Synthetic transcript pasted into an unreadable field. Long text wraps for visual inspection.\nSecond synthetic paragraph keeps this fixture free of real transcript content.", finalText: "Synthetic transcript pasted into an unreadable field. Long text wraps for visual inspection.\nSecond synthetic paragraph keeps this fixture free of real transcript content.", insertionStatus: "unverified"),
-            HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-3600), rawText: "Synthetic verified transcript.", finalText: "Synthetic verified transcript.", insertionStatus: "verified")
+            HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "Synthetic transcript pasted into an unreadable field. Long text wraps for visual inspection.\nSecond synthetic paragraph keeps this fixture free of real transcript content.", finalText: "Synthetic transcript pasted into an unreadable field. Long text wraps for visual inspection.\nSecond synthetic paragraph keeps this fixture free of real transcript content.", insertionStatus: InsertionStatus.unverified.rawValue),
+            HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-3600), rawText: "Synthetic verified transcript.", finalText: "Synthetic verified transcript.", insertionStatus: InsertionStatus.verified.rawValue)
         ]
         entries[0].cleanupOptions = CleanupOptions(professional: true); entries[0].cleanupFallback = CleanupFailureReason.unexplainedDeletion.rawValue
         entries[0].cleanupOutcome = .localRules
@@ -104,7 +104,7 @@ import Combine
             for day in 0..<24 where day % 7 != 5 && day != 9 {
                 for n in 0..<(1 + day % 3) {
                     var entry = HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-Double(day) * 86400 - Double(n) * 1800),
-                                             rawText: text, finalText: text.replacingOccurrences(of: "um ", with: ""), insertionStatus: "unverified")
+                                             rawText: text, finalText: text.replacingOccurrences(of: "um ", with: ""), insertionStatus: InsertionStatus.unverified.rawValue)
                     entry.seconds = 6.5 + Double(n); entry.app = apps[(day + n) % apps.count]
                     entries.append(entry)
                 }
@@ -112,14 +112,14 @@ import Combine
         }
         if CommandLine.arguments.contains("--matrix") && !CommandLine.arguments.contains("--empty") {
             entries += [
-                HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-7200), rawText: "Synthetic failed paste before cleanup.", finalText: "Synthetic failed paste.", insertionStatus: "failed"),
-                HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-10800), rawText: "Synthetic pending delivery. Check the target before recovering this text.\nSecond line for wrapping.", finalText: "Synthetic pending delivery. Check the target before recovering this text.\nSecond line for wrapping.", insertionStatus: "insertion-pending"),
-                HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-14400), rawText: "Synthetic saved output.", finalText: "Synthetic saved output.", insertionStatus: "saved-not-inserted"),
-                HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-18000), rawText: "Synthetic cleanup hold.", finalText: "", insertionStatus: "held-cleanup"),
-                HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-21600), rawText: "Synthetic transcript hold.", finalText: "", insertionStatus: "held-transcript")
+                HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-7200), rawText: "Synthetic failed paste before cleanup.", finalText: "Synthetic failed paste.", insertionStatus: InsertionStatus.failed.rawValue),
+                HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-10800), rawText: "Synthetic pending delivery. Check the target before recovering this text.\nSecond line for wrapping.", finalText: "Synthetic pending delivery. Check the target before recovering this text.\nSecond line for wrapping.", insertionStatus: InsertionStatus.insertionPending.rawValue),
+                HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-14400), rawText: "Synthetic saved output.", finalText: "Synthetic saved output.", insertionStatus: InsertionStatus.savedNotInserted.rawValue),
+                HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-18000), rawText: "Synthetic cleanup hold.", finalText: "", insertionStatus: InsertionStatus.heldCleanup.rawValue),
+                HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-21600), rawText: "Synthetic transcript hold.", finalText: "", insertionStatus: InsertionStatus.heldTranscript.rawValue)
             ]
         }
-        let sessionOnlyID = entries.first(where: { $0.insertionStatus == "saved-not-inserted" })?.id
+        let sessionOnlyID = entries.first(where: { $0.status == .savedNotInserted })?.id
         do {
             guard let dataDirectory = controller.dataDirectory else { fatalError("Missing isolated fixture storage.") }
             let store = try HistoryStore(directory: dataDirectory.appendingPathComponent("history"))
@@ -158,7 +158,7 @@ import Combine
             if args.contains("--meeting-settings") { controller.meetingTranscription = args.contains("--cloud") ? .cloud : .local; controller.screenRequest = "meeting-settings" }
             if args.contains("--settings-search") { controller.screenRequest = "settings-search" }
             controller.voiceLevel = 0.6
-            controller.phase = CommandLine.arguments.contains("--processing") ? "Processing" : CommandLine.arguments.contains("--listening") ? "Listening" : CommandLine.arguments.contains("--saved") ? "Saved" : "Error"
+            controller.phase = CommandLine.arguments.contains("--processing") ? .processing : CommandLine.arguments.contains("--listening") ? .listening : CommandLine.arguments.contains("--saved") ? .saved : .error
             controller.message = CommandLine.arguments.contains("--credential-warning")
                 ? "Save the API key again for this server address."
                 : "Model verification failed. Choose the pinned model folder."
@@ -173,7 +173,7 @@ import Combine
                 Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
                     MainActor.assumeIsolated {
                         visible.toggle()
-                        if visible { controller.bubble.show(phase: "Listening", message: "") }
+                        if visible { controller.bubble.show(phase: .listening, message: "") }
                         else { controller.bubble.hide() }
                     }
                 }
@@ -277,7 +277,7 @@ import Combine
         }
         controller.openSettings = { application.activate(ignoringOtherApps: true); window.makeKeyAndOrderFront(nil) }
         controller.updateMenu = {
-            if controller.phase == "Ready" {
+            if controller.phase == .ready {
                 precondition(controller.history.count == entries.count && controller.recoveryEntryID == entries.first?.id)
                 print("UI dismissal preserved synthetic recovery history."); fflush(stdout)
             }

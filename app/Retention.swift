@@ -6,7 +6,7 @@ import Foundation
 //
 //     extension HistoryEntry: RetainedHistoryItem {}
 //     try HistoryCap.enforce(entries: store.entries(), directory: store.directory,
-//                            retention: HistoryRetention(rawValue: retention) ?? .thirtyDays,
+//                            retention: HistoryRetention(stored: retention),
 //                            delete: store.delete)
 
 struct RetentionError: Error, CustomStringConvertible {
@@ -14,11 +14,31 @@ struct RetentionError: Error, CustomStringConvertible {
     init(_ description: String) { self.description = description }
 }
 
-/// The retention strings HistoryStore already accepts.
+/// The retention strings HistoryStore already accepts, and the one date rule for them.
 enum HistoryRetention: String, CaseIterable, Codable {
     case thirtyDays = "30-days"
     case sixMonths = "six-months"
     case forever
+
+    /// An unknown stored value counts as 30 days.
+    init(stored: String) { self = Self(rawValue: stored) ?? .thirtyDays }
+
+    var label: String {
+        switch self {
+        case .thirtyDays: return "30 days"
+        case .sixMonths: return "Six months"
+        case .forever: return "Forever"
+        }
+    }
+
+    /// Entries recorded at or before this date expire; nil for Forever.
+    func cutoff(now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        switch self {
+        case .forever: return nil
+        case .thirtyDays: return now.addingTimeInterval(-30 * 86400)
+        case .sixMonths: return calendar.date(byAdding: .month, value: -6, to: now)
+        }
+    }
 }
 
 /// The history fields the cap needs. HistoryEntry already has both.

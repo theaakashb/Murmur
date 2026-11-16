@@ -274,17 +274,6 @@ final class HistoryRouter<Entry: RetainedHistoryItem>: @unchecked Sendable {
     func clearSessionOnly() { lock.lock(); memory.removeAll(); lock.unlock() }
 }
 
-enum HistoryExpiry {
-    /// The same cutoff HistoryStore.expired uses (entries at or before it expire); nil for Forever.
-    static func cutoff(_ retention: HistoryRetention, now: Date = Date(), calendar: Calendar = .current) -> Date? {
-        switch retention {
-        case .forever: return nil
-        case .thirtyDays: return now.addingTimeInterval(-30 * 86400)
-        case .sixMonths: return calendar.date(byAdding: .month, value: -6, to: now)
-        }
-    }
-}
-
 enum HistoryText {
     static func summary(mode: HistoryMode, count: Int, sessionOnly: Int) -> String {
         let noun = count == 1 ? "transcript" : "transcripts"

@@ -116,7 +116,7 @@ func runObservationChecks() {
             }
             _ = item.observeCandidate(value: "🙂 " + reset, selection: NSRange(location: 3, length: 0), now: 2,
                              sameFocusedField: true, readableNonsecure: true)
-            assert(item.stopped && item.stopReason == "span cleared")
+            assert(item.stopped && item.stopReason == .spanCleared)
             assert(item.edited == prior && item.candidate == (prior == "Akme done" ? corrected : nil))
             _ = item.observeCandidate(value: "", selection: NSRange(location: 0, length: 0), now: 3,
                              sameFocusedField: false, readableNonsecure: true)

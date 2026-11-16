@@ -309,8 +309,17 @@ final class PreStart: @unchecked Sendable {
     }
 }
 
+extension InsertionStatus {
+    init(_ result: InsertionResult.Status) {
+        switch result { case .verified: self = .verified; case .unverified: self = .unverified; case .failed: self = .failed }
+    }
+}
+
+/// The raw values are shown in the menu, the sidebar and the accessibility label.
+enum Phase: String { case ready = "Ready", listening = "Listening", processing = "Processing", error = "Error", saved = "Saved" }
+
 @MainActor final class AppController: ObservableObject {
-    @Published var phase = "Ready"
+    @Published var phase = Phase.ready
     @Published var message = "Hold your shortcut to dictate, or double-press it to dictate until you press it again."
     @Published var history: [HistoryEntry] = []
     @Published var recoveryEntryID: String?
@@ -457,7 +466,7 @@ final class PreStart: @unchecked Sendable {
         return "Also sends " + items.joined(separator: "; and ") + ". Murmur never sends web page addresses; it uses them on this Mac to pick a mode."
     }
     var canCancelRequest: Bool { cloudRequest.isActive }
-    var isBusy: Bool { phase == "Listening" || phase == "Processing" || (sessionAvailable && session.state != .idle) }
+    var isBusy: Bool { phase == .listening || phase == .processing || (sessionAvailable && session.state != .idle) }
     var openSettings: (() -> Void)?
     var updateMenu: (() -> Void)?
     lazy var bubble = BubblePresenter(controller: self)
@@ -544,7 +553,7 @@ final class PreStart: @unchecked Sendable {
     private var appliedRetention: String
     private var activeModelDirectory = ""
     private var listeningStarted = Date()
-    private var phaseBeforeEarly: (String, String)?
+    private var phaseBeforeEarly: (Phase, String)?
     private var statusShown = UUID()
     private var applyScheduled = false
     private var folderWatch: AnyCancellable?
@@ -555,7 +564,7 @@ final class PreStart: @unchecked Sendable {
             guard let self else { throw CaptureError("Application stopped") }
             let recording = Capture(); self.capture = recording
             try recording.start(url: url)
-            self.setPhase("Listening", self.listeningMessage)
+            self.setPhase(.listening, self.listeningMessage)
         }, stop: { [weak self] in
             guard let self else { return false }
             self.capture?.stop()
@@ -567,7 +576,7 @@ final class PreStart: @unchecked Sendable {
             guard let self else { done(); return }
             if self.recordingFailed {
                 self.chunkJobs.removeValue(forKey: url)?.discard()
-                self.setPhase("Error", "Recording was interrupted. Partial audio is saved for retry.")
+                self.setPhase(.error, "Recording was interrupted. Partial audio is saved for retry.")
                 done()
             } else { self.transcribe(url, done: done) }
         })
@@ -600,8 +609,8 @@ final class PreStart: @unchecked Sendable {
         keepRecordings = defaults.bool(forKey: "keepRecordings")
         liveWords = defaults.object(forKey: "liveWords") as? Bool ?? true
         liveWordsOnCloud = defaults.bool(forKey: "liveWordsOnCloud")
-        retention = defaults.string(forKey: "retention") ?? "30-days"
-        appliedRetention = defaults.string(forKey: "retention") ?? "30-days"
+        let storedRetention = defaults.string(forKey: "retention") ?? HistoryRetention.thirtyDays.rawValue
+        retention = storedRetention; appliedRetention = storedRetention
         let processingSettings = ProcessingSettings.load(from: defaults)
         cleanupFillers = processingSettings.options.fillers
         cleanupCorrections = processingSettings.options.corrections
@@ -653,7 +662,7 @@ final class PreStart: @unchecked Sendable {
             try store?.purge(retention: appliedRetention)
             configureMeetings(base: base)
             historySaved(); refreshRecoveryAudio(); refreshDictionary()
-        } catch { store = nil; records = nil; retry = nil; processing = nil; phase = "Error"; message = "Private storage is unavailable. Murmur cannot start." }
+        } catch { store = nil; records = nil; retry = nil; processing = nil; phase = .error; message = "Private storage is unavailable. Murmur cannot start." }
         modelStatus = downloader?.status() ?? .notDownloaded
         dictionaryModelStatus = dictionaryDownloader?.status() ?? .notDownloaded
         liveWordsStatus = liveWordsDownloader?.status() ?? .notDownloaded
@@ -669,7 +678,7 @@ final class PreStart: @unchecked Sendable {
         // Choose Folder, Use Default and a finished download all change the folder, even with
         // Settings closed; apply each so the folder survives a relaunch.
         folderWatch = $modelDirectory.dropFirst().removeDuplicates().sink { [weak self] _ in self?.settingsChanged() }
-        if phase == "Ready" { message = idleMessage }
+        if phase == .ready { message = idleMessage }
     }
     func start() {
         // Writing to a warm helper that died must fail with EPIPE, not kill Murmur.
@@ -727,13 +736,13 @@ final class PreStart: @unchecked Sendable {
                 do {
                     try self.retry?.purge(); try self.store?.purge(retention: self.appliedRetention)
                     if let history = self.store?.directory { try DiagnosticRecordings.purge(history: history) }
-                    if let cutoff = HistoryExpiry.cutoff(HistoryRetention(rawValue: self.appliedRetention) ?? .thirtyDays) { self.records?.purgeSessionOnly(recordedAtOrBefore: cutoff) }
-                    self.meetingRecorder.purge(cutoff: HistoryExpiry.cutoff(HistoryRetention(rawValue: self.appliedRetention) ?? .thirtyDays))
+                    if let cutoff = HistoryRetention(stored: self.appliedRetention).cutoff() { self.records?.purgeSessionOnly(recordedAtOrBefore: cutoff) }
+                    self.meetingRecorder.purge(cutoff: HistoryRetention(stored: self.appliedRetention).cutoff())
                     try self.enforceHistoryCap(); self.refreshHistory(); self.refreshRecoveryAudio()
                 }
                 catch {
                     if self.isBusy { self.message = "Data expiry failed. Open History after this dictation to review saved data." }
-                    else { self.setPhase("Error", "Data expiry failed. Open History to review saved data.") }
+                    else { self.setPhase(.error, "Data expiry failed. Open History to review saved data.") }
                 }
             }
         }
@@ -786,7 +795,7 @@ final class PreStart: @unchecked Sendable {
         let expired: [HistoryEntry]
         do { expired = retentionChanged ? try store?.expired(retention: retention) ?? [] : [] }
         catch { message = "Could not review history retention. Settings were not applied."; return }
-        let expiredMeetings = HistoryExpiry.cutoff(HistoryRetention(rawValue: retention) ?? .thirtyDays).map { cutoff in meetingRecorder.meetings.filter { $0.recordedAt <= cutoff }.count } ?? 0
+        let expiredMeetings = HistoryRetention(stored: retention).cutoff().map { cutoff in meetingRecorder.meetings.filter { $0.recordedAt <= cutoff }.count } ?? 0
         if retention != appliedRetention, !expired.isEmpty || expiredMeetings > 0 {
             let alert = NSAlert()
             alert.messageText = expiredMeetings == 0 ? "Delete \(expired.count) expired transcripts?" : "Delete \(expired.count) expired transcripts and \(expiredMeetings) \(expiredMeetings == 1 ? "meeting" : "meetings")?"
@@ -827,7 +836,7 @@ final class PreStart: @unchecked Sendable {
             next.learningRequiresReadableField = learningRequiresReadableField
             next.historyMode = historyMode; next.updateChecksEnabled = updateChecksEnabled
             next.screenContext = screenContext
-            do { try processing.update(next) } catch { setPhase("Error", "Could not save cleanup and learning settings.") }
+            do { try processing.update(next) } catch { setPhase(.error, "Could not save cleanup and learning settings.") }
         }
         // Also saved directly, so they persist when the dictionary (and so processing) is unavailable.
         defaults.set(historyMode.rawValue, forKey: ProcessingSettings.Key.historyMode)
@@ -836,12 +845,12 @@ final class PreStart: @unchecked Sendable {
         if !preview { sparkleUpdater.setPreferences(checks: updateChecksEnabled, installs: installUpdatesAutomatically) }
         // Unrelated switches must not scan disk and recompute Insights during their animation.
         if retentionChanged {
-            do { try store?.purge(retention: appliedRetention); meetingRecorder.purge(cutoff: HistoryExpiry.cutoff(HistoryRetention(rawValue: appliedRetention) ?? .thirtyDays)); try enforceHistoryCap() }
-            catch { setPhase("Error", "Could not apply history retention.") }
+            do { try store?.purge(retention: appliedRetention); meetingRecorder.purge(cutoff: HistoryRetention(stored: appliedRetention).cutoff()); try enforceHistoryCap() }
+            catch { setPhase(.error, "Could not apply history retention.") }
         }
         if retentionChanged || historyChanged { refreshHistory() }
         refreshPermissions(); if !preview { configureShortcut() }
-        if phase == "Ready" { message = idleMessage }
+        if phase == .ready { message = idleMessage }
         updateMenu?()
     }
     private func revertRoutes() {
@@ -913,7 +922,7 @@ final class PreStart: @unchecked Sendable {
             guard let self, let (capture, url) = self.prestart.take() else { return nil }
             self.capture = capture; return url
         }
-        session.resumeCapture = { [weak self] in guard let self else { return }; self.setPhase("Listening", self.listeningMessage) }
+        session.resumeCapture = { [weak self] in guard let self else { return }; self.setPhase(.listening, self.listeningMessage) }
         session.willDeleteCanceled = { [weak self] url in self?.holdForUndo(url) }
         session.finishRecording = { [weak self] in timingLog.notice("capture-cap reached"); guard let self, let listener = self.listener else { return }; listener.emit(listener.machine.finish()) }
         session.resetShortcut = { [weak self] in guard let self, let listener = self.listener else { return }; listener.emit(listener.machine.eventStreamLost()); listener.machine.processingFinished() }
@@ -921,7 +930,7 @@ final class PreStart: @unchecked Sendable {
     private static let idleMessages = ["Press your shortcut to dictate and press it again to finish, or hold it and release.", "Hold your shortcut to dictate, or double-press it to dictate until you press it again."]
     private var idleMessage: String { Self.idleMessages[pressToToggle ? 0 : 1] }
     /// False only for the plain idle hint; failures that leave the phase at Ready still show.
-    var hasStatusToShow: Bool { phase != "Ready" || !Self.idleMessages.contains(message) }
+    var hasStatusToShow: Bool { phase != .ready || !Self.idleMessages.contains(message) }
     private var listeningMessage: String { "Listening… \(listener?.pressToToggle == true ? "Release or press the shortcut again" : "Release") to finish, or press Escape to cancel." }
     /// The shortcut recorder needs the keys itself: the tap would swallow the current chord, and
     /// pressing it would start a dictation. `resume` restores the tap with whatever is saved.
@@ -951,22 +960,22 @@ final class PreStart: @unchecked Sendable {
         guard sessionAvailable else { done(); return }
         if action == .start {
             undo.discard()
-            guard !IsSecureEventInputEnabled() else { session.resetShortcut?(); setPhase("Error", "Dictation is unavailable while Secure Input is active."); done(); return }
-            guard permission() == "authorized" else { session.resetShortcut?(); setPhase("Error", "Allow Microphone access in Settings before dictating."); done(); return }
+            guard !IsSecureEventInputEnabled() else { session.resetShortcut?(); setPhase(.error, "Dictation is unavailable while Secure Input is active."); done(); return }
+            guard permission() == "authorized" else { session.resetShortcut?(); setPhase(.error, "Allow Microphone access in Settings before dictating."); done(); return }
             // An unconfigured cloud route refuses; it never falls back to local.
             // A mode may turn cleanup on even when the Cleanup settings have it all off.
             let sendsText = (processing?.settings.options.anyEnabled ?? false) || writingModes.contains { $0.enabled && $0.options?.anyEnabled == true }
             let plan = routePlan(appliedRoutes, cleanupSendsText: sendsText)
             if let refusal = plan.refusal {
-                session.resetShortcut?(); setPhase("Error", refusal); done(); return
+                session.resetShortcut?(); setPhase(.error, refusal); done(); return
             }
             if plan.usesLocalModel, let refusal = ModelGate.startRefusal(modelAvailable: modelFilesAvailable(), runtimeAvailable: Bundle.main.url(forAuxiliaryExecutable: "ModelBench") != nil, downloadingActiveModel: modelDownloadInFlight && !usesCustomModelFolder) {
-                session.resetShortcut?(); setPhase("Error", refusal); done(); return
+                session.resetShortcut?(); setPhase(.error, refusal); done(); return
             }
             sessionTranscriber = plan.transcriber; processing?.cloudCleaner = plan.cleaner
             (plan.cleaner as? AppleCleanupProvider)?.prewarm()
             destination = try? captureFocus()
-            if destination?.secure == true { session.resetShortcut?(); setPhase("Error", "Password fields cannot receive dictation."); done(); return }
+            if destination?.secure == true { session.resetShortcut?(); setPhase(.error, "Password fields cannot receive dictation."); done(); return }
             if destination?.pid == getpid() { destination = nil }
             insertThisSession = automaticInsertion; leadingSpaceThisSession = intelligentLeadingSpace; activeModelDirectory = modelDirectory
             listeningStarted = Date(); generation = UUID(); recoveryEntryID = nil; recordingFailed = false
@@ -991,14 +1000,14 @@ final class PreStart: @unchecked Sendable {
         if action == .cancel {
             destination = nil
             if undo.isOpen {
-                setPhase("Ready", "Recording canceled. Undo is available for \(Int(undo.lifetime)) seconds.")
+                setPhase(.ready, "Recording canceled. Undo is available for \(Int(undo.lifetime)) seconds.")
                 bubble.showUndo(screen: destinationScreen)
                 DispatchQueue.main.asyncAfter(deadline: .now() + undo.lifetime) { [weak self] in if self?.undo.isOpen == false { self?.undo.discard() } }
-            } else { setPhase("Ready", "Recording canceled."); bubble.hide() }
+            } else { setPhase(.ready, "Recording canceled."); bubble.hide() }
         }
-        else if action == .start && session.state == .idle { setPhase("Error", "The microphone could not start. Check the selected input device.") }
-        else if action == .finish && session.state == .idle && phase == "Listening" {
-            destination = nil; setPhase("Error", "No audio was captured. Check your microphone and try again.")
+        else if action == .start && session.state == .idle { setPhase(.error, "The microphone could not start. Check the selected input device.") }
+        else if action == .finish && session.state == .idle && phase == .listening {
+            destination = nil; setPhase(.error, "No audio was captured. Check your microphone and try again.")
         }
     }
     /// Writing mode for the app (and page) focused at start, and screen context when an AI route will
@@ -1162,22 +1171,22 @@ final class PreStart: @unchecked Sendable {
         let stage = cloudStage; cloudStage = nil
         if stage == .transcription, let audio = session.audio { try? FileManager.default.removeItem(at: audio) }
         destination = nil
-        setPhase("Ready", stage == .transcription ? CloudTranscription.message(.cancelled) ?? "Canceled." : "Canceled. The raw transcript is saved in History and was not inserted.")
+        setPhase(.ready, stage == .transcription ? CloudTranscription.message(.cancelled) ?? "Canceled." : "Canceled. The raw transcript is saved in History and was not inserted.")
         bubble.hide(); historySaved(); done()
     }
     /// A dictation that could not be pasted, shown in the bubble with Copy (gap #17). Any other status replaces it.
     /// `title` names why: a failed paste, or a paste Murmur did not attempt.
     struct PasteFailure: Equatable { let entryID: String?; let text: String; var title = "Couldn’t paste here" }
     @Published private(set) var pasteFailure: PasteFailure?
-    func setPhase(_ phase: String, _ message: String, announcement: String? = nil, pasteFailure: PasteFailure? = nil) {
+    func setPhase(_ phase: Phase, _ message: String, announcement: String? = nil, pasteFailure: PasteFailure? = nil) {
         self.phase = phase; self.message = message; self.pasteFailure = pasteFailure
-        if phase == "Listening" || phase == "Processing" { clearModeRecovery() }
+        if phase == .listening || phase == .processing { clearModeRecovery() }
         // Every finished status leaves on its own unless replaced: text stays in History and retry audio
         // stays on disk. "No speech" needs no action (2 s); errors get longer to read (8 s); a text to
         // copy 30 s; the rest 5 s.
         let shown = UUID(); statusShown = shown
-        let dismissAfter: TimeInterval? = phase == "Listening" || phase == "Processing" || !hasStatusToShow ? nil :
-            pasteFailure != nil ? 30 : phase != "Error" ? 5 : message.hasPrefix("No speech was detected") ? 2 : 8
+        let dismissAfter: TimeInterval? = phase == .listening || phase == .processing || !hasStatusToShow ? nil :
+            pasteFailure != nil ? 30 : phase != .error ? 5 : message.hasPrefix("No speech was detected") ? 2 : 8
         if let dismissAfter {
             DispatchQueue.main.asyncAfter(deadline: .now() + dismissAfter) { [weak self] in
                 guard let self, self.statusShown == shown else { return }
@@ -1186,7 +1195,7 @@ final class PreStart: @unchecked Sendable {
         }
         // Errors raised while processing leave that session's audio retained for retry.
         // Audio already deleted after a usable transcript (e.g. a held cleanup) is not offered.
-        recoveryAudio = phase == "Error" && sessionAvailable && session.state == .processing ? session.audio.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil } : nil
+        recoveryAudio = phase == .error && sessionAvailable && session.state == .processing ? session.audio.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil } : nil
         refreshRecoveryAudio()
         updateMenu?()
         bubble.show(phase: phase, message: message, screen: destinationScreen)
@@ -1204,9 +1213,9 @@ final class PreStart: @unchecked Sendable {
         sessionSeconds = held.map { Double($0.count) / 16_000 } ?? audio.flatMap(Self.audioSeconds)
         transcribeStartedAt = ProcessInfo.processInfo.systemUptime
         if let provider = sessionTranscriber { transcribeInCloud(audio, held: held, with: provider, done: done); return }
-        setPhase("Processing", "Transcribing on this Mac…")
+        setPhase(.processing, "Transcribing on this Mac…")
         let token = generation; let models = URL(fileURLWithPath: activeModelDirectory)
-        guard let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"), let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json"), let store = records else { setPhase("Error", "The model runtime is unavailable. Audio is saved for retry."); done(); return }
+        guard let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"), let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json"), let store = records else { setPhase(.error, "The model runtime is unavailable. Audio is saved for retry."); done(); return }
         let timestamp = listeningStarted
         let began = ProcessInfo.processInfo.systemUptime
         let vocabulary = vocabularyFile, dictionaryModel = dictionaryModelDirectory
@@ -1214,7 +1223,7 @@ final class PreStart: @unchecked Sendable {
             defer { timingLog.notice("model-verify took=\(ProcessInfo.processInfo.systemUptime - began, format: .fixed(precision: 3))") }
             guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
                   let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel)
-            else { DispatchQueue.main.async { guard let self, self.generation == token else { return }; self.setPhase("Error", "Model verification failed. Choose the pinned model folder. \(audio == nil ? Self.heldDiscarded : "Audio is saved for retry.")"); done() }; return }
+            else { DispatchQueue.main.async { guard let self, self.generation == token else { return }; self.setPhase(.error, "Model verification failed. Choose the pinned model folder. \(audio == nil ? Self.heldDiscarded : "Audio is saved for retry.")"); done() }; return }
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.generation == token else { return }
                 if let audio { self.runTranscription(helper, launch: launch, audio: audio, store: store, timestamp: timestamp, token: token, done: done); return }
@@ -1259,7 +1268,7 @@ final class PreStart: @unchecked Sendable {
         let pipe = Pipe(), output = pipe.fileHandleForReading
         let task = Process(); task.executableURL = helper; task.arguments = [launch.models.path, audio.path, "--single"] + launch.dictionaryArguments
         task.standardOutput = pipe; task.standardError = FileHandle.nullDevice
-        do { try task.run(); runner = task; try? pipe.fileHandleForWriting.close() } catch { try? output.close(); try? pipe.fileHandleForWriting.close(); setPhase("Error", "Transcription could not start. Audio is saved for retry."); done(); return }
+        do { try task.run(); runner = task; try? pipe.fileHandleForWriting.close() } catch { try? output.close(); try? pipe.fileHandleForWriting.close(); setPhase(.error, "Transcription could not start. Audio is saved for retry."); done(); return }
         let timeout = DispatchWorkItem { if task.isRunning { task.terminate(); DispatchQueue.global().asyncAfter(deadline: .now() + 2) { if task.isRunning { kill(task.processIdentifier, SIGKILL) } } } }
         DispatchQueue.global().asyncAfter(deadline: .now() + 300, execute: timeout)
         let launched = ProcessInfo.processInfo.systemUptime
@@ -1291,7 +1300,7 @@ final class PreStart: @unchecked Sendable {
                   let text = result["text"] as? String else { throw CaptureError("No usable transcript") }
             // The model ran and answered, but heard nothing; audio stays until the 24-hour purge.
             guard text.contains(where: { $0.isLetter || $0.isNumber }) else { throw NoSpeech() }
-            var savedEntry = HistoryEntry(id: UUID().uuidString, recordedAt: timestamp, rawText: text, finalText: text, insertionStatus: "saved-not-inserted")
+            var savedEntry = HistoryEntry(id: UUID().uuidString, recordedAt: timestamp, rawText: text, finalText: text, insertionStatus: InsertionStatus.savedNotInserted.rawValue)
             if let audio { savedEntry.recordingFile = recordings.keep(audio, entryID: savedEntry.id) }
             try store.save(savedEntry)
             if let audio { try? FileManager.default.removeItem(at: audio) }
@@ -1303,13 +1312,13 @@ final class PreStart: @unchecked Sendable {
         } catch {
             let message = error is NoSpeech ? "No speech was detected. Check your microphone and try again."
                 : audio == nil ? "Transcription failed. \(Self.heldDiscarded)" : "Transcription failed. Audio is saved for retry for up to 24 hours."
-            DispatchQueue.main.async { [weak self] in guard let self, self.generation == token else { return }; self.runner = nil; self.setPhase("Error", message); done() }
+            DispatchQueue.main.async { [weak self] in guard let self, self.generation == token else { return }; self.runner = nil; self.setPhase(.error, message); done() }
         }
     }
     /// Cloud transcription (R4): one provider call in a cancellable Task, never the local model.
     /// The result then follows the local path: history save, processing, insertion.
     private func transcribeInCloud(_ audio: URL?, held: [Float]?, with provider: TranscriptionProvider, done: @escaping () -> Void) {
-        guard let store = records else { setPhase("Error", "Private storage is unavailable. \(audio == nil ? Self.heldDiscarded : "Audio is saved for retry.")"); done(); return }
+        guard let store = records else { setPhase(.error, "Private storage is unavailable. \(audio == nil ? Self.heldDiscarded : "Audio is saved for retry.")"); done(); return }
         let token = generation; let timestamp = listeningStarted
         let began = ProcessInfo.processInfo.systemUptime
         cloudStage = .transcription; cloudDone = done
@@ -1334,22 +1343,22 @@ final class PreStart: @unchecked Sendable {
                 var message = CloudTranscription.message(outcome) ?? CloudTranscription.unknownFailure
                 // Held audio has no file to keep for retry.
                 if audio == nil, case .failed(let reason, _) = outcome { message = reason + " " + Self.heldDiscarded }
-                self.setPhase("Error", message); done(); return
+                self.setPhase(.error, message); done(); return
             }
             // An answer-shaped LLM transcript is held like a failed cleanup: raw text only, never inserted.
-            var entry = HistoryEntry(id: UUID().uuidString, recordedAt: timestamp, rawText: text, finalText: held ? "" : text, insertionStatus: held ? "held-transcript" : "saved-not-inserted")
+            var entry = HistoryEntry(id: UUID().uuidString, recordedAt: timestamp, rawText: text, finalText: held ? "" : text, insertionStatus: (held ? InsertionStatus.heldTranscript : .savedNotInserted).rawValue)
             entry.transcriptionProvider = provider.id.rawValue; entry.transcriptionModel = Self.modelID(provider)
             entry.transcription = Self.transcriptionDetail(result.detail)
             if let audio { entry.recordingFile = self.recordings.keep(audio, entryID: entry.id) }
-            do { try store.save(entry) } catch { self.setPhase("Error", "Could not save the transcript. \(audio == nil ? Self.heldDiscarded : "Audio is saved for retry for up to 24 hours.")"); done(); return }
+            do { try store.save(entry) } catch { self.setPhase(.error, "Could not save the transcript. \(audio == nil ? Self.heldDiscarded : "Audio is saved for retry for up to 24 hours.")"); done(); return }
             if let audio { try? FileManager.default.removeItem(at: audio) }
             guard !held else {
                 self.recoveryEntryID = entry.id
-                self.setPhase("Error", CloudTranscription.message(outcome) ?? ""); self.destination = nil; self.historySaved(); done(); return
+                self.setPhase(.error, CloudTranscription.message(outcome) ?? ""); self.destination = nil; self.historySaved(); done(); return
             }
             self.deliver(entry, store: store, token: token, done: done)
         }
-        setPhase("Processing", "Transcribing with \(provider.id.displayName)…")
+        setPhase(.processing, "Transcribing with \(provider.id.displayName)…")
     }
     /// Dictionary, then cleanup, for a transcript already saved to History. Local rules run here;
     /// any other cleanup route makes one provider call in a cancellable Task (no local fallback).
@@ -1393,7 +1402,7 @@ final class PreStart: @unchecked Sendable {
             self.cloudStage = nil; self.cloudDone = nil
             self.complete(outcome, entry: savedEntry, store: store, done: done)
         }
-        setPhase("Processing", "Cleaning up with \(processing.cloudCleaner?.id.displayName ?? "the cleanup provider")…")
+        setPhase(.processing, "Cleaning up with \(processing.cloudCleaner?.id.displayName ?? "the cleanup provider")…")
     }
     /// The pre-check and segment detail as History keeps it.
     private static func transcriptionDetail(_ detail: CloudTranscriptionDetail) -> TranscriptionDetail {
@@ -1450,9 +1459,9 @@ final class PreStart: @unchecked Sendable {
             if case .heldForRecovery(_, let why) = outcome {
                 timingLog.notice("cleanup-held reason=\(why.rawValue, privacy: .public) provider-error=\(result.providerError.map { Mirror(reflecting: $0).children.first?.label ?? "\($0)" } ?? "none", privacy: .public)")
             }
-            entry = entry.with(finalText: "", status: "held-cleanup")
-            do { try store.save(entry); setPhase("Error", "Cleanup was held for review.\(reason) The raw transcript is in History. Press ⌃⌘C to copy it.") }
-            catch { setPhase("Error", "Cleanup was held for review.\(reason) The raw transcript is in History; its status could not be saved.") }
+            entry = entry.with(finalText: "", status: .heldCleanup)
+            do { try store.save(entry); setPhase(.error, "Cleanup was held for review.\(reason) The raw transcript is in History. Press ⌃⌘C to copy it.") }
+            catch { setPhase(.error, "Cleanup was held for review.\(reason) The raw transcript is in History; its status could not be saved.") }
             destination = nil; historySaved(); done(); return
         }
         // Content-free: why the full cleanup was not used (the punctuation transfer or local rules was).
@@ -1462,19 +1471,19 @@ final class PreStart: @unchecked Sendable {
         }
         // Only filler words were heard: keep the raw transcript, insert nothing, show no error.
         if processed.isEmpty {
-            entry = entry.with(finalText: "", status: "saved-not-inserted", fallback: fallback, rejected: rejected)
+            entry = entry.with(finalText: "", status: .savedNotInserted, fallback: fallback, rejected: rejected)
             try? store.save(entry)
-            setPhase("Ready", "Only filler words were heard, so nothing was inserted.")
+            setPhase(.ready, "Only filler words were heard, so nothing was inserted.")
             destination = nil; historySaved(); done(); return
         }
         if processed != text || fallback != nil {
-            entry = entry.with(finalText: processed, status: entry.insertionStatus, fallback: fallback, rejected: rejected)
-            do { try store.save(entry) } catch { setPhase("Error", "Could not save the processed transcript. The raw transcript is in History."); destination = nil; historySaved(); done(); return }
+            entry = entry.with(finalText: processed, fallback: fallback, rejected: rejected)
+            do { try store.save(entry) } catch { setPhase(.error, "Could not save the processed transcript. The raw transcript is in History."); destination = nil; historySaved(); done(); return }
         }
         // First-run test dictation: Murmur never types into itself, so show the result on the setup screen.
         if setupShowing && NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid() {
             // ⌃⌘V still works if this flag was left on with no setup window visible.
-            setupTestTranscript = processed; lastDictationText = processed; setPhase("Ready", "Test dictation worked."); bubble.hide()
+            setupTestTranscript = processed; lastDictationText = processed; setPhase(.ready, "Test dictation worked."); bubble.hide()
             destination = nil; historySaved(); done(); return
         }
         lastDictationText = processed
@@ -1484,8 +1493,8 @@ final class PreStart: @unchecked Sendable {
             let target = (try? captureFocus()).flatMap { $0.pid == getpid() ? nil : $0 }
             // Persist uncertainty before the one permitted delivery attempt.
             let insertionText = textWithLeadingSpace(processed, value: target?.value, selection: target?.selection, enabled: leadingSpaceThisSession)
-            entry = entry.with(finalText: insertionText, status: entry.insertionStatus, fallback: fallback, rejected: rejected)
-            let delivery = Delivery.deliver(&entry, status: \.insertionStatus, save: { try store.save($0) }) { entry in
+            entry = entry.with(finalText: insertionText, fallback: fallback, rejected: rejected)
+            let delivery = Delivery.deliver(&entry, status: \.insertionStatus, pending: InsertionStatus.insertionPending.rawValue, save: { try store.save($0) }) { entry in
                 // The text appearing is the signal; insertion's verification waits block the main
                 // thread, so take the indicator down first instead of freezing it.
                 bubble.hide()
@@ -1512,7 +1521,7 @@ final class PreStart: @unchecked Sendable {
                 if let app = target?.bundleID, !app.isEmpty { recentApps = [app] + recentApps.filter { $0 != app }.prefix(9) }
                 lastDictationText = entry.finalText
                 if insertion.status != .failed { entry.app = target?.bundleID ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
-                return (insertion.status.rawValue, insertion)
+                return (InsertionStatus(insertion.status).rawValue, insertion)
             }
             switch delivery {
             case .delivered(let insertion):
@@ -1521,11 +1530,11 @@ final class PreStart: @unchecked Sendable {
                 if insertion.status != .failed { offerModeRecovery(entry: entry, inserted: entry.finalText, insertion: insertion, target: target) }
                 // A provider failure is not silent: a bad key or quota would otherwise degrade every dictation.
                 if insertion.status != .failed, let error = result.providerError {
-                    setPhase("Ready", "Inserted with local cleanup. \(error.userMessage)")
+                    setPhase(.ready, "Inserted with local cleanup. \(error.userMessage)")
                 }
             case .statusSaveFailed:
                 // After an attempt the paste may have landed, so no card offers the text again.
-                setPhase("Error", Delivery.statusSaveFailureMessage(saved: saved))
+                setPhase(.error, Delivery.statusSaveFailureMessage(saved: saved))
             case .pendingSaveFailed:
                 showNotPasted(.unsaved, saved: saved, entryID: entry.id, text: processed)
             }
@@ -1644,8 +1653,8 @@ final class PreStart: @unchecked Sendable {
     /// Read-back is diagnostic evidence, not a reason to warn or paste twice.
     func showInsertionResult(_ result: InsertionResult, entryID: String?, text: String) {
         switch result.status {
-        case .verified, .unverified: setPhase("Ready", idleMessage, announcement: "Dictation finished.")
-        case .failed: setPhase("Error", "Could not paste the dictation. Copy it here, select a text field and press ⌃⌘V, or copy it from History. Check the field first to avoid a duplicate.",
+        case .verified, .unverified: setPhase(.ready, idleMessage, announcement: "Dictation finished.")
+        case .failed: setPhase(.error, "Could not paste the dictation. Copy it here, select a text field and press ⌃⌘V, or copy it from History. Check the field first to avoid a duplicate.",
                                pasteFailure: PasteFailure(entryID: entryID, text: text))
         }
     }
@@ -1655,9 +1664,9 @@ final class PreStart: @unchecked Sendable {
     func showNotPasted(_ why: NotPasted, saved: String, entryID: String?, text: String) {
         switch why {
         case .insertionOff:
-            setPhase("Saved", "\(saved) Press ⌃⌘V to paste it where your cursor is.", pasteFailure: PasteFailure(entryID: entryID, text: text, title: "Saved, not pasted"))
+            setPhase(.saved, "\(saved) Press ⌃⌘V to paste it where your cursor is.", pasteFailure: PasteFailure(entryID: entryID, text: text, title: "Saved, not pasted"))
         case .unsaved:
-            setPhase("Error", "\(saved) Could not save the text for insertion, so nothing was pasted. Copy it here or from History.", pasteFailure: PasteFailure(entryID: entryID, text: text))
+            setPhase(.error, "\(saved) Could not save the text for insertion, so nothing was pasted. Copy it here or from History.", pasteFailure: PasteFailure(entryID: entryID, text: text))
         }
     }
     /// The card's Copy button: the text goes to the clipboard and its History entry is marked copied.
@@ -1665,9 +1674,9 @@ final class PreStart: @unchecked Sendable {
         guard let failure = pasteFailure else { return }
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(failure.text, forType: .string)
         if let id = failure.entryID, var entry = history.first(where: { $0.id == id }) {
-            entry.insertionStatus = "copied"; try? records?.save(entry); refreshHistory()
+            entry.insertionStatus = InsertionStatus.copied.rawValue; try? records?.save(entry); refreshHistory()
         }
-        setPhase("Ready", "Copied. Press ⌘V to paste it.", announcement: "Dictation copied.")
+        setPhase(.ready, "Copied. Press ⌘V to paste it.", announcement: "Dictation copied.")
     }
     // Explicit developer check of the production pipeline, using a synthetic file
     // and an exact disposable destination. Never enabled during ordinary launch.
@@ -1695,7 +1704,7 @@ final class PreStart: @unchecked Sendable {
         activeModelDirectory = modelDirectory; listeningStarted = Date(); generation = UUID()
         destinationScreen = screenForDestination(focused); recoveryEntryID = nil
         transcribe(ownedAudio) { [weak self] in
-            print("app-check=complete state=\(self?.phase ?? "unknown")")
+            print("app-check=complete state=\(self?.phase.rawValue ?? "unknown")")
             fflush(stdout)
             // Stay up through the correction window so the probe can exercise learning.
             @MainActor func waitForWatch() {
@@ -1724,7 +1733,7 @@ final class PreStart: @unchecked Sendable {
     func copyLatestRawTranscript() {
         guard let id = recoveryEntryID, let entry = history.first(where: { $0.id == id }) else { return }
         copyRawEntry(entry)
-        if !isBusy { setPhase("Ready", "Raw transcript copied.") }
+        if !isBusy { setPhase(.ready, "Raw transcript copied.") }
     }
     func copyRawEntry(_ entry: HistoryEntry) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(entry.rawText, forType: .string) }
     /// Turns all three cleanup options off. Like other settings, it takes effect at once.
@@ -1931,7 +1940,7 @@ final class PreStart: @unchecked Sendable {
                 // Settling can also delete learned entries (reversal, conflict), so always refresh.
                 defer { refreshDictionary() }
                 let learned = try processing?.settle(sessionID: session) ?? []
-                timingLog.notice("watch end reason=\(w.observation.stopReason ?? "unknown", privacy: .public) keys=\(w.keys.map { "\($0.state)" } ?? "-", privacy: .public) learned=\(learned.count, privacy: .public)")
+                timingLog.notice("watch end reason=\(w.observation.stopReason?.rawValue ?? "unknown", privacy: .public) keys=\(w.keys.map { "\($0.state)" } ?? "-", privacy: .public) learned=\(learned.count, privacy: .public)")
                 if let entry = learned.last { announceLearned(entry) }
             } else if Self.settlesEarly(pending: w.pending, changedAt: w.changedAt, now: now) {
                 w.pending = false; w.settledEarly = true; watch = w
@@ -1946,7 +1955,7 @@ final class PreStart: @unchecked Sendable {
     /// Deferred: the next dictation can end the watch just before its paste, which should not wait on a disk write.
     private func recordAfterPaste(_ w: Watch) {
         let seen = w.observation.edited.map { AfterPaste.trimmingAppended(initial: w.observation.initial, edited: $0) }
-        let after = AfterPaste(text: seen?.text, changed: seen?.changed, route: w.route, endReason: w.observation.stopReason)
+        let after = AfterPaste(text: seen?.text, changed: seen?.changed, route: w.route, endReason: w.observation.stopReason?.rawValue)
         DispatchQueue.main.async { [weak self] in
             guard let self, !w.entryID.isEmpty, let index = self.history.firstIndex(where: { $0.id == w.entryID }) else { return }
             var entry = self.history[index]
@@ -2050,9 +2059,9 @@ final class PreStart: @unchecked Sendable {
     func dismissStatus() {
         guard !isBusy, modeRecovery == nil else { return }
         if sessionAvailable {
-            setPhase("Ready", idleMessage)
+            setPhase(.ready, idleMessage)
         } else {
-            phase = "Error"; message = "Private storage is unavailable. Murmur cannot start."
+            phase = .error; message = "Private storage is unavailable. Murmur cannot start."
             updateMenu?()
         }
         bubble.hide()
@@ -2400,12 +2409,12 @@ final class PreStart: @unchecked Sendable {
         let result: HistoryCapResult<CappedHistoryItem>
         if let meetingStore = meetingRecorder.store {
             result = try MeetingCap.enforce(entries: entries.map { ($0.id, $0.recordedAt) }, meetings: meetings, historyDirectory: store.directory, meetingStore: meetingStore,
-                                            retention: HistoryRetention(rawValue: appliedRetention) ?? .thirtyDays) { id in
+                                            retention: HistoryRetention(stored: appliedRetention)) { id in
                 if let entry = entries.first(where: { $0.id == id }) { try store.delete(entry) }
             }
             if result.dropped.contains(where: \.isMeeting) { meetingRecorder.forget(Set(result.dropped.filter(\.isMeeting).map(\.id))) }
         } else {
-            let plain = try HistoryCap.enforce(entries: entries, directory: store.directory, retention: HistoryRetention(rawValue: appliedRetention) ?? .thirtyDays, delete: store.delete)
+            let plain = try HistoryCap.enforce(entries: entries, directory: store.directory, retention: HistoryRetention(stored: appliedRetention), delete: store.delete)
             result = HistoryCapResult(status: plain.status, dropped: [])
         }
         historyCapWarning = appliedRetention == HistoryRetention.forever.rawValue ? result.status.warning : nil
@@ -2463,8 +2472,8 @@ final class PreStart: @unchecked Sendable {
             }
         }
         let outcome = PostWipeStep.message(report: report, failedSteps: failed)
-        if !sessionAvailable { phase = "Error"; message = outcome.text + " Private storage is unavailable. Restart Murmur."; updateMenu?(); return }
-        setPhase(outcome.succeeded ? "Ready" : "Error", outcome.text)
+        if !sessionAvailable { phase = .error; message = outcome.text + " Private storage is unavailable. Restart Murmur."; updateMenu?(); return }
+        setPhase(outcome.succeeded ? .ready : .error, outcome.text)
     }
 
     // MARK: API keys (R5) and custom API provider

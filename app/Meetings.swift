@@ -198,7 +198,7 @@ struct MeetingStore {
     func size(_ id: String) -> Int64 {
         ((try? file(id)).flatMap { try? FileManager.default.attributesOfItem(atPath: $0.path)[.size] as? NSNumber })?.int64Value ?? 0
     }
-    /// Deletes meetings that started at or before `cutoff` (from `HistoryExpiry.cutoff`; nil is Forever).
+    /// Deletes meetings that started at or before `cutoff` (from `HistoryRetention.cutoff`; nil is Forever).
     @discardableResult
     func purge(cutoff: Date?) throws -> [String] {
         guard let cutoff else { return [] }

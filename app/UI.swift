@@ -460,11 +460,11 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack(spacing: 7) {
-                Circle().fill(controller.phase == "Error" ? Palette.ink : Palette.accent).frame(width: 6, height: 6)
-                if !sidebarCollapsed { mono(controller.phase, size: 11, color: Palette.ink70) }
+                Circle().fill(controller.phase == .error ? Palette.ink : Palette.accent).frame(width: 6, height: 6)
+                if !sidebarCollapsed { mono(controller.phase.rawValue, size: 11, color: Palette.ink70) }
             }
-            .accessibilityElement(children: .ignore).accessibilityLabel(controller.phase)
-            .help(controller.phase + " · " + (controller.appliedTranscriptionIsLocal ? "Local transcription" : "Cloud transcription"))
+            .accessibilityElement(children: .ignore).accessibilityLabel(controller.phase.rawValue)
+            .help(controller.phase.rawValue + " · " + (controller.appliedTranscriptionIsLocal ? "Local transcription" : "Cloud transcription"))
             .padding(.leading, sidebarCollapsed ? 15 : 0)
             .padding(.top, 12).padding(.bottom, 16)
         }
@@ -593,14 +593,14 @@ struct SettingsView: View {
     @ViewBuilder private var banners: some View {
         if controller.hasStatusToShow && !controller.isBusy {
             HStack(alignment: .top, spacing: 12) {
-                if controller.phase == "Error" { mono("Error", color: Palette.paper).padding(.top, 2) }
+                if controller.phase == .error { mono("Error", color: Palette.paper).padding(.top, 2) }
                 Text(controller.message).font(WindowType.body(14)).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                 Spacer(minLength: 8)
                 Button(action: controller.dismissStatus) { Image(systemName: "xmark") }
                     .buttonStyle(.plain).help("Dismiss status").accessibilityLabel("Dismiss status")
             }
-            .foregroundStyle(controller.phase == "Error" ? Palette.paper : Color.white).padding(.horizontal, 24).padding(.vertical, 12)
-            .background(controller.phase == "Error" ? Palette.ink : Palette.accent)
+            .foregroundStyle(controller.phase == .error ? Palette.paper : Color.white).padding(.horizontal, 24).padding(.vertical, 12)
+            .background(controller.phase == .error ? Palette.ink : Palette.accent)
         }
         if !setupComplete {
             HStack {
@@ -1328,7 +1328,7 @@ struct SettingsView: View {
                  ? "Completed transcripts are saved before insertion, so you can copy them if typing fails. No cloud sync."
                  : HistoryMode.offDisclosure).padding(.top, 12)
             eyebrow("Keep transcripts for").padding(.top, 28)
-            segmented([("30-days", "30 days"), ("six-months", "Six months"), ("forever", "Forever")], $controller.retention).padding(.top, 8)
+            segmented(HistoryRetention.allCases.map { ($0.rawValue, $0.label) }, $controller.retention).padding(.top, 8)
             toggleRow("Keep recordings for diagnostics (7 days)", "Keeps the audio of each dictation on this Mac, beside its History entry, so a developer can replay what Murmur heard. Off by default. Recordings are deleted after 7 days, and are kept only while History is saved. Delete All Data removes them.", isOn: $controller.keepRecordings).padding(.top, 20)
             if let notice = controller.historyNotice {
                 Text(notice).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true).padding(.top, 12)
@@ -1492,16 +1492,16 @@ struct SettingsView: View {
     }
 
     private var retentionText: String {
-        switch controller.retention {
-        case "six-months": return "Kept for six months."
-        case "forever": return "Kept forever."
-        default: return "Kept for 30 days."
+        switch HistoryRetention(stored: controller.retention) {
+        case .sixMonths: return "Kept for six months."
+        case .forever: return "Kept forever."
+        case .thirtyDays: return "Kept for 30 days."
         }
     }
 
     private func historyRow(_ entry: HistoryEntry) -> some View {
-        let open = selectedID == entry.id, attention = Self.needsAttention(entry.insertionStatus)
-        let note = controller.sessionOnlyIDs.contains(entry.id) ? HistoryText.sessionOnlyNote : Self.statusNote(entry.insertionStatus)
+        let open = selectedID == entry.id, attention = Self.needsAttention(entry.status)
+        let note = controller.sessionOnlyIDs.contains(entry.id) ? HistoryText.sessionOnlyNote : Self.statusNote(entry.status)
         return VStack(alignment: .leading, spacing: 0) {
             Button { selectedID = open ? nil : entry.id } label: {
                 HStack(alignment: .top, spacing: 16) {
@@ -1512,7 +1512,7 @@ struct SettingsView: View {
                         .font(.system(size: 13, design: .monospaced)).foregroundStyle(Palette.ink70).lineLimit(1).fixedSize().frame(width: 72, alignment: .leading).padding(.top, 2)
                     Text((entry.finalText.isEmpty ? entry.rawText : entry.finalText).replacingOccurrences(of: "\n", with: " "))
                         .font(WindowType.body(16)).lineSpacing(2).lineLimit(open ? 1 : 2).frame(maxWidth: .infinity, alignment: .leading)
-                    if let label = Self.statusLabel(entry.insertionStatus) {
+                    if let label = Self.statusLabel(entry.status) {
                         mono(label, size: 11, color: attention ? Palette.paper : Palette.accentDeep)
                             .lineLimit(1).fixedSize().padding(.horizontal, 8).padding(.vertical, 3)
                             .background(attention ? Palette.ink : Palette.accent16)
@@ -1589,28 +1589,28 @@ struct SettingsView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { if copiedID == id { copiedID = nil } }
     }
 
-    static func needsAttention(_ status: String) -> Bool {
-        ["insertion-pending", "failed", "held-cleanup", "held-transcript"].contains(status)
+    static func needsAttention(_ status: InsertionStatus?) -> Bool {
+        [.insertionPending, .failed, .heldCleanup, .heldTranscript].contains(status)
     }
 
-    static func statusLabel(_ status: String) -> String? {
+    static func statusLabel(_ status: InsertionStatus?) -> String? {
         switch status {
-        case "verified", "unverified": return nil
-        case "insertion-pending": return "Saved"
-        case "failed": return "Not inserted"
-        case "copied": return "Copied"
-        case "held-cleanup": return "Cleanup held"
-        case "held-transcript": return "Held for review"
+        case .verified, .unverified: return nil
+        case .insertionPending: return "Saved"
+        case .failed: return "Not inserted"
+        case .copied: return "Copied"
+        case .heldCleanup: return "Cleanup held"
+        case .heldTranscript: return "Held for review"
         default: return "Saved"
         }
     }
 
-    static func statusNote(_ status: String) -> String? {
+    static func statusNote(_ status: InsertionStatus?) -> String? {
         switch status {
-        case "insertion-pending": return "Murmur stopped before saving the delivery result. Check the destination before copying this text to avoid a duplicate."
-        case "failed": return "Murmur could not paste this text. It is saved here so you can copy it."
-        case "held-cleanup": return "Cleanup changed too much, so only the raw transcript was saved and nothing was inserted."
-        case "held-transcript": return "The transcript was held for review, so nothing was inserted."
+        case .insertionPending: return "Murmur stopped before saving the delivery result. Check the destination before copying this text to avoid a duplicate."
+        case .failed: return "Murmur could not paste this text. It is saved here so you can copy it."
+        case .heldCleanup: return "Cleanup changed too much, so only the raw transcript was saved and nothing was inserted."
+        case .heldTranscript: return "The transcript was held for review, so nothing was inserted."
         default: return nil
         }
     }
@@ -1829,7 +1829,7 @@ extension SettingsView {
             HStack(alignment: .center, spacing: 20) {
                 Text(controller.shortcutName).font(WindowType.body(28, weight: .bold)).tracking(-0.8)
                 Spacer()
-                if controller.phase == "Listening" {
+                if controller.phase == .listening {
                     Button("Finish Dictation", action: controller.stopRecording).buttonStyle(InkButtonStyle(kind: .filled))
                 } else {
                     Button("Start Dictation", action: controller.startDictationFromHome).buttonStyle(InkButtonStyle(kind: .filled))
@@ -1882,7 +1882,7 @@ extension SettingsView {
                                 .font(.system(size: 13, design: .monospaced)).foregroundStyle(Palette.ink70).lineLimit(1).frame(width: 120, alignment: .leading)
                             Text((entry.finalText.isEmpty ? entry.rawText : entry.finalText).replacingOccurrences(of: "\n", with: " "))
                                 .font(WindowType.body(15)).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                            if let label = Self.statusLabel(entry.insertionStatus) { mono(label, size: 11, color: Palette.accentDeep) }
+                            if let label = Self.statusLabel(entry.status) { mono(label, size: 11, color: Palette.accentDeep) }
                         }
                         .padding(.vertical, 12).contentShape(Rectangle())
                     }
@@ -1896,10 +1896,10 @@ extension SettingsView {
     }
 
     private var keptFor: String {
-        switch controller.retention {
-        case "six-months": return "six months"
-        case "forever": return "until you delete them"
-        default: return "30 days"
+        switch HistoryRetention(stored: controller.retention) {
+        case .sixMonths: return "six months"
+        case .forever: return "until you delete them"
+        case .thirtyDays: return "30 days"
         }
     }
 
@@ -1952,7 +1952,7 @@ extension SettingsView {
                         }
                     }
                     StreakCalendar(days: s.days, weeks: 5,
-                                   cutoff: HistoryExpiry.cutoff(HistoryRetention(rawValue: controller.retention) ?? .thirtyDays))
+                                   cutoff: HistoryRetention(stored: controller.retention).cutoff())
                 }.frame(maxWidth: .infinity, alignment: .leading).frame(height: 300, alignment: .top)
                 hourlyActivity(s).frame(height: 300, alignment: .top)
                 VStack(alignment: .leading, spacing: 12) {
@@ -2288,13 +2288,13 @@ private struct CallDetectionRows: View {
     }
 }
 
-func showsFloatingIndicator(phase: String) -> Bool {
-    ["Listening", "Processing", "Error"].contains(phase)
+func showsFloatingIndicator(phase: Phase) -> Bool {
+    [.listening, .processing, .error].contains(phase)
 }
 
 private struct VoiceBubbles: View {
     @ObservedObject var controller: AppController
-    let phase: String
+    let phase: Phase
     var ink: Color? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -2303,7 +2303,7 @@ private struct VoiceBubbles: View {
     private static let weights = [0.6, 0.85, 1, 0.85, 0.6]
     var body: some View {
         // Every display frame: a 0.15 s floor stepped the pulse visibly after release.
-        TimelineView(.animation(minimumInterval: nil, paused: phase == "Error" || reduceMotion)) { context in
+        TimelineView(.animation(minimumInterval: nil, paused: phase == .error || reduceMotion)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             // Clear Liquid Glass capsules that stretch vertically with the voice.
             GlassEffectContainer(spacing: 2) {
@@ -2313,8 +2313,8 @@ private struct VoiceBubbles: View {
                         // Read the microphone every frame (the published level updates every 0.15 s);
                         // the square root lifts quiet speech so the bars react to it.
                         let voice = reduceMotion ? controller.voiceLevel : controller.liveVoiceLevel()
-                        let level = phase == "Listening" ? voice.squareRoot() * wobble
-                            : phase == "Processing" ? (reduceMotion ? 0.35 : (sin(t * 4 - Double(index)) + 1) / 2 * 0.45) : 0.15
+                        let level = phase == .listening ? voice.squareRoot() * wobble
+                            : phase == .processing ? (reduceMotion ? 0.35 : (sin(t * 4 - Double(index)) + 1) / 2 * 0.45) : 0.15
                         // Rests as a short pill (9 × 13 pt) and stretches up to the full 40 pt.
                         Color.clear.frame(width: 9, height: 13 + 27 * level * Self.weights[index])
                             .modifier(VoiceDotGlass(opaque: reduceTransparency || contrast == .increased, ink: ink))
@@ -2327,8 +2327,8 @@ private struct VoiceBubbles: View {
         // The indicator's panel never becomes key; render its glass as active so it refracts
         // instead of falling back to the flat inactive look.
         .environment(\.appearsActive, true)
-        .accessibilityElement(children: .ignore).accessibilityLabel(phase)
-        .help(phase == "Listening" ? "Release, or press the shortcut again after a double-press, to finish. Escape cancels." : phase)
+        .accessibilityElement(children: .ignore).accessibilityLabel(phase.rawValue)
+        .help(phase == .listening ? "Release, or press the shortcut again after a double-press, to finish. Escape cancels." : phase.rawValue)
     }
 }
 
@@ -2411,7 +2411,7 @@ private struct LiveWordsBubble: View {
     var body: some View {
         let parts = LiveWordsFacts.split(controller.liveText)
         HStack(spacing: 6) {
-            VoiceBubbles(controller: controller, phase: "Listening")
+            VoiceBubbles(controller: controller, phase: .listening)
             Group {
                 if parts.settled.isEmpty && parts.guess.isEmpty { Text("Listening…").foregroundStyle(.secondary) }
                 else { Text(parts.settled).foregroundStyle(.primary) + Text(parts.guess).foregroundStyle(.secondary) }
@@ -2554,17 +2554,17 @@ final class BubblePresenter {
         panel.isReleasedWhenClosed = false
     }
 
-    func show(phase: String, message: String, screen: NSScreen? = nil) {
+    func show(phase: Phase, message: String, screen: NSScreen? = nil) {
         // An idle status change leaves a learned-word notice up; anything shown replaces it.
         // A card holding text not pasted shows in any phase (Saved included).
         guard showsFloatingIndicator(phase: phase) || controller.pasteFailure != nil else { if notice == nil { hide() }; return }
         notice = nil
         let targetScreen = screen ?? NSScreen.main ?? NSScreen.screens.first
         let frame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let minimal = phase != "Error" && controller.pasteFailure == nil
+        let minimal = phase != .error && controller.pasteFailure == nil
         panel.hasShadow = !minimal
         let card = controller.pasteFailure
-        let live = phase == "Listening" && controller.liveWordsActive
+        let live = phase == .listening && controller.liveWordsActive
         let left = targetScreen?.auxiliaryTopLeftArea
         let right = targetScreen?.auxiliaryTopRightArea
         let notch = minimal && !live && left != nil && right != nil

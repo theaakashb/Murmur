@@ -8,7 +8,7 @@ import Foundation
         for failedSave in [1, 2, 0] {
             for insertionStatus in ["verified", "unverified", "failed"] {
                 var entry = Entry(), events: [String] = [], writes = 0, attempts = 0
-                let result = Delivery.deliver(&entry, status: \.status, save: { entry in
+                let result = Delivery.deliver(&entry, status: \.status, pending: "insertion-pending", save: { entry in
                     writes += 1; events.append(entry.status)
                     if writes == failedSave { throw Failure.disk }
                 }, insert: { entry in

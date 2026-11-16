@@ -150,9 +150,9 @@ func checkExpiryAndText() {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "UTC")!
     let now = Date(timeIntervalSince1970: 1_790_000_000)
-    check(HistoryExpiry.cutoff(.forever, now: now, calendar: calendar) == nil, "forever has no cutoff")
-    check(HistoryExpiry.cutoff(.thirtyDays, now: now, calendar: calendar) == now.addingTimeInterval(-30 * 86400), "30-day cutoff matches HistoryStore")
-    check(HistoryExpiry.cutoff(.sixMonths, now: now, calendar: calendar) == calendar.date(byAdding: .month, value: -6, to: now), "six months uses calendar months")
+    check(HistoryRetention.forever.cutoff(now: now, calendar: calendar) == nil, "forever has no cutoff")
+    check(HistoryRetention.thirtyDays.cutoff(now: now, calendar: calendar) == now.addingTimeInterval(-30 * 86400), "30-day cutoff matches HistoryStore")
+    check(HistoryRetention.sixMonths.cutoff(now: now, calendar: calendar) == calendar.date(byAdding: .month, value: -6, to: now), "six months uses calendar months")
 
     check(HistoryText.summary(mode: .on, count: 2, sessionOnly: 0) == "Saved locally · 2 transcripts", "history on summary keeps the existing wording")
     check(HistoryText.summary(mode: .on, count: 1, sessionOnly: 1).contains("1 kept only until Murmur quits"), "history on with memory entries says so")

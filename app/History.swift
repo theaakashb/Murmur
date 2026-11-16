@@ -2,6 +2,13 @@ import Foundation
 import CryptoKit
 import Darwin
 
+/// The stored `insertionStatus` strings. The stored property stays a String so an entry with a status
+/// this version does not know still decodes and re-saves unchanged; read it through `HistoryEntry.status`.
+enum InsertionStatus: String {
+    case savedNotInserted = "saved-not-inserted", insertionPending = "insertion-pending", heldCleanup = "held-cleanup"
+    case heldTranscript = "held-transcript", copied, failed, verified, unverified
+}
+
 struct HistoryEntry: Codable, Identifiable {
     let id: String
     let recordedAt: Date
@@ -9,6 +16,7 @@ struct HistoryEntry: Codable, Identifiable {
     /// Editable in History (gap #10); `rawText` never changes.
     var finalText: String
     var insertionStatus: String
+    var status: InsertionStatus? { InsertionStatus(rawValue: insertionStatus) }
     /// Why the full cleanup was not used (a content-free `CleanupFailureReason`), or nil.
     var cleanupFallback: String? = nil
     /// The cleanup model's output the guard rejected, kept for debugging (user request, October 6,
@@ -45,9 +53,9 @@ struct HistoryEntry: Codable, Identifiable {
     var recordingFile: String? = nil
 
     /// The same dictation with new text and status; the recording facts carry over.
-    func with(finalText: String, status: String, fallback: String? = nil, rejected: String? = nil) -> HistoryEntry {
+    func with(finalText: String, status: InsertionStatus? = nil, fallback: String? = nil, rejected: String? = nil) -> HistoryEntry {
         var next = self
-        next.finalText = finalText; next.insertionStatus = status; next.cleanupFallback = fallback; next.cleanupRejectedOutput = rejected
+        next.finalText = finalText; if let status { next.insertionStatus = status.rawValue }; next.cleanupFallback = fallback; next.cleanupRejectedOutput = rejected
         return next
     }
 }
@@ -209,13 +217,8 @@ struct HistoryStore {
     }
     /// Nil for forever.
     static func cutoff(retention: String, now: Date = Date(), calendar: Calendar = .current) throws -> Date? {
-        if retention == "forever" { return nil }
-        if retention == "six-months" {
-            guard let date = calendar.date(byAdding: .month, value: -6, to: now) else { throw CaptureError("Invalid retention date") }
-            return date
-        }
-        if retention == "30-days" { return now.addingTimeInterval(-30 * 86400) }
-        throw CaptureError("Invalid history retention policy")
+        guard let policy = HistoryRetention(rawValue: retention) else { throw CaptureError("Invalid history retention policy") }
+        return policy.cutoff(now: now, calendar: calendar)
     }
     /// Files moved aside by `quarantineUnreadable`. Inside the history folder, so Delete All Data removes them.
     var unreadableDirectory: URL { directory.appendingPathComponent("unreadable", isDirectory: true) }

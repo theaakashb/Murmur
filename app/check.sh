@@ -10,7 +10,7 @@ meetings="Retention Cleanup Meetings MeetingNotes MeetingSpeakers"
 deps() {
   case "$1" in
     launch) echo "LaunchOptions" ;;
-    history) echo "Shortcut Capture Session Cleanup History" ;;
+    history) echo "Shortcut Capture Session Cleanup Retention History" ;;
     controller) echo "app ../spike/InsertionChecks" ;;
     meeting_start) echo "app" ;;
     recording) echo "Shortcut Capture Session" ;;
