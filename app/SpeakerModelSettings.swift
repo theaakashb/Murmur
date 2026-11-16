@@ -20,7 +20,7 @@ extension ModelFacts {
         removed: "Speaker separation was removed.")
 }
 
-/// Settings → Meetings → speaker separation (W7d): the switch and the optional pinned download.
+/// Settings → Meetings → speaker separation: the switch and the optional pinned download.
 /// It tells the recorder which verified model folder to use; nil while off, missing or unverified.
 @MainActor final class SpeakerModelSettings: ObservableObject {
     @Published var enabled: Bool { didSet { defaults.set(enabled, forKey: SpeakerFacts.key); refresh() } }

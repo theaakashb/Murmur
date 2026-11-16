@@ -1,6 +1,6 @@
 import Foundation
 
-// Speaker separation, milestone W7d (PRD 11.8, Q4): after Stop, the kept Them stream goes through
+// Speaker separation, after Stop, the kept Them stream goes through
 // FluidAudio's offline diarizer in a short-lived helper; each Them line goes to the speaker it
 // overlaps most and is split where the voice changes. Foundation only, so check_speakers.swift
 // builds without audio frameworks.
@@ -19,18 +19,15 @@ struct SpeakerSegment: Codable, Equatable {
 struct SpeakerSeparation: Codable, Equatable {
     enum State: String, Codable { case pending, done, skipped, failed }
     var state: State
-    /// Names the user gave speakers in this meeting, by speaker number.
     var names: [Int: String] = [:]
-    /// The clustering threshold the diarizer ran with (PRD 11.8 asks for it to be recorded).
     var threshold: Double? = nil
-    /// Last rename, merge or reassignment. Notes written before it are out of date (PRD 11.6).
+    /// Last rename, merge or reassignment. Notes written before it are out of date.
     var editedAt: Date? = nil
-    /// Content-free reason when the state is failed.
     var failure: String? = nil
 }
 
 enum MeetingSpeakers {
-    /// FluidAudio's community-1 default; fixed before any scoring (PRD 11.10 evidence in the PR).
+    /// FluidAudio's community-1 default; fixed before any scoring.
     static let threshold = 0.6
 
     /// "Speaker 2", or the name the user gave; Me and unassigned Them lines keep their stream label.
@@ -47,7 +44,6 @@ enum MeetingSpeakers {
         return pattern.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: NSRegularExpression.escapedTemplate(for: new))
     }
 
-    /// Speaker numbers in use in this meeting, ascending.
     static func numbers(_ meeting: Meeting) -> [Int] { Array(Set(meeting.lines.compactMap(\.speaker))).sorted() }
 
     /// The raw speaker whose segments overlap `start...end` most; with no overlap, the nearest segment's.
@@ -103,7 +99,6 @@ enum MeetingSpeakers {
         meeting.speakers = separation
     }
 
-    /// One Them line as one or more (line, raw speaker) pieces.
     static func split(_ line: MeetingLine, words: [[Double]]?, segments: [SpeakerSegment]) -> [(line: MeetingLine, speaker: String?)] {
         let whole = [(line, speaker(line.start, line.end, segments, nearest: true))]
         let tokens = line.text.split(whereSeparator: \.isWhitespace).map(String.init)
@@ -138,8 +133,6 @@ enum MeetingSpeakers {
         }
     }
 }
-
-// MARK: - Editing (per meeting)
 
 extension Meeting {
     /// An empty name goes back to "Speaker N". Notes already written get the new name in place.
@@ -187,8 +180,6 @@ extension Meeting {
     }
 }
 
-// MARK: - Kept Them audio (PRD 11.5, Q4)
-
 /// With speaker separation on, the Them stream is kept as one 16 kHz mono 16-bit WAV per meeting in
 /// `retry-audio/speakers/<meeting id>.wav` (owner-only): each transcribed chunk is written at its
 /// own time, so gaps read as silence. It is deleted once diarization finishes or is skipped, with
@@ -199,7 +190,6 @@ enum SpeakerAudio {
 
     static func file(_ root: URL, meeting id: String) -> URL { root.appendingPathComponent(id + ".wav") }
 
-    /// Writes 16-bit samples at `start` seconds, creating the file (and its owner-only folder) first.
     static func write(_ samples: [Int16], at start: Double, to url: URL) throws {
         let fm = FileManager.default
         try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -247,12 +237,10 @@ enum SpeakerAudio {
     }
 }
 
-// MARK: - The helper
-
 /// Runs `ModelBench DIARIZER_DIRECTORY --diarize KEPT_WAV THRESHOLD` once per meeting. The process
 /// exits when it is done, so its memory goes back; Skip, deletion and quitting terminate it.
 final class SpeakerRunner: @unchecked Sendable {
-    /// A 2-hour meeting took 32 s on the M3 (PRD 11.11, W7d status); far beyond that, give up.
+    /// A 2-hour meeting took 32 s on the M3; far beyond that, give up.
     static let timeout: TimeInterval = 30 * 60
     private let lock = NSLock()
     private var running: [String: Process] = [:]
@@ -268,7 +256,6 @@ final class SpeakerRunner: @unchecked Sendable {
         lock.withLock { running[id].map(Self.stop); running[id] = process }
         DispatchQueue.global(qos: .utility).async { [self] in
             guard check(), (try? process.run()) != nil else { if finish(id, process) { done(nil) }; return }
-            // Cancelled while it was starting.
             if lock.withLock({ running[id] !== process }) { process.terminate() }
             let watchdog = DispatchWorkItem { if process.isRunning { process.terminate() } }
             DispatchQueue.global().asyncAfter(deadline: .now() + Self.timeout, execute: watchdog)
@@ -295,9 +282,7 @@ final class SpeakerRunner: @unchecked Sendable {
     }
 }
 
-// MARK: - Settings text
-
-/// Settings → Meetings → Speaker separation: an optional 21.6 MB download (PRD 11.8).
+/// Settings → Meetings → Speaker separation: an optional 21.6 MB download.
 enum SpeakerFacts {
     static let key = "meetingSpeakers", roomKey = "meetingRoomSpeakers"
     static let displayName = "Separate speakers after a meeting"
@@ -307,7 +292,6 @@ enum SpeakerFacts {
     }
     /// Credits required by the repository's NOTICE.md (CC-BY-4.0 attribution).
     static let credits = "Speaker separation uses modified Core ML conversions by Fluid Inference of the pyannote speaker-diarization-community-1 pipeline (pyannote segmentation, WeSpeaker embeddings) with PLDA parameters from BUT Speech@FIT, licensed under CC-BY-4.0: https://creativecommons.org/licenses/by/4.0/"
-    /// The meeting page's line while speakers are being separated, or waiting to be.
     static func status(_ separation: SpeakerSeparation?, running: Bool, room: Bool = false) -> String? {
         switch separation?.state {
         case .pending?: return running ? "Separating speakers…" : "Waiting to separate speakers. \(room ? "Microphone audio" : "The call’s audio") is kept for up to \(RetryWindow.text)."

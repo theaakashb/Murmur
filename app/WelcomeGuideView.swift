@@ -4,9 +4,6 @@ import SwiftUI
 // The welcome guide: permission, model and test-dictation steps.
 
 extension SettingsView {
-    // MARK: Welcome guide (gap #21)
-
-    /// What the guide shows for a step: its title, detail, whether it is done, and the action button.
     private func guideInfo(_ step: WelcomeGuide.Step) -> (title: String, detail: String, done: Bool, action: String, run: () -> Void) {
         switch step {
         case .welcome, .meetings: return ("A little room for thought.", "Speak freely. Your voice becomes text, right where you’re writing.", false, "", {})
@@ -75,7 +72,6 @@ extension SettingsView {
         .onDisappear { controller.setupShowing = false }
     }
 
-    /// Starts the guide over from the first step.
     func replayGuide() { WelcomeGuide.replay(); guideStep = .welcome; screen = .setup }
 
     private func finishGuide() {

@@ -103,13 +103,11 @@ class FloatingPanel: NSPanel {
     }
 }
 
-/// A small monospaced uppercase label; `plain` is Settings' look (system font, as typed).
 func monoLabel(_ text: String, size: CGFloat = 12, color: Color = Palette.ink, plain: Bool = false) -> some View {
     Text(text).font(plain ? .system(size: size) : .system(size: size, design: .monospaced)).tracking(plain ? 0 : size * 0.08)
         .textCase(plain ? nil : .uppercase).foregroundStyle(color)
 }
 
-/// Wrapping explanatory text; Settings sets it in the system font (`system`), the other pages in DM Sans.
 func helpText(_ text: String, size: CGFloat = 13, color: Color = Palette.ink70, system: Bool = false) -> some View {
     Text(text).font(system ? .system(size: size) : WindowType.body(size)).lineSpacing(2).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
 }
@@ -117,11 +115,9 @@ func helpText(_ text: String, size: CGFloat = 13, color: Color = Palette.ink70, 
 func lede(_ text: String, color: Color = Palette.ink70) -> some View { helpText(text, size: 14, color: color) }
 
 extension String {
-    /// Nothing but spaces (or, with `multiline`, line breaks too): what a form field treats as empty.
     func isBlank(multiline: Bool = false) -> Bool { trimmingCharacters(in: multiline ? .whitespacesAndNewlines : .whitespaces).isEmpty }
 }
 
-/// Posts a VoiceOver announcement for a change that has no focused control.
 func announce(_ text: String, priority: NSAccessibilityPriorityLevel = .high) {
     NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [.announcement: text, .priority: priority.rawValue])
 }
@@ -209,7 +205,6 @@ struct WindowTitle: NSViewRepresentable {
     }
 }
 
-/// Shared license and storage affordances for every downloadable model.
 struct ModelInfoIcons: View {
     let license: String?
     let details: String
@@ -227,8 +222,6 @@ struct ModelInfoIcons: View {
     }
 }
 
-/// The row every downloadable model shares: title and info icons, status, Download/Retry/Cancel/Remove, progress and the
-/// last message. The host passes the pieces that depend on its surface (fonts and colours differ per screen).
 struct ModelRowView: View {
     let slot: ModelSlot
     let title: AnyView
@@ -242,7 +235,6 @@ struct ModelRowView: View {
     var spacing: CGFloat = 12
     /// Stacks the buttons under the name when the row is too narrow (the setup window).
     var narrow = false
-    /// Extra lines between the buttons and the progress bar.
     var extras: [AnyView] = []
     let download: () -> Void
     let cancel: () -> Void

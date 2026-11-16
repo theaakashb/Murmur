@@ -6,7 +6,6 @@ import Foundation
 enum SettingsPane: Int, CaseIterable {
     case general = 0, transcription, cleanup, modes, dictionary, privacy, apiKeys, updates, meetings, recording, insertion, snippets
 
-    /// The page's own name: the tab label and the search result's section.
     var name: String {
         switch self {
         case .general: "General"
@@ -23,9 +22,7 @@ enum SettingsPane: Int, CaseIterable {
         case .insertion: "Insertion"
         }
     }
-    /// The sidebar entries, in order.
     static let groups: [SettingsPane] = [.general, .recording, .cleanup, .meetings, .privacy, .apiKeys, .updates]
-    /// The sidebar entry this page sits under, and the tabs shown there.
     var group: SettingsPane {
         switch self {
         case .transcription, .recording, .insertion: .recording
@@ -40,7 +37,6 @@ enum SettingsPane: Int, CaseIterable {
         default: []
         }
     }
-    /// Sidebar title (also the page heading), for a group's pages.
     var title: String {
         switch group {
         case .recording: "Dictation"

@@ -4,7 +4,6 @@ import SwiftUI
 // The Settings pane bodies (extension SettingsView) and the controls only Settings uses.
 
 extension SettingsView {
-    /// Settings → Meetings (decision of October 15, 2026, amending Q2): the meeting transcription route.
     var meetingRoutes: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 4) {
@@ -264,8 +263,6 @@ extension SettingsView {
         .padding(.top, 16)
     }
 
-    // MARK: Writing modes (gaps #6-#8)
-
     var modes: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
@@ -296,7 +293,6 @@ extension SettingsView {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") } ?? bundleID
     }
 
-    /// Apps dictated into since launch, then running apps, without ones already in the mode.
     private func pickableApps(excluding chosen: [String]) -> [String] {
         let running = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && $0.processIdentifier != getpid() }.compactMap(\.bundleIdentifier)
         var seen = Set(chosen)
@@ -415,12 +411,10 @@ extension SettingsView {
         }
     }
 
-    /// Download row for live words (gap #13), shown while the setting is on.
     private var liveWordsModel: some View {
         modelRow(controller.liveWordsSlot, quiet: true, download: controller.downloadLiveWords, cancel: controller.cancelLiveWordsDownload, remove: controller.removeLiveWords)
     }
 
-    /// Download row for dictionary support in on-device transcription (the CTC model).
     var dictionaryModel: some View {
         let failed = controller.dictionarySupportFailed
         return modelRow(controller.dictionarySlot, showReady: !failed, download: controller.downloadDictionaryModel, cancel: controller.cancelDictionaryModelDownload, remove: controller.removeDictionaryModel,
@@ -429,7 +423,6 @@ extension SettingsView {
             .padding(.vertical, 18).padding(.top, 20)
     }
 
-    /// A Settings model row: the large row, or the quiet one beside the optional live-words switch.
     func modelRow(_ slot: ModelSlot, readyText: String = "Ready ✓", showReady: Bool = true, quiet: Bool = false, narrow: Bool = false,
                   download: @escaping () -> Void, cancel: @escaping () -> Void, remove: @escaping () -> Void, extras: [AnyView] = []) -> some View {
         let name = Text(slot.facts.title)
@@ -685,7 +678,7 @@ extension SettingsView {
     }
 }
 
-/// Records a custom shortcut (gap #14). While it waits, the global tap is off so the current
+/// Records a custom shortcut. While it waits, the global tap is off so the current
 /// shortcut can't start a dictation or be swallowed. Escape stops waiting; a refused key says why.
 struct ShortcutPresetPicker: View {
     @ObservedObject var controller: AppController
@@ -749,7 +742,6 @@ struct ShortcutRecorder: View {
     }
 }
 
-/// A list of short strings with an add field and remove buttons (mode websites and trigger words).
 private struct ModeListEditor: View {
     @Binding var items: [String]
     let placeholder: String
@@ -775,7 +767,6 @@ private struct ModeListEditor: View {
         .padding(.top, 8)
     }
     private func add() {
-        // Several at once, separated by commas.
         for item in draft.split(separator: ",").map({ $0.trimmingCharacters(in: .whitespaces) }) where !item.isEmpty && !items.contains(item) { items.append(item) }
         draft = ""
     }
@@ -796,7 +787,6 @@ struct AutoApplySettings: ViewModifier {
     }
 }
 
-/// Settings → Meetings: meeting detection's switch and "Never" list (PRD 11.7, Q6).
 private struct CallDetectionRows: View {
     @ObservedObject var presenter: CallOfferPresenter
     var body: some View {

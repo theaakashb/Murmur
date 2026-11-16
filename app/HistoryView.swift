@@ -4,8 +4,6 @@ import SwiftUI
 // History list and rows, with the status and outcome text they show.
 
 extension SettingsView {
-    // MARK: History
-
     private var visibleHistory: [HistoryEntry] {
         controller.history.filter { entry in
             searchText.isEmpty || entry.finalText.localizedCaseInsensitiveContains(searchText) || entry.rawText.localizedCaseInsensitiveContains(searchText)
@@ -17,7 +15,6 @@ extension SettingsView {
         var groups: [(day: String, entries: [HistoryEntry])] = []
         for entry in visibleHistory {
             let calendar = Calendar.current, date = entry.recordedAt
-            // Grouped by the full date; the year shows only when it is not this year.
             let day = calendar.isDateInToday(date) ? "Today"
                 : calendar.isDateInYesterday(date) ? "Yesterday"
                 : calendar.isDate(date, equalTo: Date(), toGranularity: .year) ? date.formatted(.dateTime.month(.abbreviated).day())
@@ -213,7 +210,6 @@ extension SettingsView {
         guard let outcome = entry.cleanupOutcome else { return nil }
         let kind = entry.cleanupOptions?.professional == true ? "Professional rewrite" : entry.cleanupOptions?.polish == true ? "Polish" : "AI cleanup"
         let failed = entry.cleanupFallback == nil || entry.cleanupFallback == CleanupFailureReason.cleanerFailed.rawValue
-        // "unexplainedDeletion" -> "unexplained deletion"
         let why = failed ? "" : " (" + (entry.cleanupFallback ?? "").map { $0.isUppercase ? " " + $0.lowercased() : String($0) }.joined() + ")"
         let edited = entry.edited == true ? " Edited since." : ""
         switch outcome {

@@ -14,9 +14,7 @@ enum CleanupStyle: CaseIterable {
         switch self { case .faithful: "Faithful"; case .strict: "Strict"; case .polish: "Polish"; case .professional: "Professional" }
     }
     var needsModel: Bool { self == .polish || self == .professional }
-    /// The style a set of cleanup switches amounts to.
     init(_ o: CleanupOptions) { self = !o.anyEnabled ? .faithful : o.professional ? .professional : o.polish ? .polish : .strict }
-    /// One line of the style picker's info popover.
     var info: String {
         switch self {
         case .faithful: "Faithful keeps your words as dictated."
@@ -25,7 +23,6 @@ enum CleanupStyle: CaseIterable {
         case .professional: "Professional uses an AI model to rewrite into clear writing of what you meant."
         }
     }
-    /// What the style does, with an example.
     var help: String {
         switch self {
         case .faithful: "Keeps the words as dictated, apart from dictionary spellings: “Um, let’s meet Tuesday, no, I mean, Thursday, at the cafe.”"
@@ -80,16 +77,14 @@ struct SettingsView: View {
     @ObservedObject var controller: AppController
     enum Screen { case home, insights, meetings, settings, history, setup }
     @State var screen = Screen.home
-    /// The welcome guide's current step (gap #21), saved as it changes so the guide resumes there.
+    /// The welcome guide's current step, saved as it changes so the guide resumes there.
     @State var guideStep = WelcomeGuide.Step.welcome
     /// The last settings pane, restored by ⌘, and on relaunch.
     @AppStorage(Prefs.settingsSection.key) var section = SettingsPane.general
     @State var showAdvanced = false
     @State var showLiveModel = false
-    /// The expanded History row.
     @State var selectedID: String?
     @State var copiedID: String?
-    /// The History entry whose final text is being edited (gap #10), and the draft.
     @State var editingTextID: String?
     @State var textDraft = ""
     @State var searchText = ""
@@ -100,11 +95,9 @@ struct SettingsView: View {
     @FocusState private var settingsSearchFocused: Bool
     @State var newPreferred = ""
     @State var newVariants = ""
-    /// The dictionary row being edited, and its draft fields.
     @State var editingEntryID: UUID?
     @State var suggestionSpellings: [String: String] = [:]
     @State var editPreferred = ""
-    /// The Snippets page's add draft, and the snippet being edited with its draft.
     @State var newCue = ""
     @State var newSnippetText = ""
     @State var editingSnippetID: UUID?
@@ -114,7 +107,6 @@ struct SettingsView: View {
     @State var openKey: ProviderID?
     @State var keyDraft = ""
     @State private var checkedSetup = false
-    /// The writing mode whose editor is open.
     @State var editingModeID: UUID?
     @AppStorage(Prefs.sidebarCollapsed.key) var sidebarCollapsed = Prefs.sidebarCollapsed.fallback
     @AppStorage(Prefs.showDetailedSettingsInfo.key) var showDetailedSettingsInfo = Prefs.showDetailedSettingsInfo.fallback
@@ -199,8 +191,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: Shared pieces
-
     func mono(_ text: String, size: CGFloat = 12, color: Color = Palette.ink) -> some View {
         monoLabel(text, size: size, color: color, plain: screen == .settings)
     }
@@ -256,7 +246,6 @@ struct SettingsView: View {
             .padding(.vertical, screen == .settings ? 12 : 10).id(title)
     }
 
-    /// "Gemini 3.5 Transcribe (speech recognition, …)" → "Gemini 3.5 Transcribe" for segment labels.
     func short(_ name: String) -> String {
         name.components(separatedBy: CharacterSet(charactersIn: "(,")).first?.trimmingCharacters(in: .whitespaces) ?? name
     }
@@ -299,10 +288,7 @@ struct SettingsView: View {
         controller.microphoneAuthorized && controller.accessibilityAuthorized && controller.inputMonitoringAuthorized && modelSatisfied
     }
 
-    /// Cloud transcription does not need the local model.
     var modelSatisfied: Bool { controller.modelSlot.row.isReady || controller.transcriptionRoute == .cloud }
-
-    // MARK: Window navigation
 
     @ViewBuilder var sidebar: some View {
         if screen == .settings { settingsSidebar } else { appSidebar }
@@ -489,8 +475,6 @@ struct SettingsView: View {
             .background(Palette.ink)
         }
     }
-
-    // MARK: Settings
 
     var settings: some View {
         ScrollViewReader { proxy in

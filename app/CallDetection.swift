@@ -1,10 +1,9 @@
 import Foundation
 
-// Meeting detection (PRD 11.7, gap #23): when a known call app or a browser has used the microphone
+// Meeting detection: when a known call app or a browser has used the microphone
 // for a few seconds, offer to take meeting notes. Rules only; no Core Audio, no UI, nothing stored but
 // the settings. It only ever offers: a meeting starts from Take Notes, never from here.
 
-/// Settings → Meetings: the global switch (on by default, Q6) and the per-app "Never" list.
 enum CallDetectionSettings {
     static let enabledKey = "callDetectionEnabled"
     static let neverKey = "callDetectionNever"
@@ -23,8 +22,8 @@ enum CallDetectionSettings {
 
 struct CallOffer: Equatable {
     let app: CallApp
-    /// "Zoom is using the microphone. Take meeting notes?" (PRD 11.7). A browser's microphone use may
-    /// be voice input or search, so its question does not claim a call (Q5). Murmur reads no window
+    /// "Zoom is using the microphone. Take meeting notes?". A browser's microphone use may
+    /// be voice input or search, so its question does not claim a call. Murmur reads no window
     /// titles or URLs to tell them apart.
     var text: String { "\(app.name) is using the microphone." }
     var question: String { app.isBrowser ? "If this is a call, take meeting notes?" : "Take meeting notes?" }
@@ -33,12 +32,11 @@ struct CallOffer: Equatable {
 }
 
 struct CallDetector {
-    /// Input must run this long before an offer, which filters a short voice search (PRD 11.7).
+    /// Input must run this long before an offer, which filters a short voice search.
     static let minimumInput: TimeInterval = 5
     /// A microphone session ends only after input has been off this long, so a device switch or a
     /// mute that briefly stops input does not offer again in the same call.
     static let sessionGrace: TimeInterval = 15
-    /// How long the offer stays up.
     static let offerLifetime: TimeInterval = 30
 
     struct Conditions {
@@ -46,7 +44,6 @@ struct CallDetector {
         var never: [String] = []
         var meetingLive = false
         var dictating = false
-        /// Murmur's bundle ID; it and its helpers never trigger an offer.
         var ownBundleID: String?
         /// Running apps' bundle IDs, for crediting a helper outside an app's prefix (Safari's
         /// `com.apple.WebKit.GPU` serves every WebKit app) only while that app is open. nil: not checked.
@@ -54,7 +51,6 @@ struct CallDetector {
     }
 
     private struct Session { var since: TimeInterval; var lastSeen: TimeInterval; var offered = false }
-    /// Per app (canonical bundle ID), the current microphone session.
     private var sessions: [String: Session] = [:]
 
     /// The catalog app (Start menu or not) a process belongs to, ignoring case; an own-prefix match beats a shared helper.

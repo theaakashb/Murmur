@@ -2,8 +2,6 @@ import Foundation
 
 // Meeting export: Markdown, text and JSON renderings of a saved meeting.
 
-// MARK: - Export
-
 enum MeetingExport {
     static func clock(_ seconds: Double) -> String {
         let total = max(0, Int(seconds))
@@ -32,7 +30,7 @@ enum MeetingExport {
         }
         return out
     }
-    /// The generated notes (PRD 11.6) for Copy Notes, or the Markdown export's Notes section. Each
+    /// The generated notes for Copy Notes, or the Markdown export's Notes section. Each
     /// item ends with the time of the first line it cites. Model text is escaped like transcript text.
     static func notes(_ meeting: Meeting, markdown: Bool = false, lecture: Bool = false) -> String {
         guard let notes = lecture ? meeting.lectureNotes : meeting.notes else { return "" }

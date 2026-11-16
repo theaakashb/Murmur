@@ -1,6 +1,6 @@
 import Foundation
 
-// Meeting notes, milestone W7b (PRD 11.6): the notes record, the prompt, map-reduce over long
+// Meeting notes, the notes record, the prompt, map-reduce over long
 // meetings, and the grounding check that drops anything the transcript does not support.
 // Foundation only, and the model is a closure, so check_meetings.swift needs no provider code.
 
@@ -24,7 +24,7 @@ struct MeetingNotes: Codable, Equatable {
     /// The route that wrote them, such as "Apple Intelligence".
     var route: String
     var writtenAt: Date
-    /// The user's notes (or, with W7d, speaker names) changed after these were written.
+    /// The user's notes or speaker names changed after these were written.
     var outdated: Bool? = nil
     /// Items the grounding check dropped. A count only, never their text.
     var dropped = 0
@@ -40,7 +40,7 @@ enum NoteSections {
     }
 }
 
-/// Settings → Meetings → Meeting notes (Q3). Nil in preferences means not asked yet: the first
+/// Settings → Meetings → Meeting notes. Nil in preferences means not asked yet: the first
 /// Stop asks, with None preselected.
 enum MeetingNotesRoute: String, CaseIterable, Codable {
     case none, appleIntelligence = "apple-intelligence", gemini, customAPI = "custom-api"
@@ -81,8 +81,6 @@ enum MeetingNotesRoute: String, CaseIterable, Codable {
     }
 }
 
-// MARK: - Prompt
-
 enum MeetingNotesPrompt {
     static let lectureRules = """
     Format: lecture study notes. Override meeting-specific category and ownership rules above:
@@ -96,8 +94,8 @@ enum MeetingNotesPrompt {
 
     struct Numbered { let number: Int; let line: MeetingLine; let speaker: String }
 
-    /// Visible lines only (hidden echo is left out of notes input, PRD 11.2), numbered from 1. Each
-    /// line carries its speaker label (W7d): "Speaker 2" or the name the user gave, else Me or Them.
+    /// Visible lines only (hidden echo is left out of notes input), numbered from 1. Each
+    /// line carries its speaker label: "Speaker 2" or the name the user gave, else Me or Them.
     static func number(_ meeting: Meeting) -> [Numbered] {
         meeting.lines.filter { !$0.isHidden }.enumerated().map { Numbered(number: $0.offset + 1, line: $0.element, speaker: MeetingSpeakers.label($0.element, in: meeting)) }
     }
@@ -184,8 +182,6 @@ enum MeetingNotesPrompt {
     }
 }
 
-// MARK: - Parsing
-
 /// A model's notes before grounding, with citations still as L numbers.
 struct Draft: Equatable {
     struct Item: Equatable { var text: String; var lines: [Int]; var owner: String?; var due: String? }
@@ -195,7 +191,6 @@ struct Draft: Equatable {
     var decisions: [Item] = []
     var actions: [Item] = []
 
-    /// The reply format, used again as the merge step's input.
     var text: String {
         func cites(_ lines: [Int]) -> String { lines.map { "L\($0)" }.joined(separator: " ") }
         var out: [String] = []
@@ -270,15 +265,12 @@ struct Draft: Equatable {
     }
 }
 
-// MARK: - Grounding
-
-/// The deterministic check (PRD 11.6), in the spirit of CleanupGuard: an item survives only if
+/// The deterministic check, in the spirit of CleanupGuard: an item survives only if
 /// the lines it cites support it. Each reason is content-free, for diagnostics.
 enum NotesGrounding {
     enum Reason: String, CaseIterable { case noCitation, unknownLine, addressedToNotes, noSharedWord, invented, polarityChanged, unknownOwner, noCommitment, noAgreement }
 
     struct Source {
-        /// L number → the line's text and its speaker label.
         let lines: [Int: (text: String, speaker: String)]
         let myNotes: String
 
@@ -343,8 +335,6 @@ enum NotesGrounding {
         return unrelated.isEmpty && facts(in: unlabelled.lowercased(), supportedBy: said)
     }
 
-    // MARK: Words
-
     static func tokens(_ text: String) -> [String] {
         text.replacingOccurrences(of: "’", with: "'").components(separatedBy: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "'")).inverted)
             .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "'")) }.filter { !$0.isEmpty }
@@ -364,8 +354,6 @@ enum NotesGrounding {
         if short.count >= 4 && long.hasPrefix(short) { return true }
         return short.count >= 5 && long.prefix(5) == short.prefix(5)
     }
-
-    // MARK: Polarity
 
     /// The text's clauses, each as its content words with whether a negation governs them. A
     /// negation (`CleanupText.isNegation`: "no", "not", "never", "none", "n't") reaches the words
@@ -398,7 +386,7 @@ enum NotesGrounding {
         (["faster", "fastest"], ["slower", "slowest"]),
     ]
 
-    /// True when the item reverses its cited lines (PRD 11.6). Either it uses one side of an
+    /// True when the item reverses its cited lines. Either it uses one side of an
     /// opposite pair that the lines say only the other way, or one side restates a whole negated
     /// clause of the other (two or more content words, every one present there) without its
     /// negation. Restating the whole clause is what separates "no states are expected to be cooler"
@@ -422,8 +410,6 @@ enum NotesGrounding {
         let ours = clauses(item), said = clauses(cited)
         return reverses(ours, said) || reverses(said, ours)
     }
-
-    // MARK: Names, numbers, dates
 
     static let weekdays: Set<String> = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
     static let months: Set<String> = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december", "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec"]
@@ -509,7 +495,6 @@ enum NotesGrounding {
         return found
     }
 
-    /// True when every name, number and date in `text` is also in `said`.
     static func facts(in text: String, supportedBy said: String) -> Bool {
         let words = Set(tokens(said.lowercased()).map { $0.hasSuffix("'s") ? String($0.dropLast(2)) : $0 })
         let saidDates = dates(said).union(words.filter { dateWords.contains($0) || months.contains($0) })
@@ -535,14 +520,11 @@ enum NotesGrounding {
 
     static let commitments = ["i'll", "i will", "we'll", "we will", "you'll", "he'll", "she'll", "they'll", "will do", "going to", "gonna", "can you", "could you", "would you", "will you", "please", "let me", "i can", "on it", "i'll take", "take care of", "assign", "need you to", "yes", "yeah", "sure", "okay", "ok", "deal", "sounds good", "i'm taking", "i'm going", "owns", "own it"]
 
-    /// Whole-word phrase match, ignoring case and punctuation.
     static func has(_ phrases: [String], in text: String) -> Bool {
         let words = " " + tokens(text.lowercased().replacingOccurrences(of: "-", with: " ")).joined(separator: " ") + " "
         return phrases.contains { words.contains(" \($0.replacingOccurrences(of: "-", with: " ")) ") }
     }
 }
-
-// MARK: - Writer
 
 /// Why notes could not be written. `tooLarge` is the route's context limit, which splits the
 /// request and retries once; anything else leaves the meeting saved without notes.
@@ -552,12 +534,10 @@ enum NotesFailure: Error, Equatable {
 }
 
 enum MeetingNotesWriter {
-    /// The model: (system, user) → reply. Throws `NotesFailure`.
     typealias Generate = (String, String) async throws -> String
 
     struct Outcome: Equatable {
         var notes: MeetingNotes
-        /// Dropped items by reason, for content-free diagnostics.
         var reasons: [NotesGrounding.Reason: Int]
     }
 
@@ -597,7 +577,6 @@ enum MeetingNotesWriter {
         return Outcome(notes: notes, reasons: reasons)
     }
 
-    /// Consecutive lines up to `budget` characters; a single longer line is a chunk of its own.
     static func chunks(_ lines: [MeetingNotesPrompt.Numbered], budget: Int) -> [[MeetingNotesPrompt.Numbered]] {
         var out: [[MeetingNotesPrompt.Numbered]] = [], current: [MeetingNotesPrompt.Numbered] = [], size = 0
         for line in lines {
@@ -623,7 +602,6 @@ enum MeetingNotesWriter {
         }
     }
 
-    /// Merges parts in batches that fit the budget, level by level, until one draft is left.
     private static func reduce(_ parts: [Draft], budget: Int, structured: Bool, speakers: [String], nonce: () -> String, generate: Generate) async throws -> Draft {
         var level = parts
         while level.count > 1 {
@@ -658,7 +636,6 @@ enum MeetingNotesWriter {
         }
     }
 
-    /// Drops what the check rejects, and duplicate citations within an item.
     static func ground(_ draft: Draft, in source: NotesGrounding.Source, reasons: inout [NotesGrounding.Reason: Int], lecture: Bool = false) -> Draft {
         func keep(_ list: [Draft.Item], kind: NotesGrounding.Kind) -> [Draft.Item] {
             list.compactMap { item in

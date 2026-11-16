@@ -14,13 +14,11 @@ private struct VoiceBubbles: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
-    /// Centre bars swing most, like a synth's level meter.
     private static let weights = [0.6, 0.85, 1, 0.85, 0.6]
     var body: some View {
         // Every display frame: a 0.15 s floor stepped the pulse visibly after release.
         TimelineView(.animation(minimumInterval: nil, paused: phase == .error || reduceMotion)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
-            // Clear Liquid Glass capsules that stretch vertically with the voice.
             GlassEffectContainer(spacing: 2) {
                 HStack(spacing: 0) {
                     ForEach(0..<5) { index in
@@ -30,7 +28,6 @@ private struct VoiceBubbles: View {
                         let voice = reduceMotion ? controller.voiceLevel : controller.liveVoiceLevel()
                         let level = phase == .listening ? voice.squareRoot() * wobble
                             : phase == .processing ? (reduceMotion ? 0.35 : (sin(t * 4 - Double(index)) + 1) / 2 * 0.45) : 0.15
-                        // Rests as a short pill (9 × 13 pt) and stretches up to the full 40 pt.
                         Color.clear.frame(width: 9, height: 13 + 27 * level * Self.weights[index])
                             .modifier(VoiceDotGlass(opaque: reduceTransparency || contrast == .increased, ink: ink))
                             .frame(width: 14, height: 40)
@@ -91,7 +88,7 @@ private struct BubbleView: View {
     }
 }
 
-/// Gap #17: the dictation could not be pasted, so the bubble shows it with Copy. History and ⌃⌘V
+/// The dictation could not be pasted, so the bubble shows it with Copy. History and ⌃⌘V
 /// still work. The panel never becomes key, so clicking leaves the user's app in front.
 private struct PasteFailureCard: View {
     @ObservedObject var controller: AppController
@@ -119,7 +116,7 @@ private struct PasteFailureCard: View {
     }
 }
 
-/// Gap #13: the level meter plus the words heard so far, at most two lines (the newest tail).
+/// The level meter plus the words heard so far, at most two lines (the newest tail).
 /// Settled words are bright; the last word, which can still grow, is dimmed. Display only.
 private struct LiveWordsBubble: View {
     @ObservedObject var controller: AppController
@@ -140,7 +137,7 @@ private struct LiveWordsBubble: View {
     }
 }
 
-/// Gap #18: shown for a few seconds after Escape cancels a recording. Undo processes it as normal.
+/// Shown for a few seconds after Escape cancels a recording. Undo processes it as normal.
 private struct UndoCancelCard: View {
     @ObservedObject var controller: AppController
     var inNotch = false
@@ -178,7 +175,6 @@ private struct LearnedNotice: View {
     }
 }
 
-/// Shown after a dictation that used a mode: "Mode used: Email  [Use without mode]  [×]".
 private struct ModeRecoveryCard: View {
     @ObservedObject var controller: AppController
     var inNotch = false
@@ -215,7 +211,6 @@ private struct ModeRecoveryCard: View {
     }
 }
 
-/// The card's action button: a prominent button on glass, or a divider and plain text inside the notch.
 private struct CardAction: View {
     let title: String
     let hint: String
@@ -243,7 +238,6 @@ private struct RecoveryBackground: ViewModifier {
     }
 }
 
-/// Where the bubble goes on one screen: its visible frame and the notch, if any.
 struct BubbleGeometry {
     let screen: NSScreen?
     let frame: NSRect
@@ -252,7 +246,6 @@ struct BubbleGeometry {
     var hasNotch: Bool { left != nil && right != nil }
     var notchWidth: CGFloat { (right?.minX ?? 0) - (left?.maxX ?? 0) }
     var notchHeight: CGFloat { screen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32 }
-    /// The empty strip a card leaves over the notch's right half.
     var notchInset: CGFloat { notchWidth / 2 + 10 }
     init(screen: NSScreen?) {
         let target = screen ?? NSScreen.main ?? NSScreen.screens.first
@@ -307,7 +300,6 @@ final class BubblePresenter {
         present(NSRect(x: x, y: y, width: width, height: height), slideFrom: entering ? 72 : nil)
     }
 
-    /// Shows the panel at `destination`; with `slideFrom` it slides in from that far to the right (not under Reduce Motion).
     private func present(_ destination: NSRect, slideFrom: CGFloat?) {
         let slide = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? nil : slideFrom
         place(slide.map { destination.offsetBy(dx: $0, dy: 0) } ?? destination)

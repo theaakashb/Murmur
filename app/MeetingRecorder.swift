@@ -3,37 +3,32 @@ import AVFoundation
 import os
 
 
-/// Records one meeting at a time (PRD 11.1–11.5): the microphone through a meeting-only Capture,
+/// Records one meeting at a time: the microphone through a meeting-only Capture,
 /// the call's audio through SystemAudioTap, both chunked into one MeetingPump that shares the warm
 /// helper with dictation. Lines are saved as they arrive; audio chunks are deleted once transcribed.
 @MainActor final class MeetingRecorder: ObservableObject {
-    /// The meeting being recorded, or nil.
     @Published private(set) var live: Meeting?
     /// Finished meetings, newest first (from disk, or memory only with History off).
     @Published private(set) var meetings: [Meeting] = []
     @Published private(set) var meLevel = 0.0
     @Published private(set) var themLevel = 0.0
     @Published private(set) var elapsed: TimeInterval = 0
-    /// More than `MeetingLimits.behind` of audio waits for transcription.
     @Published private(set) var behind = false
     /// The `MeetingLimits.warning` warning, or a stream that stopped; shown in the live view.
     @Published private(set) var warning: String?
     /// Nothing heard on either stream for `MeetingLimits.askEnded`, or the call app stopped using the microphone.
     @Published private(set) var askEnded = false
-    /// Meetings whose transcription is still running after Stop.
     @Published private(set) var finishing: Set<String> = []
     /// Meetings with chunk audio left over (a crash, or a chunk that failed twice).
     @Published private(set) var leftovers: [String: Int] = [:]
-    /// A source waiting for the one-time consent sheet (Q8).
     @Published var consentPending: MeetingSource?
     /// Why the call's audio could not be recorded; the view offers "Record only my microphone".
     @Published var systemAudioProblem: String?
     @Published var message: String?
-    /// Meetings whose notes are being written (W7b).
     @Published private(set) var notesWriting: Set<String> = []
     /// Why notes could not be written, per meeting; the transcript is kept either way.
     @Published var notesProblem: [String: String] = [:]
-    /// A meeting waiting for the first-Stop notes route question (Q3).
+    /// A meeting waiting for the first-Stop notes route question.
     @Published var notesChoicePending: String?
 
     /// What the recorder cannot work without, given once to `wire(_:)`: leaving one out is a compile
@@ -44,9 +39,8 @@ import os
         /// `retry-audio/meetings`.
         var audioRoot: URL?
         var persists: Bool
-        /// The dictionary's spellings, applied to each line.
         var applyDictionary: (String) -> String
-        /// The notes route in Settings, nil until the first Stop asks (Q3).
+        /// The notes route in Settings, nil until the first Stop asks.
         var notesRoute: () -> MeetingNotesRoute?
         /// Writes notes with the route chosen now. Throws `NotesFailure`.
         var notesWriter: (Meeting, Bool) async throws -> MeetingNotesWriter.Outcome
@@ -58,7 +52,6 @@ import os
 
     /// Transcription on this Mac with the warm helper, which also runs diarization.
     struct LocalTranscription {
-        /// A 16 kHz WAV to text, or nil.
         var transcribe: (URL, @escaping (String?) -> Void) -> Void
         /// A Them chunk with word times (the warm helper's timed request).
         var transcribeTimed: (URL, @escaping (ChunkText?) -> Void) -> Void
@@ -103,8 +96,6 @@ import os
     /// The default output device when the tap was built; a change rebuilds the tap.
     private var outputUID: String?
 
-    // MARK: Speaker separation state (W7d, PRD 11.8)
-
     /// Set by SpeakerModelSettings: the verified diarizer folder while speaker separation is on; nil otherwise.
     /// Read when a meeting starts, so a change never affects a meeting in progress.
     var speakerModel: URL?
@@ -112,7 +103,6 @@ import os
     /// Set by SpeakerModelSettings: false once the switch is off or the model is removed. Finished
     /// meetings still waiting are then skipped, so their call audio is not kept for nothing.
     var speakersWanted = true
-    /// Meetings whose speakers are being separated now.
     @Published private(set) var separating: Set<String> = []
     private let speakerRunner = SpeakerRunner()
     /// `retry-audio/speakers`, beside the chunk folder, so Delete All Data's retry-audio step removes it.
@@ -142,8 +132,6 @@ import os
         purgeAudio()
     }
 
-    // MARK: Start, stop, cancel
-
     /// Starts recording, or asks for consent first. Returns false when nothing started.
     @discardableResult
     /// `cloud`: the meeting's cloud transcriber, fixed for this meeting (nil means this Mac).
@@ -153,7 +141,7 @@ import os
         guard let audioRoot, local != nil else { message = "Meeting notes are unavailable: private storage could not be opened."; return false }
         var meeting = Meeting(id: UUID().uuidString, recordedAt: Date(), source: source)
         meeting.transcribedBy = cloud == nil ? nil : cloudName
-        // Fixed when the meeting starts, like the route: keep the Them stream for diarization (Q4).
+        // Fixed when the meeting starts, like the route: keep the Them stream for diarization.
         if (!source.micOnly || separateRoomSpeakers), speakerModel != nil { meeting.speakers = SpeakerSeparation(state: .pending, threshold: MeetingSpeakers.threshold) }
         let folder = MeetingAudio.folder(audioRoot, meeting: meeting.id)
         do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
@@ -244,7 +232,6 @@ import os
         if pumps[meeting.id] == nil { transcriptDone(meeting.id) }
     }
 
-    /// Discards the meeting being recorded: capture, queued chunks, audio and record.
     func cancel() {
         guard let meeting = live else { return }
         capture?.stop(); tap?.stop(); capture = nil; tap = nil; folder = nil; livePump = nil
@@ -265,11 +252,9 @@ import os
         notesProblem = [:]; notesChoicePending = nil; askOnDone = []
     }
 
-    // MARK: Lines
-
     /// Leftovers are always finished on this Mac (`cloud` nil): nothing falls back to the cloud.
     /// `timed`: Them chunks ask the warm helper for word times too, so a line can be split where the
-    /// voice changes (W7d). Only on this Mac; cloud lines are assigned whole.
+    /// voice changes. Only on this Mac; cloud lines are assigned whole.
     private func makePump(_ id: String, cloud: MeetingRoute.Cloud? = nil, timed: Bool = false, timedStream: MeetingStream = .them) -> MeetingPump {
         let transcribe = local?.transcribe
         let onThisMac: MeetingRoute.Local = { url, done in
@@ -306,7 +291,6 @@ import os
         settle(id)
     }
 
-    /// The meeting being recorded, or a saved one.
     private func anyMeeting(_ id: String) -> Meeting? { live?.id == id ? live : meetings.first { $0.id == id } }
 
     private func settle(_ id: String) {
@@ -315,8 +299,6 @@ import os
         separate(id)
         transcriptDone(id)
     }
-
-    // MARK: Notes (W7b, PRD 11.6)
 
     /// The transcript is complete and its speakers separated (or that failed or was skipped): write
     /// notes on the chosen route, or ask for one the first time. Called again when separation ends,
@@ -381,7 +363,6 @@ import os
         if route != .none { writeNotes(id) }
     }
 
-    /// Ticks or unticks an action item's checkbox.
     func toggleAction(_ index: Int, of id: String) {
         update(id) { meeting in
             guard var notes = meeting.notes, notes.actions.indices.contains(index) else { return }
@@ -390,7 +371,6 @@ import os
         }
     }
 
-    /// Applies a change to the live meeting or a finished one, and saves it.
     private func update(_ id: String, _ change: (inout Meeting) -> Void) {
         if var meeting = live, meeting.id == id {
             change(&meeting); live = meeting; save(force: false)
@@ -408,7 +388,7 @@ import os
         try? store?.save(meeting)
     }
 
-    /// The user's own notes. Changing them marks written notes out of date (PRD 11.6).
+    /// The user's own notes. Changing them marks written notes out of date.
     func setNotes(_ text: String, for id: String) {
         update(id) { meeting in
             guard meeting.myNotes != text else { return }
@@ -455,9 +435,6 @@ import os
         }
     }
 
-    // MARK: Ticks
-
-    /// Called by the controller's timer every `MeetingLimits.tickInterval`.
     func tick() {
         guard let meeting = live else { return }
         let now = ProcessInfo.processInfo.systemUptime
@@ -466,8 +443,8 @@ import os
         let themRaw = tap.map { t in t.queue.sync { t.level } } ?? 0
         meLevel = meScale.display(meRaw); themLevel = themScale.display(themRaw)
         if max(meRaw, themRaw) > MeetingLimits.silenceLevel { lastVoice = now; askEnded = false }
-        // The meeting-only Capture is not the controller's: it restarts in place on a device change
-        // (W5 rule); if audio still stops, the watch rebuilds it with a new engine.
+        // The meeting-only Capture is not the controller's: it restarts in place on a device change;
+        // if audio still stops, the watch rebuilds it with a new engine.
         if let capture, !capture.engine.isRunning, !capture.restart() {
             meetingLog.notice("meeting-mic-restart-failed at=\(self.elapsed, format: .fixed(precision: 1))")
         }
@@ -479,7 +456,7 @@ import os
             watch(.them, themWatch.update(count: tap.map { t in t.queue.sync { t.buffers } } ?? 0, now: now, idle: !themPlaying))
         }
         behind = (pumps[meeting.id]?.backlog ?? 0) > MeetingLimits.behind
-        // A denied tap may deliver silence rather than an error (PRD 11.10): say so after 60 s without call audio.
+        // A denied tap may deliver silence rather than an error: say so after 60 s without call audio.
         if let tap, systemAudioProblem == nil, elapsed > 60, !tap.queue.sync(execute: { tap.heardSignal }), warning == nil {
             warning = "No call audio yet. If the call is playing, check that Murmur is allowed under System Audio Recording in System Settings → Privacy & Security."
         } else if let tap, warning?.hasPrefix("No call audio") == true, tap.queue.sync(execute: { tap.heardSignal }) { warning = nil }
@@ -506,8 +483,6 @@ import os
         save(force: false)
     }
 
-    // MARK: Recovery, deletion, retention
-
     func refreshLeftovers() {
         guard let audioRoot else { leftovers = [:]; return }
         var found: [String: Int] = [:]
@@ -518,7 +493,6 @@ import os
         leftovers = found
     }
 
-    /// Transcribes chunks a crash or a failed transcription left, into their meeting.
     func finishLeftovers(_ id: String) {
         guard let audioRoot, pumps[id] == nil else { return }
         let files = MeetingAudio.leftovers(audioRoot, meeting: id)
@@ -588,7 +562,7 @@ import os
         }
     }
 
-    /// Murmur is quitting: never keep recording (PRD 11.3). Untranscribed chunks stay for `RetryWindow.text`.
+    /// Murmur is quitting: never keep recording. Untranscribed chunks stay for `RetryWindow.text`.
     func shutdown() {
         if live != nil { finish(manual: false) }
         pumps.values.forEach { $0.stop() }
@@ -603,9 +577,6 @@ import os
         onLiveChange?()
     }
 
-    // MARK: Speaker separation (W7d, PRD 11.8)
-
-    /// Writes a transcribed Them chunk into the meeting's kept stream, at its own time.
     private func keepAudio(_ id: String, _ job: MeetingPump.Job) {
         guard anyMeeting(id)?.speakers?.state == .pending, let speakerRoot else { return }
         do {
@@ -654,7 +625,6 @@ import os
         transcriptDone(id)
     }
 
-    /// "Separating speakers" → Skip: stops the helper, deletes the kept audio, keeps the Them labels.
     func skipSeparation(_ id: String) {
         guard let meeting = anyMeeting(id), meeting.speakers?.state == .pending else { return }
         speakerRunner.cancel(id); separating.remove(id)
@@ -677,8 +647,6 @@ import os
     func mergeSpeaker(_ from: Int, into: Int, in id: String) { update(id) { $0.mergeSpeaker(from, into: into) } }
     func reassignLine(_ line: Int, to speaker: Int, in id: String) { update(id) { $0.reassignLine(line, to: speaker) } }
 
-    // MARK: Export
-
     private func copyToPasteboard(_ text: String) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string) }
     func copyTranscript(_ meeting: Meeting) { copyToPasteboard(MeetingExport.transcript(meeting)) }
     func saveMarkdown(_ meeting: Meeting) {
@@ -692,7 +660,6 @@ import os
     func copyNotes(_ meeting: Meeting, lecture: Bool = false) { copyToPasteboard(MeetingExport.notes(meeting, lecture: lecture)) }
     func copyNotice() { copyToPasteboard(MeetingConsent.notice) }
 
-    /// Running call apps and browsers, for the Start menu (Q1).
     static func runningCallApps() -> [CallApp] {
         let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
         return CallApp.catalog.filter { $0.inStartMenu && running.contains($0.bundleID) }

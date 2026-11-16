@@ -3,7 +3,7 @@ import AVFoundation
 import CoreAudio
 import os
 
-// The "Them" stream of a meeting (PRD 11.2): a private, unmuted Core Audio process tap on the call
+// The "Them" stream of a meeting: a private, unmuted Core Audio process tap on the call
 // app's processes (or every process except Murmur), read through a private aggregate device and
 // converted to 16 kHz mono for the speech model. Also the process list detection and Start use.
 
@@ -62,13 +62,11 @@ enum TapTarget: Equatable {
 
 final class SystemAudioTap {
     let queue = DispatchQueue(label: "murmur.meeting.tap", qos: .userInitiated)
-    /// 16 kHz mono float, the speech model's rate.
     static let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(AudioFormat.sampleRate), channels: 1, interleaved: false)!
     /// Queue-owned meter level (0–1) and whether any non-zero sample has arrived; a tap without
-    /// permission may deliver silence rather than an error (to record on the test Mac, PRD 11.10).
+    /// permission may deliver silence rather than an error.
     private(set) var level = 0.0
     private(set) var heardSignal = false
-    /// Queue-owned count of buffers received, for the stall watch.
     private(set) var buffers: Int64 = 0
     private let chunker: Chunker
     private var tapID = AudioObjectID(kAudioObjectUnknown), aggregateID = AudioObjectID(kAudioObjectUnknown)
@@ -81,7 +79,6 @@ final class SystemAudioTap {
     /// nothing while no tapped app plays; that time is filled with silence so the Them stream's
     /// sample clock (and so its line times) keeps step with the meeting.
     private var nextExpected: TimeInterval?
-    /// Silence is filled in 0.1 s pieces.
     private static let silenceFrames = AVAudioFrameCount(AudioFormat.sampleRate / 10)
     private static let silence: AVAudioPCMBuffer = {
         let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: silenceFrames)!
@@ -94,7 +91,6 @@ final class SystemAudioTap {
     /// Replays earlier events, as Capture.attachChunks does.
     func attachChunks(_ handler: @escaping (Chunker.Event) -> Void) { queue.sync { chunker.attach(handler) } }
 
-    /// Process objects for `target` among the current clients.
     /// Process objects to name in the description: the app's processes to include, or Murmur's to exclude.
     static func processIDs(_ target: TapTarget, clients: [AudioProcessList.Client]) -> [AudioObjectID] {
         switch target {
@@ -163,7 +159,6 @@ final class SystemAudioTap {
         } catch { stop(); throw error }
     }
 
-    /// Runs on `queue` (the IO proc's queue): convert, meter, chunk.
     private func receive(_ list: UnsafePointer<AudioBufferList>) {
         guard let inputFormat, let converter,
               let buffer = AVAudioPCMBuffer(pcmFormat: inputFormat, bufferListNoCopy: list, deallocator: nil), buffer.frameLength > 0,
@@ -201,7 +196,6 @@ final class SystemAudioTap {
         return status == noErr
     }
 
-    /// Stops the device and destroys the aggregate and the tap; the last chunk is cut and sent.
     func stop() {
         if aggregateID != kAudioObjectUnknown {
             if let procID { AudioDeviceStop(aggregateID, procID); AudioDeviceDestroyIOProcID(aggregateID, procID) }
@@ -214,11 +208,10 @@ final class SystemAudioTap {
 }
 
 /// Turns one stream's chunk events into pump jobs. Each chunk is renamed `<stream>-<start ms>.wav`
-/// in the meeting's folder, so whatever a crash leaves can be finished later (PRD 11.5).
+/// in the meeting's folder, so whatever a crash leaves can be finished later.
 final class MeetingStreamFeed {
     let stream: MeetingStream
     private let folder: URL
-    /// Seconds between the meeting's start and this stream's start.
     private let offset: Double
     private var next = 0.0
     private let enqueue: (MeetingPump.Job) -> Void
@@ -251,7 +244,6 @@ final class MeetingStreamFeed {
         }
     }
 
-    /// Length in seconds and peak sample of a chunk file.
     static func measure(_ url: URL) -> (Double, Float) {
         guard let file = try? AVAudioFile(forReading: url), file.fileFormat.sampleRate > 0,
               let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)),

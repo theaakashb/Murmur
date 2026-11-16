@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-// The meeting-detection offer (PRD 11.7) in its own floating panel at the bubble's spot. It has its own
+// The meeting-detection offer in its own floating panel at the bubble's spot. It has its own
 // panel because the dictation bubble hides itself on every status change. The panel never becomes key,
 // so clicking it leaves the user's app (and its cursor) in front.
 
@@ -36,7 +36,6 @@ import SwiftUI
         }
         guard now - lastPoll >= 1 else { return }
         lastPoll = now
-        // With the switch off nothing is read at all.
         guard enabled else { return }
         let inputs = AudioProcessList.all().filter(\.input).map(\.bundleID)
         let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
@@ -60,7 +59,6 @@ import SwiftUI
 
     func hide() { offer = nil; panel.orderOut(nil) }
 
-    /// Starts the normal meeting flow (standalone consent the first time) with this app as the source.
     func takeNotes() {
         guard let offer else { return }
         hide(); controller?.startMeeting(offer.source)
@@ -72,7 +70,6 @@ import SwiftUI
     func removeNever(_ bundleID: String) {
         CallDetectionSettings.removeNever(bundleID, .standard); never = CallDetectionSettings.never(.standard)
     }
-    /// The Never list's display name for a bundle ID.
     static func name(_ bundleID: String) -> String { CallDetector.app(for: bundleID)?.name ?? bundleID }
 }
 

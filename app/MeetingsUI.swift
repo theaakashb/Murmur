@@ -1,10 +1,10 @@
 import AppKit
 import SwiftUI
 
-// Meeting notes UI (PRD 11.9): the Meetings page in Murmur's window, the one-time consent sheet,
-// and the live panel that stays on screen for the whole recording (PRD 11.3).
+// Meeting notes UI: the Meetings page in Murmur's window, the one-time consent sheet,
+// and the live panel that stays on screen for the whole recording.
 
-/// The Start menu (Q1): running call apps first, then All apps, then the microphone alone.
+/// The Start menu: running call apps first, then All apps, then the microphone alone.
 struct MeetingStartMenu: View {
     @ObservedObject var controller: AppController
     var title = "Start Meeting Notes"
@@ -42,12 +42,10 @@ struct MeetingsPage: View {
     @State private var selecting = false
     @State private var deletionIDs: Set<String> = []
     @State private var tab = MeetingsPage.initialTab
-    /// The speaker being renamed (W7d) and the name typed so far.
     @State private var renaming: Int?
     @State private var nameDraft = ""
     /// The UI fixture opens other tabs (check_ui.swift --transcript).
     static var initialTab = DetailTab.notes
-    /// A cited line to scroll to and highlight on the Transcript tab.
     @State private var jump: Int?
 
     enum DetailTab: String, CaseIterable { case notes = "Notes", lecture = "Lecture notes", transcript = "Transcript", mine = "My notes" }
@@ -373,16 +371,14 @@ struct MeetingsPage: View {
     private func notesBusy(_ meeting: Meeting) -> Bool {
         recorder.notesWriting.contains(meeting.id) || recorder.finishing.contains(meeting.id) || meeting.speakers?.state == .pending
     }
-    /// The notes route is unset or None.
 
-    /// Notes, with each item's cited lines as links into the transcript (PRD 11.6, 11.9).
     @ViewBuilder private func notesTab(_ meeting: Meeting) -> some View {
         let route = controller.meetingNotesRoute
         let separating = meeting.speakers?.state == .pending
         if recorder.notesWriting.contains(meeting.id) {
             lede("Writing notes…", color: Palette.accentInk)
         } else if separating {
-            // Notes wait for speaker names (W7d): "Separating speakers…" first, then "Writing notes…".
+            // Notes wait for speaker names: "Separating speakers…" first, then "Writing notes…".
             lede(recorder.separating.contains(meeting.id) ? "Separating speakers… Notes are written after that, with their names." : "Notes are written once speakers are separated. Skip separation to write them now.", color: Palette.accentInk)
         } else if let problem = recorder.notesProblem[meeting.id] {
             HStack(alignment: .firstTextBaseline) {
@@ -453,7 +449,7 @@ struct MeetingsPage: View {
         if controller.notesRouteOff { lede("Choose a notes provider in Settings → Meetings first.") }
     }
 
-    /// Speaker separation (W7d, PRD 11.8 and 11.9): progress with Skip, then each speaker with
+    /// Speaker separation progress with Skip, then each speaker with
     /// Rename and Merge. Names and merges belong to this meeting only.
     @ViewBuilder private func speakers(_ meeting: Meeting) -> some View {
         if let status = SpeakerFacts.status(meeting.speakers, running: recorder.separating.contains(meeting.id), room: meeting.source.micOnly) {
@@ -518,11 +514,9 @@ struct MeetingsPage: View {
 extension AppController {
     /// Saves the notes route and lets the recorder act on it (a meeting waiting for the choice); keep the two together.
     func chooseNotesRoute(_ route: MeetingNotesRoute) { meetingNotesRoute = route; meetingRecorder.notesRouteChosen(route) }
-    /// True while no notes provider is chosen (never asked, or None).
     var notesRouteOff: Bool { meetingNotesRoute == nil || meetingNotesRoute == MeetingNotesRoute.none }
 }
 
-/// The notes route options with the selected route's disclosure (Settings, and the first-Stop question).
 struct MeetingNotesRoutePicker: View {
     @ObservedObject var controller: AppController
     var tooltipDetails = false
@@ -541,7 +535,7 @@ struct MeetingNotesRoutePicker: View {
     }
 }
 
-/// Asked once, at the first Stop, with None preselected (Q3).
+/// Asked once, at the first Stop, with None preselected.
 struct MeetingNotesChoiceSheet: View {
     @ObservedObject var controller: AppController
     let done: (MeetingNotesRoute) -> Void
@@ -585,7 +579,7 @@ struct MeetingNotesChoiceSheet: View {
 struct MeetingLineRow: View {
     let line: MeetingLine
     var showEcho = false
-    /// "Speaker 2" or a given name once speakers are separated (W7d); the stream's label otherwise.
+    /// "Speaker 2" or a given name once speakers are separated; the stream's label otherwise.
     var label: String? = nil
     /// Set on Them lines after separation: moves this line to another (or a new) speaker.
     var moveTo: ((Int) -> Void)? = nil
@@ -617,7 +611,6 @@ struct MeetingLineRow: View {
     }
 }
 
-/// The one-time acknowledgement (PRD 11.3, Q8).
 struct MeetingConsentSheet: View {
     let source: MeetingSource
     let done: (Bool) -> Void
@@ -637,9 +630,7 @@ struct MeetingConsentSheet: View {
     }
 }
 
-// MARK: - Live panel
-
-/// The panel shown for the whole recording. It cannot be closed, only collapsed (PRD 11.3).
+/// The panel shown for the whole recording. It cannot be closed, only collapsed.
 struct MeetingLiveView: View {
     @ObservedObject var recorder: MeetingRecorder
     @Binding var collapsed: Bool
@@ -655,7 +646,6 @@ struct MeetingLiveView: View {
 
     private var dot: some View { Circle().fill(Color.red).frame(width: 10, height: 10).accessibilityHidden(true) }
 
-    /// Click the compact indicator to expand; drag it to move. Stop stays in the full panel.
     private var pill: some View {
         Button { collapsed = false } label: {
             HStack(spacing: 8) { dot; monoLabel(MeetingExport.clock(recorder.elapsed), size: 12) }
@@ -768,12 +758,11 @@ final class MeetingDragView: NSView {
     }
 }
 
-/// The live panel's two sizes: expanded, and minimized to a pill.
 private let livePanelSize = NSSize(width: 340, height: 520), livePillSize = NSSize(width: 120, height: 40)
 
 /// Shows the live panel while a meeting records: top right of the main screen at first, then where
 /// the user drags it. Minimized or not, and where, are remembered across meetings. It cannot be
-/// closed while recording (PRD 11.3, R6).
+/// closed while recording.
 @MainActor final class MeetingPanelPresenter {
     private var panel: FloatingPanel?
     private let recorder: MeetingRecorder
@@ -781,7 +770,6 @@ private let livePanelSize = NSSize(width: 340, height: 520), livePillSize = NSSi
     private var moved: NSObjectProtocol?
 
     init(recorder: MeetingRecorder) { self.recorder = recorder }
-    /// The panel's content, for the UI fixture's snapshot.
     var view: NSView? { panel?.contentView }
 
     func update() {
@@ -847,7 +835,6 @@ private struct FlowRow: View {
     }
 }
 
-/// Settings → Meetings → speaker separation (W7d): the switch, then its optional download while on.
 struct SpeakerSettingsSection: View {
     @ObservedObject var settings: SpeakerModelSettings
     var body: some View {

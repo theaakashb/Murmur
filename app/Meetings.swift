@@ -1,6 +1,6 @@
 import Foundation
 
-// Meeting notes, milestone W7a (PRD section 11): the record, echo suppression, the transcription
+// Meeting notes: the record, echo suppression, the transcription
 // route and shared pump, stream health, limits and consent. Foundation only, so check_meetings.swift
 // builds without audio frameworks. The store is in MeetingStore.swift, export in MeetingExport.swift,
 // the call-app catalog and the stream and source types in CallApps.swift, capture in MeetingCapture.swift.
@@ -13,19 +13,16 @@ struct MeetingLine: Codable, Equatable, Identifiable {
     let end: Double
     /// As transcribed, with the dictionary applied. Never changed by echo suppression.
     let text: String
-    /// Me lines only: the text with words that repeat the other side removed (PRD 11.2), or nil
+    /// Me lines only: the text with words that repeat the other side removed, or nil
     /// when nothing was removed. An empty string means the whole line is hidden.
     var shown: String? = nil
-    /// True when the meeting's cloud route failed for this chunk and this Mac transcribed it.
     var localFallback: Bool? = nil
-    /// Them lines after speaker separation (W7d, PRD 11.8): the speaker's number in this meeting.
     var speaker: Int? = nil
     /// Them lines while speaker separation is pending: [start, end] of each word in `text`, in
     /// seconds from `start`, so the line can be split where the voice changes. Dropped once used.
     var words: [[Double]]? = nil
 
     var isHidden: Bool { shown == "" }
-    /// What the transcript, exports and (later) notes use.
     var visibleText: String { shown ?? text }
 }
 
@@ -36,7 +33,6 @@ struct Meeting: Codable, Identifiable, Equatable {
     var seconds: Double = 0
     var source: MeetingSource
     var lines: [MeetingLine] = []
-    /// What the user typed in the live view's My notes field.
     var myNotes = ""
     /// Seconds where a stream stopped or restarted, marked in the transcript.
     var gaps: [Double] = []
@@ -44,14 +40,13 @@ struct Meeting: Codable, Identifiable, Equatable {
     var finished = false
     /// The cloud transcriber's name when the meeting used the cloud route; nil means this Mac.
     var transcribedBy: String? = nil
-    /// Written after Stop by the notes route (W7b, PRD 11.6). Optional, so W7a records still decode.
+    /// Written after Stop by the notes route. Optional, so records still decode.
     var notes: MeetingNotes? = nil
     /// Reuses the cited-item schema under other section names (`NoteSections.titles(lecture:)`).
     var lectureNotes: MeetingNotes? = nil
-    /// Speaker separation (W7d): nil when it was off for this meeting.
+    /// Speaker separation: nil when it was off for this meeting.
     var speakers: SpeakerSeparation? = nil
 
-    /// The notes' title once they have one, otherwise the source and date.
     var title: String { notes?.title ?? defaultTitle }
     var defaultTitle: String {
         let date = DateFormatter.localizedString(from: recordedAt, dateStyle: .medium, timeStyle: .short)
@@ -90,7 +85,6 @@ struct Meeting: Codable, Identifiable, Equatable {
         if meetingNotes { notes?.outdated = true }
     }
 
-    /// Inserts a transcribed line in capture-time order and re-runs echo suppression near it.
     mutating func insert(stream: MeetingStream, start: Double, end: Double, text: String, localFallback: Bool = false, words: [[Double]]? = nil) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -104,14 +98,12 @@ struct Meeting: Codable, Identifiable, Equatable {
     }
 }
 
-// MARK: - Echo suppression
-
 /// Acoustic echo, not vocabulary filtering: with speakers, the microphone also hears the other side,
 /// so their words appear in Me too. A run of at least `minimumRun` Me words that repeats a run in a
 /// nearby Them line is hidden from Me. Them is never changed, nothing is deleted, and "Show hidden
 /// echo" brings it back. This lives only in the meeting layer, never in transcription or providers.
 enum MeetingEcho {
-    /// ponytail: exact word runs over chunk-level timing; measure on real speaker calls (PRD 11.10) before tuning.
+    /// ponytail: exact word runs over chunk-level timing; measure on real speaker calls before tuning.
     static let minimumRun = 3
     /// Seconds of slack around a Me line when looking for Them lines; chunks are about 15 s long.
     static let window = 3.0
@@ -139,7 +131,6 @@ enum MeetingEcho {
         return zip(original, hidden).filter { !$0.1 }.map { String($0.0) }.joined(separator: " ")
     }
 
-    /// Recomputes `shown` for Me lines that start between `from` and `to`.
     static func apply(_ lines: inout [MeetingLine], near from: Double, to: Double) {
         for i in lines.indices where lines[i].stream == .me && lines[i].start >= from && lines[i].start <= to {
             let me = lines[i]
@@ -149,21 +140,16 @@ enum MeetingEcho {
     }
 }
 
-// MARK: - Transcription route (decision of October 15, 2026, amending Q2)
-
-/// Settings → Meetings: where meeting audio is transcribed, separate from dictation's route.
 enum MeetingTranscription: String, Codable, CaseIterable {
     case local, cloud
     static let key = "meetingTranscription"
-    /// On this Mac unless the user chose Cloud.
     static func load(_ defaults: UserDefaults) -> MeetingTranscription { MeetingTranscription(rawValue: defaults.string(forKey: key) ?? "") ?? .local }
 }
 
-/// One chunk's transcript; `localFallback` marks a chunk this Mac transcribed after the cloud failed.
 struct ChunkText: Equatable {
     let text: String
     var localFallback = false
-    /// Word times for a Them chunk while speaker separation is pending (W7d); nil otherwise.
+    /// Word times for a Them chunk while speaker separation is pending; nil otherwise.
     var words: [[Double]]? = nil
 }
 
@@ -203,10 +189,8 @@ enum MeetingRoute {
     }
 }
 
-// MARK: - Transcription pump
-
 /// One queue for both streams' chunks. Only one chunk is with the warm helper at a time, so a
-/// dictation waits for at most one chunk (PRD 11.4); chunks go in the order they were recorded.
+/// dictation waits for at most one chunk; chunks go in the order they were recorded.
 /// A chunk that fails twice is left on disk for "Finish transcript"; nothing is dropped.
 final class MeetingPump: @unchecked Sendable {
     struct Job: Equatable { let stream: MeetingStream; let url: URL; let start: Double; let duration: Double; var attempts = 0 }
@@ -228,7 +212,6 @@ final class MeetingPump: @unchecked Sendable {
         }
         pump()
     }
-    /// Seconds of audio waiting, including the chunk in flight.
     var backlog: Double { lock.withLock { queued.reduce(inFlight?.duration ?? 0) { $0 + $1.duration } } }
     var isIdle: Bool { lock.withLock { queued.isEmpty && inFlight == nil } }
     /// Drops the queue (files stay for recovery) and ignores answers still in flight.
@@ -254,10 +237,8 @@ final class MeetingPump: @unchecked Sendable {
     }
 }
 
-// MARK: - Stream health
-
 /// Watches one stream's delivered audio (a frame or buffer count) and decides when it has stalled
-/// and must be rebuilt (PRD 11.2). A call app turning on voice processing, or a headset switching to
+/// and must be rebuilt. A call app turning on voice processing, or a headset switching to
 /// its call mode, can stop a microphone engine or a tap's aggregate device without an error; the
 /// first FaceTime test lost both streams that way. A stall is reported once (one gap), then the
 /// stream is rebuilt every `rebuildEvery` seconds until audio flows again.
@@ -291,7 +272,7 @@ struct StreamWatch {
     mutating func rebuilt(now: TimeInterval) { lastCount = 0; lastRebuild = now }
 }
 
-/// The live meters (PRD 11.9): call audio from a tap is often much quieter than the microphone, so
+/// The live meters: call audio from a tap is often much quieter than the microphone, so
 /// each meter is scaled to its own recent loudness, with a floor so silence and hiss stay low. The
 /// square root lifts quiet speech, as the dictation bubble does.
 struct MeterScale {
@@ -306,9 +287,6 @@ struct MeterScale {
     }
 }
 
-// MARK: - Limits
-
-/// The 3-hour cap and the silence rules (PRD 11.3 and 11.4, Q7).
 enum MeetingLimits {
     /// How often the controller's timer calls `MeetingRecorder.tick()` (and the call-offer tick). `MeterScale.decay`
     /// is tuned to it; the 1 s and 2 s throttles in `tick()` count real seconds, so they are not.
@@ -317,7 +295,6 @@ enum MeetingLimits {
     static let warning: TimeInterval = cap - 10 * 60
     static let askEnded: TimeInterval = 5 * 60
     static let stopSilent: TimeInterval = 10 * 60
-    /// Above this much queued audio (2 minutes), the live view says the transcript is behind.
     static let behind: TimeInterval = 2 * 60
     /// The numbers the user sees in "stopped at the 3-hour limit" and "after 10 minutes of silence".
     static let capHours = Int(cap / 3600)
@@ -334,8 +311,6 @@ enum MeetingLimits {
         return .none
     }
 }
-
-// MARK: - Consent (PRD 11.3, Q8)
 
 enum MeetingConsent {
     /// Raise when the sheet's text changes, so it is shown again.

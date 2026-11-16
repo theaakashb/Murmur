@@ -32,7 +32,6 @@ extension SettingsView {
         }
     }
 
-    /// A snippet needs both a cue and some text.
     private func snippetIsIncomplete(cue: String, text: String) -> Bool { cue.isBlank() || text.isBlank(multiline: true) }
 
     private var snippetDraftIsEmpty: Bool { snippetIsIncomplete(cue: newCue, text: newSnippetText) }

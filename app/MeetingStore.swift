@@ -2,8 +2,6 @@ import Foundation
 
 // Meeting persistence: the store, its place under the History cap, and chunk-audio recovery.
 
-// MARK: - Store
-
 /// One JSON file per meeting in `history/meetings/`, owner-only, written atomically. Inside the
 /// History folder, so Delete All Data removes it with History.
 struct MeetingStore {
@@ -96,8 +94,6 @@ enum MeetingCap {
     }
 }
 
-// MARK: - Chunk audio and recovery
-
 /// Chunk audio waiting for transcription, in `retry-audio/meetings/<meeting id>/`, named
 /// `<stream>-<start ms>.wav`. A chunk is deleted once its line is saved. What a crash or a failed
 /// transcription leaves is retry audio: offered as "Finish transcript", gone after 24 hours.
@@ -110,7 +106,6 @@ enum MeetingAudio {
         guard parts.count == 2, let stream = MeetingStream(rawValue: String(parts[0])), let ms = Int(parts[1]), ms >= 0 else { return nil }
         return (stream, Double(ms) / 1000)
     }
-    /// Leftover chunks of one meeting, oldest first.
     static func leftovers(_ root: URL, meeting id: String) -> [URL] {
         let urls = (try? FileManager.default.contentsOfDirectory(at: folder(root, meeting: id), includingPropertiesForKeys: nil)) ?? []
         return urls.filter { parse($0) != nil }.sorted { parse($0)!.start < parse($1)!.start }

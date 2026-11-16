@@ -5,7 +5,6 @@ import Foundation
 
 enum MeetingStream: String, Codable {
     case me, them
-    /// The speaker words in transcripts, exports and the notes prompt's grounding.
     var label: String { self == .me ? "Me" : "Them" }
     static let roomLabel = "Room"
 }
@@ -27,11 +26,9 @@ struct MeetingSource: Codable, Equatable {
     static let microphoneOnlyMenuTitle = microphoneOnly.name
 }
 
-// MARK: - Call apps
-
-/// Known call apps and browsers (PRD 11.2 and 11.7). Used for the Start menu and to resolve which
+/// Known call apps and browsers. Used for the Start menu and to resolve which
 /// processes play the call's audio. ponytail: bundle IDs and helper IDs are the best known values;
-/// list each app's audio processes on the test Mac (PRD 11.10) and correct them there.
+/// list each app's audio processes on the test Mac and correct them there.
 struct CallApp: Equatable {
     let bundleID: String
     let name: String
@@ -42,7 +39,6 @@ struct CallApp: Equatable {
     /// the same app).
     var inStartMenu = true
 
-    /// How much of a bundle ID a match covers.
     enum Scope { case exact, orChildren, childrenOnly }
 
     /// The one bundle-ID rule: is `id` the same ID as `base`, or (by scope) an ID under it
@@ -58,7 +54,6 @@ struct CallApp: Equatable {
         }
     }
 
-    /// Whether a process belongs to this app: its own ID, an ID under it (`.helper`), or a known helper.
     func matches(_ id: String) -> Bool {
         Self.isBundle(id, of: bundleID) || helpers.contains { Self.isBundle(id, of: $0, scope: .exact) }
     }
@@ -84,7 +79,6 @@ struct CallApp: Equatable {
         CallApp(bundleID: "com.brave.Browser", name: "Brave", isBrowser: true, helpers: []),
         CallApp(bundleID: "org.mozilla.firefox", name: "Firefox", isBrowser: true, helpers: []),
     ]
-    /// The catalog entry for a bundle ID, or a plain app (not a browser, no helpers) for one the catalog does not know.
     static func resolve(_ bundleID: String, name: String = "") -> CallApp { app(bundleID) ?? CallApp(bundleID: bundleID, name: name, isBrowser: false, helpers: []) }
     static func app(_ bundleID: String) -> CallApp? { catalog.first { isBundle(bundleID, of: $0.bundleID, scope: .exact, caseSensitive: true) } }
 
@@ -95,7 +89,6 @@ struct CallApp: Equatable {
         for id in running where matches(id) && !ids.contains(where: { Self.isBundle(id, of: $0, scope: .exact) }) { ids.append(id) }
         return ids
     }
-    /// Murmur and its helpers, excluded from an "All apps" tap.
     static func ownBundleIDs(main: String?, running: [String]) -> [String] {
         guard let main else { return [] }
         return [main] + running.filter { isBundle($0, of: main, scope: .childrenOnly, caseSensitive: true) }
