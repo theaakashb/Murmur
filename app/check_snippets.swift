@@ -41,7 +41,7 @@ private func run(_ raw: String, snippets: [Snippet] = library, keepsCase: (Strin
         }
         check(run("my LinkedIn") == url && run("My email address.") == work, "whole cue gives the snippet text alone")
         // Rule 2: commands anywhere, with or without "here".
-        check(run("Reach me at insert my LinkedIn here if you have questions") == "Reach me at \(url) if you have questions.", "inline command with here")
+        check(run("Reach me at insert my LinkedIn here if you have questions") == "Reach me at \(url) if you have questions.", "inline command with here: mid-sentence segment keeps lower case, no period before the command")
         check(run("Reach me at paste my email if you like") == "Reach me at \(email) if you like.", "paste, no here")
         check(run("INSERT MY LINKEDIN HERE") == url, "case ignored")
         check(run("insert my LinkedIn, here") == url && run("insert, my LinkedIn here") == url, "punctuation inside the command")
@@ -66,7 +66,6 @@ private func run(_ raw: String, snippets: [Snippet] = library, keepsCase: (Strin
     }
 
     static func joining() {
-        check(run("Reach me at insert my LinkedIn here if you have questions") == "Reach me at \(url) if you have questions.", "mid-sentence segment keeps lower case, no period before the command")
         check(run("Insert my email here and call me") == "\(email) and call me.", "starts with a command")
         check(run("Write to me at paste my email") == "Write to me at \(email)", "ends with a command, no period added")
         check(run("Here is my page insert my LinkedIn here. Thanks for reading") == "Here is my page \(url). Thanks for reading.", "capital kept after a sentence end")

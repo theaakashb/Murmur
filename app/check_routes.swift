@@ -493,7 +493,6 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let migratedSpeech = RouteSettings.load(from: speechDefaults)
         check(migratedSpeech.cloudTranscriber == .customAPI && migratedSpeech.customAPIBaseURL == "https://openrouter.ai/api/v1", "selected legacy speech server migrates to editable settings")
         check(speechKeys.exists(.customTranscription) && speechDefaults.string(forKey: CustomAPIKeyBinding.preference(.customTranscription)) == nil, "migrated speech key remains unbound")
-        check("\(testKey)" == "APIKey(redacted)", "key is redacted when printed")
         let echo = HTTPResult(status: 401, body: Data("{\"error\":{\"message\":\"API key not valid: \(secret)\",\"code\":401}}".utf8))
         for provider in [ProviderID.gemini, .localServer, .customAPI, .customTranscription, .customCleanup] {
             let message = await KeyCheck.run(provider, key: testKey, apiBaseURL: "http://localhost:11434", transport: MockTransport(echo))

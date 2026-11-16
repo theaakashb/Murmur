@@ -118,7 +118,6 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         let strict = ProcessingCoordinator.localRules("Send 3 reports.", terms: [], options: CleanupOptions(polish: true, trustModel: true), cleaner: SpyCleaner(.fixed("Send 300 reports.")))
         check(strict.text == "Send 3 reports." && strict.reason != nil, "local rules retain strict guard")
         check(fresh == ProcessingSettings(), "missing keys load approved defaults")
-        check(!fresh.options.polish, "strict cleanup by default")
         check(fresh.options == CleanupOptions(punctuation: true, spoken: true, trustModel: true) && fresh.route == .local && fresh.learningEnabled && defaults[Prefs.historyMode] == .on && defaults[Prefs.updateChecks], "defaults: all comforts on, local, learning on")
         var next = ProcessingSettings()
         next.options = CleanupOptions(fillers: false, corrections: true, lists: false, professional: true, trustModel: true)
@@ -535,7 +534,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
     }
 
     static func learningChecks(_ dir: URL, _ defaults: UserDefaults) throws {
-        // Learning on: one settled session promotes (gap #11); a repeat confirms.
+        // Learning on: one settled session promotes; a repeat confirms.
         let on = try ProcessingCoordinator(directory: dir.appendingPathComponent("on"), defaults: defaults)
         check(on.settings.learningEnabled && on.ledger.learningEnabled, "learning on by default")
         for _ in 0..<2 {

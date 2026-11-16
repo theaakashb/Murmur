@@ -165,7 +165,6 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         let presetResult = await p.processAsync("ship friday no monday", style: DictationStyle(mode: preset, settings: p.settings))
         check(presetResult.fallback == .cleanerFailed || presetRec.requests.count == 1, "a rewrite preset never reaches the local model as a rewrite")
         check(presetRec.requests.allSatisfy { $0.text == "ship friday no monday" || !$0.text.contains("email") }, "no preset instructions are sent")
-        // Providers that are not the managed model keep the global trust behaviour: only the local route is forced strict.
         check(ProviderID.localModel.displayName == "Local model", "display name")
 
         // Long input is split at sentence ends and a repair stays with the sentence it repairs.

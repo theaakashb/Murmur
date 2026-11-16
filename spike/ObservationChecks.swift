@@ -50,26 +50,6 @@ extension DictationObservation {
     }
 }
 
-struct CorrectionEvidence {
-    private var sessions: [UUID: TermCorrection] = [:]
-
-    /// Supply final settled evidence only. Updating with nil removes undo/reversion evidence.
-    mutating func update(sessionID: UUID, correction: TermCorrection?) {
-        sessions[sessionID] = correction
-    }
-
-    /// Default denies all candidates. Caller must establish a spelling/known-term relationship;
-    /// capitalization, edit size and repetition alone cannot establish preserved meaning.
-    func promoted(eligible: (TermCorrection) -> Bool = { _ in false }) -> [TermCorrection] {
-        let bySource = Dictionary(grouping: sessions.values, by: \.source)
-        return bySource.values.compactMap { corrections in
-            guard corrections.count >= 2, Set(corrections.map(\.target)).count == 1,
-                  let correction = corrections.first, eligible(correction) else { return nil }
-            return correction
-        }.sorted { $0.source < $1.source }
-    }
-}
-
 func runObservationChecks() {
     func tracker(_ value: String = "🙂 Acme done") -> DictationObservation {
         DictationObservation(value: value, insertedRange: NSRange(location: 3, length: 9), now: 0)!
@@ -81,20 +61,6 @@ func runObservationChecks() {
     assert(observation.range == NSRange(location: 3, length: 9))
     assert(observation.observeCandidate(value: "🙂 Acme done", selection: NSRange(location: 7, length: 0), now: 2,
                                sameFocusedField: true, readableNonsecure: true) == nil)
-    var ledger = CorrectionEvidence()
-    let first = UUID(), second = UUID(), third = UUID()
-    ledger.update(sessionID: first, correction: corrected)
-    assert(ledger.promoted(eligible: { $0 == corrected }).isEmpty)
-    ledger.update(sessionID: first, correction: corrected)
-    assert(ledger.promoted(eligible: { $0 == corrected }).isEmpty)
-    ledger.update(sessionID: second, correction: corrected)
-    assert(ledger.promoted().isEmpty)
-    assert(ledger.promoted(eligible: { $0 == corrected }) == [corrected])
-    ledger.update(sessionID: third, correction: TermCorrection(source: "acme", target: "ackme"))
-    assert(ledger.promoted(eligible: { _ in true }).isEmpty)
-    ledger.update(sessionID: third, correction: nil)
-    ledger.update(sessionID: second, correction: nil)
-    assert(ledger.promoted(eligible: { _ in true }).isEmpty)
     var outside = tracker()
     _ = outside.observeCandidate(value: "x🙂 Acme done", selection: NSRange(location: 7, length: 0), now: 1,
                         sameFocusedField: true, readableNonsecure: true)

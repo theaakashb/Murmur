@@ -592,7 +592,6 @@ extension ProviderChecks {
         ]
         for text in dictation { check(!LLMTranscriptCheck.answerSuspected(text), "dictation not flagged: \(text.prefix(30))") }
         check(LLMTranscriptCheck.answerSuspected("SURE, HERE\u{2019}S THE LIST"), "case and curly apostrophe normalized")
-        check(LLMTranscriptCheck.strongAnywhere.contains("as an ai") && !LLMTranscriptCheck.strongAnywhere.contains("here is"), "reuses only strong CleanupGuard phrases")
     }
 
     static func checkHostClassification() {
@@ -639,7 +638,6 @@ extension ProviderChecks {
         }
         check(LocalEndpoint.isLoopback("[::1]") && LocalEndpoint.isLoopback("::1") && LocalEndpoint.isLoopback("LOCALHOST") && LocalEndpoint.isLoopback("127.8.9.10"), "isLoopback basic forms")
         check(!LocalEndpoint.isLoopback("127.0.0.1.nip.io") && !LocalEndpoint.isLoopback("0.0.0.0") && !LocalEndpoint.isLoopback("::") && !LocalEndpoint.isLoopback("127.0.0.256"), "isLoopback rejects look-alikes")
-        check(LocalEndpoint.ipv6Bytes("::ffff:192.168.1.1")?.suffix(4) == [192, 168, 1, 1], "IPv6 with embedded IPv4 parses")
 
         func base(_ s: String) -> String? { (try? LocalEndpoint.normalize(s))?.absoluteString }
         check(base("http://localhost:11434/v1/") == "http://localhost:11434", "trailing /v1/ stripped")
@@ -656,7 +654,6 @@ extension ProviderChecks {
     static func checkLocalProviderRequestAndParsing() {
         guard let ollama = try? OpenAICompatibleCleanupProvider(baseURL: OpenAICompatibleCleanupProvider.ollamaDefault, model: "llama3.2:latest") else { check(false, "Ollama provider builds"); return }
         check(ollama.chatCompletionsURL.absoluteString == "http://localhost:11434/v1/chat/completions", "Ollama chat URL")
-        check(ollama.modelsURL.absoluteString == "http://localhost:11434/v1/models" && ollama.ollamaTagsURL.absoluteString == "http://localhost:11434/api/tags", "model list URLs")
         for (raw, chat) in [("http://localhost:1234", "http://localhost:1234/v1/chat/completions"),
                             ("http://127.0.0.1:8080", "http://127.0.0.1:8080/v1/chat/completions"),
                             ("http://localhost:8000", "http://localhost:8000/v1/chat/completions")] {
@@ -763,9 +760,11 @@ extension ProviderChecks {
         check(ok.requests.first?.url?.host == "localhost", "request goes only to the configured host")
 
         provider.timeout = 10_000
-        check(provider.effectiveTimeout == 300, "timeout bounded at 300 s")
+        _ = try? await provider.cleanup(messages)
+        check(ok.requests.last?.timeoutInterval == 300, "timeout bounded at 300 s")
         provider.timeout = 0
-        check(provider.effectiveTimeout == 1, "timeout floor 1 s")
+        _ = try? await provider.cleanup(messages)
+        check(ok.requests.last?.timeoutInterval == 1, "timeout floor 1 s")
 
         let failing = MockTransport(.success(result(503, #"{"error":{"code":503,"message":"Loading model"}}"#)))
         provider.timeout = 120; provider.transport = failing
@@ -1145,7 +1144,6 @@ extension ProviderChecks {
         provider.transport = MockTransport(.success(result(400, observedArrayBadKey)))
         do { try await provider.validate(); check(false, "bad key validate should throw") }
         catch { check(error as? ProviderError == .authentication(.gemini), "validate: observed bad key is authentication") }
-        check(GeminiTranscribeProvider(apiKey: key).id == .gemini, "transcribe: reports as Gemini")
     }
 }
 

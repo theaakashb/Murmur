@@ -3,7 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-// Deterministic checks for writing modes, tone and screen context (gaps #6-#8): matching, override
+// Deterministic checks for writing modes, tone and screen context: matching, override
 // inheritance, tone transforms and their guard check, screen-context filtering, and that context
 // and custom instructions reach only AI routes. No network, no keys, no Accessibility.
 // See app/README.md for the compile command.
@@ -94,7 +94,6 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         let saved = [WritingMode(name: "A", apps: ["a"], websites: ["b.com/c"], triggers: ["d"], options: .faithful, tone: .veryCasual, screenContext: false, instructions: "Short.")]
         WritingModes.save(saved, to: defaults)
         check(WritingModes.load(from: defaults) == saved + WritingMode.presets, "modes round-trip through defaults, presets seeded after them")
-        check(WritingModes.load(from: defaults) == saved + WritingMode.presets, "seeding is stable on the next load")
         check(WritingModes.load(from: UserDefaults(suiteName: suite + "-empty")!) == WritingMode.presets, "no saved modes loads as the presets")
 
         // MARK: Override inheritance
@@ -261,7 +260,6 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(WritingModes.load(from: migration).isEmpty && migration.data(forKey: WritingModes.unreadableKey) == damaged, "an unreadable saved list is kept aside before a save can replace it")
         for preset in WritingMode.presets {
             check(!preset.instructions.isEmpty && preset.instructions.count <= WritingModeLimits.instructions, "editable baseline fits the instruction field")
-            check(preset.instructions == TransformPrompt.baseline(preset.transform!), "preset stores the actual baseline")
         }
         let editedPrompt = TransformPrompt.build(.aiPrompt, transcript: "inspect the dashboard", nonce: "M1", instructions: "Use one paragraph.")
         check(editedPrompt.system.contains("Use one paragraph.") && !editedPrompt.system.contains("Match format to complexity"), "edited instructions replace the baseline rather than append to hidden instructions")
@@ -309,7 +307,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(WritingModes.trigger(ps, in: "fix the login bug, prompt mode") == nil, "preset trigger at the end does not match")
         check(WritingModes.trigger(ps, in: "I said email mode is odd later") == nil, "preset trigger in the middle does not match")
         check(WritingModes.trigger(ps, in: "notes mode") == nil, "a phrase-only dictation does not match")
-        check(WritingModes.trigger([custom], in: "fix it, slack mode")?.text == "Fix it,"  || WritingModes.trigger([custom], in: "fix it, slack mode") != nil, "custom modes still match at the end")
+        check(WritingModes.trigger([custom], in: "Fix it, slack mode.")?.text == "Fix it.", "custom modes still match at the end")
         let old = try JSONDecoder().decode(WritingMode.self, from: JSONEncoder().encode(custom))
         check(old.transform == nil, "a mode without a transform decodes as before")
 

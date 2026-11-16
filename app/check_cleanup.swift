@@ -1,7 +1,7 @@
 import Foundation
 
 // Cleanup corpus checks: RuleCleaner accuracy per option set, unintended name/number/negation
-// edits (PRD bar <= 1%), guard false rejects on labeled outputs, and guard rejection of
+// edits (bar <= 1%), guard false rejects on labeled outputs, and guard rejection of
 // synthetic adversarial outputs. Exits non-zero if the bar or any adversarial case fails.
 
 struct CorpusEntry: Decodable {
@@ -472,8 +472,7 @@ struct ThrowingCleaner: Cleaner {
         for opts in [CleanupOptions.standard, polish] {
             let a = CleanupPrompt.build(transcript: "x", options: opts, dictionaryTerms: ["Kubernetes"], nonce: "AAAA").system
             let b = CleanupPrompt.build(transcript: "x", options: opts, dictionaryTerms: ["Kubernetes"], nonce: "BBBB").system
-            let shared = zip(a, b).prefix { $0 == $1 }.count
-            expect(a.count > 500 && shared == a.count && a == b, "system prompt carries no nonce")
+            expect(a.count > 500 && a == b, "system prompt carries no nonce")
         }
         for (raw, out, label) in [
             ("Meet at 5 today. Meet at the office later this afternoon.", "Meet at the office later this afternoon.", "number in the restart"),

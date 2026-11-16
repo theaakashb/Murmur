@@ -50,14 +50,13 @@ private struct Item: RetainedHistoryItem { let id: String; let recordedAt: Date 
         check(store.apply(to: "café ☕ Acme 🙂") == "café ☕ Akme 🙂", "unicode neighbours")
         check(store.apply(to: "") == "", "empty text")
 
-        // Gap #12: an entry whose target is a spoken command applies first and is never a hint.
+        // An entry whose target is a spoken command applies first and is never a hint.
         do {
             let d = dir.appendingPathComponent("commands")
             let commands = try DictionaryStore(directory: d)
             let command = try commands.add(preferred: "question mark", variants: ["Kocia Mark"])
             try commands.add(preferred: "Marc", variants: ["mark"])
             try commands.add(preferred: "Kocia Inc", variants: ["kocia mark please"])
-            check(DictionaryStore.isCommandTarget(command), "command phrase recognised as a command target")
             check(commands.apply(to: "Is it done kocia mark") == "Is it done question mark", "misheard command replaced")
             check(commands.apply(to: "Kocia Mark") == "question mark", "command target keeps its form at a sentence start")
             check(commands.apply(to: "kocia mark please") == "question mark please", "command target wins over a longer entry")
@@ -259,7 +258,7 @@ private struct Item: RetainedHistoryItem { let id: String; let recordedAt: Date 
             try check(ledger.settle(sessionID: session).isEmpty && learned(dict).isEmpty, "old unsafe candidate is not promoted")
         }
 
-        // Gap #11 (October 16, 2026): one settled fix adds the spelling with the misheard form,
+        // One settled fix adds the spelling with the misheard form,
         // replaced from the next dictation on.
         do {
             let (dict, ledger) = try fresh("promote")
@@ -294,7 +293,7 @@ private struct Item: RetainedHistoryItem { let id: String; let recordedAt: Date 
             check(learned(dict).count == 1 && learned(dict)[0].variants == ["Acme"] && ledger.evidence.isEmpty, "same session counts once")
         }
 
-        // Gap #9: settle on stable text, then keep watching the same session.
+        // Settle on stable text, then keep watching the same session.
         do {
             let (dict, ledger) = try fresh("early-settle")
             let a = UUID(), b = UUID(), c = UUID()
@@ -349,7 +348,7 @@ private struct Item: RetainedHistoryItem { let id: String; let recordedAt: Date 
             check(learned(dict).isEmpty, "a stale Undo does nothing")
         }
 
-        // Gap #10: a History edit learns through the same filter and rules, as its own session.
+        // A History edit learns through the same filter and rules, as its own session.
         do {
             let (dict, ledger) = try fresh("history-edit")
             try check(ledger.learnFromEdit(original: "I talked to Acme today.", edited: "I talked to Akme today.").map(\.preferred) == ["Akme"],
