@@ -741,14 +741,7 @@ struct SettingsView: View {
             HStack(spacing: 12) {
                 Text("Dictation shortcut").font(.system(size: 13))
                 Spacer()
-                Picker("Dictation shortcut", selection: $controller.shortcut) {
-                    Text("Right Option").tag("right-option")
-                    Text("Fn / Globe").tag("fn")
-                    Text("Control–Option–Space").tag("ctrl-option-space")
-                    if !["right-option", "fn", "ctrl-option-space"].contains(controller.shortcut) {
-                        Text("Custom shortcut").tag(controller.shortcut)
-                    }
-                }.labelsHidden().frame(maxWidth: 190)
+                ShortcutPresetPicker(controller: controller)
             }.padding(.vertical, 12)
             ShortcutRecorder(controller: controller).padding(.bottom, 12)
             toggleRow("Press once to start, again to stop", "Holding still works: release to stop. Off means hold to record.", isOn: $controller.pressToToggle)
@@ -1696,6 +1689,14 @@ struct SettingsView: View {
     private var tryIt: some View {
         VStack(alignment: .leading, spacing: 0) {
             if !setupComplete { help("Finish the earlier steps first; dictation needs all of them.", color: Palette.ink).padding(.bottom, 12) }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    Text("Your shortcut").font(WindowType.body(14, weight: .medium))
+                    ShortcutPresetPicker(controller: controller)
+                }
+                ShortcutRecorder(controller: controller)
+            }
+            .disabled(controller.isBusy).padding(.bottom, 16)
             HStack(spacing: 10) {
                 let recording = controller.phase == "Listening"
                 Button(recording ? "Stop and Transcribe" : "Start Dictating") { controller.toggleSetupDictation() }
@@ -1716,6 +1717,7 @@ struct SettingsView: View {
                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Palette.ink20, lineWidth: 1))
                 .accessibilityLabel("Test dictation")
         }
+        .onChange(of: controller.shortcut) { controller.settingsChanged() }
         .onAppear { controller.setupShowing = true }
         .onDisappear { controller.setupShowing = false }
     }
@@ -2175,6 +2177,20 @@ struct SettingInfoButton: View {
 
 /// Records a custom shortcut (gap #14). While it waits, the global tap is off so the current
 /// shortcut can't start a dictation or be swallowed. Escape stops waiting; a refused key says why.
+private struct ShortcutPresetPicker: View {
+    @ObservedObject var controller: AppController
+    var body: some View {
+        Picker("Dictation shortcut", selection: $controller.shortcut) {
+            Text("Right Option").tag("right-option")
+            Text("Fn / Globe").tag("fn")
+            Text("Control–Option–Space").tag("ctrl-option-space")
+            if !["right-option", "fn", "ctrl-option-space"].contains(controller.shortcut) {
+                Text("Custom shortcut").tag(controller.shortcut)
+            }
+        }.labelsHidden().frame(maxWidth: 190)
+    }
+}
+
 private struct ShortcutRecorder: View {
     @ObservedObject var controller: AppController
     @State private var monitor: Any?
