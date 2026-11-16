@@ -149,7 +149,7 @@ struct HistoryStore {
         self.directory = directory
         if FileManager.default.fileExists(atPath: directory.path) {
             let attrs = try FileManager.default.attributesOfItem(atPath: directory.path)
-            guard attrs[.type] as? FileAttributeType == .typeDirectory else { throw CaptureError("History requires a real directory") }
+            guard attrs[.type] as? FileAttributeType == .typeDirectory else { throw RetentionError("History requires a real directory") }
         } else {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         }
@@ -159,9 +159,9 @@ struct HistoryStore {
     /// Writers and cleanup share a directory lock across processes, so cleanup cannot unlink a live save.
     private func locked<T>(_ operation: () throws -> T) throws -> T {
         let descriptor = open(directory.path, O_RDONLY | O_NOFOLLOW)
-        guard descriptor >= 0 else { throw CaptureError("Cannot open history directory") }
+        guard descriptor >= 0 else { throw RetentionError("Cannot open history directory") }
         defer { close(descriptor) }
-        guard flock(descriptor, LOCK_EX) == 0 else { throw CaptureError("Cannot lock history directory") }
+        guard flock(descriptor, LOCK_EX) == 0 else { throw RetentionError("Cannot lock history directory") }
         defer { flock(descriptor, LOCK_UN) }
         return try operation()
     }
@@ -178,20 +178,20 @@ struct HistoryStore {
         try locked { try saveLocked(entry) }
     }
     private func saveLocked(_ entry: HistoryEntry) throws {
-        guard UUID(uuidString: entry.id) != nil else { throw CaptureError("Invalid history identifier") }
+        guard UUID(uuidString: entry.id) != nil else { throw RetentionError("Invalid history identifier") }
         let target = directory.appendingPathComponent(entry.id + ".json")
         let temporary = directory.appendingPathComponent(".pending-" + UUID().uuidString)
         let descriptor = open(temporary.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
-        guard descriptor >= 0 else { throw CaptureError("Cannot create private history") }
+        guard descriptor >= 0 else { throw RetentionError("Cannot create private history") }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
         defer { try? handle.close(); try? FileManager.default.removeItem(at: temporary) }
         try handle.write(contentsOf: JSONEncoder().encode(entry))
         try handle.synchronize()
-        guard rename(temporary.path, target.path) == 0 else { throw CaptureError("Cannot commit history") }
+        guard rename(temporary.path, target.path) == 0 else { throw RetentionError("Cannot commit history") }
         let folder = open(directory.path, O_RDONLY)
-        guard folder >= 0 else { throw CaptureError("Cannot flush history directory") }
+        guard folder >= 0 else { throw RetentionError("Cannot flush history directory") }
         defer { close(folder) }
-        guard fsync(folder) == 0 else { throw CaptureError("Cannot flush history directory") }
+        guard fsync(folder) == 0 else { throw RetentionError("Cannot flush history directory") }
     }
     func entries() throws -> [HistoryEntry] {
         try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isSymbolicLinkKey])
@@ -200,14 +200,14 @@ struct HistoryStore {
                 let entry = try JSONDecoder().decode(HistoryEntry.self, from: Data(contentsOf: file))
                 guard UUID(uuidString: entry.id) != nil,
                       file.lastPathComponent == entry.id + ".json" else {
-                    throw CaptureError("History identifier does not match its file")
+                    throw RetentionError("History identifier does not match its file")
                 }
                 return entry
             }
             .sorted { $0.recordedAt > $1.recordedAt }
     }
     func delete(_ entry: HistoryEntry) throws {
-        guard UUID(uuidString: entry.id) != nil else { throw CaptureError("Invalid history identifier") }
+        guard UUID(uuidString: entry.id) != nil else { throw RetentionError("Invalid history identifier") }
         try FileManager.default.removeItem(at: directory.appendingPathComponent(entry.id + ".json"))
     }
     func expired(retention: String, now: Date = Date(), calendar: Calendar = .current) throws -> [HistoryEntry] {
@@ -216,7 +216,7 @@ struct HistoryStore {
     }
     /// Nil for forever.
     static func cutoff(retention: String, now: Date = Date(), calendar: Calendar = .current) throws -> Date? {
-        guard let policy = HistoryRetention(rawValue: retention) else { throw CaptureError("Invalid history retention policy") }
+        guard let policy = HistoryRetention(rawValue: retention) else { throw RetentionError("Invalid history retention policy") }
         return policy.cutoff(now: now, calendar: calendar)
     }
     /// Files moved aside by `quarantineUnreadable`. Inside the history folder, so Delete All Data removes them.

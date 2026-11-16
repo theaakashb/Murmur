@@ -222,9 +222,10 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         try p.dictionary.add(preferred: "Postgres", variants: [])
         var settings = p.settings; settings.options = .faithful
         try p.update(settings, persist: false)
+        let bare = try DictionaryStore(directory: p.dictionary.directory)  // same entries, no lexicon
         for raw in ["Send the shelfmate report to Akash and Spassyboy.", "Send the Shelfmed report to Akash and Spasiboy.", "Send the Shelfmet report to Akash and spacey boy."] {
             check((p.process(raw)).outcome == .insert("Send the Shelfmate report to Aakash and spaceyboi."), "Faithful repairs measured single-word ASR misspellings: \(raw)")
-            check(p.dictionary.apply(to: raw) == raw.replacingOccurrences(of: "Akash", with: "Aakash").replacingOccurrences(of: "spacey boy", with: "spaceyboi"), "without a lexicon only explicit variants apply")
+            check(bare.apply(to: raw) == raw.replacingOccurrences(of: "Akash", with: "Aakash").replacingOccurrences(of: "spacey boy", with: "spaceyboi"), "without a lexicon only explicit variants apply")
         }
         for raw in ["Ask Robert about the report.", "Ask robert about the report.", "Nothing else.", "the network", "PostgreSQL", "Send a shelf made report.", "Spassyboy's Shelfmet-based report", "Shelfmet2"] {
             check((p.process(raw)).outcome == .insert(raw), "preserve known words, names, phrases and token boundaries: \(raw)")
@@ -252,7 +253,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         }
         var settings = p.settings; settings.options = .faithful; try p.update(settings, persist: false)
         let cleaner = SpyCleaner(.fail); p.localCleaner = cleaner
-        check(p.dictionary.apply(to: "Call Akash.") == "Call Akash.", "preferred-only correction requires a lexicon")
+        try check(DictionaryStore(directory: p.dictionary.directory).apply(to: "Call Akash.") == "Call Akash.", "preferred-only correction requires a lexicon")
         for (raw, expected) in [
             ("Please ask Akash to review the report.", "Please ask aakash to review the report."),
             ("Ask akash and Akash.", "Ask aakash and aakash."),

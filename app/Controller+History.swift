@@ -129,7 +129,7 @@ extension AppController {
                 try FileManager.default.createDirectory(at: locations.chunks, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
                 Chunker.directory = locations.chunks
             case .reloadDictionary:
-                do { processing = try ProcessingCoordinator(directory: locations.dictionary, isCommonWord: isCommonEnglishWord); dictionaryMessage = "" }
+                do { processing = try ProcessingCoordinator.inApp(directory: locations.dictionary); dictionaryMessage = "" }
                 catch { dictionaryMessage = "The dictionary could not be read. Dictations are held in History until it is repaired."; throw error }
             case .refreshViews:
                 refreshHistory(); refreshRecoveryAudio(); refreshDictionary(); refreshKeys()

@@ -15,7 +15,7 @@ extension AppController {
     private func writeHelperVocabulary() {
         guard let vocabularyFile else { return }
         let terms: [[String: Any]] = dictionaryEntries.filter { $0.enabled && !DictionaryStore.isCommandTarget($0) }.map { entry in
-            let variants = entry.variants.filter { !DictionaryStore.skipLearnedVariant($0, entry: entry, isCommonWord: isCommonEnglishWord) }
+            let variants = entry.variants.filter { !DictionaryStore.skipLearnedVariant($0, entry: entry, isCommonWord: processing?.dictionary.isCommonWord) }
             return variants.isEmpty ? ["text": entry.preferred] : ["text": entry.preferred, "aliases": variants]
         }
         if terms.isEmpty { try? FileManager.default.removeItem(at: vocabularyFile); return }
@@ -84,6 +84,13 @@ extension AppController {
 /// The learning lexicon (PRD approved condition): a word is common when the English spell checker
 /// finds no misspelling in it, so ordinary-word swaps (lunch→launch) are never learned.
 /// CorrectionLedger calls it on the main thread only.
+extension ProcessingCoordinator {
+    /// The one place the app supplies the lexicon; it lives on the dictionary store from here on.
+    static func inApp(directory: URL) throws -> ProcessingCoordinator {
+        try ProcessingCoordinator(directory: directory, isCommonWord: isCommonEnglishWord)
+    }
+}
+
 func isCommonEnglishWord(_ word: String) -> Bool {
     MainActor.assumeIsolated {
         NSSpellChecker.shared.checkSpelling(of: word, startingAt: 0, language: "en", wrap: false, inSpellDocumentWithTag: 0, wordCount: nil).location == NSNotFound

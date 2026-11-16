@@ -123,9 +123,8 @@ final class ProcessingCoordinator {
     /// `isCommonWord` guards learning and dictionary respelling (NSSpellChecker in the app).
     init(directory: URL, defaults: UserDefaults = .standard, isCommonWord: ((String) -> Bool)? = nil) throws {
         self.defaults = defaults
-        dictionary = try DictionaryStore(directory: directory)
+        dictionary = try DictionaryStore(directory: directory, isCommonWord: isCommonWord)
         ledger = try CorrectionLedger(directory: directory, dictionary: dictionary)
-        ledger.isCommonWord = isCommonWord
         settings = ProcessingSettings.load(from: defaults)
         if ledger.learningEnabled != settings.learningEnabled { try ledger.setLearningEnabled(settings.learningEnabled) }
     }
@@ -141,7 +140,7 @@ final class ProcessingCoordinator {
 
     /// Dictionary-applied text and the relevant terms for this transcript.
     private func prepare(_ raw: String) -> (text: String, terms: [String]) {
-        let applied = dictionary.apply(to: raw, isCommonWord: ledger.isCommonWord)
+        let applied = dictionary.apply(to: raw)
         var seen = Set<UUID>()
         var terms: [String] = []
         for entry in dictionary.relevantEntries(for: raw) + dictionary.relevantEntries(for: applied) where seen.insert(entry.id).inserted {

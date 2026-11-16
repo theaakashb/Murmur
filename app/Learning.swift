@@ -59,20 +59,12 @@ enum CorrectionFilter {
     static let directSimilarity = 0.75
     static let phoneticSimilarity = 0.5
 
-    static let negations: Set<String> = [
-        "not", "no", "never", "none", "nobody", "nothing", "nowhere", "neither", "nor", "without",
-        "cannot", "can't", "won't", "don't", "doesn't", "didn't", "isn't", "aren't", "wasn't",
-        "weren't", "shouldn't", "wouldn't", "couldn't", "mustn't", "haven't", "hasn't", "hadn't", "ain't",
-    ]
+    static let negations: Set<String> = CleanupText.negationCore.union(CleanupText.apostropheNegations).union(["without"])
     static let negatingPrefixes = ["un", "in", "im", "il", "ir", "dis", "non", "non-", "mis", "anti", "anti-"]
 
-    static let numberWords: Set<String> = [
-        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-        "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
-        "nineteen", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
-        "hundred", "thousand", "million", "billion", "trillion", "dozen", "half", "quarter",
-        "first", "second", "third", "fourth", "fifth", "once", "twice", "single", "double", "triple",
-    ]
+    static let numberWords: Set<String> = Set(CleanupText.cardinals.keys).union([
+        "trillion", "dozen", "half", "quarter", "first", "second", "third", "fourth", "fifth", "once", "twice", "single", "double", "triple",
+    ])
 
     static let antonyms: [(String, String)] = [
         ("accept", "decline"), ("accept", "reject"), ("accept", "refuse"), ("approve", "deny"),
@@ -92,26 +84,20 @@ enum CorrectionFilter {
     private static let antonymSet: Set<String> = Set(antonyms.flatMap { ["\($0.0)|\($0.1)", "\($0.1)|\($0.0)"] })
 
     /// Context-dependent words: never learned as a global substitution.
-    static let contextualWords: Set<String> = [
-        "a", "an", "the", "and", "or", "but", "if", "of", "off", "to", "too", "two", "for", "four", "fore",
-        "from", "form", "in", "on", "at", "by", "buy", "bye", "with", "is", "are", "was", "were", "be",
-        "been", "being", "am", "it", "its", "it's", "their", "there", "they're", "your", "you're", "then",
-        "than", "here", "hear", "where", "wear", "we're", "know", "no", "now", "new", "knew", "write",
-        "right", "rite", "whether", "weather", "affect", "effect", "accept", "except", "lose", "loose",
-        "quiet", "quite", "advice", "advise", "principal", "principle", "stationary", "stationery",
-        "compliment", "complement", "who's", "whose", "see", "sea", "would", "wood", "peace", "piece",
-        "break", "brake", "our", "hour", "i", "me", "my", "mine", "we", "us", "he", "she", "him", "her",
-        "his", "hers", "they", "them", "this", "that", "these", "those", "will", "shall", "can", "could",
-        "should", "may", "might", "must", "do", "does", "did", "has", "have", "had", "which", "witch",
-        "weak", "week", "wait", "weight", "meet", "meat", "mail", "male", "sale", "sail", "plain",
-        "plane", "pair", "pear", "pare", "flour", "flower", "allowed", "aloud", "led", "lead", "past",
-        "passed", "threw", "through", "thru", "whole", "hole", "one", "won", "son", "sun", "ad", "add",
-        "sent", "cent", "scent", "site", "sight", "cite", "die", "dye", "fair", "fare", "dear", "deer",
-        "bare", "bear", "hi", "high", "made", "maid", "tail", "tale", "waist", "waste", "way", "weigh",
-        "role", "roll", "rain", "reign", "rein", "steal", "steel", "suite", "sweet", "ware", "where's",
-        "lie", "lay", "farther", "further", "fewer", "less", "who", "whom", "what",
-        "when", "why", "how", "yes", "not", "so", "sew", "sow", "very", "vary",
-    ]
+    static let contextualWords: Set<String> = CleanupText.functionWords.union([
+        "accept", "ad", "add", "advice", "advise", "affect", "allowed", "aloud", "bare", "bear", "brake", "break",
+        "buy", "bye", "can", "cent", "cite", "complement", "compliment", "could", "dear", "deer", "die", "dye",
+        "effect", "except", "fair", "fare", "farther", "fewer", "flour", "flower", "fore", "form", "four", "further",
+        "hear", "here", "hers", "hi", "high", "hole", "hour", "how", "knew", "know", "lay", "lead", "led", "less",
+        "lie", "loose", "lose", "made", "maid", "mail", "male", "may", "meat", "meet", "might", "mine", "must", "new",
+        "no", "not", "now", "one", "pair", "pare", "passed", "past", "peace", "pear", "piece", "plain", "plane",
+        "principal", "principle", "quiet", "quite", "rain", "reign", "rein", "right", "rite", "role", "roll", "sail",
+        "sale", "scent", "sea", "see", "sent", "sew", "shall", "should", "sight", "site", "son", "sow", "stationary",
+        "stationery", "steal", "steel", "suite", "sun", "sweet", "tail", "tale", "threw", "through", "thru", "two",
+        "vary", "waist", "wait", "ware", "waste", "way", "we're", "weak", "wear", "weather", "week", "weigh",
+        "weight", "what", "when", "where", "where's", "whether", "which", "who", "who's", "whole", "whom", "whose",
+        "why", "will", "witch", "won", "wood", "would", "write", "yes",
+    ])
 
     private static let inflectionSuffixes = ["s", "es", "ed", "d", "ing", "er", "ers", "est", "ly", "'s", "s'", "ies", "ied"]
 
@@ -200,7 +186,7 @@ enum CorrectionFilter {
         let ordinarySource = isCommonWord.map { common in !acronym && !spacingFix && sf.allSatisfy(common) } == true
         if ordinarySource, embedsOrdinary(sf.joined(), tf.joined()) { return .rejected(.ordinaryWords) }
         if !ordinarySource, manualPreferred.contains(tf.joined(separator: " ")) { return reduced }
-        let similarity = self.similarity(sLetters, tLetters)
+        let similarity = CleanupText.similarity(sLetters, tLetters)
         if similarity >= directSimilarity { return reduced }
         if similarity >= phoneticSimilarity, phoneticKey(sLetters) == phoneticKey(tLetters) { return reduced }
         // With a lexicon, one unfamiliar word retyped as another is a garbled name or product even
@@ -308,22 +294,6 @@ enum CorrectionFilter {
 
     /// Lowercased letters and digits only.
     static func letters(_ text: String) -> String { String(text.filter(TermText.isCore)).lowercased() }
-
-    /// 1 - Levenshtein distance / longer length, over Characters.
-    static func similarity(_ a: String, _ b: String) -> Double {
-        let x = Array(a), y = Array(b)
-        guard !x.isEmpty || !y.isEmpty else { return 1 }
-        var previous = Array(0...y.count)
-        for i in 1...max(1, x.count) where !x.isEmpty {
-            var current = [i] + Array(repeating: 0, count: y.count)
-            for j in stride(from: 1, through: y.count, by: 1) {
-                current[j] = min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (x[i - 1] == y[j - 1] ? 0 : 1))
-            }
-            previous = current
-        }
-        let distance = x.isEmpty ? y.count : previous[y.count]
-        return 1 - Double(distance) / Double(max(x.count, y.count))
-    }
 
     /// Soundex-style consonant classes over the whole word (no truncation), with c/k/q/s/z in one
     /// class so Acme/Akme and Kubernetes/Coopernetties share a key. Vowels only separate repeats;
@@ -453,9 +423,11 @@ final class CorrectionLedger {
 
     let directory: URL
     let dictionary: DictionaryStore
-    /// Optional lexicon for the ordinary-words guard (see `CorrectionFilter`). Not persisted.
-    /// On macOS: `{ NSSpellChecker.shared.checkSpelling(of: $0, startingAt: 0).location == NSNotFound }`.
-    var isCommonWord: ((String) -> Bool)?
+    /// The lexicon for the ordinary-words guard (see `CorrectionFilter`): the dictionary store's, so it is injected once, where the store is built.
+    var isCommonWord: ((String) -> Bool)? {
+        get { dictionary.isCommonWord }
+        set { dictionary.isCommonWord = newValue }
+    }
     private var state = State()
     private var file: URL { directory.appendingPathComponent(Self.fileName) }
 

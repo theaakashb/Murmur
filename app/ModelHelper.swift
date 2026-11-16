@@ -7,8 +7,6 @@ import os
 
 // The ModelBench helper process: what it loads, the warm line protocol, chunked and live transcription.
 
-private let timingLog = Logger(subsystem: "cc.clouddev.dictation", category: "timing")
-
 private let helperOutputLimit = 4 * 1024 * 1024
 
 /// Drain stdout while the helper runs; waiting for exit first can deadlock on a full pipe.

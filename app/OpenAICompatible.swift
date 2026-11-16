@@ -39,7 +39,7 @@ enum OpenAITranscriptionFormat {
     /// Time past the end of the audio has no sound.
     static func loudWindows(_ levels: [Float], start: Double, end: Double) -> Int {
         let from = max(0, Int(start * 10)), to = min(levels.count, Int((end * 10).rounded(.up)))
-        return from < to ? levels[from..<to].filter { $0 >= GeminiTranscriptionProvider.defaultSilencePeak }.count : 0
+        return from < to ? levels[from..<to].filter { $0 >= AudioFormat.silencePeak }.count : 0
     }
 
     /// `{"text": "..."}`. An empty string (silence) is valid; a missing `text` is not. With verbose_json

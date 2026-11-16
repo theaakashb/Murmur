@@ -5,17 +5,17 @@
 set -u
 . "$(dirname "$0")/sources.sh"
 text="CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention"
-providers="CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials"
-cloud="$text Cleanup CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials Processing WritingModes"
-meetings="Retention CleanupText CallApps Meetings MeetingStore MeetingExport MeetingNotes MeetingSpeakers"
+providers="AudioFormat CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials"
+cloud="AudioFormat $text Cleanup CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials Processing WritingModes"
+meetings="AudioFormat Retention CleanupText CallApps Meetings MeetingStore MeetingExport MeetingNotes MeetingSpeakers"
 models="Digests ModelManifest ModelDownload"
 deps() {
   case "$1" in
     launch) echo "LaunchOptions" ;;
-    history) echo "Capture CleanupTypes CleanupText Retention History ModelFiles" ;;
+    history) echo "CleanupTypes CleanupText Retention History ModelFiles" ;;
     controller) echo "app ../spike/InsertionChecks" ;;
     meeting_start) echo "app" ;;
-    recording) echo "Shortcut Capture Session" ;;
+    recording) echo "AudioFormat Shortcut Capture Session" ;;
     speaker_flow) echo "Capture CleanupTypes History ModelFiles ModelText $models $meetings MeetingCapture MeetingRecorder SpeakerModelSettings" ;;
     delivery) echo "Delivery" ;;
     dictionary) echo "$text" ;;

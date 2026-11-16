@@ -44,7 +44,7 @@ extension AppController {
             store: try? MeetingStore(directory: base.appendingPathComponent("history").appendingPathComponent("meetings")),
             audioRoot: base.appendingPathComponent("retry-audio").appendingPathComponent("meetings"),
             persists: appliedHistoryMode.persistsTranscripts,
-            applyDictionary: { [weak self] text in self?.processing?.dictionary.apply(to: text, isCommonWord: isCommonEnglishWord) ?? text },
+            applyDictionary: { [weak self] text in self?.processing?.dictionary.apply(to: text) ?? text },
             notesRoute: { [weak self] in self?.meetingNotesRoute },
             notesWriter: { [weak self] meeting, lecture in
                 guard let self else { throw NotesFailure.failed("Murmur is closing.") }

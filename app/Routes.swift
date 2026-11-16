@@ -383,7 +383,7 @@ struct CloudTranscriptionDetail: Sendable, Equatable {
         let scores = (segments ?? []).compactMap(\.avgLogprob)
         let range = scores.isEmpty ? "-" : String(format: "%.2f/%.2f", scores.min()!, scores.max()!)
         return "no-speech reason=\(noSpeechReason ?? "unknown") clip=\(clipSeconds.map { String(format: "%.2f", $0) } ?? "-") p50=\(f(peakP50)) p90=\(f(peakP90)) "
-            + "silence=\(f(silencePeak))/\(f(silencePeak == nil ? nil : GeminiTranscriptionProvider.defaultSilencePeak)) segments=\(segments?.count ?? 0) logprob-min-max=\(range)"
+            + "silence=\(f(silencePeak))/\(f(silencePeak == nil ? nil : AudioFormat.silencePeak)) segments=\(segments?.count ?? 0) logprob-min-max=\(range)"
     }
 }
 

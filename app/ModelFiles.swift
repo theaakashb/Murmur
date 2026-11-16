@@ -23,10 +23,10 @@ final class ModelVerificationCache: @unchecked Sendable {
         let object = try JSONSerialization.jsonObject(with: Data(contentsOf: manifest)) as? [String: Any]
         guard let models = object?["models"] as? [String: Any],
               let model = models[repository] as? [String: Any],
-              let batch = model[list] as? [String] else { throw CaptureError("Invalid model manifest") }
+              let batch = model[list] as? [String] else { throw RetentionError("Invalid model manifest") }
         return try batch.map { name in
             var info = stat()
-            guard stat(directory.appendingPathComponent(name).path, &info) == 0 else { throw CaptureError("Missing model file") }
+            guard stat(directory.appendingPathComponent(name).path, &info) == 0 else { throw RetentionError("Missing model file") }
             return "\(name):\(info.st_size):\(info.st_mtimespec.tv_sec).\(info.st_mtimespec.tv_nsec):\(info.st_ino)"
         }
     }
@@ -44,26 +44,26 @@ func verifyAppModels(_ directory: URL, manifest: URL, repository: String = unifi
     guard let models = object?["models"] as? [String: Any],
           let model = models[repository] as? [String: Any],
           let files = model["files"] as? [[String: Any]], let batch = model[list] as? [String] else {
-        throw CaptureError("Invalid model manifest")
+        throw RetentionError("Invalid model manifest")
     }
     for name in batch {
         guard !name.hasPrefix("/"), !name.split(separator: "/").contains(".."),
               let metadata = files.first(where: { $0["rfilename"] as? String == name }),
-              let size = metadata["size"] as? Int else { throw CaptureError("Invalid model file") }
+              let size = metadata["size"] as? Int else { throw RetentionError("Invalid model file") }
         let path = directory.appendingPathComponent(name)
         let attrs = try FileManager.default.attributesOfItem(atPath: path.path)
-        guard (attrs[.size] as? NSNumber)?.intValue == size else { throw CaptureError("Model file size mismatch") }
+        guard (attrs[.size] as? NSNumber)?.intValue == size else { throw RetentionError("Model file size mismatch") }
         let handle = try FileHandle(forReadingFrom: path)
         defer { try? handle.close() }
         if let lfs = metadata["lfs"] as? [String: Any], let expected = lfs["sha256"] as? String {
             var hash = SHA256()
             while let data = try handle.read(upToCount: 1024 * 1024), !data.isEmpty { hash.update(data: data) }
-            guard hash.finalize().map({ String(format: "%02x", $0) }).joined() == expected else { throw CaptureError("Model checksum mismatch") }
+            guard hash.finalize().map({ String(format: "%02x", $0) }).joined() == expected else { throw RetentionError("Model checksum mismatch") }
         } else if let expected = metadata["git_blob_sha1"] as? String {
             var hash = Insecure.SHA1()
             hash.update(data: Data("blob \(size)\0".utf8))
             while let data = try handle.read(upToCount: 1024 * 1024), !data.isEmpty { hash.update(data: data) }
-            guard hash.finalize().map({ String(format: "%02x", $0) }).joined() == expected else { throw CaptureError("Model checksum mismatch") }
-        } else { throw CaptureError("Missing model checksum") }
+            guard hash.finalize().map({ String(format: "%02x", $0) }).joined() == expected else { throw RetentionError("Model checksum mismatch") }
+        } else { throw RetentionError("Missing model checksum") }
     }
 }

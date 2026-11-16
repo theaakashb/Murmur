@@ -10,8 +10,9 @@ import Carbon
 import ServiceManagement
 @preconcurrency import Dispatch
 
-/// Content-free timing and stop reasons, alongside the capture and shortcut timing.
-private let timingLog = Logger(subsystem: "cc.clouddev.dictation", category: "timing")
+/// Content-free timing and stop reasons, alongside the capture and shortcut timing. Shared by Controller*.swift and
+/// ModelHelper.swift; Capture.swift and Shortcut.swift keep their own so the capture probe and spike harness compile alone.
+let timingLog = Logger(subsystem: "cc.clouddev.dictation", category: "timing")
 
 
 extension InsertionStatus {
@@ -401,7 +402,7 @@ enum ScreenRequest: Equatable {
             if (try? FileManager.default.createDirectory(at: chunks, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])) != nil { Chunker.directory = chunks }
             // Dictionary/ledger corruption disables only cleanup and the dictionary: dictations are then held for review in History rather than blocking all dictation.
             vocabularyFile = base.appendingPathComponent("dictionary").appendingPathComponent("parakeet-vocabulary.json")
-            do { processing = try ProcessingCoordinator(directory: base.appendingPathComponent("dictionary"), isCommonWord: isCommonEnglishWord) }
+            do { processing = try ProcessingCoordinator.inApp(directory: base.appendingPathComponent("dictionary")) }
             catch { processing = nil; dictionaryMessage = "The dictionary could not be read. Dictations are held in History until it is repaired." }
             if let processing, processing.settings.route != routes.cleanup.processingRoute {
                 var next = processing.settings; next.route = routes.cleanup.processingRoute; try? processing.update(next)
@@ -888,7 +889,7 @@ enum ScreenRequest: Equatable {
     /// The recording as 16 kHz mono floats, the helper's input rate (a five-minute recording is about 19 MB).
     static func samples16k(_ url: URL) -> [Float]? {
         guard let file = try? AVAudioFile(forReading: url), file.length > 0,
-              let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16_000, channels: 1, interleaved: false),
+              let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(AudioFormat.sampleRate), channels: 1, interleaved: false),
               let input = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)),
               (try? file.read(into: input)) != nil, let converter = AVAudioConverter(from: file.processingFormat, to: target) else { return nil }
         // One call with a buffer for the whole clip returned only part of it; drain in blocks.
@@ -969,7 +970,7 @@ enum ScreenRequest: Equatable {
     /// `held`: an undone cancel's samples (gap #18), in memory only. There is then no file: no chunks,
     /// no one-shot fallback and no retry audio.
     private func transcribe(_ audio: URL?, held: [Float]? = nil, done: @escaping () -> Void) {
-        sessionSeconds = held.map { Double($0.count) / 16_000 } ?? audio.flatMap(Self.audioSeconds)
+        sessionSeconds = held.map { Double($0.count) / Double(AudioFormat.sampleRate) } ?? audio.flatMap(Self.audioSeconds)
         transcribeStartedAt = ProcessInfo.processInfo.systemUptime
         if let provider = sessionTranscriber { transcribeInCloud(audio, held: held, with: provider, done: done); return }
         setPhase(.processing, "Transcribing on this Mac…")
@@ -1082,7 +1083,7 @@ enum ScreenRequest: Equatable {
         let began = ProcessInfo.processInfo.systemUptime
         cloudStage = .transcription; cloudDone = done
         let vocabulary = processing?.dictionary.vocabularyTerms ?? []
-        let heldWAV = held.map { WAVAudio.encodePCM16($0, sampleRate: 16_000) }
+        let heldWAV = held.map { WAVAudio.encodePCM16($0, sampleRate: AudioFormat.sampleRate) }
         cloudRequest.start({
             if let heldWAV { return await CloudTranscription.runDetailed(provider: provider, audioData: heldWAV, vocabulary: vocabulary) }
             return await CloudTranscription.runDetailed(provider: provider, audioFile: audio ?? URL(fileURLWithPath: "/dev/null"), vocabulary: vocabulary)
@@ -1169,7 +1170,7 @@ enum ScreenRequest: Equatable {
             segments: detail.segments?.map { SegmentDetail(text: $0.text, start: $0.start, end: $0.end, avgLogprob: $0.avgLogprob, noSpeechProb: $0.noSpeechProb,
                                                            compressionRatio: $0.compressionRatio, loudWindows: $0.loudWindows, dropped: $0.dropped) },
             clipSeconds: detail.clipSeconds, peakP50: detail.peakP50.map(Double.init), peakP90: detail.peakP90.map(Double.init),
-            silencePeak: detail.silencePeak.map(Double.init), silenceThreshold: detail.silencePeak == nil ? nil : Double(GeminiTranscriptionProvider.defaultSilencePeak),
+            silencePeak: detail.silencePeak.map(Double.init), silenceThreshold: detail.silencePeak == nil ? nil : Double(AudioFormat.silencePeak),
             precheck: detail.precheck)
     }
     /// Content-free outcome name for the timing log.

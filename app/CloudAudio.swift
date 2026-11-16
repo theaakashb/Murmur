@@ -7,7 +7,6 @@ import Foundation
 /// keeps a five-minute dictation (the recording limit) near 9.6 MB, under the providers' 20–25 MB limits. A file it
 /// cannot parse is sent unchanged, with no peak (the silence pre-check is then skipped).
 enum CloudAudio {
-    static let targetRate = 16_000
 
     struct Prepared {
         var payload: AudioPayload
@@ -19,8 +18,8 @@ enum CloudAudio {
         guard let decoded = WAVAudio.decode(data), decoded.sampleRate > 0 else {
             return Prepared(payload: AudioPayload(data: data), peak: nil, duration: nil)
         }
-        let rate = decoded.sampleRate > targetRate ? targetRate : decoded.sampleRate
-        let samples = trimTrailingSilence(WAVAudio.downsample(decoded.samples, from: decoded.sampleRate, to: targetRate), sampleRate: rate)
+        let rate = decoded.sampleRate > AudioFormat.sampleRate ? AudioFormat.sampleRate : decoded.sampleRate
+        let samples = trimTrailingSilence(WAVAudio.downsample(decoded.samples, from: decoded.sampleRate, to: AudioFormat.sampleRate), sampleRate: rate)
         var payload = AudioPayload(data: WAVAudio.encodePCM16(samples, sampleRate: rate))
         payload.levels = windowPeaks(samples, sampleRate: rate)
         return Prepared(payload: payload,
@@ -50,7 +49,7 @@ enum CloudAudio {
     /// all-silent clip is returned unchanged for the pre-check to judge. A click in the tail keeps
     /// the tail from there on, which costs only the trim, never speech.
     static func trimTrailingSilence(_ samples: [Float], sampleRate: Int, pad: Double = 0.5) -> [Float] {
-        guard let last = samples.lastIndex(where: { abs($0) >= GeminiTranscriptionProvider.defaultSilencePeak }) else { return samples }
+        guard let last = samples.lastIndex(where: { abs($0) >= AudioFormat.silencePeak }) else { return samples }
         return Array(samples.prefix(last + 1 + Int(pad * Double(sampleRate))))
     }
 }

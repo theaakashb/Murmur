@@ -5,7 +5,7 @@ import Darwin
 import os
 
 /// Content-free capture timing (seconds of uptime), for diagnosing audio lost at start.
-private let timingLog = Logger(subsystem: "cc.clouddev.dictation", category: "timing")
+private let captureLog = Logger(subsystem: "cc.clouddev.dictation", category: "timing")
 
 struct CaptureError: Error, CustomStringConvertible {
     let description: String
@@ -103,7 +103,7 @@ final class Capture {
     func cut(after uptime: TimeInterval) {
         queue.async { [self] in
             cutoff = min(cutoff, uptime)
-            timingLog.notice("release-cut after=\(uptime, format: .fixed(precision: 3))")
+            captureLog.notice("release-cut after=\(uptime, format: .fixed(precision: 3))")
         }
     }
 
@@ -127,7 +127,7 @@ final class Capture {
     private func pinInput() {
         guard let uid = Self.resolvedInputUID(), var device = Self.deviceID(uid: uid), let unit = engine.inputNode.audioUnit else { return }
         let status = AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &device, UInt32(MemoryLayout<AudioDeviceID>.size))
-        if status != noErr { timingLog.notice("input-device-set failed status=\(status)") }
+        if status != noErr { captureLog.notice("input-device-set failed status=\(status)") }
     }
 
     /// Dictation passes only `url`. A meeting's microphone (PRD 11.1) passes no file, a fixed 16 kHz
@@ -158,7 +158,7 @@ final class Capture {
         observer = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { [weak self] _ in
             _ = self?.restart()
         }
-        timingLog.notice("engine-start called=\(self.started, format: .fixed(precision: 3)) took=\(running - self.started, format: .fixed(precision: 3)) rate=\(format.sampleRate, format: .fixed(precision: 0))")
+        captureLog.notice("engine-start called=\(self.started, format: .fixed(precision: 3)) took=\(running - self.started, format: .fixed(precision: 3)) rate=\(format.sampleRate, format: .fixed(precision: 0))")
     }
 
     /// Taps the input in `tapFormat`, converting to the file's format when they differ.
@@ -184,11 +184,11 @@ final class Capture {
                     var energy = 0.0, peak: Float = 0
                     for index in 0..<Int(copy.frameLength) { energy += Double(samples[0][index]) * Double(samples[0][index]); peak = max(peak, abs(samples[0][index])) }
                     level = min(1, sqrt(energy / Double(copy.frameLength)) * 8)
-                    if peak >= 0.01 { lastLoud = received }
+                    if peak >= AudioFormat.silencePeak { lastLoud = received }
                 }
                 if firstBuffer == nil {
                     firstBuffer = received - started
-                    timingLog.notice("first-buffer at=\(received, format: .fixed(precision: 3)) after-start=\(received - self.started, format: .fixed(precision: 3))")
+                    captureLog.notice("first-buffer at=\(received, format: .fixed(precision: 3)) after-start=\(received - self.started, format: .fixed(precision: 3))")
                 }
                 do { try file?.write(from: copy); frames += AVAudioFramePosition(copy.frameLength) }
                 catch { writeError = error }
@@ -223,7 +223,7 @@ final class Capture {
             guard tapFormat.sampleRate > 0, tapFormat.channelCount > 0 else { return false }
             installTap(tapFormat)
             do { try engine.start() } catch { engine.inputNode.removeTap(onBus: 0); return false }
-            timingLog.notice("capture-restarted rate=\(tapFormat.sampleRate, format: .fixed(precision: 0))")
+            captureLog.notice("capture-restarted rate=\(tapFormat.sampleRate, format: .fixed(precision: 0))")
             return true
         }
     }
@@ -241,8 +241,8 @@ final class Capture {
         let recorded = rate > 0 ? Double(frames) / rate : 0
         // How much of the release tail was silent at its end; the whole tail (>= 0.4) means a shorter tail would lose nothing.
         let quiet = queue.sync { () -> TimeInterval? in cutoff.isFinite ? cutoff - (lastLoud ?? started) : nil }
-        if let quiet { timingLog.notice("tail-quiet took=\(max(0, quiet), format: .fixed(precision: 3))") }
-        timingLog.notice("capture-stop at=\(now, format: .fixed(precision: 3)) wall=\(now - self.started, format: .fixed(precision: 3)) recorded=\(recorded, format: .fixed(precision: 3))")
+        if let quiet { captureLog.notice("tail-quiet took=\(max(0, quiet), format: .fixed(precision: 3))") }
+        captureLog.notice("capture-stop at=\(now, format: .fixed(precision: 3)) wall=\(now - self.started, format: .fixed(precision: 3)) recorded=\(recorded, format: .fixed(precision: 3))")
     }
 }
 

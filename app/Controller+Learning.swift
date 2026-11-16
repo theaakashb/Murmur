@@ -4,8 +4,6 @@ import ApplicationServices
 import Carbon
 import os
 
-private let timingLog = Logger(subsystem: "cc.clouddev.dictation", category: "timing")
-
 extension AppController {
     // Learning from corrections (PRD R10): after an insertion, watch the dictated span until focus
     // leaves, 60 seconds pass, attribution is lost or the next insertion; each change goes to the
@@ -56,7 +54,8 @@ extension AppController {
                   let pid, CGPreflightListenEventAccess(), startKeyTap(),
                   let observation = DictationObservation(value: text, insertedRange: NSRange(location: 0, length: length), now: now) {
             var keys = KeystrokeSpan(text)
-            keys.resolve = { CorrectionFilter.plausibleEdit(original: text, candidates: $0, isCommonWord: isCommonEnglishWord) }
+            let lexicon = processing?.dictionary.isCommonWord
+            keys.resolve = { CorrectionFilter.plausibleEdit(original: text, candidates: $0, isCommonWord: lexicon) }
             let identity = LearningFocusIdentity.capture(pid: pid)
             guard !identity.secure else { stopWatching(); return }
             watch = Watch(observation: observation, pid: pid, field: nil, keyFocus: identity, keys: keys, current: text, entryID: entryID, route: "keys")
@@ -103,7 +102,7 @@ extension AppController {
                 case .failure(let why): shape = "\(why)"
                 case .success(let changes): shape = changes.map { change in
                     let from = CorrectionFilter.letters(change.source), to = CorrectionFilter.letters(change.targets[0])
-                    return "\(TermText.tokens(change.source).count)w\(from.count)l->\(TermText.tokens(change.targets[0]).count)w\(to.count)l sim=\(String(format: "%.2f", CorrectionFilter.similarity(from, to)))"
+                    return "\(TermText.tokens(change.source).count)w\(from.count)l->\(TermText.tokens(change.targets[0]).count)w\(to.count)l sim=\(String(format: "%.2f", CleanupText.similarity(from, to)))"
                 }.joined(separator: ",")
                 }
                 timingLog.notice("watch edit outcome=\(outcome.map { "\($0)" } ?? "reverted", privacy: .public) changes=\(shape, privacy: .public)")

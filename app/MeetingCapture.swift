@@ -62,7 +62,7 @@ enum TapTarget: Equatable {
 final class SystemAudioTap {
     let queue = DispatchQueue(label: "murmur.meeting.tap", qos: .userInitiated)
     /// 16 kHz mono float, the speech model's rate.
-    static let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16_000, channels: 1, interleaved: false)!
+    static let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(AudioFormat.sampleRate), channels: 1, interleaved: false)!
     /// Queue-owned meter level (0–1) and whether any non-zero sample has arrived; a tap without
     /// permission may deliver silence rather than an error (to record on the test Mac, PRD 11.10).
     private(set) var level = 0.0

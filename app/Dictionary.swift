@@ -97,8 +97,12 @@ final class DictionaryStore {
         var entries: [DictionaryEntry]
     }
 
-    init(directory: URL) throws {
+    /// The lexicon for lexicon-gated respelling and learned-variant skipping; nil disables both. Set once where the store is built (VOCABULARY.md).
+    var isCommonWord: ((String) -> Bool)?
+
+    init(directory: URL, isCommonWord: ((String) -> Bool)? = nil) throws {
         self.directory = directory
+        self.isCommonWord = isCommonWord
         try reload()
     }
 
@@ -171,7 +175,7 @@ final class DictionaryStore {
     /// The enabled entry whose variant matches `phrase` (folded, whole words), if any.
     func entry(forVariant phrase: String) -> DictionaryEntry? {
         guard let key = TermText.phraseKey(phrase) else { return nil }
-        return variantTable()[key]
+        return variantTable(isCommonWord: nil)[key]  // no lexicon: stored learned variants must stay findable
     }
 
     private func validate(_ entry: DictionaryEntry) throws -> DictionaryEntry {
@@ -206,7 +210,7 @@ final class DictionaryStore {
 
     /// Folded variant key -> entry. Command targets win, then manual entries over learned ones,
     /// then older entries.
-    private func variantTable(isCommonWord: ((String) -> Bool)? = nil) -> [String: DictionaryEntry] {
+    private func variantTable(isCommonWord: ((String) -> Bool)?) -> [String: DictionaryEntry] {
         var table: [String: DictionaryEntry] = [:]
         let ordered = entries.filter(\.enabled).sorted {
             let command0 = Self.isCommandTarget($0), command1 = Self.isCommandTarget($1)
@@ -239,7 +243,8 @@ final class DictionaryStore {
     /// unchanged. Punctuation or a line break ends a phrase. At each position a command-target
     /// phrase wins (gap #12), then the longest phrase; replaced text is never matched again, so
     /// another entry cannot rewrite words inside an inserted command ("question mark" stays).
-    func apply(to text: String, isCommonWord: ((String) -> Bool)? = nil) -> String {
+    func apply(to text: String, isCommonWord override: ((String) -> Bool)? = nil) -> String {
+        let isCommonWord = override ?? self.isCommonWord
         let table = variantTable(isCommonWord: isCommonWord)
         let terms = isCommonWord == nil ? [] : entries.filter { $0.enabled && !Self.isCommandTarget($0) && $0.preferred.count >= 6 && $0.preferred.allSatisfy(\.isLetter) }
         guard !table.isEmpty || !terms.isEmpty else { return text }
@@ -338,7 +343,7 @@ final class DictionaryStore {
         guard heard.count >= CorrectionFilter.minLetters, term.count >= CorrectionFilter.minLetters,
               Double(min(heard.count, term.count)) >= Double(max(heard.count, term.count)) * CorrectionFilter.phoneticSimilarity
         else { return false }
-        let similarity = CorrectionFilter.similarity(heard, term)
+        let similarity = CleanupText.similarity(heard, term)
         // Edit similarity alone is too loose for short terms ("mean" is 0.75 from "Sean").
         if similarity >= CorrectionFilter.directSimilarity && term.count >= 6 { return true }
         return similarity >= CorrectionFilter.phoneticSimilarity && CorrectionFilter.phoneticKey(heard) == CorrectionFilter.phoneticKey(term)
@@ -442,7 +447,7 @@ enum DictionarySuggestions {
         }
         func top(_ counts: [String: Int]) -> String { counts.max { ($0.value, $1.key) < ($1.value, $0.key) }!.key }
         func alike(_ a: String, _ b: String) -> Bool {
-            a == b || CorrectionFilter.similarity(a, b) >= 0.7 || DictionaryStore.soundsLike(CorrectionFilter.letters(a), CorrectionFilter.letters(b))
+            a == b || CleanupText.similarity(a, b) >= 0.7 || DictionaryStore.soundsLike(CorrectionFilter.letters(a), CorrectionFilter.letters(b))
         }
         let keys = seenIn.keys.sorted { (seenIn[$0]!.count, $1) > (seenIn[$1]!.count, $0) }
         var used = Set<String>(), found: [DictionarySuggestion] = []

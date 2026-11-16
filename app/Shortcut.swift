@@ -3,7 +3,7 @@ import ApplicationServices
 import Carbon.HIToolbox
 import os
 
-private let timingLog = Logger(subsystem: "cc.clouddev.dictation", category: "timing")
+private let shortcutLog = Logger(subsystem: "cc.clouddev.dictation", category: "timing")
 
 /// Hold: press and keep holding; release finishes. Double press: two quick presses latch a toggle
 /// recording that only the next press finishes. Capture starts on the first press, so a hold never
@@ -408,7 +408,7 @@ final class ShortcutListener {
         let time = Double(event.timestamp) / 1_000_000_000
         if type == .flagsChanged || event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
             let handled = ProcessInfo.processInfo.systemUptime, down = binding.isDown(event)
-            timingLog.notice("shortcut \(down ? "down" : "up", privacy: .public) event=\(time, format: .fixed(precision: 3)) handled=\(handled, format: .fixed(precision: 3)) lag=\(handled - time, format: .fixed(precision: 3)) state=\(self.machine.state.rawValue, privacy: .public)")
+            shortcutLog.notice("shortcut \(down ? "down" : "up", privacy: .public) event=\(time, format: .fixed(precision: 3)) handled=\(handled, format: .fixed(precision: 3)) lag=\(handled - time, format: .fixed(precision: 3)) state=\(self.machine.state.rawValue, privacy: .public)")
         }
         if machine.state == .processing, userFinished, let onQueuedPress {
             let down = (type == .keyDown || type == .flagsChanged) && binding.isDown(event)

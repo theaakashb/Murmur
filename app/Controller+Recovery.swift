@@ -2,8 +2,6 @@
 import AppKit
 import os
 
-private let timingLog = Logger(subsystem: "cc.clouddev.dictation", category: "timing")
-
 extension AppController {
     // MARK: Mode recovery
 

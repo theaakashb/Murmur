@@ -43,13 +43,9 @@ enum CleanupGuard {
     static let polishFillerPairs: Set<[String]> = [["you", "know"], ["i", "mean"]]
     static let meaningfulLikeAfter: Set<String> = ["i", "you", "we", "they", "he", "she", "it", "who", "people", "would", "i'd", "you'd", "we'd", "they'd", "to", "it's", "that's", "looks", "look", "looked", "seems", "sounds", "feel", "feels", "felt", "just"]
     /// Closed-class words a polish grammar fix may add or drop. Not negations, numbers or modals.
-    static let grammarWords: Set<String> = [
-        "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "am", "has", "have", "had", "do", "does", "did",
-        "to", "of", "in", "on", "at", "for", "with", "from", "by", "as", "than", "then", "that", "this", "these", "those", "there",
-        "and", "or", "but", "so", "if", "more", "most", "very", "just", "really", "too", "also", "up", "out", "about", "into", "off",
-        "it", "its", "it's", "i", "me", "my", "i'm", "you", "your", "you're", "he", "him", "his", "she", "her", "we", "us", "our",
-        "they", "them", "their", "they're", "going", "gonna",
-    ]
+    static let grammarWords: Set<String> = CleanupText.functionWords.union([
+        "as", "more", "most", "just", "really", "also", "up", "out", "about", "into", "i'm", "you", "going", "gonna",
+    ])
     /// Grammar words polish may drop: not pronouns or the joins and, or, but, if ("salt and pepper").
     static let droppableGrammarWords = grammarWords.subtracting(persons.reduce(into: Set<String>()) { $0.formUnion($1) }).subtracting(["and", "or", "but", "if"])
     static let modals: Set<String> = ["can", "could", "should", "shall", "may", "might", "must", "will", "would"]
@@ -977,7 +973,7 @@ enum TransformGuard {
         guard digits(input).isSubset(of: digits(out)) else { return false }
         func negates(_ t: String) -> Bool {
             t.lowercased().split(whereSeparator: { !$0.isLetter && $0 != "'" && $0 != "\u{2019}" })
-                .contains { ["not", "never", "no", "cannot", "without"].contains($0) || $0.hasSuffix("n't") || $0.hasSuffix("n\u{2019}t") }
+                .contains { CleanupText.basicNegations.contains(String($0)) || $0 == "without" || $0.hasSuffix("n't") || $0.hasSuffix("n\u{2019}t") }
         }
         return !negates(input) || negates(out)
     }

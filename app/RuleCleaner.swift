@@ -367,8 +367,8 @@ struct RuleCleaner: Cleaner {
     // MARK: Lists
 
     static let strongListCues: Set<String> = ["list", "checklist", "agenda", "steps", "to-do", "todo", "to-dos", "todos", "items", "groceries"]
-    static let cardinalWords = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
-    static let ordinalWords = ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"]
+    static let cardinalWords = [""] + (1...10).map { n in CleanupText.cardinals.first { $0.value == n }!.key }
+    static let ordinalWords = [""] + (1...10).map { n in CleanupText.ordinals.first { $0.value == n && !$0.key.hasSuffix("ly") }!.key }
 
     /// Matches enumeration marker k at token i; returns the last token index of the marker.
     static func matchMarker(_ t: [CleanupToken], _ i: Int, _ k: Int) -> Int? {

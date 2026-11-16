@@ -165,13 +165,24 @@ enum CleanupText {
         return out
     }
 
+    /// Closed-class words shared by `CleanupGuard.grammarWords` (polish grammar fixes) and `CorrectionFilter.contextualWords` (never learned).
+    static let functionWords: Set<String> = [
+        "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "am", "has", "have", "had", "do", "does", "did",
+        "to", "of", "in", "on", "at", "for", "with", "from", "by", "than", "then", "that", "this", "these", "those", "there",
+        "and", "or", "but", "so", "if", "too", "very", "off", "it", "its", "it's", "i", "me", "my", "you're", "your", "he", "him",
+        "his", "she", "her", "we", "us", "our", "they", "them", "their", "they're",
+    ]
+
     static let hesitations: Set<String> = ["um", "umm", "ummm", "uh", "uhh", "uhm", "erm", "er", "hmm", "hm", "mm", "mmm"]
 
-    static let negationWords: Set<String> = [
-        "not", "no", "never", "nor", "neither", "none", "nobody", "nothing", "nowhere", "cannot",
-        "dont", "didnt", "doesnt", "isnt", "wasnt", "arent", "werent", "couldnt", "shouldnt", "wouldnt",
-        "havent", "hasnt", "hadnt", "cant", "wont", "aint", "mustnt",
-    ]
+    /// Negation words every list shares. `negationWords` (cleanup guard) adds apostrophe-less contractions,
+    /// `CorrectionFilter.negations` adds apostrophe contractions and "without", `TransformGuard` uses only `basicNegations` plus "without".
+    static let basicNegations: Set<String> = ["not", "no", "never", "cannot"]
+    static let negationCore: Set<String> = basicNegations.union(["nor", "neither", "none", "nobody", "nothing", "nowhere"])
+    /// Stems of negative contractions: stem + "t" ("dont", ASR text) or stem + "'t" ("don't").
+    static let negationStems = ["don", "didn", "doesn", "isn", "wasn", "aren", "weren", "couldn", "shouldn", "wouldn", "haven", "hasn", "hadn", "can", "won", "ain", "mustn"]
+    static let negationWords: Set<String> = negationCore.union(negationStems.map { $0 + "t" })
+    static let apostropheNegations: Set<String> = Set(negationStems.map { $0 + "'t" })
 
     /// Negative contractions speech recognition sometimes returns without "'t" ("it doesn spread"),
     /// each with the completions cleanup may write in its place: its own, plus listed exceptions.

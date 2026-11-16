@@ -127,7 +127,7 @@ extension AppController {
                 DispatchQueue.main.async { self?.preparingLiveWords = false; self?.liveWordsMessage = "Live words failed verification. Remove them and download again." }
                 return
             }
-            let compile = Process(); compile.executableURL = helper; compile.arguments = [folder.path, "--stream", "16000"]
+            let compile = Process(); compile.executableURL = helper; compile.arguments = [folder.path, "--stream", String(AudioFormat.sampleRate)]
             compile.standardInput = FileHandle.nullDevice; compile.standardOutput = FileHandle.nullDevice; compile.standardError = FileHandle.nullDevice
             if (try? compile.run()) != nil { compile.waitUntilExit() }
             DispatchQueue.main.async { self?.preparingLiveWords = false; self?.liveWordsVerified = true }

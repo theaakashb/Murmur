@@ -199,9 +199,6 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
         "audio/wav", "audio/mp3", "audio/aiff", "audio/aac", "audio/ogg", "audio/flac", "audio/mpeg",
         "audio/m4a", "audio/l16", "audio/opus", "audio/alaw", "audio/mulaw", "audio/webm",
     ]
-    /// Linear peak amplitude (0...1) below which a recording is treated as silence: about
-    /// -40 dBFS. [Guessing] Tune it against real recordings; too high drops quiet speech.
-    static let defaultSilencePeak: Float = 0.01
     /// Recordings shorter than this are treated as accidental taps.
     static let minimumSpeechSeconds: Double = 0.3
 
@@ -236,7 +233,7 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
 
     /// Pre-check for the caller: true when the recording should not be sent at all. Sending
     /// silence or noise to an LLM transcriber risks a hallucinated transcript.
-    static func shouldSkipForSilence(peakLevel: Float, durationSeconds: Double? = nil, threshold: Float = defaultSilencePeak) -> Bool {
+    static func shouldSkipForSilence(peakLevel: Float, durationSeconds: Double? = nil, threshold: Float = AudioFormat.silencePeak) -> Bool {
         if let duration = durationSeconds, duration < minimumSpeechSeconds { return true }
         guard peakLevel.isFinite else { return true }
         return abs(peakLevel) < threshold

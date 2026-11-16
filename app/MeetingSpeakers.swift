@@ -194,7 +194,7 @@ extension Meeting {
 /// own time, so gaps read as silence. It is deleted once diarization finishes or is skipped, with
 /// its meeting, and in any case `RetryWindow.text` after it was created. The Me stream is never kept.
 enum SpeakerAudio {
-    static let sampleRate = 16_000
+    static let sampleRate = AudioFormat.sampleRate
     static let header = 44
 
     static func file(_ root: URL, meeting id: String) -> URL { root.appendingPathComponent(id + ".wav") }
