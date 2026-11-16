@@ -170,7 +170,7 @@ extension SettingsView {
                     field("https://api.example.com/v1", text: $controller.customTranscriptionAPIBaseURL)
                         .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
                     Text("Transcription model name").font(Font.system(size: 14, weight: .semibold))
-                    field("whisper-1", text: $controller.customTranscriptionModel)
+                    field(RouteSettings.defaultCustomTranscriptionModel, text: $controller.customTranscriptionModel)
                         .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
                     keyRow(.customTranscription)
                     help("Needs an OpenAI-compatible /v1/audio/transcriptions endpoint. Separate from cleanup.")
@@ -252,10 +252,10 @@ extension SettingsView {
     var customCleanupSettings: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Cleanup API base URL").font(Font.system(size: 14, weight: .semibold))
-            field("https://api.cerebras.ai/v1", text: $controller.customAPIBaseURL)
+            field(RouteSettings.defaultCustomAPIURL, text: $controller.customAPIBaseURL)
                 .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
             Text("Model name").font(Font.system(size: 14, weight: .semibold)).padding(.top, 4)
-            field("gpt-oss-120b", text: $controller.customAPIModel)
+            field(RouteSettings.defaultCustomAPIModel, text: $controller.customAPIModel)
                 .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
             keyRow(.customCleanup)
             help("This provider needs OpenAI-compatible POST /v1/chat/completions. Its address and API key are separate from transcription. Enter the provider's exact model ID. A key is sent only over HTTPS; local endpoints can be used without one.")

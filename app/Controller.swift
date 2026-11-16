@@ -451,8 +451,8 @@ enum ScreenRequest: Equatable {
     func requestMicrophone() {
         AVCaptureDevice.requestAccess(for: .audio) { [weak self] _ in DispatchQueue.main.async { self?.refreshPermissions() } }
     }
-    func openPermissionSettings(_ kind: String) {
-        let pane = kind.lowercased().contains("input") ? "Privacy_ListenEvent" : kind.lowercased().contains("micro") ? "Privacy_Microphone" : "Privacy_Accessibility"
+    func openPermissionSettings(_ permission: Permission) {
+        let pane = switch permission { case .inputMonitoring: "Privacy_ListenEvent"; case .microphone: "Privacy_Microphone"; case .accessibility: "Privacy_Accessibility" }
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") { NSWorkspace.shared.open(url) }
     }
     func chooseModelDirectory() {

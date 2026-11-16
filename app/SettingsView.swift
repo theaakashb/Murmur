@@ -275,8 +275,7 @@ struct SettingsView: View {
     func grant(_ permission: Permission) {
         switch permission {
         case .microphone: controller.requestMicrophone()
-        case .accessibility: controller.openPermissionSettings("accessibility")
-        case .inputMonitoring: controller.openPermissionSettings("input-monitoring")
+        case .accessibility, .inputMonitoring: controller.openPermissionSettings(permission)
         }
     }
 

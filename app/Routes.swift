@@ -470,7 +470,7 @@ enum CloudTranscription {
         case .transcript: return nil
         case .heldAnswerSuspected: return "The transcript looked like an answer rather than dictation, so it was held for review. It is in History."
         case .noSpeech: return "No speech was detected. Check your microphone and try again."
-        case .failed(let message, let keepAudio): return keepAudio ? message + " Audio is saved for retry for up to 24 hours." : message
+        case .failed(let message, let keepAudio): return keepAudio ? message + " Audio is saved for retry for up to \(RetryWindow.text)." : message
         case .cancelled: return "Canceled. The recording was deleted."
         }
     }
