@@ -1,6 +1,5 @@
 import Foundation
 
-//
 // Rules enforced here:
 // - Exactly one HTTP request per call. No automatic retry (a retry could duplicate output)
 //   and no fallback to another provider or model.
@@ -10,7 +9,7 @@ import Foundation
 
 // MARK: - Shared contracts
 
-// `CleanupMessages` (the already-built cleanup prompt) is defined in Cleanup.swift by `CleanupPrompt`.
+// `CleanupMessages` (the already-built cleanup prompt) is defined in CleanupPrompt.swift.
 
 /// Recorded audio sent to a transcription provider.
 struct AudioPayload: Sendable {
@@ -32,12 +31,18 @@ struct AudioPayload: Sendable {
     }
 }
 
+/// Why a transcript was judged no speech. Raw values are only logged, never stored.
+enum NoSpeechReason: String, Sendable { case precheck, lowConfidence, insufficientLoudness, empty, punctuationOnly }
+
+/// The silence pre-check's result. Stored in History as its raw value (the field stays a String so older values survive).
+enum Precheck: String, Sendable { case passed, skipped, unchecked }
+
 /// A transcriber's answer with the detail History keeps. Segments only where the model reports them.
 struct TranscriptionResult: Sendable, Equatable {
     var text: String
     var segments: [TranscriptSegment]? = nil
     /// The parser's rejection path, rather than an inference from the dropped flags.
-    var noSpeechReason: String? = nil
+    var noSpeechReason: NoSpeechReason? = nil
 }
 
 /// One Whisper segment: its scores and times, the 100 ms windows under it that reach the silence level,
@@ -116,6 +121,26 @@ enum ProviderError: Error, Equatable, Sendable, CustomStringConvertible, Localiz
     /// An on-device model that cannot run now (Apple Intelligence); nothing was generated.
     case modelUnavailable(ProviderID, OnDeviceModelUnavailable)
     case cancelled
+
+    /// The case name, for History and the timing log (stored, so not derived from reflection).
+    var kind: String {
+        switch self {
+        case .authentication: return "authentication"
+        case .quota: return "quota"
+        case .rateLimited: return "rateLimited"
+        case .network: return "network"
+        case .timeout: return "timeout"
+        case .payloadTooLarge: return "payloadTooLarge"
+        case .server: return "server"
+        case .malformedResponse: return "malformedResponse"
+        case .contentBlocked: return "contentBlocked"
+        case .rejected: return "rejected"
+        case .invalidConfiguration: return "invalidConfiguration"
+        case .serverNotRunning: return "serverNotRunning"
+        case .modelUnavailable: return "modelUnavailable"
+        case .cancelled: return "cancelled"
+        }
+    }
 
     var provider: ProviderID? {
         switch self {

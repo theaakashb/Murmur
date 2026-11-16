@@ -53,7 +53,7 @@ enum CloudTranscriber: String, CaseIterable, Identifiable, Sendable {
 }
 
 /// The one place a cloud transcriber is constructed. Custom servers may not require a key.
-func makeTranscriptionProvider(id: CloudTranscriber, key: APIKey?, apiBaseURL: String = RouteSettings.defaultCustomAPIURL, model: String = "whisper-1", geminiModel: String = GeminiTranscribeProvider.defaultModel) -> TranscriptionProvider? {
+func makeTranscriptionProvider(id: CloudTranscriber, key: APIKey?, apiBaseURL: String = RouteSettings.defaultCustomAPIURL, model: String = RouteSettings.defaultCustomTranscriptionModel, geminiModel: String = GeminiTranscribeProvider.defaultModel) -> TranscriptionProvider? {
     switch id {
     case .customAPI: return try? OpenAICompatibleTranscriptionProvider(baseURL: apiBaseURL, model: model, apiKey: key)
     case .gemini:
@@ -132,6 +132,7 @@ func makeCleanupProvider(_ choice: CleanupChoice, key: APIKey?, apiBaseURL: Stri
 struct RouteSettings: Equatable, Sendable {
     static let defaultCustomAPIURL = "https://api.cerebras.ai/v1"
     static let defaultCustomAPIModel = "gpt-oss-120b"
+    static let defaultCustomTranscriptionModel = "whisper-1"
 
     var transcription: TranscriptionRoute = .local
     var cloudTranscriber: CloudTranscriber = .gemini
@@ -139,7 +140,7 @@ struct RouteSettings: Equatable, Sendable {
     var customAPIBaseURL: String = RouteSettings.defaultCustomAPIURL
     var customTranscriptionAPIBaseURL: String = RouteSettings.defaultCustomAPIURL
     var customAPIModel: String = RouteSettings.defaultCustomAPIModel
-    var customTranscriptionModel: String = "whisper-1"
+    var customTranscriptionModel: String = RouteSettings.defaultCustomTranscriptionModel
 
     /// The endpoint setting a custom provider's key is bound to (customTranscription follows its own address, customCleanup the
     /// cleanup one); nil for providers whose key has no destination. Changing it requires saving the key again (`CustomAPIKeyBinding`).
@@ -215,7 +216,7 @@ struct RouteSettings: Equatable, Sendable {
         let legacyTranscription = defaults.string(forKey: Key.cloudTranscriber) == "openrouter-whisper"
         let oldTranscriber = defaults.string(forKey: Key.cloudTranscriber)
         settings.cloudTranscriber = legacyTranscription ? .customAPI : (oldTranscriber == "gemini-audio" || oldTranscriber == "gemini-transcribe" ? .gemini : oldTranscriber.flatMap(CloudTranscriber.init(rawValue:)) ?? .gemini)
-        settings.customTranscriptionModel = defaults.string(forKey: Key.customTranscriptionModel) ?? (legacyTranscription ? "openai/whisper-large-v3-turbo" : "whisper-1")
+        settings.customTranscriptionModel = defaults.string(forKey: Key.customTranscriptionModel) ?? (legacyTranscription ? "openai/whisper-large-v3-turbo" : RouteSettings.defaultCustomTranscriptionModel)
         settings.geminiTranscriptionModel = defaults.string(forKey: Key.geminiTranscriptionModel) ??
             (oldTranscriber == "gemini-audio" ? GeminiTranscriptionProvider.defaultModel : GeminiTranscribeProvider.defaultModel)
         let oldChoice = defaults.string(forKey: Key.cleanup)
@@ -277,14 +278,24 @@ enum CustomAPIKeyBinding {
         guard defaults.string(forKey: preference(provider)) == (try endpoint(address)) else { throw CredentialError.destinationMismatch }
         return try credentials.read(provider)
     }
+
+    /// The key for any provider: a custom provider's only through its bound endpoint, the others straight from the store.
+    static func readKey(for provider: ProviderID, routes: RouteSettings, defaults: UserDefaults, credentials: CredentialStore) throws -> APIKey? {
+        guard let address = routes.apiBaseURL(for: provider) else { return try credentials.read(provider) }
+        return try read(at: address, defaults: defaults, credentials: credentials, provider: provider)
+    }
+
+    /// True when the saved key is bound to a different endpoint than `address`, so it must be saved again.
+    static func needsConfirmation(at address: String, defaults: UserDefaults, provider: ProviderID = .customAPI) -> Bool {
+        guard let destination = try? endpoint(address) else { return false }
+        return defaults.string(forKey: preference(provider)) != destination
+    }
+
+    /// Forgets the endpoint a key was bound to (the key itself is deleted through the store).
+    static func clear(defaults: UserDefaults, provider: ProviderID = .customAPI) { defaults.removeObject(forKey: preference(provider)) }
 }
 
 // MARK: - Route plan
-
-/// One stage that sends data off this Mac and its Settings disclosure.
-struct DisclosureStage: Equatable, Sendable {
-    let disclosure: DataDisclosure
-}
 
 /// What a dictation would use with these settings and keys, decided before recording starts.
 struct RoutePlan {
@@ -295,7 +306,7 @@ struct RoutePlan {
     /// Why a dictation cannot start on this route, or nil. Never triggers a fallback.
     let refusal: String?
     /// Stages whose data leaves this Mac, in transcription-then-cleanup order.
-    let stages: [DisclosureStage]
+    let stages: [DataDisclosure]
 
     var usesLocalModel: Bool { transcriber == nil && refusal == nil }
 
@@ -305,7 +316,7 @@ struct RoutePlan {
     /// `cleanupSendsText` is false when every cleanup option is off: the provider is not called
     /// then, so nothing is sent and no key is needed.
     static func make(_ settings: RouteSettings, cleanupSendsText: Bool, key: (ProviderID) -> APIKey?) -> RoutePlan {
-        var stages: [DisclosureStage] = []
+        var stages: [DataDisclosure] = []
         var refusal: String?
         var transcriber: TranscriptionProvider?
         if settings.transcription == .cloud {
@@ -314,7 +325,7 @@ struct RoutePlan {
             transcriber = makeTranscriptionProvider(id: choice, key: key(credentialID), apiBaseURL: settings.customTranscriptionAPIBaseURL, model: settings.customTranscriptionModel, geminiModel: settings.geminiTranscriptionModel)
             if transcriber == nil { refusal = ProviderError.invalidConfiguration(choice.providerID).userMessage }
             if let disclosure = (transcriber ?? makeTranscriptionProvider(id: choice, key: placeholderKey, apiBaseURL: settings.customTranscriptionAPIBaseURL, model: settings.customTranscriptionModel, geminiModel: settings.geminiTranscriptionModel))?.disclosure, !disclosure.staysOnThisMac {
-                stages.append(DisclosureStage(disclosure: disclosure))
+                stages.append(disclosure)
             }
         }
         var cleaner: CleanupProvider?
@@ -325,7 +336,7 @@ struct RoutePlan {
             let preview = cleaner ?? makeCleanupProvider(settings.cleanup, key: storedKey ?? placeholderKey,
                                                         apiBaseURL: settings.customAPIBaseURL, model: settings.customAPIModel)
             if let disclosure = preview?.disclosure, !disclosure.staysOnThisMac {
-                stages.append(DisclosureStage(disclosure: disclosure))
+                stages.append(disclosure)
             }
         }
         return RoutePlan(transcriber: transcriber, cleaner: cleaner, refusal: refusal, stages: stages)
@@ -335,7 +346,7 @@ struct RoutePlan {
 enum DisclosureText {
     /// One-line description for Settings, shown before any cloud use.
     static func summary(_ plan: RoutePlan, stage: ProcessingStage) -> String? {
-        plan.stages.first { $0.disclosure.stage == stage }?.disclosure.summary
+        plan.stages.first { $0.stage == stage }?.summary
     }
 }
 
@@ -353,14 +364,14 @@ protocol LLMTranscriber: TranscriptionProvider {
 
 extension GeminiTranscriptionProvider: SilencePrecheckedTranscriber, LLMTranscriber {
     func shouldSkip(peakLevel: Float, durationSeconds: Double?) -> Bool {
-        Self.shouldSkipForSilence(peakLevel: peakLevel, durationSeconds: durationSeconds)
+        AudioFormat.shouldSkipForSilence(peakLevel: peakLevel, durationSeconds: durationSeconds)
     }
 }
 
 /// Whisper-style models invent "Thank you." or "Okay." for silence, so silent clips are not sent.
 extension OpenAICompatibleTranscriptionProvider: SilencePrecheckedTranscriber {
     func shouldSkip(peakLevel: Float, durationSeconds: Double?) -> Bool {
-        GeminiTranscriptionProvider.shouldSkipForSilence(peakLevel: peakLevel, durationSeconds: durationSeconds)
+        AudioFormat.shouldSkipForSilence(peakLevel: peakLevel, durationSeconds: durationSeconds)
     }
 }
 
@@ -381,18 +392,18 @@ struct CloudTranscriptionDetail: Sendable, Equatable {
     var peakP50: Float? = nil, peakP90: Float? = nil
     /// The pre-check's level (second-highest 100 ms peak); nil when the audio was not decoded.
     var silencePeak: Float? = nil
-    /// "passed", "skipped", or "unchecked" when the provider has no pre-check or no level.
-    var precheck = "unchecked"
+    /// `.unchecked` when the provider has no pre-check or no level.
+    var precheck = Precheck.unchecked
     var segments: [TranscriptSegment]? = nil
-    /// Why the outcome was no speech: "precheck", "lowConfidence", "insufficientLoudness", "empty" or "punctuationOnly".
-    var noSpeechReason: String? = nil
+    /// Why the outcome was no speech.
+    var noSpeechReason: NoSpeechReason? = nil
 
     /// Content-free line for the unified log: reason, clip loudness and pre-check level, segment scores. Never text.
     var noSpeechLogLine: String {
         func f(_ value: Float?) -> String { value.map { String(format: "%.4f", $0) } ?? "-" }
         let scores = (segments ?? []).compactMap(\.avgLogprob)
         let range = scores.isEmpty ? "-" : String(format: "%.2f/%.2f", scores.min()!, scores.max()!)
-        return "no-speech reason=\(noSpeechReason ?? "unknown") clip=\(clipSeconds.map { String(format: "%.2f", $0) } ?? "-") p50=\(f(peakP50)) p90=\(f(peakP90)) "
+        return "no-speech reason=\(noSpeechReason?.rawValue ?? "unknown") clip=\(clipSeconds.map { String(format: "%.2f", $0) } ?? "-") p50=\(f(peakP50)) p90=\(f(peakP90)) "
             + "silence=\(f(silencePeak))/\(f(silencePeak == nil ? nil : AudioFormat.silencePeak)) segments=\(segments?.count ?? 0) logprob-min-max=\(range)"
     }
 }
@@ -424,8 +435,8 @@ enum CloudTranscription {
         var detail = CloudTranscriptionDetail(clipSeconds: prepared.duration, silencePeak: prepared.peak)
         if let peaks = prepared.payload.levels.flatMap(OpenAITranscriptionFormat.peakPercentiles) { detail.peakP50 = peaks.p50; detail.peakP90 = peaks.p90 }
         if let checker = provider as? SilencePrecheckedTranscriber, let peak = prepared.peak {
-            if checker.shouldSkip(peakLevel: peak, durationSeconds: prepared.duration) { detail.precheck = "skipped"; detail.noSpeechReason = "precheck"; return (.noSpeech(skipped: true), detail) }
-            detail.precheck = "passed"
+            if checker.shouldSkip(peakLevel: peak, durationSeconds: prepared.duration) { detail.precheck = .skipped; detail.noSpeechReason = .precheck; return (.noSpeech(skipped: true), detail) }
+            detail.precheck = .passed
         }
         if Task.isCancelled { return (.cancelled, detail) }
         do {
@@ -443,7 +454,7 @@ enum CloudTranscription {
             if Task.isCancelled { return (.cancelled, detail) }
             // A transcript of only punctuation (" .") is silence too: nothing is pasted.
             if !text.contains(where: { $0.isLetter || $0.isNumber }) {
-                detail.noSpeechReason = detail.noSpeechReason ?? (!text.isEmpty ? "punctuationOnly" : "empty")
+                detail.noSpeechReason = detail.noSpeechReason ?? (!text.isEmpty ? .punctuationOnly : .empty)
                 return (.noSpeech(skipped: false), detail)
             }
             return (suspected ? .heldAnswerSuspected(text) : .transcript(text), detail)

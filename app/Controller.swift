@@ -528,7 +528,7 @@ enum ScreenRequest: Equatable {
                 stopWatching()
             }
             var next = processing.settings
-            next.options = CleanupOptions(fillers: cleanupFillers, corrections: cleanupCorrections, lists: cleanupLists, punctuation: cleanupPunctuation, polish: cleanupPolish, professional: cleanupProfessional, spoken: cleanupSpoken, trustModel: true)
+            next.options = ProcessingSettings.options(fillers: cleanupFillers, corrections: cleanupCorrections, lists: cleanupLists, punctuation: cleanupPunctuation, polish: cleanupPolish, professional: cleanupProfessional, spoken: cleanupSpoken)
             next.learningEnabled = learningEnabled; next.route = routes.cleanup.processingRoute
             next.screenContext = screenContext
             do { try processing.update(next) } catch { setPhase(.error, "Could not save cleanup and learning settings.") }
@@ -552,10 +552,7 @@ enum ScreenRequest: Equatable {
     func routePlan(_ routes: RouteSettings, cleanupSendsText: Bool) -> RoutePlan {
         var refusal: String?
         let plan = RoutePlan.make(routes, cleanupSendsText: cleanupSendsText) { provider in
-            do {
-                if let address = routes.apiBaseURL(for: provider) { return try CustomAPIKeyBinding.read(at: address, defaults: .standard, credentials: self.credentials, provider: provider) }
-                return try self.credentials.read(provider)
-            } catch {
+            do { return try CustomAPIKeyBinding.readKey(for: provider, routes: routes, defaults: .standard, credentials: self.credentials) } catch {
                 refusal = (error as? CredentialError)?.description ?? KeyText.unreadable
                 return nil
             }
@@ -1001,7 +998,8 @@ enum ScreenRequest: Equatable {
         let heldWAV = held.map { WAVAudio.encodePCM16($0, sampleRate: AudioFormat.sampleRate) }
         cloudRequest.start({
             if let heldWAV { return await CloudTranscription.runDetailed(provider: provider, audioData: heldWAV, vocabulary: vocabulary) }
-            return await CloudTranscription.runDetailed(provider: provider, audioFile: audio ?? URL(fileURLWithPath: "/dev/null"), vocabulary: vocabulary)
+            guard let audio else { return await CloudTranscription.runDetailed(provider: provider, audioData: Data(), vocabulary: vocabulary) }
+            return await CloudTranscription.runDetailed(provider: provider, audioFile: audio, vocabulary: vocabulary)
         }) { [weak self] (result: (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail)) in
             guard let self, self.generation == token else { return }
             let outcome = result.outcome
@@ -1085,7 +1083,7 @@ enum ScreenRequest: Equatable {
                                                            compressionRatio: $0.compressionRatio, loudWindows: $0.loudWindows, dropped: $0.dropped) },
             clipSeconds: detail.clipSeconds, peakP50: detail.peakP50.map(Double.init), peakP90: detail.peakP90.map(Double.init),
             silencePeak: detail.silencePeak.map(Double.init), silenceThreshold: detail.silencePeak == nil ? nil : Double(AudioFormat.silencePeak),
-            precheck: detail.precheck)
+            precheck: detail.precheck.rawValue)
     }
     /// Content-free outcome name for the timing log.
     private static func transcriptionOutcomeName(_ outcome: CloudTranscriptionOutcome) -> String {
@@ -1111,7 +1109,7 @@ enum ScreenRequest: Equatable {
             if !result.contextUsed { detail.contextApp = nil; detail.contextChars = nil }
             detail.modelOutput = result.modelOutput; detail.guardVerdict = result.guardVerdict; detail.promptHash = result.promptHash
             detail.dictionaryTerms = result.terms.isEmpty ? nil : result.terms; detail.input = result.cleanupInput
-            detail.providerError = result.providerError.map { Mirror(reflecting: $0).children.first?.label ?? "\($0)" }
+            detail.providerError = result.providerError?.kind
             entry.cleanup = detail
         }
         timingLog.notice("cleanup took=\(ProcessInfo.processInfo.systemUptime - self.cleanupStartedAt, format: .fixed(precision: 3)) path=\(result.cleanupPath?.rawValue ?? "none", privacy: .public)")
@@ -1126,7 +1124,7 @@ enum ScreenRequest: Equatable {
             let reason = result.providerError.map { " " + $0.userMessage } ?? ""
             // Content-free: the guard's category, never the text.
             if case .heldForRecovery(_, let why) = outcome {
-                timingLog.notice("cleanup-held reason=\(why.rawValue, privacy: .public) provider-error=\(result.providerError.map { Mirror(reflecting: $0).children.first?.label ?? "\($0)" } ?? "none", privacy: .public)")
+                timingLog.notice("cleanup-held reason=\(why.rawValue, privacy: .public) provider-error=\(result.providerError?.kind ?? "none", privacy: .public)")
             }
             entry = entry.with(finalText: "", status: .heldCleanup)
             do { try store.save(entry); setPhase(.error, "Cleanup was held for review.\(reason) The raw transcript is in History. Press ⌃⌘C to copy it.") }
@@ -1136,7 +1134,7 @@ enum ScreenRequest: Equatable {
         // Content-free: why the full cleanup was not used (the punctuation transfer or local rules was).
         let fallback = result.fallback?.rawValue, rejected = result.rejectedOutput
         if let why = result.fallback {
-            timingLog.notice("cleanup-fallback entry=\(savedEntry.id, privacy: .public) reason=\(why.rawValue, privacy: .public) provider-error=\(result.providerError.map { Mirror(reflecting: $0).children.first?.label ?? "\($0)" } ?? "none", privacy: .public)")
+            timingLog.notice("cleanup-fallback entry=\(savedEntry.id, privacy: .public) reason=\(why.rawValue, privacy: .public) provider-error=\(result.providerError?.kind ?? "none", privacy: .public)")
         }
         // Only filler words were heard: keep the raw transcript, insert nothing, show no error.
         if processed.isEmpty {

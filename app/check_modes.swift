@@ -149,15 +149,6 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(Tone.casual.apply("a,b and c") == "a b and c", "a comma between words leaves a space")
         check(Tone.casual.apply("It costs $1,200, sadly.") == "It costs $1,200 sadly", "numeric commas stay")
 
-        // MARK: Tone guard: accepts exactly the transform, nothing else
-        for tone in Tone.allCases { check(CleanupGuard.acceptsTone(base: base, toned: tone.apply(base), tone: tone), "\(tone) output is accepted") }
-        check(!CleanupGuard.acceptsTone(base: "Hi Sam, it works.", toned: "hi sam it works", tone: .veryCasual), "a lowercased mid-sentence name is rejected")
-        check(!CleanupGuard.acceptsTone(base: "Is it ready?", toned: "Is it ready!", tone: .excited), "? to ! is rejected")
-        check(!CleanupGuard.acceptsTone(base: "It is 250,000.", toned: "It is 250000", tone: .casual), "dropping a numeric comma is rejected")
-        check(!CleanupGuard.acceptsTone(base: "Ship it.", toned: "Ship it now!", tone: .excited), "an added word is rejected")
-        check(!CleanupGuard.acceptsTone(base: "Ship it. Now.", toned: "Ship it! Now!", tone: .excited), "a mid-text ! is rejected")
-        check(!CleanupGuard.acceptsTone(base: "Ship it.", toned: "Ship it", tone: .formal), "formal accepts no change")
-
         // MARK: Screen context filtering
         check(ScreenContext.make(selected: "a", clipboard: "b", clipboardTypes: [], window: "c", secureInput: true, secureField: false) == nil, "nothing under Secure Input")
         check(ScreenContext.make(selected: "a", clipboard: "b", clipboardTypes: [], window: "c", secureInput: false, secureField: true) == nil, "nothing from a secure field")
@@ -265,6 +256,9 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(WritingModes.load(from: migration) == cleared, "cleared instructions and deleted modes stay changed on reload")
         WritingModes.save([], to: migration)
         check(WritingModes.load(from: migration).isEmpty, "all presets can be deleted permanently")
+        let damaged = Data("not json".utf8)
+        migration.set(damaged, forKey: WritingModes.defaultsKey)
+        check(WritingModes.load(from: migration).isEmpty && migration.data(forKey: WritingModes.unreadableKey) == damaged, "an unreadable saved list is kept aside before a save can replace it")
         for preset in WritingMode.presets {
             check(!preset.instructions.isEmpty && preset.instructions.count <= WritingModeLimits.instructions, "editable baseline fits the instruction field")
             check(preset.instructions == TransformPrompt.baseline(preset.transform!), "preset stores the actual baseline")

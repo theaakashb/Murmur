@@ -557,7 +557,7 @@ extension ProviderChecks {
     }
 
     static func checkSilenceAndAnswerHeuristics() {
-        typealias G = GeminiTranscriptionProvider
+        typealias G = AudioFormat
         check(G.shouldSkipForSilence(peakLevel: 0), "digital silence skipped")
         check(G.shouldSkipForSilence(peakLevel: 0.005), "below -40 dBFS skipped")
         check(!G.shouldSkipForSilence(peakLevel: 0.2), "normal speech level sent")
@@ -565,9 +565,6 @@ extension ProviderChecks {
         check(G.shouldSkipForSilence(peakLevel: 0.5, durationSeconds: 0.1), "accidental tap skipped")
         check(G.shouldSkipForSilence(peakLevel: .nan) && G.shouldSkipForSilence(peakLevel: .infinity), "non-finite level skipped")
         check(!G.shouldSkipForSilence(peakLevel: 0.05, threshold: 0.04) && G.shouldSkipForSilence(peakLevel: 0.03, threshold: 0.04), "custom threshold")
-        check(G.peakLevel(pcm16LE: Data([0x00, 0x00, 0x00, 0x40, 0x00, 0x80])) == 1.0, "PCM16 peak includes -32768")
-        check(abs(G.peakLevel(pcm16LE: Data([0x00, 0x00, 0xCC, 0x0C])) - 0.1) < 0.001, "PCM16 peak 3276 ≈ 0.1")
-        check(G.peakLevel(pcm16LE: Data()) == 0 && G.peakLevel(pcm16LE: Data([0x7F])) == 0, "empty or odd PCM peak is 0")
 
         let replies = [
             "Sure, here's a poem about the sea: The waves roll in.",
@@ -707,6 +704,10 @@ extension ProviderChecks {
         // The key never crosses the network in cleartext: plain http off this Mac sends no key.
         check(lanKeyed.sendableKey == nil && lanKeyed.makeGetRequest(lanKeyed.modelsURL).value(forHTTPHeaderField: "Authorization") == nil, "plain http to LAN sends no key")
         check(lanKeyed.disclosure.warning?.contains("not sent over plain http") == true, "plain http with key says the key is not sent")
+        // The static builders apply the rule themselves, so a caller passing a raw key cannot leak it.
+        let plainLAN = URL(string: "http://192.168.1.5:8080/v1/chat/completions")!
+        check(((try? OpenAIChatFormat.makeRequest(endpoint: plainLAN, bearer: key, model: "m", messages: CleanupMessages(system: "s", user: "u"), maxTokens: nil))?.value(forHTTPHeaderField: "Authorization")) == nil
+              && OpenAITranscriptionFormat.makeRequest(endpoint: plainLAN, apiKey: key, model: "m", audio: AudioPayload(data: Data([1])), boundary: "b").value(forHTTPHeaderField: "Authorization") == nil, "request builders drop a key bound for plain http off this Mac")
         var lanTLS = try! OpenAICompatibleCleanupProvider(baseURL: "https://192.168.1.20:11434", model: "m"); lanTLS.apiKey = key
         check(lanTLS.makeGetRequest(lanTLS.modelsURL).value(forHTTPHeaderField: "Authorization") == "Bearer \(fakeSecret)", "https to LAN sends the key")
         var loopKeyed = ollama; loopKeyed.apiKey = key

@@ -14,10 +14,7 @@ extension AppController {
     /// Owner-only, beside dictionary.json; absent when nothing is enabled.
     private func writeHelperVocabulary() {
         guard let vocabularyFile else { return }
-        let terms: [[String: Any]] = dictionaryEntries.filter { $0.enabled && !DictionaryStore.isCommandTarget($0) }.map { entry in
-            let variants = entry.variants.filter { !DictionaryStore.skipLearnedVariant($0, entry: entry, isCommonWord: processing?.dictionary.isCommonWord) }
-            return variants.isEmpty ? ["text": entry.preferred] : ["text": entry.preferred, "aliases": variants]
-        }
+        let terms = processing?.dictionary.helperVocabulary ?? []
         if terms.isEmpty { try? FileManager.default.removeItem(at: vocabularyFile); return }
         guard let data = try? JSONSerialization.data(withJSONObject: ["terms": terms], options: [.sortedKeys]) else { return }
         try? PrivateFiles.write(data, to: vocabularyFile)
@@ -27,14 +24,14 @@ extension AppController {
     func addDictionaryEntry(preferred: String, variants: String) -> Bool {
         guard let processing else { dictionaryMessage = "The dictionary is unavailable."; return false }
         do { try processing.addEntry(preferred: preferred, variants: variants); dictionaryMessage = ""; refreshDictionary(); return true }
-        catch { dictionaryMessage = (error as? DictionaryError)?.description ?? "Could not save the dictionary."; return false }
+        catch { dictionaryMessage = (error as? StoreError)?.description ?? "Could not save the dictionary."; return false }
     }
     @discardableResult
     func updateDictionaryEntry(_ entry: DictionaryEntry, preferred: String, variants: String, enabled: Bool) -> Bool {
         guard let processing else { dictionaryMessage = "The dictionary is unavailable."; return false }
         defer { refreshDictionary() }
         do { try processing.updateEntry(id: entry.id, preferred: preferred, variants: variants, enabled: enabled); dictionaryMessage = ""; return true }
-        catch { dictionaryMessage = (error as? DictionaryError)?.description ?? "Could not save the dictionary."; return false }
+        catch { dictionaryMessage = (error as? StoreError)?.description ?? "Could not save the dictionary."; return false }
     }
     private static let dismissedSuggestionsKey = "dictionarySuggestionsDismissed"
     /// Recomputed when the Dictionary page opens and after each answer; spell checks are cached for the launch.

@@ -18,13 +18,16 @@ enum CleanupGuard {
         var isName: Bool { capitalized && !sentenceStart && lower != "i" && !lower.hasPrefix("i'") }
     }
 
-    static let answerPhrases = [
-        "sure,", "sure!", "sure.", "certainly", "of course", "here's", "here is", "here are", "as an ai",
-        "i'm sorry, but", "i can't help", "i cannot help", "happy to help", "great question",
-        "i'd be happy", "i would be happy", "absolutely", "the answer is", "let me know if",
-        "i hope this helps", "hope this helps", "as a language model", "i'm an ai", "i am an ai",
-        "cleaned transcript", "transcript:", "<transcript", "</transcript",
+    /// Assistant-specific phrases that rarely occur in dictation; `LLMTranscriptCheck` reuses exactly these.
+    static let assistantPhrases = [
+        "as an ai", "as a language model", "i'm an ai", "i am an ai", "i hope this helps", "hope this helps",
+        "happy to help", "i'd be happy", "i would be happy", "i can't help", "i cannot help",
+        "<transcript", "</transcript", "cleaned transcript",
     ]
+    static let answerPhrases = [
+        "sure,", "sure!", "sure.", "certainly", "of course", "here's", "here is", "here are",
+        "i'm sorry, but", "great question", "absolutely", "the answer is", "let me know if", "transcript:",
+    ] + assistantPhrases
 
     /// The output contains an answer phrase the speaker did not say. Compared without punctuation on
     /// the raw side: added punctuation alone ("let's make sure" -> "Let's make sure.") is not an answer.
@@ -397,10 +400,6 @@ enum CleanupGuard {
         }
         return (ma, mb)
     }
-
-    /// A tone pass is accepted only as exactly `tone.apply(base)` on text that already passed the
-    /// guard: the ordinary check is not loosened for tone, so a model cannot pass "!" or case changes off as tone.
-    static func acceptsTone(base: String, toned: String, tone: Tone) -> Bool { toned == tone.apply(base) }
 
     /// `soundsLike(heard, term)` (lowercased letters only) lets a term replace 1–3 raw words that
     /// sound like it, beyond the built-in exact or half-similar spelling.

@@ -130,7 +130,7 @@ final class SnippetStore {
         try PrivateFiles.prepareDirectory(directory)
         guard let data = try PrivateFiles.read(file) else { return }
         let decoded = try JSONDecoder().decode(FileFormat.self, from: data)
-        guard decoded.version == 1 else { throw DictionaryError("Unsupported snippets version") }
+        guard decoded.version == 1 else { throw StoreError("Unsupported snippets version") }
         snippets = decoded.snippets
     }
 
@@ -149,29 +149,29 @@ final class SnippetStore {
     }
 
     func update(id: UUID, cue: String, text: String) throws {
-        guard let index = snippets.firstIndex(where: { $0.id == id }) else { throw DictionaryError("Snippet not found") }
+        guard let index = snippets.firstIndex(where: { $0.id == id }) else { throw StoreError("Snippet not found") }
         snippets[index] = try validate(Snippet(id: id, cue: cue, text: text, createdAt: snippets[index].createdAt))
         try save()
     }
 
     func delete(id: UUID) throws {
-        guard let index = snippets.firstIndex(where: { $0.id == id }) else { throw DictionaryError("Snippet not found") }
-        guard !unreadable else { throw DictionaryError("Snippets could not be read") }
+        guard let index = snippets.firstIndex(where: { $0.id == id }) else { throw StoreError("Snippet not found") }
+        guard !unreadable else { throw StoreError("Snippets could not be read") }
         snippets.remove(at: index)
         try save()
     }
 
     private func validate(_ snippet: Snippet) throws -> Snippet {
-        guard !unreadable else { throw DictionaryError("Snippets could not be read") }
+        guard !unreadable else { throw StoreError("Snippets could not be read") }
         let cue = TermText.collapseWhitespace(snippet.cue)
         let key = SnippetText.words(cue)
         guard (1...Self.maxCueLength).contains(cue.count), cue.contains(where: \.isLetter), !key.isEmpty else {
-            throw DictionaryError("The cue needs at least one letter and at most \(Self.maxCueLength) characters")
+            throw StoreError("The cue needs at least one letter and at most \(Self.maxCueLength) characters")
         }
-        guard !(key.count == 1 && SnippetText.reserved.contains(key[0])) else { throw DictionaryError("“\(cue)” is already a command word") }
-        guard !snippets.contains(where: { $0.id != snippet.id && SnippetText.words($0.cue) == key }) else { throw DictionaryError("Another snippet already uses that cue") }
+        guard !(key.count == 1 && SnippetText.reserved.contains(key[0])) else { throw StoreError("“\(cue)” is already a command word") }
+        guard !snippets.contains(where: { $0.id != snippet.id && SnippetText.words($0.cue) == key }) else { throw StoreError("Another snippet already uses that cue") }
         guard (1...Self.maxTextLength).contains(snippet.text.count), !snippet.text.allSatisfy(\.isWhitespace) else {
-            throw DictionaryError("The text needs 1 to \(Self.maxTextLength) characters")
+            throw StoreError("The text needs 1 to \(Self.maxTextLength) characters")
         }
         return Snippet(id: snippet.id, cue: cue, text: snippet.text, createdAt: snippet.createdAt)
     }

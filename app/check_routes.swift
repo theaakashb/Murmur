@@ -194,7 +194,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
 
         let gemini = RoutePlan.make(cloud, cleanupSendsText: true, key: all)
         check(gemini.transcriber is GeminiTranscribeProvider && gemini.refusal == nil, "configured recommended Gemini Transcribe model")
-        let summary = gemini.stages.first?.disclosure.summary ?? ""
+        let summary = gemini.stages.first?.summary ?? ""
         check(summary.contains("audio") && summary.contains("Google"), "Gemini disclosure says audio goes to Google")
         check(summary.contains("human reviewers"), "Gemini disclosure says free-tier human review")
         check(summary.lowercased().contains("55 days") && summary.lowercased().contains("stored"), "Gemini Transcribe disclosure states storage")
@@ -212,8 +212,8 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let speechProvider = independent.transcriber as? OpenAICompatibleTranscriptionProvider
         let cleanupProvider = independent.cleaner as? OpenAICompatibleCleanupProvider
         check(speechProvider?.server.apiKey == speechKey && cleanupProvider?.apiKey == cleanupKey &&
-              independent.stages.map(\.disclosure.destinationHost).contains("speech.example") &&
-              independent.stages.map(\.disclosure.destinationHost).contains("cleanup.example"),
+              independent.stages.map(\.destinationHost).contains("speech.example") &&
+              independent.stages.map(\.destinationHost).contains("cleanup.example"),
               "custom transcription and cleanup use independent endpoints and credentials")
 
         var loopback = RouteSettings(); loopback.cleanup = .customAPI; loopback.customAPIBaseURL = "http://localhost:11434"; loopback.customAPIModel = "llama3.2"
@@ -221,7 +221,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check(onMac.cleaner != nil && onMac.stages.isEmpty && onMac.refusal == nil, "loopback server needs no disclosure")
         loopback.customAPIBaseURL = "http://192.168.1.20:11434"
         let lan = RoutePlan.make(loopback, cleanupSendsText: true, key: all)
-        check(lan.stages.count == 1 && lan.stages[0].disclosure.warning != nil, "LAN server is disclosed with a plain-http warning")
+        check(lan.stages.count == 1 && lan.stages[0].warning != nil, "LAN server is disclosed with a plain-http warning")
         let publicNoKey = RoutePlan.make(loopback, cleanupSendsText: true, key: none)
         check(publicNoKey.cleaner != nil && publicNoKey.refusal == nil && publicNoKey.stages.count == 1, "public custom API may omit a key")
         loopback.customAPIModel = ""
@@ -240,27 +240,27 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let all: (ProviderID) -> APIKey? = { _ in testKey }
         var settings = RouteSettings(); settings.transcription = .cloud; settings.cloudTranscriber = .customAPI
         let first = RoutePlan.make(settings, cleanupSendsText: true, key: all)
-        check(first.stages.count == 1 && first.stages[0].disclosure.stage == .transcription &&
-              first.stages[0].disclosure.summary.contains("audio"), "cloud transcription shows its disclosure in Settings")
+        check(first.stages.count == 1 && first.stages[0].stage == .transcription &&
+              first.stages[0].summary.contains("audio"), "cloud transcription shows its disclosure in Settings")
 
         settings.cleanup = .gemini
         let geminiCleanup = RoutePlan.make(settings, cleanupSendsText: true, key: all)
-        check(Set(geminiCleanup.stages.map(\.disclosure.stage)) == [.transcription, .cleanup], "transcription and cleanup disclosures stay visible inline")
+        check(Set(geminiCleanup.stages.map(\.stage)) == [.transcription, .cleanup], "transcription and cleanup disclosures stay visible inline")
 
         settings.cloudTranscriber = .gemini
         let changed = RoutePlan.make(settings, cleanupSendsText: true, key: all)
-        check(changed.stages.first?.disclosure.provider == .gemini &&
-              changed.stages.first?.disclosure.summary.contains("human reviewers") == true,
+        check(changed.stages.first?.provider == .gemini &&
+              changed.stages.first?.summary.contains("human reviewers") == true,
               "Gemini disclosure stays visible without a confirmation alert")
 
         settings.cloudTranscriber = .customAPI; settings.cleanup = .customAPI; settings.customAPIModel = "m"
         settings.customTranscriptionAPIBaseURL = "http://10.0.0.5:8080"
         settings.customAPIBaseURL = "http://10.0.0.7:8080"
         let endpoint = RoutePlan.make(settings, cleanupSendsText: true, key: all)
-        check(Set(endpoint.stages.map(\.disclosure.destinationHost)) == ["10.0.0.5", "10.0.0.7"],
+        check(Set(endpoint.stages.map(\.destinationHost)) == ["10.0.0.5", "10.0.0.7"],
               "separate custom destinations are disclosed without a confirmation alert")
         settings.customTranscriptionAPIBaseURL = "http://10.0.0.6:8080"
-        check(RoutePlan.make(settings, cleanupSendsText: true, key: all).stages.map(\.disclosure.destinationHost).contains("10.0.0.6"),
+        check(RoutePlan.make(settings, cleanupSendsText: true, key: all).stages.map(\.destinationHost).contains("10.0.0.6"),
               "custom destination changes update the inline disclosure")
     }
 
@@ -313,9 +313,9 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check(tail.payload.data.count == 44 + 24_000 * 2 && abs((tail.duration ?? 0) - 3) < 0.001, "silent tail trimmed to a 0.5 s pad; duration is the recording's")
         check(CloudAudio.trimTrailingSilence([0.001, 0, 0.002], sampleRate: 16_000) == [0.001, 0, 0.002], "all-silent clip left for the pre-check")
         var click = [Float](repeating: 0.002, count: 48_000); click[20_000] = 0.5
-        check(GeminiTranscriptionProvider.shouldSkipForSilence(peakLevel: CloudAudio.prepare(WAVAudio.encodePCM16(click, sampleRate: 48_000)).peak ?? 1), "a lone click does not make a silent clip count as speech")
+        check(AudioFormat.shouldSkipForSilence(peakLevel: CloudAudio.prepare(WAVAudio.encodePCM16(click, sampleRate: 48_000)).peak ?? 1), "a lone click does not make a silent clip count as speech")
         let word = [Float](repeating: 0.002, count: 24_000) + tone(seconds: 0.2, amplitude: 0.3) + [Float](repeating: 0.002, count: 24_000)
-        check(!GeminiTranscriptionProvider.shouldSkipForSilence(peakLevel: CloudAudio.prepare(WAVAudio.encodePCM16(word, sampleRate: 48_000)).peak ?? 0), "a 0.2 s word is speech")
+        check(!AudioFormat.shouldSkipForSilence(peakLevel: CloudAudio.prepare(WAVAudio.encodePCM16(word, sampleRate: 48_000)).peak ?? 0), "a 0.2 s word is speech")
     }
 
     // MARK: Cloud transcription
@@ -569,23 +569,23 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
             "lone punctuation is no speech")
         // The no-speech log line names why and carries scores, never words.
         let invented = await CloudTranscription.runDetailed(provider: VerboseJSONStub(verboseJSON([(" Hello there friend.", 0, 5, -1.4)])), audioData: silence)
-        await checkA(invented.detail.noSpeechReason == "lowConfidence" && invented.detail.noSpeechLogLine.contains("segments=1 logprob-min-max=-1.40/-1.40") && !invented.detail.noSpeechLogLine.contains("Hello"), "low-confidence no-speech line has scores, no text")
+        await checkA(invented.detail.noSpeechReason == .lowConfidence && invented.detail.noSpeechLogLine.contains("segments=1 logprob-min-max=-1.40/-1.40") && !invented.detail.noSpeechLogLine.contains("Hello"), "low-confidence no-speech line has scores, no text")
         let twoWindows = WAVAudio.encodePCM16(tone(seconds: 0.2, amplitude: 0.3), sampleRate: 48_000)
         let tooShort = await CloudTranscription.runDetailed(provider: VerboseJSONStub(verboseJSON([(" Hello.", 0, 0.2, -0.259)])), audioData: twoWindows)
         await checkA(tooShort.outcome == .noSpeech(skipped: false) && tooShort.detail.segments?.first?.loudWindows == 2
-                     && tooShort.detail.noSpeechReason == "insufficientLoudness", "two loud windows at high confidence report the loudness rejection")
+                     && tooShort.detail.noSpeechReason == .insufficientLoudness, "two loud windows at high confidence report the loudness rejection")
         await checkA(tooShort.detail.noSpeechLogLine.contains("reason=insufficientLoudness") && !tooShort.detail.noSpeechLogLine.contains("Hello"), "loudness rejection log contains the cause without transcript text")
         let uncertain = await CloudTranscription.runDetailed(provider: VerboseJSONStub(verboseJSON([(" Hello.", 0, 0.2, -1.17)])), audioData: twoWindows)
-        await checkA(uncertain.outcome == .noSpeech(skipped: false) && uncertain.detail.noSpeechReason == "lowConfidence", "all-low-confidence rejection takes precedence even on a short clip")
+        await checkA(uncertain.outcome == .noSpeech(skipped: false) && uncertain.detail.noSpeechReason == .lowConfidence, "all-low-confidence rejection takes precedence even on a short clip")
         let threeWindows = WAVAudio.encodePCM16(tone(seconds: 0.3, amplitude: 0.3), sampleRate: 48_000)
         let boundary = await CloudTranscription.runDetailed(provider: VerboseJSONStub(verboseJSON([(" Hello.", 0, 0.3, -0.259)])), audioData: threeWindows)
         await checkA(boundary.outcome == .transcript(" Hello.") && boundary.detail.segments?.first?.loudWindows == 3
                      && boundary.detail.noSpeechReason == nil, "three loud windows retain speech without a rejection reason")
         let punctuation = await CloudTranscription.runDetailed(provider: VerboseJSONStub(verboseJSON([(" .", 0, 1, -0.2)])), audioData: speech)
-        await checkA(punctuation.detail.noSpeechReason == "punctuationOnly", "punctuation-only reason")
+        await checkA(punctuation.detail.noSpeechReason == .punctuationOnly, "punctuation-only reason")
         var precheckProvider = GeminiTranscriptionProvider(apiKey: testKey); precheckProvider.transport = MockTransport(HTTPResult(status: 200, body: geminiBody("unused")))
         let skipped = await CloudTranscription.runDetailed(provider: precheckProvider, audioData: WAVAudio.encodePCM16([Float](repeating: 0.001, count: 48_000), sampleRate: 48_000))
-        await checkA(skipped.detail.noSpeechReason == "precheck" && skipped.detail.noSpeechLogLine.hasPrefix("no-speech reason=precheck clip="), "pre-check skip reason")
+        await checkA(skipped.detail.noSpeechReason == .precheck && skipped.detail.noSpeechLogLine.hasPrefix("no-speech reason=precheck clip="), "pre-check skip reason")
         await checkA(await CloudTranscription.run(provider: VerboseJSONStub(verboseJSON([
             (" Send the report.", 0, 1, -0.8)])), audioData: speech) == .transcript(" Send the report."),
             "moderately confident speech is kept")

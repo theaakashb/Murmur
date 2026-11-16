@@ -18,6 +18,6 @@ extension AppController {
         guard let store = processing?.snippets else { snippetMessage = "Snippets are unavailable."; return false }
         defer { snippets = store.snippets }
         do { try edit(store); snippetMessage = ""; return true }
-        catch { snippetMessage = (error as? DictionaryError)?.description ?? "Could not save snippets."; return false }
+        catch { snippetMessage = (error as? StoreError)?.description ?? "Could not save snippets."; return false }
     }
 }

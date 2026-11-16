@@ -75,15 +75,21 @@ enum WritingModes {
     static let defaultsKey = "writingModes"
 
     static let presetsSeededKey = "writingModePresetsSeeded"
+    static let editableBaselinesKey = "writingModeEditableBaselines"
+    /// Where an unreadable saved list is kept, so the next save cannot silently replace it with an empty one.
+    static let unreadableKey = "writingModesUnreadable"
 
     /// The saved modes; the first call adds the presets after them (existing modes keep priority), once.
     static func load(from defaults: UserDefaults) -> [WritingMode] {
-        var modes = defaults.data(forKey: defaultsKey).flatMap { try? JSONDecoder().decode([WritingMode].self, from: $0) } ?? []
+        var modes: [WritingMode] = []
+        if let saved = defaults.data(forKey: defaultsKey) {
+            if let decoded = try? JSONDecoder().decode([WritingMode].self, from: saved) { modes = decoded } else { defaults.set(saved, forKey: unreadableKey) }
+        }
         if !defaults.bool(forKey: presetsSeededKey) {
             modes += WritingMode.presets.filter { preset in !modes.contains { $0.id == preset.id } }
             save(modes, to: defaults); defaults.set(true, forKey: presetsSeededKey)
         }
-        if !defaults.bool(forKey: "writingModeEditableBaselines") {
+        if !defaults.bool(forKey: editableBaselinesKey) {
             for i in modes.indices {
                 guard let preset = WritingMode.presets.first(where: { $0.id == modes[i].id }),
                       modes[i].transform == preset.transform else { continue }
@@ -91,7 +97,7 @@ enum WritingModes {
                 if ["AI Prompt", "Prompt Engineer"].contains(modes[i].name) { modes[i].name = "Prompt Mode" }
             }
             save(modes, to: defaults)
-            defaults.set(true, forKey: "writingModeEditableBaselines")
+            defaults.set(true, forKey: editableBaselinesKey)
         }
         if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[0].id && $0.transform == .aiPrompt && [TransformPrompt.previousAIPromptBaseline, TransformPrompt.previousDetailAIPromptBaseline, TransformPrompt.previousConditionalAIPromptBaseline].contains($0.instructions) }) {
             modes[i].instructions = TransformPrompt.baseline(.aiPrompt)

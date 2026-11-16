@@ -7,8 +7,8 @@ extension AppController {
     /// Publishes which providers have a key. The key itself never leaves the Keychain store.
     func refreshKeys() { savedKeys = Set(KeyText.providers.filter { credentials.exists($0) }) }
     func customAPIKeyNeedsConfirmation(_ provider: ProviderID) -> Bool {
-        guard savedKeys.contains(provider), let address = customAPIAddress(provider), let destination = try? CustomAPIKeyBinding.endpoint(address) else { return false }
-        return UserDefaults.standard.string(forKey: CustomAPIKeyBinding.preference(provider)) != destination
+        guard savedKeys.contains(provider), let address = customAPIAddress(provider) else { return false }
+        return CustomAPIKeyBinding.needsConfirmation(at: address, defaults: .standard, provider: provider)
     }
     private func customAPIAddress(_ provider: ProviderID) -> String? { routeSettings.apiBaseURL(for: provider) }
     @discardableResult
@@ -25,18 +25,14 @@ extension AppController {
     func removeKey(_ provider: ProviderID) {
         do {
             try credentials.delete(provider)
-            if customAPIAddress(provider) != nil { UserDefaults.standard.removeObject(forKey: CustomAPIKeyBinding.preference(provider)) }
+            if customAPIAddress(provider) != nil { CustomAPIKeyBinding.clear(defaults: .standard, provider: provider) }
             keyMessages[provider] = KeyText.removed
         } catch { keyMessages[provider] = KeyText.removeFailed }
         refreshKeys()
     }
     func validateKey(_ provider: ProviderID) {
         let key: APIKey?
-        do {
-            if let address = customAPIAddress(provider) {
-                key = try CustomAPIKeyBinding.read(at: address, defaults: .standard, credentials: credentials, provider: provider)
-            } else { key = try credentials.read(provider) }
-        } catch { keyMessages[provider] = (error as? CredentialError)?.description ?? KeyText.unreadable; return }
+        do { key = try CustomAPIKeyBinding.readKey(for: provider, routes: routeSettings, defaults: .standard, credentials: credentials) } catch { keyMessages[provider] = (error as? CredentialError)?.description ?? KeyText.unreadable; return }
         keyMessages[provider] = KeyText.checking
         let endpoint = customAPIAddress(provider) ?? customAPIBaseURL
         Task { @MainActor [weak self] in

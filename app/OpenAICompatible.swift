@@ -20,7 +20,7 @@ enum OpenAITranscriptionFormat {
         // spellings after transcription; compatible endpoints have no shared structured vocabulary field.
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
-        if let apiKey { request.setValue("Bearer \(apiKey.secret)", forHTTPHeaderField: "Authorization") }
+        if let apiKey = LocalEndpoint.sendable(apiKey, to: endpoint) { request.setValue("Bearer \(apiKey.secret)", forHTTPHeaderField: "Authorization") }
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = Multipart.body(boundary: boundary, fields: fields, fileField: "file", filename: audio.filename, mimeType: audio.mimeType, fileData: audio.data)
@@ -42,16 +42,17 @@ enum OpenAITranscriptionFormat {
         return from < to ? levels[from..<to].filter { $0 >= AudioFormat.silencePeak }.count : 0
     }
 
-    /// `{"text": "..."}`. An empty string (silence) is valid; a missing `text` is not. With verbose_json
-    /// `segments`, trailing segments are dropped when the model itself marks them as no speech, or when
-    /// `levels` shows the audio under them is quiet (Whisper invents "Thank you." on silent tails); the
-    /// words are never inspected. Partial segment data keeps `text`.
+    /// Logs one content-free line (scores and times only, never words) to the timing category.
     static func logTail(_ line: String) {
         #if canImport(os)
         Logger(subsystem: "cc.clouddev.dictation", category: "timing").notice("transcript-tail \(line, privacy: .public)")
         #endif
     }
 
+    /// `{"text": "..."}`. An empty string (silence) is valid; a missing `text` is not. With verbose_json
+    /// `segments`, trailing segments are dropped when the model itself marks them as no speech, or when
+    /// `levels` shows the audio under them is quiet (Whisper invents "Thank you." on silent tails); the
+    /// words are never inspected. Partial segment data keeps `text`.
     static func parse(provider: ProviderID, result: HTTPResult, levels: [Float]? = nil) throws -> String {
         try parseDetailed(provider: provider, result: result, levels: levels).text
     }
@@ -99,7 +100,7 @@ enum OpenAITranscriptionFormat {
         if !segments.isEmpty && segments.allSatisfy(\.unsure) {
             logTail("all \(segments.count) segments below logprob \(logprobThreshold): no speech")
             for index in details.indices { details[index].dropped = true }
-            return TranscriptionResult(text: "", segments: details, noSpeechReason: "lowConfidence")
+            return TranscriptionResult(text: "", segments: details, noSpeechReason: .lowConfidence)
         }
         // Content-free: scores and times of the trailing segments only, never their words.
         var tail = segments.count - 1
@@ -113,7 +114,7 @@ enum OpenAITranscriptionFormat {
         while segments.last?.silent == true { segments.removeLast() }
         // Whisper segment text carries its own leading space.
         return TranscriptionResult(text: segments.map(\.text).joined().trimmingCharacters(in: .whitespacesAndNewlines), segments: details,
-                                   noSpeechReason: tail < 0 ? "insufficientLoudness" : nil)
+                                   noSpeechReason: tail < 0 ? .insufficientLoudness : nil)
     }
 }
 
@@ -128,7 +129,7 @@ enum OpenAIChatFormat {
         let max_tokens: Int?
     }
 
-    /// `bearer` nil sends no Authorization header (local servers without a key).
+    /// `bearer` nil, or any key for a cleartext remote `endpoint`, sends no Authorization header.
     static func makeRequest(endpoint: URL, bearer: APIKey?, model: String, messages: CleanupMessages, maxTokens: Int?) throws -> URLRequest {
         let body = Body(model: model,
                         messages: [Message(role: "system", content: messages.system), Message(role: "user", content: messages.user)],
@@ -137,7 +138,7 @@ enum OpenAIChatFormat {
         encoder.outputFormatting = [.sortedKeys]
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
-        if let bearer = bearer { request.setValue("Bearer \(bearer.secret)", forHTTPHeaderField: "Authorization") }
+        if let bearer = LocalEndpoint.sendable(bearer, to: endpoint) { request.setValue("Bearer \(bearer.secret)", forHTTPHeaderField: "Authorization") }
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = try encoder.encode(body)
@@ -270,6 +271,12 @@ enum LocalEndpoint {
         return url
     }
 
+    /// The key only where it may go: never in cleartext to a server off this Mac. Every request builder applies this itself.
+    static func sendable(_ key: APIKey?, to url: URL) -> APIKey? {
+        if case .leavesDevice(_, encrypted: false) = locality(of: url) { return nil }
+        return key
+    }
+
     static func locality(of url: URL) -> EndpointLocality {
         let host = bareHost(url.host ?? "")
         if isLoopback(host) { return .onDevice }
@@ -382,10 +389,7 @@ struct OpenAICompatibleCleanupProvider: CleanupProvider {
 
     var locality: EndpointLocality { LocalEndpoint.locality(of: baseURL) }
     /// The key is never sent in cleartext: a server off this Mac gets it only over https.
-    var sendableKey: APIKey? {
-        if case .leavesDevice(_, encrypted: false) = locality { return nil }
-        return apiKey
-    }
+    var sendableKey: APIKey? { LocalEndpoint.sendable(apiKey, to: baseURL) }
     var address: String { LocalEndpoint.address(of: baseURL) }
     var chatCompletionsURL: URL { URL(string: baseURL.absoluteString + "/v1/chat/completions")! }
     var modelsURL: URL { URL(string: baseURL.absoluteString + "/v1/models")! }

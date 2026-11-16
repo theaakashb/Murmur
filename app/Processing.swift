@@ -60,7 +60,11 @@ struct ProcessingSettings: Equatable, Sendable {
     var screenContext = Prefs.screenContext.fallback
 
     private static func options(_ flag: (Setting<Bool>) -> Bool) -> CleanupOptions {
-        CleanupOptions(fillers: flag(Prefs.cleanupFillers), corrections: flag(Prefs.cleanupCorrections), lists: flag(Prefs.cleanupLists), punctuation: flag(Prefs.cleanupPunctuation), polish: flag(Prefs.cleanupPolish), professional: flag(Prefs.cleanupProfessional), spoken: flag(Prefs.cleanupSpoken), trustModel: true)
+        options(fillers: flag(Prefs.cleanupFillers), corrections: flag(Prefs.cleanupCorrections), lists: flag(Prefs.cleanupLists), punctuation: flag(Prefs.cleanupPunctuation), polish: flag(Prefs.cleanupPolish), professional: flag(Prefs.cleanupProfessional), spoken: flag(Prefs.cleanupSpoken))
+    }
+    /// The options for these cleanup flags; every settings source builds them here, with `trustModel` on.
+    static func options(fillers: Bool, corrections: Bool, lists: Bool, punctuation: Bool, polish: Bool, professional: Bool, spoken: Bool) -> CleanupOptions {
+        CleanupOptions(fillers: fillers, corrections: corrections, lists: lists, punctuation: punctuation, polish: polish, professional: professional, spoken: spoken, trustModel: true)
     }
 
     /// Missing or unknown values fall back to the approved defaults (all comforts on, local route).
@@ -178,11 +182,10 @@ final class ProcessingCoordinator {
     }
 
     /// The mode's tone, applied last to whichever text was chosen (gap #7). Never on the email layout,
-    /// and only as exactly `Tone.apply`, which `CleanupGuard.acceptsTone` checks.
+    /// and only as exactly `Tone.apply`.
     private func toned(_ text: String, input: String, style: DictationStyle) -> String {
         guard style.options.anyEnabled, style.tone != .formal, !text.isEmpty, !(style.options.spoken && RuleCleaner.emailLayout(input) != nil) else { return text }
-        let next = style.tone.apply(text)
-        return CleanupGuard.acceptsTone(base: text, toned: next, tone: style.tone) ? next : text
+        return style.tone.apply(text)
     }
 
     /// Full path including the cloud route. Always inserts: see the failure policy above.
@@ -236,7 +239,7 @@ final class ProcessingCoordinator {
         }
         if let kind = style.transform, let provider = cloudCleaner, !prepared.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             if let attempt = await Self.transformClean(prepared.text, kind: kind, provider: provider, terms: terms, instructions: instructions) {
-                evidence.cleanupPath = .modelAccepted; evidence.modelOutput = attempt.accepted; evidence.promptHash = attempt.promptHash; evidence.guardVerdict = attempt.verdict
+                evidence.cleanupPath = .modelAccepted; evidence.modelOutput = attempt.accepted; evidence.promptHash = attempt.promptHash; evidence.guardVerdict = attempt.verdict.rawValue
                 evidence.outcome = .insert(attempt.text ?? prepared.text); return evidence
             }
             evidence.fallback = .cleanerFailed // Rewrite failed or was rejected: ordinary cleanup below.
@@ -271,9 +274,9 @@ final class ProcessingCoordinator {
             let text = attempt.text ?? localClean(section, terms: terms, options: options, evidence: &evidence)
             if !text.isEmpty { parts.append(text) }
         }
-        var verdicts: [String] = []
+        var verdicts: [GuardVerdict] = []
         for attempt in results where !verdicts.contains(attempt.verdict) { verdicts.append(attempt.verdict) }
-        evidence.guardVerdict = verdicts.joined(separator: ",")
+        evidence.guardVerdict = verdicts.map(\.rawValue).joined(separator: ",")
         evidence.outcome = .insert(toned(parts.joined(separator: " "), input: prepared.text, style: style)); return evidence
     }
 
@@ -282,7 +285,7 @@ final class ProcessingCoordinator {
     /// only thing that changes the hash. FNV-1a, 8 hex digits.
     static func promptHash(_ system: String) -> String {
         var base = system
-        for marker in ["\n\nThe user's style notes", "\n\nThe user message may start with reference text", "\n\nPreferred spellings from"] {
+        for marker in CleanupPrompt.tails {
             if let range = base.range(of: marker) { base = String(base[..<range.lowerBound]) }
         }
         base = base.replacingOccurrences(of: #"-[0-9A-Fa-f]{32}"#, with: "-N", options: .regularExpression)
@@ -290,6 +293,9 @@ final class ProcessingCoordinator {
         for byte in base.utf8 { hash = (hash ^ UInt64(byte)) &* 0x100000001b3 }
         return String(format: "%016llx", hash).prefix(8).description
     }
+
+    /// What the guard did with a cleanup model's output. Stored in History as the raw value, comma-joined per section.
+    enum GuardVerdict: String { case cleaned, unchanged, rejected, providerError = "provider-error", transform }
 
     /// One section's cloud result. Nil `text` means use local rules; `reason` is why the full
     /// cleanup was not used, `error` the provider error, and `rejected` the output the guard refused.
@@ -300,8 +306,8 @@ final class ProcessingCoordinator {
         var rejected: String? = nil
         /// The model's output the guard accepted, as returned.
         var accepted: String? = nil
-        /// "cleaned", "unchanged", "rejected" or "provider-error".
-        var verdict = "provider-error"
+        /// What the guard did with the model output; `.providerError` until a result is judged.
+        var verdict = GuardVerdict.providerError
         var promptHash: String? = nil
     }
 
@@ -311,7 +317,7 @@ final class ProcessingCoordinator {
         guard let output = try? await provider.cleanup(messages) else { return nil }
         let out = output.trimmingCharacters(in: .whitespacesAndNewlines)
         guard TransformGuard.accepts(input: text, output: out) else { return nil }
-        return CloudAttempt(text: out, reason: nil, error: nil, accepted: out, verdict: "transform", promptHash: promptHash(messages.system))
+        return CloudAttempt(text: out, reason: nil, error: nil, accepted: out, verdict: .transform, promptHash: promptHash(messages.system))
     }
 
     /// One provider call, no retry (a rate limit or an outage would only fail again). If the guard
@@ -330,8 +336,8 @@ final class ProcessingCoordinator {
         var judged = options
         if provider.id == .localModel { judged.trustModel = false }
         switch CleanupPipeline.judge(raw: section, cleaned: output, options: judged, allowedTerms: terms, soundsLike: DictionaryStore.soundsLike) {
-        case .cleaned(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: "cleaned", promptHash: hash)
-        case .unchanged(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: "unchanged", promptHash: hash)
+        case .cleaned(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: .cleaned, promptHash: hash)
+        case .unchanged(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: .unchanged, promptHash: hash)
         case .heldForRecovery(_, let why): reason = why
         }
         // Transfer punctuation onto the full local cleanup, so rejecting the model's rewrite never
@@ -339,9 +345,9 @@ final class ProcessingCoordinator {
         let fallback = localRules(section, terms: terms, options: options).text
         if options.punctuation, let words = CleanupPipeline.punctuated(raw: fallback, cleaned: output, terms: terms),
            case .cleaned(let text) = CleanupPipeline.judge(raw: fallback, cleaned: words, options: punctuationOnly, allowedTerms: terms) {
-            return CloudAttempt(text: text, reason: reason, error: nil, rejected: output, verdict: "rejected", promptHash: hash)
+            return CloudAttempt(text: text, reason: reason, error: nil, rejected: output, verdict: .rejected, promptHash: hash)
         }
-        return CloudAttempt(text: nil, reason: reason, error: nil, rejected: output, verdict: "rejected", promptHash: hash)
+        return CloudAttempt(text: nil, reason: reason, error: nil, rejected: output, verdict: .rejected, promptHash: hash)
     }
 
     // MARK: Learning
@@ -386,7 +392,7 @@ final class ProcessingCoordinator {
     /// Edits an entry in place; a learned entry stays learned. Its ledger promotion is keyed by
     /// entry ID, so old evidence cannot re-promote the original spelling alongside the edit.
     func updateEntry(id: UUID, preferred: String, variants: String, enabled: Bool) throws {
-        guard var entry = dictionary.entries.first(where: { $0.id == id }) else { throw DictionaryError("Dictionary entry not found") }
+        guard var entry = dictionary.entries.first(where: { $0.id == id }) else { throw StoreError("Dictionary entry not found") }
         entry.preferred = preferred; entry.variants = Self.variantList(variants); entry.enabled = enabled
         try dictionary.update(entry)
     }

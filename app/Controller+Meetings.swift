@@ -58,7 +58,7 @@ extension AppController {
     var meetingCloudNote: (disclosure: String, note: String)? {
         var routes = routeSettings; routes.transcription = .cloud
         let plan = RoutePlan.make(routes, cleanupSendsText: false) { _ in nil }
-        guard let disclosure = plan.stages.first(where: { $0.disclosure.stage == .transcription })?.disclosure else { return nil }
+        guard let disclosure = plan.stages.first(where: { $0.stage == .transcription }) else { return nil }
         return (disclosure.summary, MeetingRoute.cloudNote(provider: disclosure.provider.displayName, host: disclosure.destinationHost, storesAudio: routes.cloudTranscriber == .gemini))
     }
 
@@ -98,7 +98,7 @@ extension AppController {
     func meetingNotesDisclosure(_ route: MeetingNotesRoute) -> String {
         guard route == .gemini || route == .customAPI else { return MeetingNotesRoute.disclosure(route, host: nil, local: true, retention: nil) }
         var routes = appliedRoutes; routes.transcription = .local; routes.cleanup = route == .gemini ? .gemini : .customAPI
-        let disclosure = RoutePlan.make(routes, cleanupSendsText: true) { _ in APIKey("disclosure-only") }.stages.first?.disclosure
+        let disclosure = RoutePlan.make(routes, cleanupSendsText: true) { _ in APIKey("disclosure-only") }.stages.first
         let local = disclosure?.staysOnThisMac ?? false
         let warning = disclosure?.warning.map { " " + $0 } ?? ""
         return MeetingNotesRoute.disclosure(route, host: disclosure?.destinationHost, local: local, retention: (disclosure?.retentionNote ?? "") + warning)

@@ -441,7 +441,7 @@ final class CorrectionLedger {
         try PrivateFiles.prepareDirectory(directory)
         guard let data = try PrivateFiles.read(file) else { state = State(); return }
         let decoded = try JSONDecoder().decode(State.self, from: data)
-        guard decoded.version == 1 else { throw DictionaryError("Unsupported ledger version") }
+        guard decoded.version == 1 else { throw StoreError("Unsupported ledger version") }
         state = decoded
     }
 
@@ -655,7 +655,7 @@ final class CorrectionLedger {
     /// the ledger's next operation (see `reconcile`).
     func deleteLearned(id: UUID) throws {
         guard let entry = dictionary.entries.first(where: { $0.id == id }), entry.source == .learned else {
-            throw DictionaryError("Not a learned entry")
+            throw StoreError("Not a learned entry")
         }
         try dictionary.delete(id: id)
         try reconcile()

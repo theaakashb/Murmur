@@ -4,8 +4,9 @@ import Security
 #endif
 
 /// Providers that can hold a user-supplied API key. The raw value is the Keychain account name.
-/// `customAPI` uses the OpenAI-compatible chat completions format. `openrouter`, `cerebras` and
-/// `localServer` remain only so older settings can migrate their keys; no client for them exists.
+/// `customAPI` uses the OpenAI-compatible chat completions format. `openrouter` and `cerebras` remain only so older
+/// settings can migrate their keys; no client for them exists. `localServer` names a user-run local endpoint's errors
+/// and checks (`LocalEndpoint`, `KeyCheck`), and its key migrates the same way.
 enum ProviderID: String, CaseIterable, Codable, Sendable {
     case gemini
     case openrouter

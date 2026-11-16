@@ -3,7 +3,8 @@ import Foundation
 // Custom dictionary: manual and learned term preferences, applied to dictated text.
 // Foundation only, so it builds on Linux checks and on macOS 26.
 
-struct DictionaryError: Error, CustomStringConvertible {
+/// A message-carrying error shared by the dictionary, snippet, learning and private-file stores; the controller shows its text.
+struct StoreError: Error, CustomStringConvertible {
     let description: String
     init(_ description: String) { self.description = description }
 }
@@ -111,7 +112,7 @@ final class DictionaryStore {
         try PrivateFiles.prepareDirectory(directory)
         guard let data = try PrivateFiles.read(file) else { entries = []; return }
         let decoded = try JSONDecoder().decode(FileFormat.self, from: data)
-        guard decoded.version == 1 else { throw DictionaryError("Unsupported dictionary version") }
+        guard decoded.version == 1 else { throw StoreError("Unsupported dictionary version") }
         entries = decoded.entries
     }
 
@@ -135,7 +136,7 @@ final class DictionaryStore {
     /// Replaces the entry with the same id. `source` and `createdAt` are kept from the stored entry.
     func update(_ entry: DictionaryEntry) throws {
         guard let index = entries.firstIndex(where: { $0.id == entry.id }) else {
-            throw DictionaryError("Dictionary entry not found")
+            throw StoreError("Dictionary entry not found")
         }
         let stored = entries[index]
         let merged = DictionaryEntry(id: stored.id, preferred: entry.preferred, variants: entry.variants,
@@ -146,7 +147,7 @@ final class DictionaryStore {
 
     func delete(id: UUID) throws {
         guard let index = entries.firstIndex(where: { $0.id == id }) else {
-            throw DictionaryError("Dictionary entry not found")
+            throw StoreError("Dictionary entry not found")
         }
         entries.remove(at: index)
         try save()
@@ -182,7 +183,7 @@ final class DictionaryStore {
         let preferred = TermText.collapseWhitespace(entry.preferred)
         guard !preferred.isEmpty, preferred.count <= Self.maxLength,
               !TermText.tokens(preferred).isEmpty else {
-            throw DictionaryError("Preferred spelling must contain a word")
+            throw StoreError("Preferred spelling must contain a word")
         }
         var seen = Set<String>()
         var variants: [String] = []
@@ -190,17 +191,17 @@ final class DictionaryStore {
             let variant = TermText.collapseWhitespace(raw)
             if variant.isEmpty { continue }
             guard variant.count <= Self.maxLength, let key = TermText.phraseKey(variant) else {
-                throw DictionaryError("Variants may contain only words separated by spaces")
+                throw StoreError("Variants may contain only words separated by spaces")
             }
             guard key.split(separator: " ").count <= Self.maxVariantWords else {
-                throw DictionaryError("Variants are limited to \(Self.maxVariantWords) words")
+                throw StoreError("Variants are limited to \(Self.maxVariantWords) words")
             }
             if seen.insert(key).inserted { variants.append(variant) }
         }
         if entry.enabled {
             for other in entries where other.enabled && other.id != entry.id {
                 for variant in other.variants where seen.contains(TermText.phraseKey(variant) ?? "") {
-                    throw DictionaryError("“\(variant)” already belongs to “\(other.preferred)”")
+                    throw StoreError("“\(variant)” already belongs to “\(other.preferred)”")
                 }
             }
         }
@@ -296,6 +297,15 @@ final class DictionaryStore {
     }
 
     static let maxNearMatches = 10
+
+    /// The helper's vocabulary: the same enabled, non-command-target entries as `vocabularyTerms`, each with its
+    /// "heard as" aliases minus learned variants that are ordinary words.
+    var helperVocabulary: [[String: Any]] {
+        entries.filter { $0.enabled && !Self.isCommandTarget($0) }.map { entry in
+            let variants = entry.variants.filter { !Self.skipLearnedVariant($0, entry: entry, isCommonWord: isCommonWord) }
+            return variants.isEmpty ? ["text": entry.preferred] : ["text": entry.preferred, "aliases": variants]
+        }
+    }
 
     /// Enabled preferred spellings for transcription biasing, manual entries first, commas removed
     /// (callers join with ", "). Unlike `relevantEntries`, this is the whole enabled dictionary,

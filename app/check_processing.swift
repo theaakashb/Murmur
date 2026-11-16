@@ -372,7 +372,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         try p.updateEntry(id: edited.id, preferred: "Postgres", variants: "post gres", enabled: false)
         check(p.dictionary.apply(to: "use post gres") == "use post gres", "disabled entry not applied")
         do { try p.updateEntry(id: edited.id, preferred: "Postgres", variants: "acme", enabled: true); check(false, "conflicting variant accepted") }
-        catch { check(error is DictionaryError, "conflicting variant refused with a message") }
+        catch { check(error is StoreError, "conflicting variant refused with a message") }
         try p.deleteEntry(id: edited.id)
 
         // Provider failure: local rules, not retried, and the error is kept for the notice.

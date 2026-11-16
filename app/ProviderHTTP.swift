@@ -187,9 +187,7 @@ enum ProviderErrorClassifier {
         let text = info.searchableText
 
         switch status {
-        case 401:
-            return .authentication(provider)
-        case 403:
+        case 401, 403:
             return .authentication(provider)
         case 402:
             return .quota(provider)
