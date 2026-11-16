@@ -248,11 +248,12 @@ struct BubbleGeometry {
     var hasNotch: Bool { left != nil && right != nil }
     var notchWidth: CGFloat { (right?.minX ?? 0) - (left?.maxX ?? 0) }
     var notchInset: CGFloat { notchWidth / 2 + 10 }
+    // The menu bar is a point taller than the notch (33 vs 32 on a 15-inch Air), so the height comes from the area beside the notch.
     init(screen: NSScreen?) {
         let target = screen ?? NSScreen.main ?? NSScreen.screens.first
         let fallback = NSRect(x: 0, y: 0, width: 1280, height: 800)
         self.init(screen: target, screenFrame: target?.frame ?? fallback, visibleFrame: target?.visibleFrame ?? fallback,
-                  left: target?.auxiliaryTopLeftArea, right: target?.auxiliaryTopRightArea, notchHeight: target.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32)
+                  left: target?.auxiliaryTopLeftArea, right: target?.auxiliaryTopRightArea, notchHeight: target.map { $0.auxiliaryTopLeftArea?.height ?? ($0.frame.maxY - $0.visibleFrame.maxY) } ?? 32)
     }
     /// Synthetic rectangles for checks and the fixture; real displays go through `init(screen:)`.
     init(screen: NSScreen? = nil, screenFrame: NSRect, visibleFrame: NSRect, left: NSRect?, right: NSRect?, notchHeight: CGFloat) {
