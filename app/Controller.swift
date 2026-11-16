@@ -1118,6 +1118,15 @@ enum ScreenRequest: Equatable {
         }
         lastDictationText = processed
         if insertThisSession {
+            // Murmur never pastes into itself, but a text view in its own window (the Report an Issue box) takes the text directly.
+            if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid(), let editor = NSApp.keyWindow?.firstResponder as? NSTextView, editor.isEditable, !editor.isFieldEditor {
+                editor.insertText(processed, replacementRange: editor.selectedRange())
+                entry = entry.with(finalText: processed, status: .verified, fallback: fallback, rejected: rejected)
+                try? store.save(entry)
+                lastDictationText = processed
+                showInsertionResult(InsertionResult(status: .verified, detail: "inserted into a text view in Murmur", snapshot: nil), entryID: entry.id, text: processed)
+                endDictation(done); return
+            }
             watchTick(ending: true)
             // Insert where the cursor is now, even if focus moved while recording or processing.
             let target = (try? captureFocus()).flatMap { $0.pid == getpid() ? nil : $0 }

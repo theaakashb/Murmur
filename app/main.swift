@@ -144,7 +144,7 @@ import SwiftUI
         showWindow()
     }
     @objc func openHistory() { controller.screenRequest = .history; showWindow() }
-    @objc func openReportIssue() { reportIssue.show(controller.diagnostics()) }
+    @objc func openReportIssue() { reportIssue.show(controller.diagnostics(), shortcut: controller.shortcutName) }
     /// Replays the welcome guide from its first step.
     @objc func openGuide() { controller.screenRequest = .guide; showWindow() }
     /// Keep configuration/recording errors visible even when Sparkle cannot open its dialog.

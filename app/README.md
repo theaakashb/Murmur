@@ -95,7 +95,7 @@ app/check_ui.sh --report-issue --light
 
 `--meetings` seeds two synthetic meetings (one with hidden echo, one with leftover parts) and opens Meetings. `--meeting-live` also shows the live panel with a synthetic recording; with `--snapshot` it renders the panel, whose glass draws transparent offscreen. `--call-offer` shows Zoom's detection offer and `--call-offer-browser` Arc's; `--never` seeds the Never list shown with `--meeting-settings`. `--consent` opens the one-time consent sheet; quit it from the menu, since `--snapshot` does not close a sheet. `--meeting-notes` gives the first meeting synthetic notes and opens its Notes tab; `--outdated` marks them out of date. `--unsaved` marks the second meeting as not saved to disk, which shows the warning at the top of Meetings. `--transcript` opens the Transcript tab instead. `--notes-choice` opens the first-Stop notes route question; like `--consent`, quit it from the menu. `--meeting-settings` opens Settings → Meetings with the meeting transcription and notes routes.
 
-`--report-issue` opens the Report an Issue window with synthetic values; quit it from the menu, since `--snapshot` renders only that window.
+`--report-issue` opens the Report an Issue window with synthetic values; quit it from the menu, since `--snapshot` renders only that window. The sheet opens with the caret on the empty line after "What happened:" and invites the user to dictate there; Murmur never pastes into itself, except that a dictation made while an editable text view in its own window has focus (this box) is inserted into it directly.
 
 `--section 3 --mode-editor` seeds the three presets and opens the Prompt Mode instruction editor.
 

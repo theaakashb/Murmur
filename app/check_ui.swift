@@ -237,7 +237,7 @@ extension AppController {
                     models: [("Parakeet Unified English 0.6B", true), ("Local cleanup", false)],
                     lastResult: .init(insertionStatus: "verified", cleanupFailure: "lengthRatio", cleanupPath: "modelAccepted", totalSeconds: 2.3))
                 print("Report text:\n\(synthetic.text)\nReport URL length: \(IssueReport.url(body: synthetic.text).absoluteString.count)")
-                fixtureReportIssue.show(synthetic)
+                fixtureReportIssue.show(synthetic, shortcut: controller.shortcutName)
             }
             // Meeting notes: --meetings shows the page, --meeting-live the live panel, --consent the sheet.
             // The fixture's defaults persist: set the panel's minimized state every time (--collapsed).
