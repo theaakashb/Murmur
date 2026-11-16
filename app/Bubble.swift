@@ -240,19 +240,33 @@ private struct RecoveryBackground: ViewModifier {
 
 struct BubbleGeometry {
     let screen: NSScreen?
+    let screenFrame: NSRect
     let frame: NSRect
     let left: NSRect?
     let right: NSRect?
+    let notchHeight: CGFloat
     var hasNotch: Bool { left != nil && right != nil }
     var notchWidth: CGFloat { (right?.minX ?? 0) - (left?.maxX ?? 0) }
-    var notchHeight: CGFloat { screen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32 }
     var notchInset: CGFloat { notchWidth / 2 + 10 }
     init(screen: NSScreen?) {
         let target = screen ?? NSScreen.main ?? NSScreen.screens.first
-        self.screen = target
-        frame = target?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        left = target?.auxiliaryTopLeftArea
-        right = target?.auxiliaryTopRightArea
+        let fallback = NSRect(x: 0, y: 0, width: 1280, height: 800)
+        self.init(screen: target, screenFrame: target?.frame ?? fallback, visibleFrame: target?.visibleFrame ?? fallback,
+                  left: target?.auxiliaryTopLeftArea, right: target?.auxiliaryTopRightArea, notchHeight: target.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32)
+    }
+    /// Synthetic rectangles for checks and the fixture; real displays go through `init(screen:)`.
+    init(screen: NSScreen? = nil, screenFrame: NSRect, visibleFrame: NSRect, left: NSRect?, right: NSRect?, notchHeight: CGFloat) {
+        (self.screen, self.screenFrame, frame, self.left, self.right, self.notchHeight) = (screen, screenFrame, visibleFrame, left, right, notchHeight)
+    }
+    /// The dictation indicator beside the notch: `visible` points left of it, extended under the notch by `notchInset`.
+    func leftDockFrame(visible: CGFloat, height: CGFloat) -> NSRect? {
+        guard hasNotch, let left else { return nil }
+        return NSRect(x: left.maxX - visible, y: screenFrame.maxY - height, width: visible + notchInset, height: height)
+    }
+    /// The meeting indicator, its mirror: `width` points starting at the notch's right edge, so it never reaches the left indicator.
+    func rightDockFrame(width: CGFloat) -> NSRect? {
+        guard hasNotch, let right else { return nil }
+        return NSRect(x: right.minX, y: screenFrame.maxY - notchHeight, width: width, height: notchHeight)
     }
 }
 
@@ -295,9 +309,7 @@ final class BubblePresenter {
         panel.contentView = host
         let height = host.fittingSize.height
         panel.level = notch ? .statusBar : .floating
-        let x = notch ? geo.left!.maxX - 72 : frame.midX - width / 2
-        let y = notch ? geo.screen!.frame.maxY - height : frame.minY + 24
-        present(NSRect(x: x, y: y, width: width, height: height), slideFrom: entering ? 72 : nil)
+        present((notch ? geo.leftDockFrame(visible: 72, height: height) : nil) ?? NSRect(x: frame.midX - width / 2, y: frame.minY + 24, width: width, height: height), slideFrom: entering ? 72 : nil)
     }
 
     private func present(_ destination: NSRect, slideFrom: CGFloat?) {

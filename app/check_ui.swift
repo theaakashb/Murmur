@@ -284,7 +284,7 @@ extension AppController {
                 live.insert(stream: .me, start: 14, end: 28, text: "Synthetic reply that wraps onto a second line in the narrow live panel.")
                 live.seconds = 754
                 let recorder = controller.meetingRecorder
-                let panel = MeetingPanelPresenter(recorder: recorder)
+                let panel = MeetingPanelPresenter(recorder: recorder) { fixtureGeometry(notch: args.contains("--fake-notch")) }
                 recorder.onLiveChange = { panel.update() }
                 recorder.showFixture([call, solo], live: args.contains("--meeting-live") ? live : nil, leftovers: [solo.id: 2], separating: args.contains("--separating") ? [call.id] : [], unsaved: args.contains("--unsaved") ? [solo.id] : [])
                 if args.contains("--consent") { recorder.consentPending = .everything }
@@ -318,4 +318,12 @@ extension AppController {
         withExtendedLifetime((controller, window, delegate)) { application.run() }
         controller.shutdown()
     }
+}
+
+/// The live panel fixture ignores the real display: no notch, or with --fake-notch a synthetic 14-inch one on the main screen's frame.
+@MainActor func fixtureGeometry(notch: Bool) -> BubbleGeometry {
+    let screen = NSScreen.main ?? NSScreen.screens[0], full = screen.frame, band: CGFloat = 32, side = (full.width - 200) / 2
+    return BubbleGeometry(screen: screen, screenFrame: full, visibleFrame: notch ? NSRect(x: full.minX, y: full.minY, width: full.width, height: full.height - band) : screen.visibleFrame,
+                          left: notch ? NSRect(x: full.minX, y: full.maxY - band, width: side, height: band) : nil,
+                          right: notch ? NSRect(x: full.maxX - side, y: full.maxY - band, width: side, height: band) : nil, notchHeight: band)
 }

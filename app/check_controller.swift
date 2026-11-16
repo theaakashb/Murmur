@@ -7,6 +7,16 @@ import AVFoundation
 @main struct ControllerChecks {
     static func main() throws {
         runInsertionChecks()
+        // A 14-inch notched display (points): 1512x982 with a 32 pt band and a 200 pt notch, and a display without one.
+        let notched = BubbleGeometry(screenFrame: NSRect(x: 0, y: 0, width: 1512, height: 982), visibleFrame: NSRect(x: 0, y: 0, width: 1512, height: 950),
+                                     left: NSRect(x: 0, y: 950, width: 656, height: 32), right: NSRect(x: 856, y: 950, width: 656, height: 32), notchHeight: 32)
+        let leftDock = notched.leftDockFrame(visible: 72, height: 32)!, rightDock = notched.rightDockFrame(width: liveDockWidth)!
+        precondition(rightDock.minX == 856 && rightDock.maxX <= 1512, "the meeting indicator starts at the notch's right edge")
+        precondition(rightDock.maxY == 982 && rightDock.height == 32 && leftDock.maxY == rightDock.maxY && leftDock.height == rightDock.height, "both indicators fill the menu-bar band")
+        precondition(!leftDock.intersects(rightDock) && leftDock.maxX < rightDock.minX, "the meeting indicator does not overlap the dictation indicator")
+        precondition(leftDock.minX == 584, "the dictation indicator docks 72 pt left of the notch")
+        let flat = BubbleGeometry(screenFrame: NSRect(x: 0, y: 0, width: 1920, height: 1080), visibleFrame: NSRect(x: 0, y: 0, width: 1920, height: 1055), left: nil, right: nil, notchHeight: 25)
+        precondition(flat.rightDockFrame(width: liveDockWidth) == nil && flat.leftDockFrame(visible: 72, height: 25) == nil, "no notch means not docked")
         let field = "Dear Sam, ship it. Thanks"
         precondition(AppController.recoveryRangeIsIntact(value: field, range: NSRange(location: 10, length: 8), inserted: "ship it."), "recovery range holds the inserted text")
         precondition(!AppController.recoveryRangeIsIntact(value: field, range: NSRange(location: 9, length: 8), inserted: "ship it."), "a shifted range refuses")
