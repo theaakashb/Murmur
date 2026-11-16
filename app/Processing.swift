@@ -218,7 +218,8 @@ final class ProcessingCoordinator {
         return evidence
     }
 
-    private func processSegmentAsync(_ raw: String, style: DictationStyle?) async -> ProcessingResult {
+    // The app's lexicon is NSSpellChecker, which is main-thread only.
+    @MainActor private func processSegmentAsync(_ raw: String, style: DictationStyle?) async -> ProcessingResult {
         var evidence = ProcessingResult(outcome: .insert(raw))
         let style = style ?? DictationStyle(mode: nil, settings: settings)
         // Only the rewrite styles and preset rewrites use the model; Strict and Faithful stay on this Mac.

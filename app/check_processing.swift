@@ -74,6 +74,16 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         try localChecks(ProcessingCoordinator(directory: root.appendingPathComponent("local"), defaults: defaults))
         try await cloudChecks(ProcessingCoordinator(directory: root.appendingPathComponent("cloud"), defaults: defaults))
         try await respellingChecks(root.appendingPathComponent("respelling"), defaults)
+        // The app's lexicon (NSSpellChecker) is main-thread only: the cloud path must consult it there even when called from elsewhere.
+        let mainOnly = try ProcessingCoordinator(directory: root.appendingPathComponent("main-only"), defaults: defaults,
+                                                 isCommonWord: { _ in precondition(Thread.isMainThread, "lexicon consulted off the main thread"); return false })
+        try mainOnly.addEntry(preferred: "Shelfmate", variants: "shelf mate")
+        var cloudSettings = mainOnly.settings
+        cloudSettings.route = .cloud; cloudSettings.options = .standard; cloudSettings.options.polish = true
+        try mainOnly.update(cloudSettings)
+        mainOnly.cloudCleaner = MockCloudCleaner(.success("Send the Shelfmate report."))
+        let offMain = await Task.detached { await mainOnly.processAsync("Um, send the shelfmait report.") }.value
+        check(offMain.outcome != .insert(""), "cloud path ran with a main-thread-only lexicon")
         let recognized: Set<String> = ["Akash", "Alison", "Michele", "Robert", "Steven", "diner", "desert", "please", "review", "report"]
         try preferredOnlyChecks(ProcessingCoordinator(directory: root.appendingPathComponent("preferred-only"), defaults: defaults, isCommonWord: { recognized.contains($0) }))
         #if canImport(AppKit)
