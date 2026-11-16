@@ -1692,7 +1692,7 @@ struct SettingsView: View {
                 Button(recording ? "Stop and Transcribe" : "Start Dictating") { controller.toggleSetupDictation() }
                     .buttonStyle(InkButtonStyle()).disabled(!setupComplete || (controller.isBusy && !recording))
                 if controller.isBusy { Button("Cancel") { controller.cancelRecording() }.buttonStyle(InkButtonStyle(kind: .outline)) }
-                Text(controller.phase == "Ready" && controller.setupTestTranscript.isEmpty ? "Or hold \(shortcutName) and speak." : controller.message)
+                Text(!(controller.isBusy || controller.phase == "Error") ? "Or hold \(shortcutName) and speak." : controller.message)
                     .font(WindowType.body(13)).foregroundStyle(SetupPalette.muted).fixedSize(horizontal: false, vertical: true)
             }.padding(.bottom, 12)
             TextEditor(text: $controller.setupTestTranscript)
