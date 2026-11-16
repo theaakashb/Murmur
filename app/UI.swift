@@ -1663,18 +1663,19 @@ struct SettingsView: View {
     /// The guide's permission and model steps; the last step is the test dictation.
     private var guideSteps: [(title: String, detail: String, done: Bool, action: String, run: () -> Void)] {
         [
-            ("Welcome", "Speak anywhere on your Mac and Murmur writes it where your cursor is. Setup takes a few minutes and you decide where your voice is processed.", false, "", {}),
-            ("Microphone", "So Murmur can hear you while the shortcut is held. Audio stays on this Mac unless you choose a cloud route.", controller.microphoneAuthorized, "Allow", controller.requestMicrophone),
+            ("A little room for thought.", "Speak freely. Your voice becomes text, right where you’re writing.", false, "", {}),
+            ("Microphone", "A little access, a clear reason. So Murmur can hear you while the shortcut is held. Audio stays on this Mac unless you choose a cloud route.", controller.microphoneAuthorized, "Allow", controller.requestMicrophone),
             ("Accessibility", "So Murmur can paste into the field you are using. It never presses Return or sends a message.", controller.accessibilityAuthorized, "Open Settings…", { controller.openPermissionSettings("accessibility") }),
             ("Input Monitoring", "So the shortcut works in every app. Murmur listens only for the shortcut, Escape and its two ⌃⌘ chords.", controller.inputMonitoringAuthorized, "Open Settings…", { controller.openPermissionSettings("input-monitoring") }),
             ("Transcription", "Choose where dictation audio is transcribed. Cloud routes send audio to the provider shown below.", WelcomeGuide.isConfirmed(.transcription, .standard), "", {}),
             ("Cleanup", "Choose where cleanup runs and how much it changes your words. Faithful keeps cleanup off.", WelcomeGuide.isConfirmed(.cleanup, .standard), "", {}),
             ("Speech model", controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud && !controller.modelRow.isReady ? "Not needed while dictation and meeting transcription both run in the cloud." : ModelFacts.displayName, controller.modelRow.isReady || (controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud),
              controller.modelRow.actions.contains(.retry) ? "Retry…" : "Download…", controller.downloadModel),
-            ("First words", "Press \(controller.shortcutName) and say a sentence. With this window in front, your words land in the field below instead of another app.", !controller.setupTestTranscript.isEmpty, "", {})
+            ("Find your words.", "Press \(controller.shortcutName) and say a sentence. With this window in front, your words land in the field below instead of another app.", !controller.setupTestTranscript.isEmpty, "", {})
         ]
     }
 
+    @Environment(\.colorScheme) private var colorScheme
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 12) {
             help("Hold \(shortcutName), speak, release: your words appear where your cursor is.")
@@ -1764,8 +1765,14 @@ struct SettingsView: View {
                     }
                     .padding(.top, 28)
                     Spacer()
-                    Logo.path(in: CGSize(width: 48, height: 48)).fill(SetupPalette.ink)
-                        .frame(width: 48, height: 48).accessibilityHidden(true)
+                    if colorScheme == .light, let url = Bundle.main.url(forResource: "hero-thought", withExtension: "png", subdirectory: "Images"), let art = NSImage(contentsOf: url) {
+                        // The site's ink-and-ribbon drawing, keyed to transparency so it sits on the pale pane.
+                        Image(nsImage: art).resizable().scaledToFit().frame(maxWidth: 300, maxHeight: 300)
+                            .accessibilityLabel("A blue voice ribbon becomes ink lines on a curling sheet of paper.")
+                    } else {
+                        Logo.path(in: CGSize(width: 48, height: 48)).fill(SetupPalette.ink)
+                            .frame(width: 48, height: 48).accessibilityHidden(true)
+                    }
                 }
                 .padding(24).frame(width: geometry.size.width * 5 / 12, alignment: .leading).frame(maxHeight: .infinity, alignment: .top)
                 .background(SetupPalette.pane)
