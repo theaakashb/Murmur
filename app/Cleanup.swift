@@ -11,7 +11,8 @@ import Foundation
 /// cleanup model (Gemma 4, about 44 tokens per second) can clean them in parallel. Short text and
 /// spoken lists ("first … second …", which must be formatted as one) stay whole.
 enum CleanupSections {
-    static func split(_ text: String, target: Int = 100) -> [String] {
+    /// `keepingCorrectionsAttached`: a sentence that opens with a correction cue ("No, actually Monday") is never cut off from the one it repairs.
+    static func split(_ text: String, target: Int = 100, keepingCorrectionsAttached: Bool = false) -> [String] {
         let words = text.split(whereSeparator: \.isWhitespace).count
         // An email frame stays whole too, so its greeting and sign-off are laid out together.
         guard words >= target * 3 / 2, RuleCleaner.emailLayout(text) == nil,
@@ -22,6 +23,11 @@ enum CleanupSections {
             parts[parts.count - 1] += (parts[parts.count - 1].isEmpty ? "" : " ") + word
             if let last = word.last, ".?!".contains(last) { parts.append("") }
         }) where !sentence.isEmpty {
+            // A repair belongs with the sentence it repairs: reopen the section just closed.
+            if keepingCorrectionsAttached, current.isEmpty, !sections.isEmpty,
+               sentence.range(of: #"^(no|actually|wait|sorry|instead|scratch that|i mean|i meant)\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
+                current = sections.removeLast(); count = current.split(whereSeparator: \.isWhitespace).count
+            }
             current += (current.isEmpty ? "" : " ") + sentence
             count += sentence.split(whereSeparator: \.isWhitespace).count
             if count >= target { sections.append(current); current = ""; count = 0 }

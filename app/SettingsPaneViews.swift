@@ -43,12 +43,7 @@ extension SettingsView {
             HStack(spacing: 12) {
                 Text("Dictation shortcut").font(.system(size: 13))
                 Spacer()
-                Picker("Dictation shortcut", selection: $controller.shortcut) {
-                    ForEach(ShortcutBinding.presets, id: \.id) { Text($0.name).tag($0.id) }
-                    if !ShortcutBinding.presets.contains(where: { $0.id == controller.shortcut }) {
-                        Text("Custom shortcut").tag(controller.shortcut)
-                    }
-                }.labelsHidden().frame(maxWidth: 190)
+                ShortcutPresetPicker(controller: controller)
             }.padding(.vertical, 12)
             ShortcutRecorder(controller: controller).padding(.bottom, 12)
             toggleRow("Press once to start, again to stop", "Holding still works: release to stop. Off means hold to record.", isOn: $controller.pressToToggle)
@@ -227,7 +222,7 @@ extension SettingsView {
         })
     }
 
-    static let aiCleanupChoices = CleanupChoice.allCases.filter { $0 != .localRules }
+    static let aiCleanupChoices = CleanupChoice.selectable.filter { $0 != .localRules }
 
     var cleanupChoices: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -243,8 +238,49 @@ extension SettingsView {
                 eyebrow("AI model").padding(.top, 20)
                 segmented(Self.aiCleanupChoices.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14)
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
+                if controller.cleanupChoice == .localModel { localModelSection }
+            }
+            if controller.geminiCleanupNotice {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    help(LocalCleanupFacts.removedGeminiNotice)
+                    Button("Dismiss", action: controller.dismissGeminiCleanupNotice).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize()
+                }.padding(.top, 12)
             }
         }
+    }
+
+    /// Download row and capabilities of the managed local cleanup model, shown in both the Settings and the setup flows.
+    var localModelSection: some View {
+        let row = controller.localModelRow
+        let info = VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) {
+                Text(LocalCleanupFacts.modelName).font(Font.system(size: 18, weight: .semibold)).fixedSize()
+                ModelInfoIcons(license: controller.localModelLicense.map(ModelFacts.licenseText), details: controller.localModelSummary)
+            }
+            Group {
+                if row.isReady { mono("Ready ✓", color: EditorialPalette.accentInk) }
+                else { Text(row.statusText).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
+            }.padding(.top, 5)
+        }
+        let actions = HStack(spacing: 10) {
+            if row.actions.contains(.download) { Button("Download…", action: controller.downloadLocalModel).buttonStyle(InkButtonStyle()).fixedSize() }
+            if row.actions.contains(.retry) { Button("Retry…", action: controller.downloadLocalModel).buttonStyle(InkButtonStyle()).fixedSize() }
+            if row.actions.contains(.cancel) { Button("Cancel", action: controller.cancelLocalModelDownload).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
+            if row.actions.contains(.remove) { Button("Remove…", role: .destructive, action: controller.removeLocalModel).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
+        }
+        return VStack(alignment: .leading, spacing: 12) {
+            // Narrow (compact setup) windows stack the buttons under the name and status instead of squeezing them.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 16) { info; Spacer(minLength: 8); actions }
+                VStack(alignment: .leading, spacing: 12) { info; actions }
+            }
+            if let progress = controller.localModelRow.progress { progressBar(progress) }
+            if !controller.localModelRow.isReady && controller.localModelRow.progress == nil && controller.localModelRow.actions.contains(.download) {
+                help("Until it is downloaded, dictations are cleaned with Local rules.")
+            }
+            if !controller.localModelMessage.isEmpty { help(controller.localModelMessage) }
+        }
+        .padding(.top, 16)
     }
 
     var cleanup: some View {
@@ -259,7 +295,7 @@ extension SettingsView {
             if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() {
                 help(reason.userMessage + " Until then, local rules clean dictations.").padding(.top, 8)
             }
-            toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac. Modes can turn it on or off.", isOn: $controller.screenContext)
+            toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac or Local model. Modes can turn it on or off.", isOn: $controller.screenContext)
                 .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel)
             if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .customAPI {
                 customCleanupSettings
@@ -728,7 +764,19 @@ extension SettingsView {
 
 /// Records a custom shortcut (gap #14). While it waits, the global tap is off so the current
 /// shortcut can't start a dictation or be swallowed. Escape stops waiting; a refused key says why.
-private struct ShortcutRecorder: View {
+struct ShortcutPresetPicker: View {
+    @ObservedObject var controller: AppController
+    var body: some View {
+        Picker("Dictation shortcut", selection: $controller.shortcut) {
+            ForEach(ShortcutBinding.presets, id: \.id) { Text($0.name).tag($0.id) }
+            if !ShortcutBinding.presets.contains(where: { $0.id == controller.shortcut }) {
+                Text("Custom shortcut").tag(controller.shortcut)
+            }
+        }.labelsHidden().frame(maxWidth: 190)
+    }
+}
+
+struct ShortcutRecorder: View {
     @ObservedObject var controller: AppController
     @State private var monitor: Any?
     @State private var refusal: String?

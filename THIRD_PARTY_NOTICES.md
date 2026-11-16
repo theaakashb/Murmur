@@ -84,3 +84,8 @@ DM Sans and Instrument Serif are bundled under the SIL Open Font License; their 
 `app/Licenses/` retains FluidAudio's Apache-2.0 text and all five notices from `ThirdPartyLicenses/` at the pinned revision, plus the text-processing-rs v0.3.1 license, NOTICE and dependency list. Including a notice does not imply every optional subsystem is used by Murmur.
 
 Before distributing a binary, review the exact linked Rust dependency license texts and the upstream/conversion model-license mismatch described above. These notices do not resolve ownership questions or grant permissions beyond the upstream licenses.
+
+## Managed local cleanup (optional model)
+
+- **Vedu Scribe 0.8B** (`heyvedu/vedu-scribe-0.8b`, revision `7dced58…`, Apache-2.0): downloaded only when the user chooses Local model and asks for it; verified against pinned checksums.
+- **mlx-swift 0.31.6** (prebuilt `Cmlx.framework`, SHA-256 `a202bf1d…ab86c9`), **mlx-swift-lm 2.31.3**, **swift-transformers**, **swift-jinja**, **swift-huggingface**, **yyjson**: bundled in `LocalCleanupRunner`; license texts are in `Contents/Resources/Licenses/LocalCleanup-LICENSES.txt`.

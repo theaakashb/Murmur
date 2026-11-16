@@ -191,12 +191,16 @@ enum OnDeviceModelUnavailable: String, Equatable, Sendable {
     case deviceNotEligible
     case appleIntelligenceOff
     case modelNotReady
+    case modelNotDownloaded
+    case modelDamaged
 
     var userMessage: String {
         switch self {
         case .deviceNotEligible: return "This Mac can't run Apple Intelligence. Choose another cleanup route in Settings."
         case .appleIntelligenceOff: return "Apple Intelligence is off. Turn it on in System Settings → Apple Intelligence & Siri, or choose another cleanup route."
         case .modelNotReady: return "The Apple Intelligence model isn't ready yet; it may still be downloading. Try again later."
+        case .modelDamaged: return "The local cleanup model files are damaged. Remove the model in Settings and download it again, or choose another cleanup route."
+        case .modelNotDownloaded: return "The local cleanup model is not downloaded. Download it in Settings or choose another cleanup route."
         }
     }
 }

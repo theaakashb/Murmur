@@ -71,7 +71,7 @@ struct SettingsView: View {
     enum Screen { case home, insights, meetings, settings, history, setup }
     @State var screen = Screen.home
     /// The welcome guide's current step (gap #21), saved as it changes so the guide resumes there.
-    @State var guideStep = WelcomeGuide.Step.microphone
+    @State var guideStep = WelcomeGuide.Step.welcome
     /// The last settings pane, restored by ⌘, and on relaunch.
     @AppStorage("settingsSection") var section = SettingsPane.general
     @State var showAdvanced = false
@@ -143,7 +143,7 @@ struct SettingsView: View {
         .background(WindowTitle(title: windowTitle))
         .overlay { if settingsSearchOpen { settingsSearchOverlay } }
         .onChange(of: sidebarCollapsed) { settingsSearchOpen = false; settingsQuery = "" }
-        .frame(minWidth: 760, minHeight: 560)
+        .frame(minWidth: 880, minHeight: 680)
         // Every setting applies as soon as it changes; attached here so hidden sections still apply.
         .modifier(AutoApplyGeneral(controller: controller))
         .modifier(AutoApplyRoutes(controller: controller, apiFieldFocused: apiFieldFocused))
@@ -175,7 +175,7 @@ struct SettingsView: View {
         case .settingsSearch:
             screen = .settings; section = .general
             settingsQuery = "meeting"; settingsSearchOpen = true
-        case .guide: WelcomeGuide.replay(.standard); guideStep = .microphone; screen = .setup
+        case .guide: WelcomeGuide.replay(.standard); guideStep = .welcome; screen = .setup
         case .insights: screen = .insights
         case .meetings: screen = .meetings
         case .settings: screen = .settings

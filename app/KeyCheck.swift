@@ -43,6 +43,8 @@ enum KeyCheck {
                 try await p.validate()
             case .appleIntelligence:
                 return AppleCleanupProvider().status()?.userMessage ?? "Apple Intelligence is ready."
+            case .localModel:
+                return LocalModelCleanupProvider().status()?.userMessage ?? "The local cleanup model is ready."
             case .cerebras, .openrouter:
                 // Legacy key accounts only; the migration copies them to the custom endpoint.
                 return ProviderError.invalidConfiguration(provider).userMessage

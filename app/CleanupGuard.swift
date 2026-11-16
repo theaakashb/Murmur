@@ -75,7 +75,7 @@ enum CleanupGuard {
         return CleanupText.similarity(heard, written) >= 0.5
     }
     static let correctionCues: [[String]] = [
-        ["sorry"], ["i", "mean"], ["i", "meant"], ["no", "wait"], ["wait", "no"], ["or", "rather"],
+        ["sorry"], ["i", "mean"], ["i", "meant"], ["no", "wait"], ["wait", "no"], ["actually", "no"], ["or", "rather"],
         ["actually"], ["no"], ["scratch", "that"],
     ]
 
@@ -141,7 +141,7 @@ enum CleanupGuard {
 
     /// Cues professional accepts without a comma: unambiguous, unlike "sorry", "no" or "I mean".
     /// "I mean" only before a determiner ("by 5 I mean the quarterly one"), never "I mean business".
-    static let looseCorrectionCues: [[String]] = [["no", "wait"], ["wait", "no"], ["i", "meant"], ["or", "rather"], ["scratch", "that"], ["i", "mean"]]
+    static let looseCorrectionCues: [[String]] = [["no", "wait"], ["wait", "no"], ["actually", "no"], ["i", "meant"], ["or", "rather"], ["scratch", "that"], ["i", "mean"]]
 
     /// Raw word indices that a spoken correction could legitimately delete: the cue itself plus up
     /// to eight preceding words in the same sentence (whole sentence for "scratch that"). With

@@ -83,6 +83,21 @@ enum EditorialPalette {
     static let sidebar = color(0xFFFFFF, 0x111111)
 }
 
+/// First-run guide colours, matching the Murmur website: ground, pale-blue pane, ink, muted ink, blue.
+enum SetupPalette {
+    private static func color(_ light: Int, _ dark: Int) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let hex = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            return NSColor(srgbRed: CGFloat(hex >> 16 & 255) / 255, green: CGFloat(hex >> 8 & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: 1)
+        })
+    }
+    static let ground = color(0xF4F4EF, 0x181818)
+    static let pane = color(0xE5E9FF, 0x1C2238)
+    static let ink = color(0x20221F, 0xF4F4EF)
+    static let muted = color(0x50594E, 0xC4C9C2)
+    static let blue = color(0x4568E8, 0x7F98FF)
+}
+
 /// Static paper and voice: no animation, permission state, or user content.
 struct PaperVoice: View {
     var body: some View {

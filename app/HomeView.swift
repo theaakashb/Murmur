@@ -93,7 +93,7 @@ extension SettingsView {
                 }
             }
             .overlay(alignment: .top) { rule }.padding(.top, 8)
-            Button("Replay Welcome Guide") { WelcomeGuide.replay(.standard); guideStep = .microphone; screen = .setup }
+            Button("Replay Welcome Guide") { WelcomeGuide.replay(.standard); guideStep = .welcome; screen = .setup }
                 .buttonStyle(InkButtonStyle(kind: .outline)).padding(.top, 28)
         }
     }

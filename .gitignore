@@ -24,3 +24,6 @@ runtime/
 .build*/
 .DS_Store
 __pycache__/
+
+# Managed local cleanup helper: SwiftPM edit link and patched dependency checkout.
+module-one/cleanup/Runner/Packages/

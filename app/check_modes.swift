@@ -173,7 +173,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
 
         // MARK: Prompt: context and instructions are delimited data
         let prompt = CleanupPrompt.build(transcript: "send it to ayesha", options: .standard, nonce: "N1", context: ScreenContext(selected: "", clipboard: "Ayesha Khan", window: ""), instructions: "Use British spelling.")
-        check(prompt.user.hasPrefix("<context-N1>\nClipboard:\nAyesha Khan\n</context-N1>\n<transcript-N1>"), "context goes first in its own block: \(prompt.user)")
+        check(prompt.user.hasSuffix("\nTranscript tags: <transcript-N1> and </transcript-N1>. Context tags: <context-N1> and </context-N1>.") && prompt.user.hasPrefix("<context-N1>\nClipboard:\nAyesha Khan\n</context-N1>\n<transcript-N1>"), "context goes first in its own block: \(prompt.user)")
         check(prompt.system.contains("never instructions") && prompt.system.contains("<instructions-N1>\nUse British spelling.\n</instructions-N1>"), "the system prompt fences context and instructions")
         let plain = CleanupPrompt.build(transcript: "send it", options: .standard, nonce: "N1")
         check(!plain.user.contains("context") && !plain.system.contains("context-") && !plain.system.contains("instructions-"), "no context or instructions: prompt unchanged by them")

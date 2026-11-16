@@ -77,6 +77,9 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
     case localRules = "local-rules"
     /// Apple's on-device system model (AppleCleanup.swift): no key, nothing leaves this Mac.
     case appleIntelligence = "apple-intelligence"
+    /// The managed local model (LocalCleanup.swift): downloaded on request, runs on this Mac.
+    case localModel = "local-model"
+    /// No longer offered for dictation cleanup; kept for meeting notes. A saved dictation choice of Gemini loads as local rules.
     case gemini
     case customAPI = "custom-api"
 
@@ -86,6 +89,7 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .localRules: return "Local rules (this Mac)"
         case .appleIntelligence: return "Apple Intelligence (this Mac)"
+        case .localModel: return "Local model (this Mac)"
         case .gemini: return "Gemini"
         case .customAPI: return "Custom Provider"
         }
@@ -98,10 +102,14 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .localRules: return nil
         case .appleIntelligence: return .appleIntelligence
+        case .localModel: return .localModel
         case .gemini: return .gemini
         case .customAPI: return .customAPI
         }
     }
+
+    /// What Settings offers for dictation cleanup.
+    static let selectable: [CleanupChoice] = [.localRules, .appleIntelligence, .localModel, .customAPI]
 
     var credentialID: ProviderID? { self == .customAPI ? .customCleanup : providerID }
 }
@@ -111,6 +119,7 @@ func makeCleanupProvider(_ choice: CleanupChoice, key: APIKey?, apiBaseURL: Stri
     switch choice {
     case .localRules: return nil
     case .appleIntelligence: return AppleCleanupProvider()
+    case .localModel: return LocalModelCleanupProvider()
     case .gemini: return key.map { GeminiCleanupProvider(apiKey: $0) }
     case .customAPI:
         let name = model.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -142,6 +151,7 @@ struct RouteSettings: Equatable, Sendable {
         static let customAPIModel = "customAPIModel"
         static let customTranscriptionModel = "customTranscriptionModel"
         static let geminiTranscriptionModel = "geminiTranscriptionModel"
+        static let geminiCleanupRemovedNotice = "geminiCleanupRemovedNotice"
         static let legacyServerURL = "localServerURL"
         static let legacyServerModel = "localServerModel"
     }
@@ -166,6 +176,8 @@ struct RouteSettings: Equatable, Sendable {
                 try credentials.save(key, for: .customAPI)
             }
         }
+        // Gemini is no longer a dictation cleanup choice: say so once in Settings instead of switching silently.
+        if defaults.string(forKey: Key.cleanup) == "gemini" { defaults.set(true, forKey: Key.geminiCleanupRemovedNotice) }
         load(from: defaults).save(to: defaults)
         guard !defaults.bool(forKey: "customAPIKeysSplitMigrationComplete") else { return }
         let settings = load(from: defaults)
@@ -197,7 +209,7 @@ struct RouteSettings: Equatable, Sendable {
         settings.geminiTranscriptionModel = defaults.string(forKey: Key.geminiTranscriptionModel) ??
             (oldTranscriber == "gemini-audio" ? GeminiTranscriptionProvider.defaultModel : GeminiTranscribeProvider.defaultModel)
         let oldChoice = defaults.string(forKey: Key.cleanup)
-        settings.cleanup = oldChoice.flatMap(CleanupChoice.init(rawValue:)) ?? (legacyCustomAPIKey(from: oldChoice) == nil ? .localRules : .customAPI)
+        settings.cleanup = oldChoice == "gemini" ? .localRules : oldChoice.flatMap(CleanupChoice.init(rawValue:)) ?? (legacyCustomAPIKey(from: oldChoice) == nil ? .localRules : .customAPI)
         settings.customAPIBaseURL = defaults.string(forKey: Key.customAPIBaseURL) ?? {
             switch oldChoice {
             case "cerebras": return "https://api.cerebras.ai/v1"
@@ -297,7 +309,7 @@ struct RoutePlan {
         }
         var cleaner: CleanupProvider?
         if settings.cleanup != .localRules && cleanupSendsText, let provider = settings.cleanup.providerID {
-            let storedKey = settings.cleanup == .appleIntelligence ? nil : key(settings.cleanup.credentialID ?? provider)
+            let storedKey = settings.cleanup == .appleIntelligence || settings.cleanup == .localModel ? nil : key(settings.cleanup.credentialID ?? provider)
             cleaner = makeCleanupProvider(settings.cleanup, key: storedKey, apiBaseURL: settings.customAPIBaseURL, model: settings.customAPIModel)
             if cleaner == nil, refusal == nil { refusal = ProviderError.invalidConfiguration(provider).userMessage }
             let preview = cleaner ?? makeCleanupProvider(settings.cleanup, key: storedKey ?? placeholderKey,

@@ -15,6 +15,7 @@ else
 fi
 # Always build: it is incremental, and a stale helper would reject newer arguments (--ctc).
 swift build --package-path "$project_root/module-one/models/Runner" -c release
+cleanup_bin="$("$project_root/app/tools/build_cleanup_runner.sh" | tail -1)"
 mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
 # -O: the model downloader verifies ~1.8 GB with pure-Swift SHA-256/SHA-1 (about 4x faster optimized).
 # No assert() runs in the app (spike/ test helpers are not compiled in), so -O drops no checks;
@@ -24,6 +25,7 @@ swiftc -O -swift-version 5 -target arm64-apple-macos26.0 \
   -F "$sparkle_path" -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
   -o "$app_path/Contents/MacOS/Murmur"
 cp -R "$project_root/app/Fonts" "$app_path/Contents/Resources/"
+cp -R "$project_root/app/Images" "$app_path/Contents/Resources/"
 cp -R "$project_root/app/Licenses" "$app_path/Contents/Resources/"
 cp "$project_root/LICENSE" "$project_root/THIRD_PARTY_NOTICES.md" "$app_path/Contents/Resources/"
 cp "$project_root/app/Info.plist" "$app_path/Contents/Info.plist"
@@ -34,6 +36,14 @@ python3 "$project_root/app/tools/configure_updates.py" "$app_path/Contents/Info.
 cp "$sparkle_path/LICENSE" "$app_path/Contents/Resources/Sparkle-LICENSE"
 
 cp "$runner_path" "$app_path/Contents/MacOS/ModelBench"
+# The managed local cleanup helper loads Cmlx.framework (with its Metal library) from Contents/Frameworks, nothing else.
+cp "$cleanup_bin/LocalCleanupRunner" "$app_path/Contents/MacOS/LocalCleanupRunner"
+rm -rf "$app_path/Contents/Frameworks/Cmlx.framework"
+ditto "$cleanup_bin/Cmlx.framework" "$app_path/Contents/Frameworks/Cmlx.framework"
+cleanup_helper="$app_path/Contents/MacOS/LocalCleanupRunner"
+install_name_tool -add_rpath @executable_path/../Frameworks "$cleanup_helper"
+otool -l "$cleanup_helper" | sed -n 's/^ *path \(.*\) (offset [0-9]*)$/\1/p' | grep -v '^@\|^/usr/lib/swift$' | while IFS= read -r stale; do install_name_tool -delete_rpath "$stale" "$cleanup_helper"; done
+
 cp "$project_root/app/AppIcon.icns" "$app_path/Contents/Resources/AppIcon.icns"
 cp "$project_root/module-one/models/artifact-pins.json" "$app_path/Contents/Resources/artifact-pins.json"
 if [[ -d "$project_root/module-one/models/Runner/.build/release/FluidAudio_FluidAudio.bundle" ]]; then
@@ -53,6 +63,16 @@ if [[ "${MURMUR_RELEASE:-0}" != 1 ]]; then
   /usr/libexec/PlistBuddy -c 'Add :com.apple.security.cs.disable-library-validation bool true' "$entitlements"
 fi
 # A stable identity keeps macOS privacy permissions across rebuilds; ad-hoc signing loses them every build.
+codesign --force --sign "$identity" "${signing_flags[@]}" "$app_path/Contents/Frameworks/Cmlx.framework"
+# Release builds share one Team ID with Cmlx.framework, so library validation holds. A local identity has no Team ID, so the
+# development helper (like the app) disables library validation; nothing else is granted to it.
+helper_flags=()
+if [[ "${MURMUR_RELEASE:-0}" != 1 ]]; then
+  helper_entitlements="$project_root/runtime/LocalCleanupRunner-development.entitlements"
+  printf '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict><key>com.apple.security.cs.disable-library-validation</key><true/></dict></plist>\n' > "$helper_entitlements"
+  helper_flags=(--entitlements "$helper_entitlements")
+fi
+codesign --force --sign "$identity" "${signing_flags[@]}" "${helper_flags[@]}" "$cleanup_helper"
 codesign --force --sign "$identity" "${signing_flags[@]}" "$app_path/Contents/MacOS/ModelBench"
 codesign --force --sign "$identity" "${signing_flags[@]}" --entitlements "$entitlements" "$app_path"
 codesign --verify --deep --strict "$app_path"

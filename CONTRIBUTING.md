@@ -17,7 +17,7 @@ app/build.sh
 open runtime/Murmur.app
 ```
 
-`build.sh` builds the pinned `ModelBench` helper (incrementally, every run), compiles the app with `-swift-version 5`, and signs both executables with Hardened Runtime. Development builds use `clouddev Development` if present, otherwise ad hoc; release builds use the audio-input entitlement, while development builds also disable library validation so the local signing identity can load Sparkle. Set `MURMUR_SIGN_IDENTITY` to use another identity; a stable identity keeps macOS permissions across rebuilds.
+`build.sh` builds the pinned `ModelBench` helper and the managed local cleanup helper (`app/tools/build_cleanup_runner.sh`: a pinned mlx-swift-lm build whose Cmlx target is the checksum-verified official prebuilt framework, because the Command Line Tools have no Metal compiler; the first run downloads it), both incrementally every run, compiles the app with `-swift-version 5`, and signs both executables with Hardened Runtime. Development builds use `clouddev Development` if present, otherwise ad hoc; release builds use the audio-input entitlement, while development builds also disable library validation so the local signing identity can load Sparkle. Set `MURMUR_SIGN_IDENTITY` to use another identity; a stable identity keeps macOS permissions across rebuilds.
 
 For distribution, first configure the update feed and public key described in [update packaging](app/UPDATES.md). `MURMUR_RELEASE=1` also requires a valid Developer ID Application identity and an existing notarytool Keychain profile. It signs with secure timestamps, submits for notarization, staples and validates the ticket, and runs Gatekeeper assessment; any failed step stops the build.
 

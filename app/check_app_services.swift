@@ -232,8 +232,13 @@ func checkLiveWordsSplit() {
 /// Welcome guide (gap #21): resume at the saved step, version-stamped completion.
 func checkWelcomeGuide() {
     let defaults = UserDefaults(suiteName: "murmur-guide-check-\(UUID())")!
-    check(WelcomeGuide.opensAtLaunch(defaults, alreadySetUp: false) && WelcomeGuide.resumeStep(defaults) == .microphone, "a new install opens the guide at the start")
-    check(WelcomeGuide.Step.allCases == [.microphone, .accessibility, .inputMonitoring, .transcription, .cleanup, .meetings, .model, .tryIt], "routes and style are reviewed before the model and test")
+    check(WelcomeGuide.opensAtLaunch(defaults, alreadySetUp: false) && WelcomeGuide.resumeStep(defaults) == .welcome, "a new install opens the guide at Welcome")
+    check(WelcomeGuide.Step.allCases == [.welcome, .microphone, .accessibility, .inputMonitoring, .transcription, .cleanup, .model, .tryIt], "welcome, then permissions, routes and style, then the model and test")
+    check(WelcomeGuide.Step.allCases.map(\.phase).reduce(into: [WelcomeGuide.Step.Phase]()) { if $0.last != $1 { $0.append($1) } } == [.welcome, .getReady, .firstWords], "steps group into three ordered phases")
+    defaults.set(WelcomeGuide.Step.meetings.rawValue, forKey: WelcomeGuide.stepKey)
+    check(WelcomeGuide.resumeStep(defaults) == .model && WelcomeGuide.Step.allCases.contains(WelcomeGuide.resumeStep(defaults)), "a saved meetings step resumes at a step that still exists")
+    defaults.set(0, forKey: WelcomeGuide.stepKey)
+    check(WelcomeGuide.resumeStep(defaults) == .microphone, "an in-progress install keeps its saved microphone step")
     defaults.set(3, forKey: WelcomeGuide.stepKey)
     check(WelcomeGuide.resumeStep(defaults) == .model, "the old saved model step remains valid")
     defaults.set(4, forKey: WelcomeGuide.stepKey)
@@ -246,8 +251,8 @@ func checkWelcomeGuide() {
     WelcomeGuide.confirm(.transcription, defaults)
     check(WelcomeGuide.nextUnconfirmed(defaults) == .cleanup, "cleanup location and style are next")
     WelcomeGuide.confirm(.cleanup, defaults)
-    check(WelcomeGuide.nextUnconfirmed(defaults) == .meetings, "meeting routes must be confirmed too")
     WelcomeGuide.confirm(.meetings, defaults)
+    check(WelcomeGuide.nextUnconfirmed(defaults) == nil && !WelcomeGuide.isConfirmed(.meetings, defaults), "meetings are not a first-run choice")
     check(WelcomeGuide.nextUnconfirmed(defaults) == nil, "all choices confirmed")
     WelcomeGuide.save(.model, defaults)
     check(WelcomeGuide.resumeStep(defaults) == .model, "quitting mid-guide resumes at the same step")
@@ -255,16 +260,16 @@ func checkWelcomeGuide() {
     defaults.set(42, forKey: WelcomeGuide.stepKey)
     check(WelcomeGuide.resumeStep(defaults) == .tryIt, "a step past the end clamps to the last")
     defaults.set(-3, forKey: WelcomeGuide.stepKey)
-    check(WelcomeGuide.resumeStep(defaults) == .microphone, "a negative step clamps to the first")
+    check(WelcomeGuide.resumeStep(defaults) == .welcome, "a negative step clamps to the first")
     WelcomeGuide.complete(defaults)
     check(!WelcomeGuide.opensAtLaunch(defaults, alreadySetUp: false) && defaults.integer(forKey: WelcomeGuide.completedKey) == WelcomeGuide.version, "finishing records the version")
-    check(WelcomeGuide.resumeStep(defaults) == .microphone, "finishing clears the step")
+    check(WelcomeGuide.resumeStep(defaults) == .welcome, "finishing clears the step")
     // A later guide version shows it again to everyone who finished an older one.
     defaults.set(WelcomeGuide.version - 1, forKey: WelcomeGuide.completedKey)
     check(WelcomeGuide.opensAtLaunch(defaults, alreadySetUp: true), "a newer guide version reopens it")
     WelcomeGuide.complete(defaults)
     WelcomeGuide.save(.inputMonitoring, defaults); WelcomeGuide.replay(defaults)
-    check(WelcomeGuide.resumeStep(defaults) == .microphone && !WelcomeGuide.opensAtLaunch(defaults, alreadySetUp: false), "replay starts over and keeps completion")
+    check(WelcomeGuide.resumeStep(defaults) == .welcome && !WelcomeGuide.opensAtLaunch(defaults, alreadySetUp: false), "replay starts over and keeps completion")
     check(WelcomeGuide.nextUnconfirmed(defaults) == .transcription, "replay asks users to confirm choices again")
     // Installs from before the guide: set up already means version 1 was seen.
     let upgraded = UserDefaults(suiteName: "murmur-guide-upgrade-\(UUID())")!

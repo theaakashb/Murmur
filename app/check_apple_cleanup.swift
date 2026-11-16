@@ -18,7 +18,7 @@ private final class FakeModel: @unchecked Sendable {
     init(_ reply: @escaping @Sendable (String) throws -> String) { self.reply = reply }
     var calls: [Int] { lock.withLock { _calls } }
     func generate(_ m: CleanupMessages) throws -> String {
-        let text = m.user.split(separator: "\n").dropFirst().dropLast().joined(separator: "\n")
+        let text = m.user.split(separator: "\n").drop { !$0.hasPrefix("<transcript-") }.dropFirst().prefix { !$0.hasPrefix("</transcript-") }.joined(separator: "\n")
         lock.withLock { _calls.append(text.split(whereSeparator: \.isWhitespace).count) }
         return try reply(text)
     }

@@ -83,11 +83,11 @@ import Combine
         controller.cleanupChoice = savedChoice
         let compact = CommandLine.arguments.contains("--compact")
         let opaque = CommandLine.arguments.contains("--opaque")
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: compact ? 760 : 1000, height: compact ? 560 : args.contains("--tall") ? 1100 : 680), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: compact ? 880 : 1000, height: compact ? 680 : args.contains("--tall") ? 1100 : 680), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = "Murmur UI Check"; window.titleVisibility = .hidden; window.titlebarAppearsTransparent = true; window.backgroundColor = Palette.paperNS
         window.contentView = NSHostingView(rootView: SettingsView(controller: controller,
             editingModeID: args.contains("--mode-editor") ? WritingMode.presets[0].id : nil).environment(\.utilityOpaquePreview, opaque))
-        window.contentMinSize = NSSize(width: 760, height: 560)
+        window.contentMinSize = NSSize(width: 880, height: 680)
         window.isReleasedWhenClosed = false
         window.center(); window.makeKeyAndOrderFront(nil)
         var entries = [
@@ -148,8 +148,18 @@ import Combine
             if args.contains("--dictionary") { controller.screenRequest = .settingsPane(.dictionary) }
             // --cleanup-style -1|0|1|2: Faithful, Strict, Polish or Professional, with an AI model stored.
             if let flag = args.firstIndex(of: "--cleanup-style"), args.indices.contains(flag + 1), let style = Int(args[flag + 1]) {
-                controller.cleanupChoice = .gemini; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
+                controller.cleanupChoice = args.contains("--custom-cleanup") ? .customAPI : .localModel; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
                 if style == -1 { controller.useFaithfulTranscription() }
+            }
+            // --local-model ready|downloading|failed|notice: the managed local cleanup row in its states (no download runs).
+            if let flag = args.firstIndex(of: "--local-model"), args.indices.contains(flag + 1) {
+                switch args[flag + 1] {
+                case "ready": controller.showLocalModelFixture(.ready)
+                case "downloading": controller.showLocalModelFixture(.downloading(ModelDownloadProgress(bytesDone: 214_000_000, totalBytes: 560_000_000)))
+                case "failed": controller.showLocalModelFixture(.failed(.diskFull))
+                case "notice": controller.showLocalModelFixture(.notDownloaded); controller.geminiCleanupNotice = true
+                default: controller.showLocalModelFixture(.notDownloaded)
+                }
             }
             if let flag = args.firstIndex(of: "--section"), args.indices.contains(flag + 1) {
                 if let pane = Int(args[flag + 1]).flatMap(SettingsPane.init(rawValue:)) { controller.screenRequest = .settingsPane(pane) }

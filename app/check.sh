@@ -21,8 +21,9 @@ deps() {
     dictionary) echo "$text" ;;
     processing) echo "$cloud Observation" ;;
     modes) echo "$cloud" ;;
-    apple_cleanup) echo "$cloud Routes CloudAudio AppleCleanup" ;;
-    routes) echo "$cloud Routes CloudAudio KeyCheck AppleCleanup" ;;
+    apple_cleanup) echo "$cloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
+    routes) echo "$cloud Routes CloudAudio KeyCheck AppleCleanup LocalCleanup" ;;
+    local_cleanup) echo "$cloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
     providers) echo "$providers" ;;
     insights) echo "Insights" ;;
     meetings|speakers) echo "$meetings" ;;
@@ -34,7 +35,7 @@ deps() {
     *) return 1 ;;
   esac
 }
-swift_checks="launch history controller meeting_start recording speaker_flow delivery dictionary processing modes apple_cleanup routes providers insights meetings speakers call_detection model_download app_services boost_filter cleanup"
+swift_checks="launch history controller meeting_start recording speaker_flow delivery dictionary processing modes apple_cleanup routes local_cleanup providers insights meetings speakers call_detection model_download app_services boost_filter cleanup"
 script_checks="http update_config"
 if [ "${1:-}" = "--list" ]; then echo $swift_checks $script_checks; exit 0; fi
 out="${TMPDIR:-/tmp}/murmur-checks"; mkdir -p "$out"; cd "$project_root" || exit 1

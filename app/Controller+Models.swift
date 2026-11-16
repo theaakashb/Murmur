@@ -79,6 +79,40 @@ extension AppController {
         dictionaryModelStatus = dictionaryDownloader.status(); dictionarySupportFailed = false
         prewarm()
     }
+    func downloadLocalModel() {
+        guard let localCleanupDownloader else { localModelMessage = ModelDownloadError.invalidManifest.userMessage; return }
+        if localDownloadInFlight { return }
+        let text = LocalCleanupFacts.confirmation(downloadSize: localCleanupDownloader.downloadSize, license: localCleanupDownloader.license)
+        let alert = NSAlert(); alert.messageText = text.title; alert.informativeText = text.body
+        alert.addButton(withTitle: "Download"); alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        localDownloadInFlight = true; localModelMessage = ""
+        localModelStatus = .downloading(ModelDownloadProgress(bytesDone: 0, totalBytes: localCleanupDownloader.downloadSize))
+        localCleanupDownloader.start { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.localDownloadInFlight = false
+                self.localModelStatus = localCleanupDownloader.status()
+                Task { await LocalCleanupRunner.shared.shutdown() }
+                self.localModelMessage = { if case .failure(.cancelled) = result { return "The download was cancelled. Retry continues from the files already downloaded." }; if case .failure(let error) = result { return error.userMessage }; return "The model is downloaded and verified." }()
+            }
+        }
+    }
+    func cancelLocalModelDownload() { localCleanupDownloader?.cancel() }
+    func removeLocalModel() {
+        guard let localCleanupDownloader, !localDownloadInFlight else { return }
+        let alert = NSAlert(); alert.messageText = LocalCleanupFacts.removeTitle; alert.informativeText = LocalCleanupFacts.removeBody
+        alert.addButton(withTitle: "Remove"); alert.addButton(withTitle: "Cancel")
+        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
+        Task {
+            await LocalCleanupRunner.shared.shutdown() // Release the model files before deleting them.
+            await MainActor.run {
+                do { try localCleanupDownloader.remove(); self.localModelMessage = "The local cleanup model was removed." }
+                catch { self.localModelMessage = (error as? ModelDownloadError)?.userMessage ?? ModelDownloadError.fileSystem.userMessage }
+                self.localModelStatus = localCleanupDownloader.status()
+            }
+        }
+    }
     // MARK: Live words (gap #13)
 
     /// Checks the live folder's hashes once per launch, then loads the model once with no audio, so

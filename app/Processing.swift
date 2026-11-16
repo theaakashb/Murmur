@@ -208,6 +208,8 @@ final class ProcessingCoordinator {
         evidence.terms = terms; evidence.cleanupInput = prepared.text == raw ? nil : prepared.text
         var context = style.context, instructions = style.instructions
         // ponytail: fixed caps keep prompt + a 400-word section inside Apple's ~4K-token window; size by token count if it still overflows.
+        // The managed local model has one fixed prompt: it never receives screen context or style notes, and rewrite presets fall back below.
+        if cloudCleaner?.id == .localModel { context = nil; instructions = "" }
         if cloudCleaner?.id == .appleIntelligence, var c = context {
             c.selected = String(c.selected.prefix(400)); c.clipboard = String(c.clipboard.prefix(400)); c.window = String(c.window.prefix(1_000))
             context = c
@@ -225,7 +227,8 @@ final class ProcessingCoordinator {
         // On the slow Gemma fallback, long text is cleaned in parallel sections, each guarded on its own.
         // Apple's on-device model splits longer text, to stay inside its context window (AppleCleanup.swift).
         let sections = (provider as? GeminiCleanupProvider)?.onFallback == true ? CleanupSections.split(prepared.text)
-            : provider.id == .appleIntelligence ? CleanupSections.split(prepared.text, target: 400) : [prepared.text]
+            : provider.id == .appleIntelligence ? CleanupSections.split(prepared.text, target: 400)
+            : provider.id == .localModel ? CleanupSections.split(prepared.text, target: 150, keepingCorrectionsAttached: true) : [prepared.text]
         let results = await withTaskGroup(of: (Int, CloudAttempt).self) { group in
             for (index, section) in sections.enumerated() {
                 group.addTask { (index, await Self.cloudClean(section, provider: provider, options: options, terms: terms, context: context, instructions: instructions)) }
@@ -299,11 +302,15 @@ final class ProcessingCoordinator {
                                    context: ScreenContext? = nil, instructions: String = "") async -> CloudAttempt {
         let output: String
         let messages = CleanupPrompt.build(transcript: section, options: options, dictionaryTerms: terms, context: context, instructions: instructions)
-        let hash = promptHash(messages.system)
+        // The managed model's prompt is fixed inside the helper, so the built prompt's hash would be misleading.
+        let hash = provider.id == .localModel ? "local-fixed" : promptHash(messages.system)
         do { output = try await provider.cleanup(messages) }
         catch { return CloudAttempt(text: nil, reason: .cleanerFailed, error: error as? ProviderError, promptHash: hash) }
         let reason: CleanupFailureReason
-        switch CleanupPipeline.judge(raw: section, cleaned: output, options: options, allowedTerms: terms, soundsLike: DictionaryStore.soundsLike) {
+        // The managed local model is always held to the full guard (numbers, names, negations), whatever the global trust setting.
+        var judged = options
+        if provider.id == .localModel { judged.trustModel = false }
+        switch CleanupPipeline.judge(raw: section, cleaned: output, options: judged, allowedTerms: terms, soundsLike: DictionaryStore.soundsLike) {
         case .cleaned(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: "cleaned", promptHash: hash)
         case .unchanged(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: "unchanged", promptHash: hash)
         case .heldForRecovery(_, let why): reason = why

@@ -159,7 +159,12 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "http://localhost:11434", model: " ") == nil, "custom API needs a model")
         check(makeCleanupProvider(.customAPI, key: testKey, apiBaseURL: "ftp://x", model: "m") == nil, "custom API rejects a bad URL")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is OpenAICompatibleCleanupProvider, "custom API key is optional")
-        check(CleanupChoice.allCases == [.localRules, .appleIntelligence, .gemini, .customAPI], "cleanup choices: local rules, Apple Intelligence, Gemini and custom API")
+        check(CleanupChoice.selectable == [.localRules, .appleIntelligence, .localModel, .customAPI], "cleanup choices: local rules, Apple Intelligence, local model and custom API (no Gemini)")
+        check(CleanupChoice.localModel.providerID == .localModel && CleanupChoice.localModel.providerID != CleanupChoice.customAPI.providerID && CleanupChoice.localModel.credentialID == .localModel, "local model is its own provider with no key")
+        check(makeCleanupProvider(.localModel, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is LocalModelCleanupProvider, "local model factory ignores custom provider settings")
+        let localPlan = RoutePlan.make({ var s = RouteSettings(); s.cleanup = .localModel; return s }(), cleanupSendsText: true, key: { _ in nil })
+        check(localPlan.refusal == nil && localPlan.stages.isEmpty && localPlan.cleaner?.id == .localModel, "local model needs no key and discloses nothing leaving this Mac")
+        check(localPlan.cleaner?.disclosure.summary.contains("nothing leaves this Mac") == true, "local model disclosure says it stays on this Mac")
         check(ProviderID.customAPI.displayName == "Custom Provider" && CleanupChoice.customAPI.displayName == "Custom Provider", "custom provider name matches key and route controls")
         check(CleanupChoice.localRules.processingRoute == .local && CleanupChoice.customAPI.processingRoute == .cloud, "processing route mapping")
     }
@@ -461,6 +466,15 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         migration.set("https://other.example", forKey: CustomAPIKeyBinding.preference(.customCleanup))
         do { _ = try CustomAPIKeyBinding.read(at: "https://changed.example/v1", defaults: migration, credentials: changedKeys, provider: .customCleanup); check(false, "changed custom endpoint must not reuse another key") }
         catch { check(error as? CredentialError == .destinationMismatch, "each custom route keeps its own endpoint binding") }
+        let geminiSuite = "murmur-gemini-removed-" + UUID().uuidString
+        let geminiDefaults = UserDefaults(suiteName: geminiSuite)!
+        defer { geminiDefaults.removePersistentDomain(forName: geminiSuite) }
+        geminiDefaults.set("gemini", forKey: RouteSettings.Key.cleanup); geminiDefaults.set("https://keep.example/v1", forKey: RouteSettings.Key.customAPIBaseURL)
+        let geminiKeys = InMemoryCredentialStore([.gemini: testKey])
+        try! RouteSettings.migrateCustomAPI(in: geminiDefaults, credentials: geminiKeys)
+        check(RouteSettings.load(from: geminiDefaults).cleanup == .localRules && geminiDefaults.string(forKey: RouteSettings.Key.cleanup) == "local-rules", "saved Gemini cleanup becomes local rules, never a new cloud request")
+        check(geminiDefaults.bool(forKey: RouteSettings.Key.geminiCleanupRemovedNotice) && RouteSettings.load(from: geminiDefaults).customAPIBaseURL == "https://keep.example/v1", "Gemini removal is announced and Custom Provider settings are kept")
+        check(geminiKeys.exists(.gemini), "the Gemini key stays for transcription")
         let speechSuite = "murmur-speech-migration-" + UUID().uuidString
         let speechDefaults = UserDefaults(suiteName: speechSuite)!
         defer { speechDefaults.removePersistentDomain(forName: speechSuite) }
