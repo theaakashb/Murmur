@@ -37,6 +37,13 @@ import Foundation
         assert(parts.scheme == "https" && parts.host == "github.com" && parts.path == "/theaakashb/Murmur/issues/new")
         assert(parts.queryItems!.first { $0.name == "title" }!.value == IssueReport.title && body(url1) == awkward)
 
+        // The email route: same text, addressed to the report address, under the same cap.
+        let mail = URLComponents(url: IssueReport.emailURL(body: awkward), resolvingAgainstBaseURL: false)!
+        assert(mail.scheme == "mailto" && mail.path == IssueReport.email && mail.queryItems!.first { $0.name == "subject" }!.value == IssueReport.emailSubject)
+        assert(mail.queryItems!.first { $0.name == "body" }!.value == awkward)
+        let longMail = IssueReport.emailURL(body: String(repeating: "é", count: 5000)).absoluteString
+        assert(longMail.count <= IssueReport.maxURLLength && longMail.removingPercentEncoding!.hasSuffix(IssueReport.truncationNote))
+
         // The cap: ASCII, and multi-byte characters landing on the boundary at every offset.
         for filler in ["x", "é", "日", "🙂", "👨‍👩‍👧", "%"] {
             for offset in 0..<12 {

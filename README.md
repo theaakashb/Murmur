@@ -58,7 +58,7 @@ Murmur keeps dictation local by default. Review these data flows before enabling
 - Optional screen context is off by default. When enabled for AI cleanup, selected text, clipboard text and focused-window text can accompany the transcript to the chosen cleanup route.
 - Meetings start only after your action. Review the capture source and notify participants before recording; meeting transcription and generated notes have separate route choices in Settings → Meetings. Cloud transcription sends meeting audio; cloud notes send transcript content and your notes.
 - No transcript or audio telemetry.
-- Help → Report an Issue shows a text block of versions, permission states, routes and model names, with no dictated text, audio, keys, dictionary entries or endpoint addresses. You can edit it before choosing Open GitHub Issue, which opens your browser on a public, prefilled issue; Murmur itself sends nothing.
+- Help → Report an Issue shows a text block of versions, permission states, routes and model names, with no dictated text, audio, keys, dictionary entries, snippets or endpoint addresses. You can edit it before choosing Email Report, which opens your mail app with the text addressed to bugs-murmur@clouddev.cc, or Open GitHub Issue, which opens your browser on a public, prefilled GitHub issue. Murmur itself sends nothing.
 - Configured builds use Sparkle for GitHub-hosted updates. Automatic installation is off by default and can be enabled in Settings. Updates wait while dictation or meeting work is active; update checks do not send transcripts, audio, dictionary entries or provider keys.
 
 ## Removing your data

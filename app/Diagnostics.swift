@@ -67,16 +67,24 @@ struct Diagnostics {
 enum IssueReport {
     static let newIssueURL = "https://github.com/theaakashb/Murmur/issues/new"
     static let title = "Bug: "
-    /// GitHub documents no limit; this is a conservative assumption for the encoded URL's length.
+    /// GitHub and mail apps document no limit; this is a conservative assumption for the encoded URL's length.
     static let maxURLLength = 4000
     static let truncationNote = "\n\n(Cut off here. Paste the rest from Copy Diagnostics.)"
 
     private static let unreserved = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
     private static func encode(_ text: String) -> String { text.addingPercentEncoding(withAllowedCharacters: unreserved) ?? "" }
 
+    /// Where reports go for people without a GitHub account.
+    static let email = "bugs-murmur@clouddev.cc"
+    static let emailSubject = "Murmur bug report"
+
     /// The new-issue URL carrying `body`; a body that would exceed `maxURLLength` is cut at a character boundary and ends with `truncationNote`.
-    static func url(body: String) -> URL {
-        let prefix = "\(newIssueURL)?title=\(encode(title))&body="
+    static func url(body: String) -> URL { capped("\(newIssueURL)?title=\(encode(title))&body=", body) }
+
+    /// A mailto link to `email` carrying `body`, capped like `url(body:)`.
+    static func emailURL(body: String) -> URL { capped("mailto:\(email)?subject=\(encode(emailSubject))&body=", body) }
+
+    private static func capped(_ prefix: String, _ body: String) -> URL {
         let room = maxURLLength - prefix.count
         let whole = encode(body)
         if whole.count <= room { return URL(string: prefix + whole)! }
