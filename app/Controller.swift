@@ -70,7 +70,7 @@ enum ScreenRequest: Equatable {
     /// Live words also while transcription runs in the cloud; off by default (user, Oct 15, 2026).
     @Published var liveWordsOnCloud: Bool
     /// The running preview transcript. Display only: never saved, logged, learned from or cleaned.
-    @Published private(set) var liveText = ""
+    @Published var liveText = ""
     @Published var liveWordsStatus: ModelStatus = .notDownloaded
     @Published var liveWordsMessage = ""
     var liveWordsRow: ModelRowPresentation { ModelRowPresentation.make(liveWordsDownloader == nil ? nil : liveWordsStatus) }
@@ -106,7 +106,7 @@ enum ScreenRequest: Equatable {
     @Published var blockedWords: [CorrectionLedger.Blocked] = []
     @Published var dictionaryMessage = ""
     @Published var dictionarySuggestions: [DictionarySuggestion] = []
-    private var spellingCache: [String: Bool] = [:]
+    var spellingCache: [String: Bool] = [:]
     // Model download (R2). modelMessage reports the last download action, never interrupting dictation.
     @Published var modelStatus: ModelStatus = .notDownloaded
     @Published var modelMessage = ""
@@ -131,7 +131,7 @@ enum ScreenRequest: Equatable {
     @Published var setupTestTranscript = ""
     @Published var sessionOnlyIDs: Set<String> = []
     /// Home and Insights (gap #19), from the History kept on disk only.
-    @Published private(set) var insights: Insights = .empty
+    @Published var insights: Insights = .empty
     var historySummary: String { HistoryText.summary(mode: appliedHistoryMode, count: history.count, sessionOnly: sessionOnlyIDs.count) }
     // Sparkle owns update dialogs, installation and the automatic schedule (R12).
     @Published var updateChecksEnabled: Bool
@@ -187,45 +187,45 @@ enum ScreenRequest: Equatable {
     let meetingRecorder = MeetingRecorder()
     /// Settings → Meetings → speaker separation (W7d): the switch and its optional download.
     let speakerSettings = SpeakerModelSettings()
-    private var store: HistoryStore?
+    var store: HistoryStore?
     /// All history reads and writes; it keeps entries in memory only when history is off.
-    private var records: HistoryRouter<HistoryEntry>?
-    private var appliedHistoryMode: HistoryMode
+    var records: HistoryRouter<HistoryEntry>?
+    var appliedHistoryMode: HistoryMode
     var dataDirectory: URL? // Internal so the isolated UI fixture can seed only its temporary history.
-    private let downloader: ModelDownloader?
-    private var modelDownloadInFlight = false
+    let downloader: ModelDownloader?
+    var modelDownloadInFlight = false
     /// Dictionary support for on-device transcription (the pinned CTC model) and the private
     /// vocabulary file the helper reads; see DictionaryModelFacts.
-    private let dictionaryDownloader: ModelDownloader?
-    private let liveWordsDownloader: ModelDownloader?
-    private var liveWordsDownloadInFlight = false
+    let dictionaryDownloader: ModelDownloader?
+    let liveWordsDownloader: ModelDownloader?
+    var liveWordsDownloadInFlight = false
     /// Set once the live folder's hashes were checked this launch (and the model compiled).
-    private var liveWordsVerified = false
-    private var live: LiveStream?
-    private var dictionaryDownloadInFlight = false
-    private var vocabularyFile: URL?
+    var liveWordsVerified = false
+    var live: LiveStream?
+    var dictionaryDownloadInFlight = false
+    var vocabularyFile: URL?
     /// Set by start(); until then dictionary refreshes do not pre-warm, so launch hashes the model once.
-    private var started = false
-    private let dictionaryModelDirectory = DictionaryModelFacts.directory(home: FileManager.default.homeDirectoryForCurrentUser)
-    private var retry: RetryAudio?
-    private var processing: ProcessingCoordinator?
-    private var appliedRoutes: RouteSettings
+    var started = false
+    let dictionaryModelDirectory = DictionaryModelFacts.directory(home: FileManager.default.homeDirectoryForCurrentUser)
+    var retry: RetryAudio?
+    var processing: ProcessingCoordinator?
+    var appliedRoutes: RouteSettings
     // Preview and the developer probe never touch the login Keychain.
-    private lazy var credentials: CredentialStore = preview ? InMemoryCredentialStore() : KeychainCredentialStore(service: "Murmur")
+    lazy var credentials: CredentialStore = preview ? InMemoryCredentialStore() : KeychainCredentialStore(service: "Murmur")
     private let cloudRequest = CloudRequest()
     private var cloudDone: (() -> Void)?
     private var cloudStage: ProcessingStage?
     /// This session's cloud transcriber, chosen at start; nil means local Parakeet.
-    private var sessionTranscriber: TranscriptionProvider?
-    private var capture: Capture?
+    var sessionTranscriber: TranscriptionProvider?
+    var capture: Capture?
     /// The field focused when recording started. Clearing it ends the session's mode and context too.
-    private var destination: FocusSnapshot? { didSet { if destination == nil { sessionMode = nil; sessionContext = nil } } }
+    var destination: FocusSnapshot? { didSet { if destination == nil { sessionMode = nil; sessionContext = nil } } }
     /// The app or website mode matched when recording started (a trigger word can still override it).
     /// Only the mode is kept: the page URL is read once at start and never stored or logged.
     private var sessionMode: WritingMode?
     /// Screen text captured at start, in memory only, for AI cleanup when the resolved mode allows it.
     private var sessionContext: ScreenContext?
-    private var destinationScreen: NSScreen?
+    var destinationScreen: NSScreen?
     private var insertThisSession = true
     // Uptime marks for timing logs only: when the key was released, and when cleanup began.
     private var finishedAt = 0.0, cleanupStartedAt = 0.0, transcribeStartedAt = 0.0
@@ -240,7 +240,7 @@ enum ScreenRequest: Equatable {
     private var listener: ShortcutListener?
     private var source: CFRunLoopSource?
     private var tapThread: TapThread?
-    private let prestart = PreStart()
+    let prestart = PreStart()
     /// Recording continues this long after release so the last word survives.
     nonisolated static let releaseTail: TimeInterval = 0.4
     /// Uptime of the last hold's key-release event, stamped on the tap thread and consumed by the main
@@ -252,23 +252,23 @@ enum ScreenRequest: Equatable {
         func set(_ uptime: TimeInterval) { lock.withLock { value = uptime } }
         func take() -> TimeInterval? { lock.withLock { defer { value = nil }; return value } }
     }
-    private let warm = WarmRunner()
+    let warm = WarmRunner()
     /// Chunk transcripts of local recordings, keyed by each recording's audio file.
-    private var chunkJobs: [URL: ChunkJob] = [:]
+    var chunkJobs: [URL: ChunkJob] = [:]
     private var noNap: NSObjectProtocol?
     private var monitor: Timer?
     private var expiry: Timer?
     private var runner: Process?
     private var recordingFailed = false
-    private var generation = UUID()
-    private var appliedRetention: String
+    var generation = UUID()
+    var appliedRetention: String
     private var activeModelDirectory = ""
     private var listeningStarted = Date()
     private var phaseBeforeEarly: (Phase, String)?
     private var statusShown = UUID()
     private var applyScheduled = false
     private var folderWatch: AnyCancellable?
-    private var preview = false
+    var preview = false
     private var previewDirectory: URL?
     private lazy var session: CaptureSession = {
         CaptureSession(store: retry!, start: { [weak self] url in
@@ -292,6 +292,31 @@ enum ScreenRequest: Equatable {
             } else { self.transcribe(url, done: done) }
         })
     }()
+
+    // Stored properties of the per-feature extensions (Controller+*.swift), which cannot declare their own.
+    /// Settings → Meetings: where meeting audio is transcribed (decision of October 15, 2026). Applies
+    /// to meetings started after it changes; a meeting keeps the route it started with.
+    @Published var meetingTranscription = MeetingTranscription.load(.standard) {
+        didSet { UserDefaults.standard.set(meetingTranscription.rawValue, forKey: MeetingTranscription.key) }
+    }
+    /// Settings → Meetings → Meeting notes (Q3). Nil until the first Stop asks, with None preselected.
+    @Published var meetingNotesRoute = MeetingNotesRoute.load(.standard) {
+        didSet {
+            if let route = meetingNotesRoute { UserDefaults.standard.set(route.rawValue, forKey: MeetingNotesRoute.key) }
+            else { UserDefaults.standard.removeObject(forKey: MeetingNotesRoute.key) }
+        }
+    }
+    @Published var modeRecovery: ModeRecovery?
+    let recoveryRequest = CloudRequest()
+    /// Latest insertable dictation, including verified deliveries, kept in memory for ⌃⌘V.
+    var lastDictationText: String?
+    var watch: Watch?
+    var watchTimer: Timer?
+    var keyTap: CFMachPort?
+    var preparingLiveWords = false
+    /// Shows or hides the live meeting panel; set by the app delegate.
+    var meetingPanelChanged: (() -> Void)?
+    lazy var meetingConsent = MeetingConsentPresenter()
 
     init(preview: Bool = false, isolatedStorage: Bool? = nil) {
         let defaults = UserDefaults.standard
@@ -458,7 +483,7 @@ enum ScreenRequest: Equatable {
             }
         }
     }
-    private var sessionAvailable: Bool { retry != nil && store != nil }
+    var sessionAvailable: Bool { retry != nil && store != nil }
     func setOpenAtLogin(_ on: Bool) {
         guard !preview else { openAtLogin = on; return }
         do { if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() } }
@@ -569,7 +594,7 @@ enum ScreenRequest: Equatable {
         customAPIBaseURL = appliedRoutes.customAPIBaseURL; customTranscriptionAPIBaseURL = appliedRoutes.customTranscriptionAPIBaseURL; customAPIModel = appliedRoutes.customAPIModel; customTranscriptionModel = appliedRoutes.customTranscriptionModel
         geminiTranscriptionModel = appliedRoutes.geminiTranscriptionModel
     }
-    private func routePlan(_ routes: RouteSettings, cleanupSendsText: Bool) -> RoutePlan {
+    func routePlan(_ routes: RouteSettings, cleanupSendsText: Bool) -> RoutePlan {
         var refusal: String?
         let plan = RoutePlan.make(routes, cleanupSendsText: cleanupSendsText) { provider in
             do {
@@ -639,7 +664,7 @@ enum ScreenRequest: Equatable {
         session.resetShortcut = { [weak self] in guard let self, let listener = self.listener else { return }; listener.emit(listener.machine.eventStreamLost()); listener.machine.processingFinished() }
     }
     private static let idleMessages = ["Press your shortcut to dictate and press it again to finish, or hold it and release.", "Hold your shortcut to dictate, or double-press it to dictate until you press it again."]
-    private var idleMessage: String { Self.idleMessages[pressToToggle ? 0 : 1] }
+    var idleMessage: String { Self.idleMessages[pressToToggle ? 0 : 1] }
     /// False only for the plain idle hint; failures that leave the phase at Ready still show.
     var hasStatusToShow: Bool { phase != .ready || !Self.idleMessages.contains(message) }
     private var listeningMessage: String { "Listening… \(listener?.pressToToggle == true ? "Release or press the shortcut again" : "Release") to finish, or press Escape to cancel." }
@@ -1257,131 +1282,7 @@ enum ScreenRequest: Equatable {
         if previous != cleanupWarning { updateMenu?() }
     }
 
-    // MARK: Mode recovery
 
-    /// Where verified inserted text sits, so the pill's "Use without mode" can replace exactly it.
-    struct ModeRecoveryAnchor { let element: AXUIElement; let pid: pid_t; let value: String; let range: NSRange }
-    struct ModeRecovery {
-        enum Stage: Equatable { case offer, working, replaced, copy(String) }
-        let entryID: String, modeName: String, raw: String, inserted: String
-        var anchor: ModeRecoveryAnchor?
-        var stage = Stage.offer
-    }
-    @Published private(set) var modeRecovery: ModeRecovery?
-    private let recoveryRequest = CloudRequest()
-
-    /// The field is replaced only when it still holds exactly the verified post-insertion value and
-    /// the inserted text still sits at the recorded range.
-    nonisolated static func recoveryRangeIsIntact(value: String, range: NSRange, inserted: String) -> Bool {
-        let ns = value as NSString
-        return range.location >= 0 && NSMaxRange(range) <= ns.length && ns.substring(with: range) == inserted
-    }
-    /// Synthetic UI fixture only (check_ui.swift): shows the pill without a real insertion.
-    func showModeRecoveryFixture(stage: ModeRecovery.Stage) {
-        modeRecovery = ModeRecovery(entryID: "fixture", modeName: "AI Prompt", raw: "", inserted: "", anchor: nil, stage: stage)
-        bubble.showRecovery(screen: nil)
-        if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
-    }
-    func clearModeRecovery() {
-        recoveryRequest.cancel(); modeRecovery = nil
-        bubble.hideRecovery()
-    }
-    private func offerModeRecovery(entry: HistoryEntry, inserted: String, insertion: InsertionResult, target: FocusSnapshot?) {
-        guard let name = entry.writingModeName else { return }
-        var anchor: ModeRecoveryAnchor?
-        if insertion.status == .verified, let after = insertion.snapshot, let value = after.value, let selection = target?.selection {
-            let range = NSRange(location: selection.location, length: inserted.utf16.count)
-            if Self.recoveryRangeIsIntact(value: value, range: range, inserted: inserted) {
-                anchor = ModeRecoveryAnchor(element: after.element, pid: after.pid, value: value, range: range)
-            }
-        }
-        modeRecovery = ModeRecovery(entryID: entry.id, modeName: name, raw: entry.rawText, inserted: inserted, anchor: anchor)
-        bubble.showRecovery(screen: destinationScreen)
-    }
-    /// Reprocesses the original transcript (trigger included) through ordinary Cleanup, with no mode matching.
-    func useWithoutMode() {
-        guard var recovery = modeRecovery, recovery.stage == .offer, !isBusy, let processing else { return }
-        recovery.stage = .working; modeRecovery = recovery
-        let style = DictationStyle(mode: nil, settings: processing.settings)
-        let entryID = recovery.entryID
-        recoveryRequest.start({ await processing.processAsync(recovery.raw, style: style) }) { [weak self] outcome in
-            guard let self, var recovery = self.modeRecovery, recovery.entryID == entryID, !self.isBusy else { return }
-            guard case .insert(let text) = outcome.outcome, !text.isEmpty else { recovery.stage = .offer; self.modeRecovery = recovery; return }
-            let replacement = recovery.inserted.hasPrefix(" ") && !text.hasPrefix(" ") ? " " + text : text
-            if self.replaceInserted(recovery, with: replacement) {
-                recovery.stage = .replaced
-                self.updateRecoveredHistory(entryID: entryID, text: replacement)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in if self?.modeRecovery?.entryID == entryID { self?.clearModeRecovery() } }
-            } else { recovery.stage = .copy(text) }
-            self.modeRecovery = recovery
-        }
-    }
-    /// Selects the recorded range and pastes over it, only if the same focused field still holds the
-    /// verified value; nothing else is ever touched.
-    private func replaceInserted(_ recovery: ModeRecovery, with text: String) -> Bool {
-        guard let anchor = recovery.anchor, let current = try? captureFocus(), current.pid == anchor.pid, CFEqual(current.element, anchor.element),
-              current.readableText, current.value == anchor.value else { return false }
-        watchTick(ending: true)
-        var range = CFRange(location: anchor.range.location, length: anchor.range.length)
-        guard let value = AXValueCreate(.cfRange, &range),
-              AXUIElementSetAttributeValue(anchor.element, kAXSelectedTextRangeAttribute as CFString, value) == .success,
-              let selected = try? captureFocus(), selected.pid == anchor.pid, CFEqual(selected.element, anchor.element),
-              selected.value == anchor.value, selected.selection?.location == range.location, selected.selection?.length == range.length else { return false }
-        let result = insertText(text, into: selected)
-        timingLog.notice("mode-recovery status=\(result.status.rawValue, privacy: .public) detail=\(result.detail, privacy: .public)")
-        if result.status != .failed { lastDictationText = text }
-        return result.status != .failed
-    }
-    private func updateRecoveredHistory(entryID: String, text: String) {
-        guard let index = history.firstIndex(where: { $0.id == entryID }) else { return }
-        var entry = history[index]; entry.finalText = text
-        try? records?.update(entry); history[index] = entry
-    }
-    func copyRecovery() {
-        guard let recovery = modeRecovery, case .copy(let text) = recovery.stage, !text.isEmpty else { return }
-        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
-        clearModeRecovery()
-    }
-
-    /// Latest insertable dictation, including verified deliveries, kept in memory for ⌃⌘V.
-    var lastDictationText: String?
-    /// ⌃⌘V explicitly pastes again; never triggered by a read-back mismatch.
-    /// Keep the last usable text through canceled, empty, or failed recordings.
-    func pasteLastDictation() {
-        guard let text = lastDictationText, !isBusy else { return }
-        watchTick(ending: true)
-        let result = pasteIntoFrontmostApp(text)
-        timingLog.notice("paste-chord status=\(result.status.rawValue, privacy: .public) detail=\(result.detail, privacy: .public)")
-        showInsertionResult(result, entryID: nil, text: text)
-    }
-    /// Read-back is diagnostic evidence, not a reason to warn or paste twice.
-    func showInsertionResult(_ result: InsertionResult, entryID: String?, text: String) {
-        switch result.status {
-        case .verified, .unverified: setPhase(.ready, idleMessage, announcement: "Dictation finished.")
-        case .failed: setPhase(.error, "Could not paste the dictation. Copy it here, select a text field and press ⌃⌘V, or copy it from History. Check the field first to avoid a duplicate.",
-                               pasteFailure: PasteFailure(entryID: entryID, text: text))
-        }
-    }
-    enum NotPasted { case insertionOff, unsaved }
-    /// Murmur deliberately did not paste: the card shows the text with Copy (gap #17, Oct 15 follow-up).
-    /// Failed pastes go through `showInsertionResult`; a posted but unconfirmed paste stays quiet.
-    func showNotPasted(_ why: NotPasted, saved: String, entryID: String?, text: String) {
-        switch why {
-        case .insertionOff:
-            setPhase(.saved, "\(saved) Press ⌃⌘V to paste it where your cursor is.", pasteFailure: PasteFailure(entryID: entryID, text: text, title: "Saved, not pasted"))
-        case .unsaved:
-            setPhase(.error, "\(saved) Could not save the text for insertion, so nothing was pasted. Copy it here or from History.", pasteFailure: PasteFailure(entryID: entryID, text: text))
-        }
-    }
-    /// The card's Copy button: the text goes to the clipboard and its History entry is marked copied.
-    func copyPasteFailure() {
-        guard let failure = pasteFailure else { return }
-        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(failure.text, forType: .string)
-        if let id = failure.entryID, var entry = history.first(where: { $0.id == id }) {
-            entry.insertionStatus = InsertionStatus.copied.rawValue; try? records?.save(entry); refreshHistory()
-        }
-        setPhase(.ready, "Copied. Press ⌘V to paste it.", announcement: "Dictation copied.")
-    }
     // Explicit developer check of the production pipeline, using a synthetic file
     // and an exact disposable destination. Never enabled during ordinary launch.
     func checkSavedAudio(_ audio: URL, expectedApp: String, completion: @escaping () -> Void) {
@@ -1418,53 +1319,15 @@ enum ScreenRequest: Equatable {
             waitForWatch()
         }
     }
-    private func refreshRecoveryAudio() {
+    func refreshRecoveryAudio() {
         guard let retry else { hasRecoveryAudio = false; return }
         hasRecoveryAudio = ((try? FileManager.default.contentsOfDirectory(at: retry.directory, includingPropertiesForKeys: nil)) ?? []).contains { $0.pathExtension == "wav" }
     }
-    func refreshHistory() {
-        do { history = try records?.entries() ?? []; sessionOnlyIDs = records?.sessionOnlyIDs ?? [] }
-        catch { message = "Could not read saved history." }
-        // Once per change, not per render: Settings re-renders with every voice-level tick.
-        insights = Insights.compute(history.filter { !sessionOnlyIDs.contains($0.id) }.map {
-            InsightsItem(recordedAt: $0.recordedAt, rawText: $0.rawText, finalText: $0.finalText, seconds: $0.seconds, app: $0.app)
-        }, historyOn: appliedHistoryMode == .on, now: Date(), calendar: .current)
-    }
-    func copyEntry(_ entry: HistoryEntry) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(entry.finalText, forType: .string) }
-    /// The explicit raw-text action for held cleanup (and any entry whose final text differs).
-    /// ⌃⌘C anywhere: the latest dictation's raw transcript, so a held or uninserted one needs no
-    /// trip to History. Does nothing when this launch has no transcript yet.
-    func copyLatestRawTranscript() {
-        guard let id = recoveryEntryID, let entry = history.first(where: { $0.id == id }) else { return }
-        copyRawEntry(entry)
-        if !isBusy { setPhase(.ready, "Raw transcript copied.") }
-    }
-    func copyRawEntry(_ entry: HistoryEntry) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(entry.rawText, forType: .string) }
     /// Turns all three cleanup options off. Like other settings, it takes effect at once.
     func useFaithfulTranscription() { cleanupFillers = false; cleanupCorrections = false; cleanupLists = false; cleanupPunctuation = false; cleanupSpoken = false }
-    /// Every dictionary change ends here: it rewrites the helper's vocabulary file and restarts
-    /// the warm helper with it, so a wipe or edit never leaves old terms loaded.
-    func refreshDictionary() {
-        dictionaryEntries = processing?.dictionary.entries ?? []
-        blockedWords = processing?.ledger.blocked ?? []
-        writeHelperVocabulary()
-        if started { prewarm() }
-    }
-    /// FluidAudio's vocabulary JSON: enabled entries (not command targets), preferred spelling plus "heard as" aliases.
-    /// Owner-only, beside dictionary.json; absent when nothing is enabled.
-    private func writeHelperVocabulary() {
-        guard let vocabularyFile else { return }
-        let terms: [[String: Any]] = dictionaryEntries.filter { $0.enabled && !DictionaryStore.isCommandTarget($0) }.map { entry in
-            let variants = entry.variants.filter { !DictionaryStore.skipLearnedVariant($0, entry: entry, isCommonWord: isCommonEnglishWord) }
-            return variants.isEmpty ? ["text": entry.preferred] : ["text": entry.preferred, "aliases": variants]
-        }
-        if terms.isEmpty { try? FileManager.default.removeItem(at: vocabularyFile); return }
-        guard let data = try? JSONSerialization.data(withJSONObject: ["terms": terms], options: [.sortedKeys]) else { return }
-        try? PrivateFiles.write(data, to: vocabularyFile)
-    }
     /// Starts (or restarts, when what it loads changed) the warm helper in the background, so the
     /// next dictation does not wait for a model load.
-    private func prewarm() {
+    func prewarm() {
         guard !preview, let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"),
               let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json") else { return }
         let models = URL(fileURLWithPath: modelDirectory), vocabulary = vocabularyFile, dictionaryModel = dictionaryModelDirectory, warm = warm
@@ -1472,292 +1335,6 @@ enum ScreenRequest: Equatable {
             guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
                   let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { return }
             warm.prepare(helper: helper, launch: launch)
-        }
-    }
-    @discardableResult
-    func addDictionaryEntry(preferred: String, variants: String) -> Bool {
-        guard let processing else { dictionaryMessage = "The dictionary is unavailable."; return false }
-        do { try processing.addEntry(preferred: preferred, variants: variants); dictionaryMessage = ""; refreshDictionary(); return true }
-        catch { dictionaryMessage = (error as? DictionaryError)?.description ?? "Could not save the dictionary."; return false }
-    }
-    @discardableResult
-    func updateDictionaryEntry(_ entry: DictionaryEntry, preferred: String, variants: String, enabled: Bool) -> Bool {
-        guard let processing else { dictionaryMessage = "The dictionary is unavailable."; return false }
-        defer { refreshDictionary() }
-        do { try processing.updateEntry(id: entry.id, preferred: preferred, variants: variants, enabled: enabled); dictionaryMessage = ""; return true }
-        catch { dictionaryMessage = (error as? DictionaryError)?.description ?? "Could not save the dictionary."; return false }
-    }
-    private static let dismissedSuggestionsKey = "dictionarySuggestionsDismissed"
-    /// Recomputed when the Dictionary page opens and after each answer; spell checks are cached for the launch.
-    func refreshDictionarySuggestions() {
-        let dismissed = Set(UserDefaults.standard.stringArray(forKey: Self.dismissedSuggestionsKey) ?? [])
-        dictionarySuggestions = DictionarySuggestions.find(history.map { (raw: $0.rawText, final: $0.finalText) }, entries: dictionaryEntries,
-                                                           dismissed: dismissed, isCommonWord: { [self] word in
-            if let known = spellingCache[word] { return known }
-            let common = isCommonEnglishWord(word); spellingCache[word] = common; return common
-        })
-    }
-    /// Adds the heard spellings to the entry with this spelling if there is one, else makes a new entry.
-    func acceptDictionarySuggestion(_ suggestion: DictionarySuggestion, preferred: String) {
-        let spelling = preferred.trimmingCharacters(in: .whitespaces)
-        let heard = suggestion.heard.filter { TermText.fold($0) != TermText.fold(spelling) }
-        if let entry = dictionaryEntries.first(where: { TermText.fold($0.preferred) == TermText.fold(spelling) }) {
-            let variants = entry.variants + heard.filter { word in !entry.variants.contains { TermText.fold($0) == TermText.fold(word) } }
-            updateDictionaryEntry(entry, preferred: entry.preferred, variants: variants.joined(separator: ", "), enabled: entry.enabled)
-        } else {
-            addDictionaryEntry(preferred: spelling, variants: heard.joined(separator: ", "))
-        }
-        refreshDictionarySuggestions()
-    }
-    func dismissDictionarySuggestion(_ suggestion: DictionarySuggestion) {
-        let dismissed = (UserDefaults.standard.stringArray(forKey: Self.dismissedSuggestionsKey) ?? []) + suggestion.heard.map(TermText.fold)
-        UserDefaults.standard.set(dismissed, forKey: Self.dismissedSuggestionsKey)
-        refreshDictionarySuggestions()
-    }
-    func deleteDictionaryEntry(_ entry: DictionaryEntry) {
-        do { try processing?.deleteEntry(id: entry.id); dictionaryMessage = "" } catch { dictionaryMessage = "Could not delete this dictionary entry." }
-        refreshDictionary()
-    }
-    func unblockWord(_ item: CorrectionLedger.Blocked) {
-        do { try processing?.ledger.unblock(item); dictionaryMessage = "" } catch { dictionaryMessage = "Could not save the learning data." }
-        refreshDictionary()
-    }
-    func resetLearnedEntries() {
-        let alert = NSAlert(); alert.messageText = "Reset learned dictionary entries?"
-        alert.informativeText = "This removes every learned entry and all learning evidence, and unblocks every word under Not learned. Entries you added stay."
-        alert.addButton(withTitle: "Reset Learned"); alert.addButton(withTitle: "Cancel")
-        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
-        do { try processing?.resetLearned(); dictionaryMessage = "" } catch { dictionaryMessage = "Could not reset learned entries." }
-        refreshDictionary()
-    }
-    // Learning from corrections (PRD R10): after an insertion, watch the dictated span until focus
-    // leaves, 60 seconds pass, attribution is lost or the next insertion; each change goes to the
-    // ledger, which settles when the watch ends or once the edited span has been stable for
-    // `stableSettleDelay` with an accepted reading (gap #9); the watch then goes on, and a later
-    // edit or undo replaces or withdraws what that early settle learned. A field that reads back the dictated text is read
-    // through AX; any other field (VS Code's stub, web canvases) is followed by the keys typed in
-    // that app during the window, which are never stored or logged.
-    private struct Watch {
-        var observation: DictationObservation
-        let pid: pid_t
-        let field: FocusSnapshot?
-        var keyFocus: LearningFocusIdentity? = nil
-        var keys: KeystrokeSpan?
-        var current: String
-        /// When `current` last changed (system uptime), and whether its reading is unsettled ledger evidence.
-        var changedAt: TimeInterval = ProcessInfo.processInfo.systemUptime
-        var pending = false
-        var settledEarly = false
-        var entryID = "", route = ""
-    }
-    static let stableSettleDelay: TimeInterval = 2
-    /// Gap #9: an accepted reading unchanged for `stableSettleDelay` settles before the window closes.
-    static func settlesEarly(pending: Bool, changedAt: TimeInterval, now: TimeInterval) -> Bool {
-        pending && now - changedAt >= stableSettleDelay
-    }
-    private var watch: Watch?
-    private var watchTimer: Timer?
-    private var keyTap: CFMachPort?
-    private func watchCorrections(_ insertion: InsertionResult, text: String, entryID: String, at offset: Int?, pid: pid_t?) {
-        // With learning off no span is observed, so the entry gets no after-paste text.
-        guard processing?.settings.learningEnabled == true else { timingLog.notice("watch route=none why=learning-off"); return }
-        guard insertion.status != .failed else { timingLog.notice("watch route=none why=insert-failed"); return }
-        let now = ProcessInfo.processInfo.systemUptime
-        // A snapshot exists only when the same field read back the dictated text (verified, or a
-        // browser paste whose read-back is not trusted for delivery but is for observation).
-        // Why the field route was not taken, content-free, for the log.
-        let length = (text as NSString).length
-        let axMiss: String
-        if let field = insertion.snapshot, field.readableText, let value = field.value, let offset {
-            if NSMaxRange(NSRange(location: offset, length: length)) <= (value as NSString).length,
-               (value as NSString).substring(with: NSRange(location: offset, length: length)) == text {
-                axMiss = DictationObservation(value: value, insertedRange: NSRange(location: offset, length: length), now: now) == nil ? "span-cuts-word" : ""
-            } else { axMiss = "text-not-at-offset" }
-        } else { axMiss = insertion.snapshot == nil ? "no-readback" : insertion.snapshot!.readableText ? "no-offset" : "unreadable" }
-        if axMiss.isEmpty, let field = insertion.snapshot, let value = field.value, let offset,
-           let observation = DictationObservation(value: value, insertedRange: NSRange(location: offset, length: length), now: now) {
-            watch = Watch(observation: observation, pid: field.pid, field: field, keys: nil, current: text, entryID: entryID, route: "ax")
-            timingLog.notice("watch route=ax")
-        } else if processing?.settings.learningRequiresReadableField != true, !IsSecureEventInputEnabled(),
-                  let pid, CGPreflightListenEventAccess(), startKeyTap(),
-                  let observation = DictationObservation(value: text, insertedRange: NSRange(location: 0, length: length), now: now) {
-            var keys = KeystrokeSpan(text)
-            keys.resolve = { CorrectionFilter.plausibleEdit(original: text, candidates: $0, isCommonWord: isCommonEnglishWord) }
-            let identity = LearningFocusIdentity.capture(pid: pid)
-            guard !identity.secure else { stopWatching(); return }
-            watch = Watch(observation: observation, pid: pid, field: nil, keyFocus: identity, keys: keys, current: text, entryID: entryID, route: "keys")
-            timingLog.notice("watch route=keys ax-miss=\(axMiss, privacy: .public)")
-        } else {
-            timingLog.notice("watch route=none ax-miss=\(axMiss, privacy: .public) input-monitoring=\(CGPreflightListenEventAccess(), privacy: .public)")
-            stopWatching(); return
-        }
-        watchTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.watchTick() }
-        }
-    }
-    private func watchTick(ending: Bool = false) {
-        guard var w = watch else { return }
-        let same: Bool, readable: Bool, value: String, selection: NSRange
-        if var keys = w.keys {
-            keys.refresh(); w.keys = keys; watch?.keys = keys
-            let identity = LearningFocusIdentity.capture(pid: w.pid)
-            same = keys.state != .departed && NSWorkspace.shared.frontmostApplication?.processIdentifier == w.pid && w.keyFocus?.matches(identity) == true
-            readable = keys.state != .lost && !IsSecureEventInputEnabled() && !identity.secure
-            value = keys.value; selection = keys.selection
-        } else if let field = w.field {
-            let focus = try? captureFocus()
-            // captureFocus spins the run loop; a shortcut handled there may already have ended this watch.
-            guard watch?.observation.sessionID == w.observation.sessionID else { return }
-            same = focus.map { $0.pid == field.pid && CFEqual($0.element, field.element) } ?? false
-            // Access is about the dictated field; another app's unreadable focus is a departure, not lost access.
-            // Chromium turns Secure Event Input on in password fields, a backstop for unflagged ones.
-            readable = AXIsProcessTrusted() && !IsSecureEventInputEnabled() && (same ? focus?.readableText == true : true)
-            value = focus?.value ?? ""
-            selection = focus?.selection.map { NSRange(location: $0.location, length: $0.length) } ?? NSRange(location: 0, length: 0)
-        } else { return }
-        let now = ProcessInfo.processInfo.systemUptime
-        _ = w.observation.observe(value: value, selection: selection, now: now,
-                                  sameFocusedField: same, readableNonsecure: readable)
-        if ending { w.observation.finish() }
-        let session = w.observation.sessionID, current = w.observation.edited ?? w.observation.initial
-        do {
-            if current != w.current {
-                let outcome = try processing?.observeSpan(sessionID: session, original: w.observation.initial, current: current)
-                // Shape only (word and letter counts, similarity), never the words themselves.
-                let shape: String
-                switch CorrectionFilter.replacements(w.observation.initial, current) {
-                case .failure(let why): shape = "\(why)"
-                case .success(let changes): shape = changes.map { change in
-                    let from = CorrectionFilter.letters(change.source), to = CorrectionFilter.letters(change.targets[0])
-                    return "\(TermText.tokens(change.source).count)w\(from.count)l->\(TermText.tokens(change.targets[0]).count)w\(to.count)l sim=\(String(format: "%.2f", CorrectionFilter.similarity(from, to)))"
-                }.joined(separator: ",")
-                }
-                timingLog.notice("watch edit outcome=\(outcome.map { "\($0)" } ?? "reverted", privacy: .public) changes=\(shape, privacy: .public)")
-                w.current = current; w.changedAt = now; w.pending = outcome == .provisional
-                // After an early settle, an edit or undo may have withdrawn what it learned.
-                if w.settledEarly && outcome != .sessionClosed { refreshDictionary() }
-            }
-            watch = w
-            if w.observation.stopped {
-                stopWatching()
-                recordAfterPaste(w)
-                // Settling can also delete learned entries (reversal, conflict), so always refresh.
-                defer { refreshDictionary() }
-                let learned = try processing?.settle(sessionID: session) ?? []
-                timingLog.notice("watch end reason=\(w.observation.stopReason?.rawValue ?? "unknown", privacy: .public) keys=\(w.keys.map { "\($0.state)" } ?? "-", privacy: .public) learned=\(learned.count, privacy: .public)")
-                if let entry = learned.last { announceLearned(entry) }
-            } else if Self.settlesEarly(pending: w.pending, changedAt: w.changedAt, now: now) {
-                w.pending = false; w.settledEarly = true; watch = w
-                defer { refreshDictionary() }
-                let learned = try processing?.settle(sessionID: session) ?? []
-                timingLog.notice("watch early-settle learned=\(learned.count, privacy: .public)")
-                if let entry = learned.last { announceLearned(entry) }
-            }
-        } catch { stopWatching(); try? processing?.ledger.revert(sessionID: session) }
-    }
-    /// The span as last observed when the window closed, whatever the learning ledger made of it.
-    /// Deferred: the next dictation can end the watch just before its paste, which should not wait on a disk write.
-    private func recordAfterPaste(_ w: Watch) {
-        let seen = w.observation.edited.map { AfterPaste.trimmingAppended(initial: w.observation.initial, edited: $0) }
-        let after = AfterPaste(text: seen?.text, changed: seen?.changed, route: w.route, endReason: w.observation.stopReason?.rawValue)
-        DispatchQueue.main.async { [weak self] in
-            guard let self, !w.entryID.isEmpty, let index = self.history.firstIndex(where: { $0.id == w.entryID }) else { return }
-            var entry = self.history[index]
-            entry.afterPaste = after
-            try? self.records?.save(entry); self.history[index] = entry
-        }
-    }
-    private func announceLearned(_ entry: DictionaryEntry) {
-        bubble.showLearned(entry.preferred, entryID: entry.id, screen: destinationScreen)
-        NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [.announcement: "Added \(entry.preferred) to your dictionary.", .priority: NSAccessibilityPriorityLevel.medium.rawValue])
-    }
-    /// The learned notice's Undo: the replacement stops and is tombstoned (see `CorrectionLedger.undoLearned`).
-    func undoLearned(_ entryID: UUID) {
-        bubble.hide()
-        do { try processing?.ledger.undoLearned(entryID: entryID) } catch { message = "Could not undo the learned word." }
-        refreshDictionary()
-    }
-    private func stopWatching() {
-        watchTimer?.invalidate(); watchTimer = nil; watch = nil
-        if let keyTap { CGEvent.tapEnable(tap: keyTap, enable: false); CFMachPortInvalidate(keyTap) }
-        keyTap = nil
-    }
-    /// Listen-only (Input Monitoring is enough); runs on the main run loop only while a keystroke watch is open.
-    private func startKeyTap() -> Bool {
-        let mask = [CGEventType.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown].reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
-        guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .tailAppendEventTap, options: .listenOnly, eventsOfInterest: mask,
-            callback: { _, type, event, context in
-                if let context {
-                    let controller = Unmanaged<AppController>.fromOpaque(context).takeUnretainedValue()
-                    MainActor.assumeIsolated { controller.watchKey(type, event) }
-                }
-                return Unmanaged.passUnretained(event)
-            }, userInfo: Unmanaged.passUnretained(self).toOpaque()) else { return false }
-        CFRunLoopAddSource(CFRunLoopGetMain(), CFMachPortCreateRunLoopSource(nil, tap, 0), .commonModes)
-        keyTap = tap
-        return true
-    }
-    private func watchKey(_ type: CGEventType, _ event: CGEvent) {
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput { if let keyTap { CGEvent.tapEnable(tap: keyTap, enable: true) }; return }
-        guard let w = watch, var keys = w.keys else { return }
-        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == w.pid, !IsSecureEventInputEnabled(),
-              w.keyFocus?.matches(LearningFocusIdentity.capture(pid: w.pid)) == true else { watchTick(ending: true); return }
-        if type == .keyDown { keys.apply(Self.watchedKey(event)) } else { keys.click() }
-        watch?.keys = keys
-    }
-    nonisolated static func watchedKey(_ event: CGEvent) -> KeystrokeSpan.Key {
-        let flags = event.flags
-        if flags.contains(.maskCommand) || flags.contains(.maskControl) { return .other }
-        let word = flags.contains(.maskAlternate), extend = flags.contains(.maskShift)
-        switch event.getIntegerValueField(.keyboardEventKeycode) {
-        case 51: return .backspace(word: word)
-        case 117: return .forwardDelete
-        case 123: return .left(word: word, extend: extend)
-        case 124: return .right(word: word, extend: extend)
-        default:
-            var length = 0
-            var units = [UniChar](repeating: 0, count: 8)
-            event.keyboardGetUnicodeString(maxStringLength: 8, actualStringLength: &length, unicodeString: &units)
-            let text = String(utf16CodeUnits: units, count: length)
-            // Hardware events carry the shifted character; synthetic ones may carry only the Shift flag.
-            let shifted = extend || flags.contains(.maskAlphaShift)
-            return .text(shifted && text.allSatisfy(\.isLetter) ? text.uppercased() : text)
-        }
-    }
-    private func deleteTranscript(_ entry: HistoryEntry) throws {
-        try records?.delete(entry)
-        if entry.recordingFile != nil, let history = store?.directory {
-            try? FileManager.default.removeItem(at: DiagnosticRecordings.directory(inHistory: history).appendingPathComponent(entry.id + ".wav"))
-        }
-        if lastDictationText == entry.finalText { lastDictationText = nil }
-        if setupTestTranscript == entry.finalText { setupTestTranscript = "" }
-        if recoveryEntryID == entry.id { recoveryEntryID = nil }
-    }
-    /// Gap #10: saves an edited final text (the raw transcript is kept) and learns from the edit
-    /// through the same filter and ledger as automatic observation. Returns false if it could not save.
-    @discardableResult
-    func editEntryText(_ entry: HistoryEntry, to text: String) -> Bool {
-        guard text != entry.finalText else { return true }
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { message = "The final text cannot be empty."; return false }
-        var edited = entry; edited.finalText = text; edited.edited = true
-        do { try records?.update(edited) } catch { message = "Could not save this transcript."; return false }
-        if lastDictationText == entry.finalText { lastDictationText = text }
-        refreshHistory()
-        if let processing {
-            let learned = (try? processing.ledger.learnFromEdit(original: entry.finalText, edited: text)) ?? []
-            refreshDictionary()
-            if let learned = learned.last { announceLearned(learned) }
-        }
-        return true
-    }
-    func deleteEntry(_ entry: HistoryEntry) { do { try deleteTranscript(entry); refreshHistory() } catch { message = "Could not delete this transcript." } }
-    func clearHistory() {
-        let alert = NSAlert(); alert.messageText = "Delete all saved transcripts?"; alert.informativeText = "This cannot be undone."
-        alert.addButton(withTitle: "Delete All"); alert.addButton(withTitle: "Cancel")
-        if alert.runDestructive() == .alertFirstButtonReturn {
-            do { for entry in history { try deleteTranscript(entry) } }
-            catch { message = "Could not delete all transcripts. Remaining entries are shown in History." }
-            refreshHistory()
         }
     }
     func dismissStatus() {
@@ -1776,459 +1353,10 @@ enum ScreenRequest: Equatable {
         if let recoveryAudio, FileManager.default.fileExists(atPath: recoveryAudio.path) { NSWorkspace.shared.activateFileViewerSelecting([recoveryAudio]) }
         else if hasRecoveryAudio, let retry { NSWorkspace.shared.open(retry.directory) }
     }
-    // MARK: Model download (R2)
-
-    func downloadModel() {
-        guard let downloader else { modelMessage = ModelDownloadError.invalidManifest.userMessage; return }
-        if let refusal = ModelGate.downloadRefusal(isBusy: isBusy, preview: preview, downloading: modelDownloadInFlight) { modelMessage = refusal; return }
-        // The license and size are shown before any byte is fetched.
-        let text = ModelFacts.confirmation(downloadSize: downloader.downloadSize, license: downloader.license)
-        let alert = NSAlert(); alert.messageText = text.title; alert.informativeText = text.body
-        alert.addButton(withTitle: "Download"); alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        // A dictation may have started while the alert was open.
-        if let refusal = ModelGate.downloadRefusal(isBusy: isBusy, preview: preview, downloading: modelDownloadInFlight) { modelMessage = refusal; return }
-        modelDownloadInFlight = true; modelMessage = ""
-        modelStatus = .downloading(ModelDownloadProgress(bytesDone: 0, totalBytes: downloader.downloadSize))
-        downloader.start { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.modelDownloadInFlight = false
-                self.modelStatus = downloader.status()
-                self.modelMessage = ModelFacts.completionMessage(result)
-                // Point dictation at the verified download right away (an explicit user action, like Apply).
-                if case .success = result {
-                    self.modelDirectory = downloader.target.path
-                    UserDefaults.standard.set(downloader.target.path, forKey: "modelDirectory")
-                }
-            }
-        }
-    }
-    func cancelModelDownload() { downloader?.cancel() }
-    func removeModel() {
-        guard let downloader else { return }
-        if let refusal = ModelGate.removeRefusal(isBusy: isBusy, preview: preview, downloading: modelDownloadInFlight) { modelMessage = refusal; return }
-        let alert = NSAlert(); alert.messageText = "Remove the downloaded model?"
-        alert.informativeText = "Murmur cannot dictate until you download it again (\(ModelFacts.formatBytes(downloader.downloadSize))) or choose another model folder."
-        alert.addButton(withTitle: "Remove"); alert.addButton(withTitle: "Cancel")
-        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
-        if let refusal = ModelGate.removeRefusal(isBusy: isBusy, preview: preview, downloading: modelDownloadInFlight) { modelMessage = refusal; return }
-        warm.stopNow() // Release the helper's open model files before deleting them.
-        do { try downloader.remove(); modelMessage = "The model was removed." }
-        catch { modelMessage = (error as? ModelDownloadError)?.userMessage ?? ModelDownloadError.fileSystem.userMessage }
-        modelStatus = downloader.status()
-    }
-    func downloadDictionaryModel() {
-        guard let dictionaryDownloader else { dictionaryModelMessage = ModelDownloadError.invalidManifest.userMessage; return }
-        if let refusal = ModelGate.downloadRefusal(isBusy: isBusy, preview: preview, downloading: dictionaryDownloadInFlight) { dictionaryModelMessage = refusal; return }
-        let text = DictionaryModelFacts.confirmation(downloadSize: dictionaryDownloader.downloadSize, license: dictionaryDownloader.license, folder: dictionaryDownloader.target)
-        let alert = NSAlert(); alert.messageText = text.title; alert.informativeText = text.body
-        alert.addButton(withTitle: "Download"); alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        if let refusal = ModelGate.downloadRefusal(isBusy: isBusy, preview: preview, downloading: dictionaryDownloadInFlight) { dictionaryModelMessage = refusal; return }
-        dictionaryDownloadInFlight = true; dictionaryModelMessage = ""; dictionarySupportFailed = false
-        dictionaryModelStatus = .downloading(ModelDownloadProgress(bytesDone: 0, totalBytes: dictionaryDownloader.downloadSize))
-        dictionaryDownloader.start { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.dictionaryDownloadInFlight = false
-                self.dictionaryModelStatus = dictionaryDownloader.status()
-                self.dictionaryModelMessage = DictionaryModelFacts.completionMessage(result)
-                self.prewarm() // Compiles the new model now, not on the next dictation.
-            }
-        }
-    }
-    func cancelDictionaryModelDownload() { dictionaryDownloader?.cancel() }
-    func removeDictionaryModel() {
-        guard let dictionaryDownloader else { return }
-        if let refusal = ModelGate.removeRefusal(isBusy: isBusy, preview: preview, downloading: dictionaryDownloadInFlight) { dictionaryModelMessage = refusal; return }
-        let alert = NSAlert(); alert.messageText = DictionaryModelFacts.removeTitle
-        alert.informativeText = DictionaryModelFacts.removeBody(folder: dictionaryDownloader.target)
-        alert.addButton(withTitle: "Remove"); alert.addButton(withTitle: "Cancel")
-        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
-        if let refusal = ModelGate.removeRefusal(isBusy: isBusy, preview: preview, downloading: dictionaryDownloadInFlight) { dictionaryModelMessage = refusal; return }
-        warm.stopNow()
-        do { try dictionaryDownloader.remove(); dictionaryModelMessage = "Dictionary support was removed." }
-        catch { dictionaryModelMessage = (error as? ModelDownloadError)?.userMessage ?? ModelDownloadError.fileSystem.userMessage }
-        dictionaryModelStatus = dictionaryDownloader.status(); dictionarySupportFailed = false
-        prewarm()
-    }
-    // MARK: Live words (gap #13)
-
-    /// Checks the live folder's hashes once per launch, then loads the model once with no audio, so
-    /// its first compile (about 10 s) happens now rather than in a recording. Off the main thread.
-    private var preparingLiveWords = false
-    private func prepareLiveWords() {
-        guard !preview, !liveWordsVerified, !preparingLiveWords, liveWordsRow.isReady, let folder = liveWordsDownloader?.target,
-              let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"),
-              let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json") else { return }
-        preparingLiveWords = true
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard (try? ModelVerificationCache.shared.verify(folder, manifest: manifest, list: liveWordsFileList)) != nil else {
-                DispatchQueue.main.async { self?.preparingLiveWords = false; self?.liveWordsMessage = "Live words failed verification. Remove them and download again." }
-                return
-            }
-            let compile = Process(); compile.executableURL = helper; compile.arguments = [folder.path, "--stream", "16000"]
-            compile.standardInput = FileHandle.nullDevice; compile.standardOutput = FileHandle.nullDevice; compile.standardError = FileHandle.nullDevice
-            if (try? compile.run()) != nil { compile.waitUntilExit() }
-            DispatchQueue.main.async { self?.preparingLiveWords = false; self?.liveWordsVerified = true }
-        }
-    }
-    private func startLiveWords() {
-        stopLiveWords()
-        guard LiveWordsFacts.starts(enabled: liveWords, ready: liveWordsVerified, cloudTranscription: sessionTranscriber != nil, onCloud: liveWordsOnCloud),
-              !preview, let capture, let rate = capture.recordingFormat?.sampleRate,
-              let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"), let folder = liveWordsDownloader?.target else { return }
-        let token = generation
-        liveText = ""
-        guard let stream = LiveStream(helper: helper, folder: folder, sampleRate: rate, onText: { [weak self] text in
-            guard let self, self.generation == token, self.live != nil else { return }
-            self.liveText = text
-        }) else { return }
-        live = stream
-        capture.setTee { stream.feed($0) }
-        bubble.show(phase: phase, message: message, screen: destinationScreen)
-    }
-    /// Keeps the last text up until the Processing bubble replaces it; the next start clears it.
-    private func stopLiveWords() {
-        capture?.setTee(nil)
-        live?.stop(); live = nil
-    }
-    func downloadLiveWords() {
-        guard let liveWordsDownloader else { liveWordsMessage = ModelDownloadError.invalidManifest.userMessage; return }
-        if let refusal = ModelGate.downloadRefusal(isBusy: isBusy, preview: preview, downloading: liveWordsDownloadInFlight) { liveWordsMessage = refusal; return }
-        let text = LiveWordsFacts.confirmation(downloadSize: liveWordsDownloader.downloadSize, license: liveWordsDownloader.license, folder: liveWordsDownloader.target)
-        let alert = NSAlert(); alert.messageText = text.title; alert.informativeText = text.body
-        alert.addButton(withTitle: "Download"); alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        if let refusal = ModelGate.downloadRefusal(isBusy: isBusy, preview: preview, downloading: liveWordsDownloadInFlight) { liveWordsMessage = refusal; return }
-        liveWordsDownloadInFlight = true; liveWordsMessage = ""; liveWordsVerified = false
-        liveWordsStatus = .downloading(ModelDownloadProgress(bytesDone: 0, totalBytes: liveWordsDownloader.downloadSize))
-        liveWordsDownloader.start { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.liveWordsDownloadInFlight = false
-                self.liveWordsStatus = liveWordsDownloader.status()
-                self.liveWordsMessage = LiveWordsFacts.completionMessage(result)
-                self.prepareLiveWords()
-            }
-        }
-    }
-    func cancelLiveWordsDownload() { liveWordsDownloader?.cancel() }
-    func removeLiveWords() {
-        guard let liveWordsDownloader else { return }
-        if let refusal = ModelGate.removeRefusal(isBusy: isBusy, preview: preview, downloading: liveWordsDownloadInFlight) { liveWordsMessage = refusal; return }
-        let alert = NSAlert(); alert.messageText = LiveWordsFacts.removeTitle
-        alert.informativeText = LiveWordsFacts.removeBody(folder: liveWordsDownloader.target)
-        alert.addButton(withTitle: "Remove"); alert.addButton(withTitle: "Cancel")
-        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
-        if let refusal = ModelGate.removeRefusal(isBusy: isBusy, preview: preview, downloading: liveWordsDownloadInFlight) { liveWordsMessage = refusal; return }
-        do { try liveWordsDownloader.remove(); liveWordsMessage = "Live words were removed." }
-        catch { liveWordsMessage = (error as? ModelDownloadError)?.userMessage ?? ModelDownloadError.fileSystem.userMessage }
-        liveWordsStatus = liveWordsDownloader.status(); liveWordsVerified = false
-    }
-    func useDefaultModelDirectory() { if let downloader { modelDirectory = downloader.target.path } }
     func openLink(_ url: URL) { NSWorkspace.shared.open(url) }
 
-    // MARK: Meeting notes (PRD section 11)
 
-    /// Meetings are stored in `history/meetings` and their chunk audio in `retry-audio/meetings`, so
-    /// History's retention and Delete All Data cover them. They transcribe on this Mac only (Q2).
-    private func configureMeetings(base: URL) {
-        let recorder = meetingRecorder
-        recorder.configure(store: try? MeetingStore(directory: base.appendingPathComponent("history").appendingPathComponent("meetings")),
-                           audioRoot: base.appendingPathComponent("retry-audio").appendingPathComponent("meetings"),
-                           persists: appliedHistoryMode.persistsTranscripts)
-        recorder.applyDictionary = { [weak self] text in self?.processing?.dictionary.apply(to: text, isCommonWord: isCommonEnglishWord) ?? text }
-        recorder.onLiveChange = { [weak self] in self?.updateMenu?(); self?.meetingPanelChanged?() }
-        recorder.notesRoute = { [weak self] in self?.meetingNotesRoute }
-        recorder.notesWriter = { [weak self] meeting, lecture in
-            guard let self else { throw NotesFailure.failed("Murmur is closing.") }
-            return try await self.writeMeetingNotes(meeting, lecture: lecture)
-        }
-        recorder.onNotesChoiceNeeded = { [weak self] in self?.screenRequest = .meetings; self?.openSettings?() }
-        speakerSettings.attach(recorder, preview: preview) { [weak self] in self?.isBusy ?? true }
-        guard !preview, let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"), let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json") else { return }
-        let warm = warm
-        recorder.helper = helper
-        recorder.transcribeTimed = { [weak self] url, done in
-            guard let self else { done(nil); return }
-            let models = URL(fileURLWithPath: self.modelDirectory), vocabulary = self.vocabularyFile, dictionaryModel = self.dictionaryModelDirectory
-            DispatchQueue.global(qos: .utility).async {
-                guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
-                      let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
-                warm.transcribeTimed(url, helper: helper, launch: launch) { line in
-                    let answer = line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-                    guard let text = answer?["text"] as? String else { done(nil); return }
-                    done(ChunkText(text: text, words: answer?["words"] as? [[Double]]))
-                }
-            }
-        }
-        recorder.transcribe = { [weak self] url, done in
-            guard let self else { done(nil); return }
-            let models = URL(fileURLWithPath: self.modelDirectory), vocabulary = self.vocabularyFile, dictionaryModel = self.dictionaryModelDirectory
-            DispatchQueue.global(qos: .utility).async {
-                guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
-                      let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
-                warm.transcribe(url, helper: helper, launch: launch) { line in
-                    let answer = line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-                    done(answer?["text"] as? String)
-                }
-            }
-        }
-    }
-    /// Settings → Meetings: where meeting audio is transcribed (decision of October 15, 2026). Applies
-    /// to meetings started after it changes; a meeting keeps the route it started with.
-    @Published var meetingTranscription = MeetingTranscription.load(.standard) {
-        didSet { UserDefaults.standard.set(meetingTranscription.rawValue, forKey: MeetingTranscription.key) }
-    }
-    /// The disclosure, volume and cost note for Cloud, or nil when no cloud transcriber is configured.
-    var meetingCloudNote: (disclosure: String, note: String)? {
-        var routes = routeSettings; routes.transcription = .cloud
-        let plan = RoutePlan.make(routes, cleanupSendsText: false) { _ in nil }
-        guard let disclosure = plan.stages.first(where: { $0.disclosure.stage == .transcription })?.disclosure else { return nil }
-        return (disclosure.summary, MeetingRoute.cloudNote(provider: disclosure.provider.displayName, host: disclosure.destinationHost, storesAudio: routes.cloudTranscriber == .gemini))
-    }
-    /// Settings → Meetings → Meeting notes (Q3). Nil until the first Stop asks, with None preselected.
-    @Published var meetingNotesRoute = MeetingNotesRoute.load(.standard) {
-        didSet {
-            if let route = meetingNotesRoute { UserDefaults.standard.set(route.rawValue, forKey: MeetingNotesRoute.key) }
-            else { UserDefaults.standard.removeObject(forKey: MeetingNotesRoute.key) }
-        }
-    }
 
-    /// The notes route's provider, built from the applied settings and the Keychain like cleanup's,
-    /// or why it cannot run. Never falls back to another route.
-    func meetingNotesProvider(_ route: MeetingNotesRoute) -> (provider: CleanupProvider?, refusal: String?) {
-        let choice: CleanupChoice
-        switch route {
-        case .none: return (nil, "Meeting notes are off. Choose a notes route in Settings → Meetings.")
-        case .appleIntelligence:
-            let apple = AppleCleanupProvider()
-            return apple.status().map { (nil, $0.userMessage) } ?? (apple, nil)
-        case .gemini: choice = .gemini
-        case .customAPI: choice = .customAPI
-        }
-        var routes = appliedRoutes; routes.transcription = .local; routes.cleanup = choice
-        let plan = routePlan(routes, cleanupSendsText: true)
-        guard let cleaner = plan.cleaner else { return (nil, (plan.refusal ?? "\(route.label) is not set up.") + " Set it up in Settings → Cleanup and API Keys.") }
-        // A whole meeting takes longer than a dictation: allow the longest wait each route permits.
-        if var gemini = cleaner as? GeminiCleanupProvider { gemini.timeout = 120; return (gemini, nil) }
-        if var custom = cleaner as? OpenAICompatibleCleanupProvider { custom.timeout = OpenAICompatibleCleanupProvider.maximumTimeout; return (custom, nil) }
-        return (cleaner, nil)
-    }
-
-    /// Why a notes route cannot run, for Settings. Checks only that a key exists, so rendering never
-    /// reads the Keychain; the key is read when notes are written.
-    func meetingNotesSetupProblem(_ route: MeetingNotesRoute) -> String? {
-        switch route {
-        case .none: return nil
-        case .appleIntelligence: return AppleCleanupProvider().status()?.userMessage
-        case .gemini, .customAPI:
-            var routes = appliedRoutes; routes.transcription = .local; routes.cleanup = route == .gemini ? .gemini : .customAPI
-            let plan = RoutePlan.make(routes, cleanupSendsText: true) { self.credentials.exists($0) ? APIKey("disclosure-only") : nil }
-            return plan.cleaner == nil ? (plan.refusal ?? "\(route.label) is not set up.") + " Set it up in Settings → Cleanup and API Keys." : nil
-        }
-    }
-
-    /// Who receives the transcript on a notes route, for Settings and the first-Stop question.
-    func meetingNotesDisclosure(_ route: MeetingNotesRoute) -> String {
-        guard route == .gemini || route == .customAPI else { return MeetingNotesRoute.disclosure(route, host: nil, local: true, retention: nil) }
-        var routes = appliedRoutes; routes.transcription = .local; routes.cleanup = route == .gemini ? .gemini : .customAPI
-        let disclosure = RoutePlan.make(routes, cleanupSendsText: true) { _ in APIKey("disclosure-only") }.stages.first?.disclosure
-        let local = disclosure?.staysOnThisMac ?? false
-        let warning = disclosure?.warning.map { " " + $0 } ?? ""
-        return MeetingNotesRoute.disclosure(route, host: disclosure?.destinationHost, local: local, retention: (disclosure?.retentionNote ?? "") + warning)
-    }
-
-    /// Writes notes for a finished meeting on the route chosen now (PRD 11.6).
-    func writeMeetingNotes(_ meeting: Meeting, lecture: Bool = false) async throws -> MeetingNotesWriter.Outcome {
-        let route = meetingNotesRoute ?? .none
-        let built = meetingNotesProvider(route)
-        guard let provider = built.provider else { throw NotesFailure.failed(built.refusal ?? "Notes could not be written.") }
-        let name = route == .appleIntelligence ? "Apple Intelligence (on-device)" : provider.id.displayName
-        let structured = route == .appleIntelligence
-        return try await MeetingNotesWriter.write(meeting, route: route, routeName: name, structured: structured, lecture: lecture) { system, user in
-            do { return structured ? try await AppleSystemModel.notes(system: system, user: user, lecture: lecture) : try await provider.cleanup(CleanupMessages(system: system, user: user)) }
-            catch ProviderError.payloadTooLarge { throw NotesFailure.tooLarge }
-            catch let error as ProviderError { throw NotesFailure.failed(error.userMessage) }
-            catch { throw NotesFailure.failed("Notes could not be written.") }
-        }
-    }
-
-    /// Shows or hides the live meeting panel; set by the app delegate.
-    var meetingPanelChanged: (() -> Void)?
-    private lazy var meetingConsent = MeetingConsentPresenter()
-    /// Start from the Meetings page, Home or the menu bar. Meetings need the local model (Q2).
-    func startMeeting(_ source: MeetingSource) {
-        var cloud: MeetingRoute.Cloud?, cloudName: String?
-        if meetingTranscription == .cloud {
-            // The configured cloud transcriber with its existing key; an unconfigured one refuses, never falls back.
-            var routes = appliedRoutes; routes.transcription = .cloud
-            let plan = routePlan(routes, cleanupSendsText: false)
-            guard let provider = plan.transcriber else {
-                meetingRecorder.message = (plan.refusal ?? "The cloud transcriber is not set up.") + " Set it up in Settings → Transcription, or choose On this Mac in Settings → Meetings."
-                screenRequest = .meetings; openSettings?(); return
-            }
-            let vocabulary = processing?.dictionary.vocabularyTerms ?? []
-            cloudName = provider.id.displayName
-            cloud = { url, done in
-                Task {
-                    switch await CloudTranscription.run(provider: provider, audioFile: url, vocabulary: vocabulary) {
-                    case .transcript(let text): done(.text(text))
-                    case .noSpeech: done(.noSpeech)
-                    case .heldAnswerSuspected, .failed, .cancelled: done(.failed)
-                    }
-                }
-            }
-        } else if !modelRow.isReady {
-            meetingRecorder.message = "Meeting notes transcribe on this Mac. Download the speech model in Settings → Transcription first."
-            screenRequest = .meetings; openSettings?(); return
-        }
-        if !meetingRecorder.start(source, cloud: cloud, cloudName: cloudName) {
-            if let pending = meetingRecorder.consentPending {
-                meetingConsent.show(source: pending) { [weak self] acknowledged in
-                    guard let self else { return }
-                    self.meetingRecorder.consentPending = nil
-                    if acknowledged { MeetingConsent.acknowledge(.standard); self.startMeeting(pending) }
-                }
-            } else {
-                screenRequest = .meetings; openSettings?()
-            }
-        }
-    }
-
-    // MARK: History cap and Delete All Data (R9, §6)
-
-    private func historyDisk(_ store: HistoryStore) -> HistoryDisk<HistoryEntry> {
-        HistoryDisk(save: store.save, entries: store.entries, delete: store.delete)
-    }
-    /// Drops oldest disk entries over the 50 MB cap for finite retention; warns for Forever.
-    private func enforceHistoryCap() throws {
-        guard let store else { historyCapWarning = nil; return }
-        // Meetings live inside the History folder, so they share the cap's oldest-first list.
-        let entries = try store.entries()
-        // The recorder's list mirrors the saved meetings (the live one excluded); no files are re-read.
-        let meetings = meetingRecorder.persists ? meetingRecorder.meetings : []
-        let result: HistoryCapResult<CappedHistoryItem>
-        if let meetingStore = meetingRecorder.store {
-            result = try MeetingCap.enforce(entries: entries.map { ($0.id, $0.recordedAt) }, meetings: meetings, historyDirectory: store.directory, meetingStore: meetingStore,
-                                            retention: HistoryRetention(stored: appliedRetention)) { id in
-                if let entry = entries.first(where: { $0.id == id }) { try store.delete(entry) }
-            }
-            if result.dropped.contains(where: \.isMeeting) { meetingRecorder.forget(Set(result.dropped.filter(\.isMeeting).map(\.id))) }
-        } else {
-            let plain = try HistoryCap.enforce(entries: entries, directory: store.directory, retention: HistoryRetention(stored: appliedRetention), delete: store.delete)
-            result = HistoryCapResult(status: plain.status, dropped: [])
-        }
-        historyCapWarning = appliedRetention == HistoryRetention.forever.rawValue ? result.status.warning : nil
-    }
-    /// Called once a dictation's last history save is done.
-    private func historySaved() {
-        do { try enforceHistoryCap() } catch { historyCapWarning = "Could not check the history size limit. Open History to review saved data." }
-        refreshHistory()
-    }
-    func deleteAllData() {
-        guard !isBusy else { message = "Finish the current dictation before deleting data."; return }
-        let alert = NSAlert(); alert.messageText = DeleteAllDataText.title; alert.informativeText = DeleteAllDataText.body
-        alert.addButton(withTitle: "Delete All Data"); alert.addButton(withTitle: "Cancel")
-        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
-        deleteConfirmedData()
-    }
-    /// Confirmation is kept outside the wipe so checks exercise the same reset as the UI.
-    func deleteConfirmedData() {
-        guard !isBusy else { message = "Finish the current dictation before deleting data."; return }
-        guard let base = dataDirectory else { return }
-        stopWatching()
-        meetingRecorder.discardAll()
-        if let retry { prestart.discard(store: retry) }
-        chunkJobs.values.forEach { $0.discard() }; chunkJobs.removeAll()
-        warm.stop()
-        generation = UUID()
-        lastDictationText = nil; setupTestTranscript = ""
-        destination = nil; sessionTranscriber = nil
-        let locations = MurmurDataLocations.standard(base: base)
-        // Preview and the developer probe never touch the login Keychain.
-        let removeKeys: () throws -> [String] = preview ? { [] } : {
-            try KeychainCredentialStore(service: "Murmur").deleteAll()
-            return ProviderID.allCases.map(\.rawValue)
-        }
-        let report = DataWipe.deleteAllData(locations, removeKeychainItems: removeKeys)
-        // The old stores point at deleted directories or hold deleted data in memory: recreate them empty.
-        let failed = PostWipeStep.run { step in
-            switch step {
-            case .discardInMemoryState:
-                records?.clearSessionOnly(); records = nil; store = nil; retry = nil; processing = nil; stopWatching()
-                recoveryEntryID = nil; recoveryAudio = nil; historyCapWarning = nil; historyNotice = nil
-            case .recreateHistory:
-                let next = try HistoryStore(directory: locations.history)
-                store = next; records = HistoryRouter(disk: historyDisk(next), persists: appliedHistoryMode.persistsTranscripts)
-                configureMeetings(base: base)
-            case .recreateRetryAudio:
-                retry = try RetryAudio(directory: locations.retryAudio)
-                try FileManager.default.createDirectory(at: locations.chunks, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-                Chunker.directory = locations.chunks
-            case .reloadDictionary:
-                do { processing = try ProcessingCoordinator(directory: locations.dictionary, isCommonWord: isCommonEnglishWord); dictionaryMessage = "" }
-                catch { dictionaryMessage = "The dictionary could not be read. Dictations are held in History until it is repaired."; throw error }
-            case .refreshViews:
-                refreshHistory(); refreshRecoveryAudio(); refreshDictionary(); refreshKeys()
-            }
-        }
-        let outcome = PostWipeStep.message(report: report, failedSteps: failed)
-        if !sessionAvailable { phase = .error; message = outcome.text + " Private storage is unavailable. Restart Murmur."; updateMenu?(); return }
-        setPhase(outcome.succeeded ? .ready : .error, outcome.text)
-    }
-
-    // MARK: API keys (R5) and custom API provider
-
-    /// Publishes which providers have a key. The key itself never leaves the Keychain store.
-    func refreshKeys() { savedKeys = Set(KeyText.providers.filter { credentials.exists($0) }) }
-    func customAPIKeyNeedsConfirmation(_ provider: ProviderID) -> Bool {
-        let address = provider == .customTranscription ? customTranscriptionAPIBaseURL : customAPIBaseURL
-        guard savedKeys.contains(provider), let destination = try? CustomAPIKeyBinding.endpoint(address) else { return false }
-        return UserDefaults.standard.string(forKey: CustomAPIKeyBinding.preference(provider)) != destination
-    }
-    private func customAPIAddress(_ provider: ProviderID) -> String? {
-        switch provider {
-        case .customTranscription: return customTranscriptionAPIBaseURL
-        case .customCleanup: return customAPIBaseURL
-        default: return nil
-        }
-    }
-    @discardableResult
-    func saveKey(_ provider: ProviderID, _ raw: String) -> Bool {
-        guard let key = APIKey(raw) else { keyMessages[provider] = KeyText.invalid; return false }
-        do {
-            if let address = customAPIAddress(provider) { try CustomAPIKeyBinding.save(key, at: address, defaults: .standard, credentials: credentials, provider: provider) }
-            else { try credentials.save(key, for: provider) }
-            keyMessages[provider] = KeyText.saved
-        }
-        catch { keyMessages[provider] = KeyText.storeFailed; return false }
-        refreshKeys(); return true
-    }
-    func removeKey(_ provider: ProviderID) {
-        do {
-            try credentials.delete(provider)
-            if customAPIAddress(provider) != nil { UserDefaults.standard.removeObject(forKey: CustomAPIKeyBinding.preference(provider)) }
-            keyMessages[provider] = KeyText.removed
-        } catch { keyMessages[provider] = KeyText.removeFailed }
-        refreshKeys()
-    }
-    func validateKey(_ provider: ProviderID) {
-        let key: APIKey?
-        do {
-            if let address = customAPIAddress(provider) {
-                key = try CustomAPIKeyBinding.read(at: address, defaults: .standard, credentials: credentials, provider: provider)
-            } else { key = try credentials.read(provider) }
-        } catch { keyMessages[provider] = (error as? CredentialError)?.description ?? KeyText.unreadable; return }
-        keyMessages[provider] = KeyText.checking
-        let endpoint = customAPIAddress(provider) ?? customAPIBaseURL
-        Task { @MainActor [weak self] in
-            let message = await KeyCheck.run(provider, key: key, apiBaseURL: endpoint)
-            self?.keyMessages[provider] = message
-        }
-    }
 
     // MARK: Update checks (R12)
 
@@ -2259,102 +1387,3 @@ enum ScreenRequest: Equatable {
 }
 
 extension HistoryEntry: RetainedHistoryItem {}
-
-/// The learning lexicon (PRD approved condition): a word is common when the English spell checker
-/// finds no misspelling in it, so ordinary-word swaps (lunch→launch) are never learned.
-/// CorrectionLedger calls it on the main thread only.
-// MARK: - Screen reading for writing modes and screen context (gaps #6, #8)
-
-private func axCopy(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
-    var value: CFTypeRef?
-    return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value : nil
-}
-private func axElement(_ element: AXUIElement, _ name: String) -> AXUIElement? {
-    guard let raw = axCopy(element, name), CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
-    return unsafeBitCast(raw, to: AXUIElement.self)
-}
-private func axChildren(_ element: AXUIElement) -> [AXUIElement] {
-    guard let raw = axCopy(element, kAXChildrenAttribute), CFGetTypeID(raw) == CFArrayGetTypeID() else { return [] }
-    return (raw as? [AnyObject] ?? []).compactMap { CFGetTypeID($0) == AXUIElementGetTypeID() ? unsafeBitCast($0, to: AXUIElement.self) : nil }
-}
-private func axSecure(_ element: AXUIElement) -> Bool {
-    let role = axCopy(element, kAXRoleAttribute) as? String, subrole = axCopy(element, kAXSubroleAttribute) as? String
-    return role == kAXSecureTextFieldSubrole || subrole == kAXSecureTextFieldSubrole
-        || (axCopy(element, "AXDOMInputType") as? String)?.lowercased() == "password" || axCopy(element, "AXProtectedContent") as? Bool == true
-}
-
-/// The page URL in a known browser, from its web area's AXURL: first up from the focused field,
-/// then a short search of the focused window. Never forces accessibility modes on the browser.
-/// The result is for mode matching only; callers never store or log it.
-func focusedPageURL(pid: pid_t, from element: AXUIElement?) -> URL? {
-    guard let bundle = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier, browserBundleIDs.contains(bundle) else { return nil }
-    let app = AXUIElementCreateApplication(pid)
-    AXUIElementSetMessagingTimeout(app, 0.25)
-    func pageURL(_ e: AXUIElement) -> URL? {
-        guard axCopy(e, kAXRoleAttribute) as? String == "AXWebArea", let raw = axCopy(e, kAXURLAttribute),
-              CFGetTypeID(raw) == CFURLGetTypeID() else { return nil }
-        return unsafeBitCast(raw, to: CFURL.self) as URL
-    }
-    // The messaging timeout covers only the app element, so a time budget bounds the whole search.
-    let deadline = ProcessInfo.processInfo.systemUptime + 0.3
-    var current = element
-    for _ in 0..<40 {
-        guard let e = current, ProcessInfo.processInfo.systemUptime < deadline else { break }
-        if let url = pageURL(e) { return url }
-        current = axElement(e, kAXParentAttribute)
-    }
-    // ponytail: breadth-first, 400 nodes; a page whose web area sits deeper is not matched.
-    var queue = axElement(app, kAXFocusedWindowAttribute).map { [$0] } ?? [], seen = 0
-    while !queue.isEmpty, seen < 400, ProcessInfo.processInfo.systemUptime < deadline {
-        let e = queue.removeFirst(); seen += 1
-        if let url = pageURL(e) { return url }
-        queue += axChildren(e)
-    }
-    return nil
-}
-
-/// The focused field's selected text, unless it is a secure field.
-func focusedSelectedText(_ element: AXUIElement) -> String? {
-    axSecure(element) ? nil : axCopy(element, kAXSelectedTextAttribute) as? String
-}
-
-/// Visible text of the app's focused window through Accessibility, up to `limit` characters,
-/// skipping secure fields. Bounded by node count and time so a large page cannot stall a dictation.
-func focusedWindowText(pid: pid_t, limit: Int) -> String {
-    let app = AXUIElementCreateApplication(pid)
-    AXUIElementSetMessagingTimeout(app, 0.25)
-    guard let window = axElement(app, kAXFocusedWindowAttribute) else { return "" }
-    let deadline = ProcessInfo.processInfo.systemUptime + 0.5
-    var queue = [window], seen = 0, out = ""
-    while !queue.isEmpty, seen < 2_000, out.count < limit, ProcessInfo.processInfo.systemUptime < deadline {
-        let e = queue.removeFirst(); seen += 1
-        if axSecure(e) { continue }
-        let role = axCopy(e, kAXRoleAttribute) as? String
-        if ["AXStaticText", "AXTextField", "AXTextArea", "AXHeading"].contains(role ?? ""),
-           let text = axCopy(e, kAXValueAttribute) as? String, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            out += (out.isEmpty ? "" : "\n") + text
-        }
-        queue += axChildren(e)
-    }
-    return String(out.prefix(limit))
-}
-
-func isCommonEnglishWord(_ word: String) -> Bool {
-    MainActor.assumeIsolated {
-        NSSpellChecker.shared.checkSpelling(of: word, startingAt: 0, language: "en", wrap: false, inSpellDocumentWithTag: 0, wordCount: nil).location == NSNotFound
-    }
-}
-
-// Probe inputs belong to the caller; only the private copy follows retry cleanup.
-func copyProbeAudio(_ audio: URL, into retry: RetryAudio) throws -> URL {
-    let ownedAudio = try retry.create()
-    do {
-        let input = try FileHandle(forReadingFrom: audio)
-        defer { try? input.close() }
-        let output = try FileHandle(forWritingTo: ownedAudio)
-        defer { try? output.close() }
-        while let data = try input.read(upToCount: 1024 * 1024), !data.isEmpty { try output.write(contentsOf: data) }
-        try output.synchronize()
-        return ownedAudio
-    } catch { try? retry.delete(ownedAudio); throw error }
-}

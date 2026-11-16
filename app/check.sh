@@ -10,11 +10,11 @@ meetings="Retention Cleanup Meetings MeetingNotes MeetingSpeakers"
 deps() {
   case "$1" in
     launch) echo "LaunchOptions" ;;
-    history) echo "Shortcut Capture Session Cleanup Retention History" ;;
+    history) echo "Capture Cleanup Retention History ModelFiles" ;;
     controller) echo "app ../spike/InsertionChecks" ;;
     meeting_start) echo "app" ;;
     recording) echo "Shortcut Capture Session" ;;
-    speaker_flow) echo "Shortcut Capture Session History ModelDownload AppServices $meetings MeetingCapture MeetingRecorder" ;;
+    speaker_flow) echo "Shortcut Capture Session History ModelDownload ModelText ModelFiles $meetings MeetingCapture MeetingRecorder" ;;
     delivery) echo "Delivery" ;;
     dictionary) echo "$text" ;;
     processing|modes) echo "$cloud Observation" ;;
@@ -25,7 +25,7 @@ deps() {
     meetings|speakers) echo "$meetings" ;;
     call_detection) echo "$meetings CallDetection" ;;
     model_download) echo "ModelDownload" ;;
-    app_services) echo "Retention ModelDownload AppServices" ;;
+    app_services) echo "Retention ModelDownload ModelText HistoryRouter WelcomeGuide SettingsPanes AppUpdater" ;;
     boost_filter) echo "../module-one/models/Runner/Sources/ModelBench/BoostFilter" ;;
     cleanup) echo "Cleanup" ;;
     *) return 1 ;;

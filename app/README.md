@@ -4,10 +4,10 @@ See the [main README](../README.md) for requirements, setup, privacy and data re
 
 ## Source map
 
-- `Controller.swift` coordinates recording, processing, delivery and recovery. `ModelHelper.swift` runs the ModelBench transcription helper process.
+- `Controller.swift` coordinates recording, processing and delivery; its features are extensions in `Controller+Models.swift`, `+Learning`, `+Meetings`, `+Keys`, `+History`, `+Dictionary` and `+Recovery`. `ScreenReading.swift` reads the focused app through Accessibility. `ModelHelper.swift` runs the ModelBench transcription helper process.
 - `Processing.swift`, `Cleanup.swift`, `Dictionary.swift` and `Learning.swift` handle text processing and correction learning. [Vocabulary routing](VOCABULARY.md) describes the transcription safeguards.
 - `Providers.swift`, `Credentials.swift` and `Routes.swift` handle optional cloud processing and Keychain credentials. See [provider integration](PROVIDERS.md).
-- `History.swift`, `Retention.swift` and `AppServices.swift` handle local storage, retention and data removal.
+- `History.swift`, `HistoryRouter.swift` and `Retention.swift` handle local storage, retention and data removal. `ModelFiles.swift` verifies pinned model files; `ModelText.swift`, `WelcomeGuide.swift` and `SettingsPanes.swift` hold the Foundation-only text and rules behind the model rows, the guide and the settings pages.
 - `ModelDownload.swift` verifies and installs pinned model artifacts. `AppUpdater.swift` integrates Sparkle updates; [update packaging](UPDATES.md) covers release configuration and signing.
 - `Meetings.swift`, `MeetingRecorder.swift`, `MeetingCapture.swift`, `MeetingNotes.swift` and `MeetingSpeakers.swift` implement meeting capture, transcription, notes and speaker separation.
 - `UI.swift`, `MeetingsUI.swift` and `CallOfferUI.swift` provide the interface.

@@ -1,5 +1,9 @@
 import Foundation
 
+enum UpdateText {
+    static let explanation = "Sparkle checks GitHub daily for updates. This uses the network even when transcription runs on this Mac. Update requests contain no transcripts, audio, dictionary or API keys."
+}
+
 #if canImport(Sparkle)
 import Sparkle
 

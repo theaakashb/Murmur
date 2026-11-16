@@ -250,3 +250,51 @@ enum DataWipe {
         return report
     }
 }
+
+enum DeleteAllDataText {
+    static let title = "Delete all Murmur data?"
+    static let body = "This permanently deletes transcript history and meeting notes, your dictionary and learned entries, retry audio, and API keys Murmur saved in the Keychain. A meeting being recorded is stopped and discarded. Settings and the downloaded model are kept. Backups or snapshots may still hold copies. This cannot be undone."
+    static let explanation = "Deletes history and meetings, dictionary, learned entries, retry audio and saved API keys. Settings and the downloaded model stay."
+}
+
+/// What happens after DataWipe: every in-memory store pointing at a deleted directory is discarded
+/// and recreated empty, in this order. Steps run even when an earlier one fails.
+enum PostWipeStep: String, CaseIterable, Equatable {
+    /// Drop history router (including memory-only entries), recovery selection and retry-audio pointer.
+    case discardInMemoryState
+    case recreateHistory
+    case recreateRetryAudio
+    /// A new ProcessingCoordinator re-reads the (now absent) dictionary and ledger as empty.
+    case reloadDictionary
+    case refreshViews
+
+    var label: String {
+        switch self {
+        case .discardInMemoryState: return "in-memory data"
+        case .recreateHistory: return "history"
+        case .recreateRetryAudio: return "retry audio"
+        case .reloadDictionary: return "dictionary"
+        case .refreshViews: return "display"
+        }
+    }
+
+    /// Returns the steps that failed.
+    static func run(_ perform: (PostWipeStep) throws -> Void) -> [PostWipeStep] {
+        var failed: [PostWipeStep] = []
+        for step in allCases {
+            do { try perform(step) } catch { failed.append(step) }
+        }
+        return failed
+    }
+
+    static func message(report: DeleteAllReport, failedSteps: [PostWipeStep]) -> (succeeded: Bool, text: String) {
+        var problems = report.failures
+        if !failedSteps.isEmpty {
+            problems.append("Could not set up empty storage for: " + failedSteps.map(\.label).joined(separator: ", ") + ".")
+        }
+        if problems.isEmpty {
+            return (true, "All Murmur data was deleted. Settings and the downloaded model were kept.")
+        }
+        return (false, "Some Murmur data could not be deleted. " + problems.joined(separator: " "))
+    }
+}

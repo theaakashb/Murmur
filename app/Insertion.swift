@@ -35,14 +35,20 @@ enum InsertionError: Error, CustomStringConvertible {
 /// Browsers whose web fields have unknown input types; the app also reads their page URL for writing modes.
 let browserBundleIDs: Set<String> = ["com.apple.Safari", "com.apple.SafariTechnologyPreview", "com.google.Chrome", "com.google.Chrome.canary", "org.mozilla.firefox", "com.microsoft.edgemac", "company.thebrowser.Browser", "com.brave.Browser"]
 
-private func axAttribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
+func axAttribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
     var value: CFTypeRef?
     guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success else { return nil }
     return value
 }
 
-private func axString(_ element: AXUIElement, _ name: String) -> String? {
+func axString(_ element: AXUIElement, _ name: String) -> String? {
     axAttribute(element, name) as? String
+}
+
+/// Native AX secure roles and explicit web input-type metadata mark a field whose text must never be read.
+func axSecure(_ element: AXUIElement) -> Bool {
+    axString(element, kAXSubroleAttribute) == kAXSecureTextFieldSubrole || axString(element, kAXRoleAttribute) == kAXSecureTextFieldSubrole
+        || axString(element, "AXDOMInputType")?.lowercased() == "password" || (axAttribute(element, "AXProtectedContent") as? Bool == true)
 }
 
 /// Identity and security metadata only: this never reads another field's text.
@@ -58,10 +64,7 @@ struct LearningFocusIdentity {
             return unsafeBitCast(raw, to: AXUIElement.self)
         }
         let field = element(kAXFocusedUIElementAttribute)
-        let secure = field.map {
-            axString($0, kAXSubroleAttribute) == kAXSecureTextFieldSubrole || axString($0, kAXRoleAttribute) == kAXSecureTextFieldSubrole
-                || axString($0, "AXDOMInputType")?.lowercased() == "password" || (axAttribute($0, "AXProtectedContent") as? Bool == true)
-        } ?? false
+        let secure = field.map(axSecure) ?? false
         return LearningFocusIdentity(field: field, window: element(kAXFocusedWindowAttribute), secure: secure)
     }
 
@@ -135,10 +138,8 @@ func captureFocus() throws -> FocusSnapshot {
     let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier ?? ""
     let role = axString(element, kAXRoleAttribute) ?? "unknown"
     let subrole = axString(element, kAXSubroleAttribute) ?? "unknown"
-    // Native AX secure roles and explicit web input-type metadata are rejected.
     let inputType = axString(element, "AXDOMInputType")?.lowercased()
-    let protected = axAttribute(element, "AXProtectedContent") as? Bool ?? false
-    let secure = (subrole == kAXSecureTextFieldSubrole || role == kAXSecureTextFieldSubrole) || inputType == "password" || protected
+    let secure = axSecure(element)
     let browser = browserBundleIDs.contains(bundleID)
     let knownWebType = ["text", "search", "email", "url", "tel", "number", "textarea"].contains(inputType ?? "")
     var selection: CFRange?

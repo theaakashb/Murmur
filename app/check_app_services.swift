@@ -3,7 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-// Network-free checks for AppServices.swift.
+// Network-free checks for ModelText, HistoryRouter, WelcomeGuide, SettingsPanes, UpdateText (AppUpdater) and the delete-all text (Retention).
 
 var failures = 0
 func check(_ condition: Bool, _ name: String) {
