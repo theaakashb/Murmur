@@ -7,7 +7,8 @@ import os
 // app's processes (or every process except Murmur), read through a private aggregate device and
 // converted to 16 kHz mono for the speech model. Also the process list detection and Start use.
 
-private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "meeting")
+/// The meeting subsystem's log: recorder, capture and the call offer; content-free.
+let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "meeting")
 
 /// Audio clients Core Audio knows about. Reading them needs no permission.
 enum AudioProcessList {
@@ -67,7 +68,6 @@ final class SystemAudioTap {
     /// permission may deliver silence rather than an error (to record on the test Mac, PRD 11.10).
     private(set) var level = 0.0
     private(set) var heardSignal = false
-    private(set) var lastBuffer: TimeInterval?
     /// Queue-owned count of buffers received, for the stall watch.
     private(set) var buffers: Int64 = 0
     private let chunker: Chunker
@@ -81,9 +81,11 @@ final class SystemAudioTap {
     /// nothing while no tapped app plays; that time is filled with silence so the Them stream's
     /// sample clock (and so its line times) keeps step with the meeting.
     private var nextExpected: TimeInterval?
+    /// Silence is filled in 0.1 s pieces.
+    private static let silenceFrames = AVAudioFrameCount(AudioFormat.sampleRate / 10)
     private static let silence: AVAudioPCMBuffer = {
-        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1600)!
-        buffer.frameLength = 1600
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: silenceFrames)!
+        buffer.frameLength = silenceFrames
         return buffer  // zero-filled on allocation
     }()
     private var tappedIDs: [AudioObjectID] = []
@@ -174,10 +176,10 @@ final class SystemAudioTap {
         if let expected = nextExpected, now - expected > 0.2 {
             // In 0.1 s pieces, so the chunker can still cut at its usual length.
             var missing = Int((now - expected) * Self.format.sampleRate)
-            while missing >= 1600 { chunker.append(Self.silence); missing -= 1600 }
+            while missing >= Int(Self.silenceFrames) { chunker.append(Self.silence); missing -= Int(Self.silenceFrames) }
         }
         nextExpected = now + Double(converted.frameLength) / Self.format.sampleRate
-        lastBuffer = now; buffers += 1
+        buffers += 1
         chunker.append(converted)
     }
 

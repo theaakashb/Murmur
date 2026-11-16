@@ -299,7 +299,7 @@ final class SpeakerRunner: @unchecked Sendable {
 
 /// Settings → Meetings → Speaker separation: an optional 21.6 MB download (PRD 11.8).
 enum SpeakerFacts {
-    static let key = "meetingSpeakers"
+    static let key = "meetingSpeakers", roomKey = "meetingRoomSpeakers"
     static let displayName = "Separate speakers after a meeting"
     /// `room`: microphone-only recordings can be separated too (the "Separate speakers in microphone-only recordings" switch).
     static func explanation(room: Bool) -> String {

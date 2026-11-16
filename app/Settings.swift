@@ -50,4 +50,11 @@ enum Prefs {
     static let keepRecordings = Setting("keepRecordings", false)
     static let liveWords = Setting("liveWords", true)
     static let liveWordsOnCloud = Setting("liveWordsOnCloud", false)
+    // Window and panel state, read by the views. `settingsSection` holds the raw value of `SettingsPane`.
+    static let settingsSection = Setting("settingsSection", 0)
+    static let sidebarCollapsed = Setting("sidebarCollapsed", false)
+    static let showDetailedSettingsInfo = Setting("showDetailedSettingsInfo", false)
+    static let meetingPanelCollapsed = Setting("meetingPanelCollapsed", false)
+    /// The live meeting panel's top-right corner, x then y.
+    static let meetingPanelTopRight = Setting("meetingPanelTopRight", [Double]())
 }

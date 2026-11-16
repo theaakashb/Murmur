@@ -26,16 +26,9 @@ import Combine
         item.submenu = appMenu; menu.addItem(item); menu.addItem(standardEditMenuItem()); application.mainMenu = menu
         let light = CommandLine.arguments.contains("--light")
         let args = CommandLine.arguments
-        UserDefaults.standard.set(args.contains("--sidebar-collapsed"), forKey: "sidebarCollapsed")
-        // --system-appearance leaves the app's appearance alone, so the bubble shows it follows macOS
-        // while the window uses the stored choice.
-        if args.contains("--system-appearance") {
-            // With --light or --dark the window stores that choice; the app (and so the bubble) follows macOS.
-            UserDefaults.standard.set(light ? "light" : args.contains("--dark") ? "dark" : "system", forKey: "appearance")
-        } else {
-            UserDefaults.standard.set(light ? "light" : "dark", forKey: "appearance")
-            application.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
-        }
+        UserDefaults.standard[Prefs.sidebarCollapsed] = args.contains("--sidebar-collapsed")
+        // --system-appearance leaves the app's appearance alone, so the bubble shows it follows macOS.
+        if !args.contains("--system-appearance") { application.appearance = NSAppearance(named: light ? .aqua : .darkAqua) }
         // The fixture's defaults persist between runs: set the guide and History mode every time.
         UserDefaults.standard[Prefs.historyMode] = args.contains("--history-off") ? .off : .on
         if let flag = args.firstIndex(of: "--guide") {
@@ -237,8 +230,8 @@ import Combine
             }
             // Meeting notes (PRD 11.9): --meetings shows the page, --meeting-live the live panel, --consent the sheet.
             // The fixture's defaults persist: set the panel's minimized state every time (--collapsed).
-            UserDefaults.standard.set(args.contains("--collapsed"), forKey: MeetingPanelPresenter.collapsedKey)
-            UserDefaults.standard.removeObject(forKey: MeetingPanelPresenter.cornerKey)
+            UserDefaults.standard[Prefs.meetingPanelCollapsed] = args.contains("--collapsed")
+            UserDefaults.standard.removeObject(forKey: Prefs.meetingPanelTopRight.key)
             if args.contains("--meetings") || args.contains("--meeting-live") || args.contains("--consent") {
                 var call = Meeting(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-7200), source: MeetingSource(name: "Zoom", bundleID: "us.zoom.xos"))
                 call.insert(stream: .them, start: 2, end: 16, text: "Thanks for joining. Let's go over the synthetic launch plan for next week.")

@@ -79,6 +79,9 @@ struct Meeting: Codable, Identifiable, Equatable {
         return query.isEmpty || ([title, source.name] + searchDetails).contains { $0.localizedStandardContains(query) }
     }
 
+    /// Word times are only needed to split lines by speaker; drop them once that is done or skipped.
+    mutating func dropWordTimes() { for i in lines.indices { lines[i].words = nil } }
+
     /// The one place that says an edit made written notes out of date: late lines, my notes, speaker
     /// separation and reassigning a line. A rename or merge passes `meetingNotes: false`: it relabels
     /// the meeting notes in place (`relabelNotes`) and only the lecture notes go out of date.

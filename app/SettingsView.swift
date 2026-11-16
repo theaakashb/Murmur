@@ -5,7 +5,6 @@ import SwiftUI
 
 extension Notification.Name {
     static let dictationShowHistory = Notification.Name("DictationShowHistory")
-    static let dictationShowError = Notification.Name("DictationShowError")
 }
 
 /// How much cleanup does: Faithful leaves the words, Strict runs rules on this Mac, Polish and Professional need an AI model.
@@ -15,6 +14,8 @@ enum CleanupStyle: CaseIterable {
         switch self { case .faithful: "Faithful"; case .strict: "Strict"; case .polish: "Polish"; case .professional: "Professional" }
     }
     var needsModel: Bool { self == .polish || self == .professional }
+    /// The style a set of cleanup switches amounts to.
+    init(_ o: CleanupOptions) { self = !o.anyEnabled ? .faithful : o.professional ? .professional : o.polish ? .polish : .strict }
     /// One line of the style picker's info popover.
     var info: String {
         switch self {
@@ -66,6 +67,15 @@ enum CleanupToggle: CaseIterable {
     }
 }
 
+/// The three macOS permissions dictation needs; Settings, Home and the welcome guide list them the same way.
+enum Permission: CaseIterable {
+    case microphone, accessibility, inputMonitoring
+    var title: String {
+        switch self { case .microphone: "Microphone"; case .accessibility: "Accessibility"; case .inputMonitoring: "Input Monitoring" }
+    }
+    var actionTitle: String { self == .microphone ? "Allow" : "Open Settings…" }
+}
+
 struct SettingsView: View {
     @ObservedObject var controller: AppController
     enum Screen { case home, insights, meetings, settings, history, setup }
@@ -73,7 +83,7 @@ struct SettingsView: View {
     /// The welcome guide's current step (gap #21), saved as it changes so the guide resumes there.
     @State var guideStep = WelcomeGuide.Step.welcome
     /// The last settings pane, restored by ⌘, and on relaunch.
-    @AppStorage("settingsSection") var section = SettingsPane.general
+    @AppStorage(Prefs.settingsSection.key) var section = SettingsPane.general
     @State var showAdvanced = false
     @State var showLiveModel = false
     /// The expanded History row.
@@ -106,8 +116,8 @@ struct SettingsView: View {
     @State private var checkedSetup = false
     /// The writing mode whose editor is open.
     @State var editingModeID: UUID?
-    @AppStorage("sidebarCollapsed") var sidebarCollapsed = false
-    @AppStorage("showDetailedSettingsInfo") var showDetailedSettingsInfo = false
+    @AppStorage(Prefs.sidebarCollapsed.key) var sidebarCollapsed = Prefs.sidebarCollapsed.fallback
+    @AppStorage(Prefs.showDetailedSettingsInfo.key) var showDetailedSettingsInfo = Prefs.showDetailedSettingsInfo.fallback
     /// API address and model apply when editing ends (Return or leaving the field), not per keystroke.
     @FocusState var apiFieldFocused: Bool
 
@@ -156,16 +166,15 @@ struct SettingsView: View {
             controller.refreshPermissions(); controller.refreshHistory(); controller.refreshInputDevices()
             if !checkedSetup {
                 checkedSetup = true
-                guideStep = WelcomeGuide.resumeStep(.standard)
-                if WelcomeGuide.opensAtLaunch(.standard, alreadySetUp: setupComplete) { screen = .setup }
+                guideStep = WelcomeGuide.resumeStep()
+                if WelcomeGuide.opensAtLaunch(alreadySetUp: setupComplete) { screen = .setup }
             }
             showRequestedScreen()
         }
         .onChange(of: controller.screenRequest) { showRequestedScreen() }
-        .onChange(of: guideStep) { WelcomeGuide.save(guideStep, .standard) }
+        .onChange(of: guideStep) { WelcomeGuide.save(guideStep) }
         // Permissions are granted in System Settings; re-read them on return.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in controller.refreshPermissions() }
-        .onReceive(NotificationCenter.default.publisher(for: .dictationShowError)) { _ in screen = .settings }
         .onReceive(NotificationCenter.default.publisher(for: .dictationShowHistory)) { _ in
             searchText = ""; screen = .history
             selectedID = controller.history.first(where: { $0.id == controller.recoveryEntryID })?.id ?? controller.history.first?.id
@@ -180,7 +189,7 @@ struct SettingsView: View {
         case .settingsSearch:
             screen = .settings; section = .general
             settingsQuery = "meeting"; settingsSearchOpen = true
-        case .guide: WelcomeGuide.replay(.standard); guideStep = .welcome; screen = .setup
+        case .guide: replayGuide()
         case .insights: screen = .insights
         case .meetings: screen = .meetings
         case .settings: screen = .settings
@@ -193,7 +202,7 @@ struct SettingsView: View {
     // MARK: Shared pieces
 
     func mono(_ text: String, size: CGFloat = 12, color: Color = Palette.ink) -> some View {
-        Text(text).font(screen == .settings ? .system(size: size) : .system(size: size, design: .monospaced)).tracking(screen == .settings ? 0 : size * 0.08).textCase(screen == .settings ? nil : .uppercase).foregroundStyle(color)
+        monoLabel(text, size: size, color: color, plain: screen == .settings)
     }
 
     @ViewBuilder func eyebrow(_ text: String) -> some View {
@@ -206,7 +215,7 @@ struct SettingsView: View {
     var softRule: some View { Rectangle().fill(Palette.ink.opacity(screen == .settings ? 0.1 : 0.2)).frame(height: 1) }
 
     func help(_ text: String, color: Color = Palette.ink70) -> some View {
-        Text(text).font(screen == .settings ? .system(size: 12) : WindowType.body(13)).lineSpacing(2).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
+        helpText(text, size: screen == .settings ? 12 : 13, color: color, system: screen == .settings)
     }
 
     func titled(_ title: String, _ detail: String?) -> some View {
@@ -274,8 +283,16 @@ struct SettingsView: View {
         .accessibilityElement().accessibilityLabel("Download progress").accessibilityValue("\(Int(fraction * 100)) percent")
     }
 
-    func wordmark(_ text: String, size: CGFloat) -> some View {
-        Text(text).font(WindowType.display(size)).tracking(-size * 0.02)
+    func isAllowed(_ permission: Permission) -> Bool {
+        switch permission { case .microphone: controller.microphoneAuthorized; case .accessibility: controller.accessibilityAuthorized; case .inputMonitoring: controller.inputMonitoringAuthorized }
+    }
+
+    func grant(_ permission: Permission) {
+        switch permission {
+        case .microphone: controller.requestMicrophone()
+        case .accessibility: controller.openPermissionSettings("accessibility")
+        case .inputMonitoring: controller.openPermissionSettings("input-monitoring")
+        }
     }
 
     var setupComplete: Bool {

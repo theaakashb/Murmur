@@ -106,7 +106,7 @@ extension SettingsView {
                     Text((entry.finalText.isEmpty ? entry.rawText : entry.finalText).replacingOccurrences(of: "\n", with: " "))
                         .font(WindowType.body(16)).lineSpacing(2).lineLimit(open ? 1 : 2).frame(maxWidth: .infinity, alignment: .leading)
                     if let label = Self.statusLabel(entry.status) {
-                        mono(label, size: 11, color: attention ? Palette.paper : Palette.accentDeep)
+                        mono(label, size: 11, color: attention ? Palette.paper : Palette.accentInk)
                             .lineLimit(1).fixedSize().padding(.horizontal, 8).padding(.vertical, 3)
                             .background(attention ? Palette.ink : Palette.accent16)
                     }

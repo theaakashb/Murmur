@@ -46,6 +46,7 @@ struct MeetingStore {
         return found.sorted { $0.recordedAt > $1.recordedAt }
     }
     var unreadable: URL { directory.appendingPathComponent("unreadable", isDirectory: true) }
+    func exists(_ id: String) -> Bool { FileManager.default.fileExists(atPath: directory.appendingPathComponent(id + ".json").path) }
     func delete(_ id: String) throws { try FileManager.default.removeItem(at: try file(id)) }
     func size(_ id: String) -> Int64 {
         ((try? file(id)).flatMap { try? FileManager.default.attributesOfItem(atPath: $0.path)[.size] as? NSNumber })?.int64Value ?? 0

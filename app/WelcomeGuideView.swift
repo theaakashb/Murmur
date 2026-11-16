@@ -6,21 +6,19 @@ import SwiftUI
 extension SettingsView {
     // MARK: Welcome guide (gap #21)
 
-    var shortcutName: String { controller.shortcutName }
-
-    /// The guide's permission and model steps; the last step is the test dictation.
-    private var guideSteps: [(title: String, detail: String, done: Bool, action: String, run: () -> Void)] {
-        [
-            ("A little room for thought.", "Speak freely. Your voice becomes text, right where you’re writing.", false, "", {}),
-            ("Microphone", "A little access, a clear reason. So Murmur can hear you while the shortcut is held. Audio stays on this Mac unless you choose a cloud route.", controller.microphoneAuthorized, "Allow", controller.requestMicrophone),
-            ("Accessibility", "So Murmur can paste into the field you are using. It never presses Return or sends a message.", controller.accessibilityAuthorized, "Open Settings…", { controller.openPermissionSettings("accessibility") }),
-            ("Input Monitoring", "So the shortcut works in every app. Murmur listens only for the shortcut, Escape and its two ⌃⌘ chords.", controller.inputMonitoringAuthorized, "Open Settings…", { controller.openPermissionSettings("input-monitoring") }),
-            ("Transcription", "Choose where dictation audio is transcribed. Cloud routes send audio to the provider shown below.", WelcomeGuide.isConfirmed(.transcription, .standard), "", {}),
-            ("Cleanup", "Choose where cleanup runs and how much it changes your words. Faithful keeps cleanup off.", WelcomeGuide.isConfirmed(.cleanup, .standard), "", {}),
-            ("Speech model", controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud && !controller.modelSlot.row.isReady ? "Not needed while dictation and meeting transcription both run in the cloud." : ModelFacts.batch.displayName, controller.modelSlot.row.isReady || (controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud),
-             controller.modelSlot.row.actions.contains(.retry) ? "Retry…" : "Download…", controller.downloadModel),
-            ("Find your words.", "Press \(controller.shortcutName) and say a sentence. With this window in front, your words land in the field below instead of another app.", !controller.setupTestTranscript.isEmpty, "", {})
-        ]
+    /// What the guide shows for a step: its title, detail, whether it is done, and the action button.
+    private func guideInfo(_ step: WelcomeGuide.Step) -> (title: String, detail: String, done: Bool, action: String, run: () -> Void) {
+        switch step {
+        case .welcome, .meetings: return ("A little room for thought.", "Speak freely. Your voice becomes text, right where you’re writing.", false, "", {})
+        case .microphone: return (Permission.microphone.title, "A little access, a clear reason. So Murmur can hear you while the shortcut is held. Audio stays on this Mac unless you choose a cloud route.", isAllowed(.microphone), Permission.microphone.actionTitle, { grant(.microphone) })
+        case .accessibility: return (Permission.accessibility.title, "So Murmur can paste into the field you are using. It never presses Return or sends a message.", isAllowed(.accessibility), Permission.accessibility.actionTitle, { grant(.accessibility) })
+        case .inputMonitoring: return (Permission.inputMonitoring.title, "So the shortcut works in every app. Murmur listens only for the shortcut, Escape and its two ⌃⌘ chords.", isAllowed(.inputMonitoring), Permission.inputMonitoring.actionTitle, { grant(.inputMonitoring) })
+        case .transcription: return ("Transcription", "Choose where dictation audio is transcribed. Cloud routes send audio to the provider shown below.", WelcomeGuide.isConfirmed(.transcription), "", {})
+        case .cleanup: return ("Cleanup", "Choose where cleanup runs and how much it changes your words. Faithful keeps cleanup off.", WelcomeGuide.isConfirmed(.cleanup), "", {})
+        case .model: return ("Speech model", controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud && !controller.modelSlot.row.isReady ? "Not needed while dictation and meeting transcription both run in the cloud." : ModelFacts.batch.displayName, controller.modelSlot.row.isReady || (controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud),
+                             controller.modelSlot.row.actions.contains(.retry) ? "Retry…" : "Download…", controller.downloadModel)
+        case .tryIt: return ("Find your words.", "Press \(controller.shortcutName) and say a sentence. With this window in front, your words land in the field below instead of another app.", !controller.setupTestTranscript.isEmpty, "", {})
+        }
     }
 
     /// The site's drawing in two layers, tinted so it follows light and dark: blue ribbon, ink paper.
@@ -57,7 +55,7 @@ extension SettingsView {
                 Button(recording ? "Stop and Transcribe" : "Start Dictating") { controller.toggleSetupDictation() }
                     .buttonStyle(InkButtonStyle()).disabled(!setupComplete || (controller.isBusy && !recording))
                 if controller.isBusy { Button("Cancel") { controller.cancelRecording() }.buttonStyle(InkButtonStyle(kind: .outline)) }
-                Text(!(controller.isBusy || controller.phase == .error) ? "Or hold \(shortcutName) and speak." : controller.message)
+                Text(!(controller.isBusy || controller.phase == .error) ? "Or hold \(controller.shortcutName) and speak." : controller.message)
                     .font(WindowType.body(13)).foregroundStyle(SetupPalette.muted).fixedSize(horizontal: false, vertical: true)
             }.padding(.bottom, 12)
             TextEditor(text: $controller.setupTestTranscript)
@@ -77,19 +75,21 @@ extension SettingsView {
         .onDisappear { controller.setupShowing = false }
     }
 
+    /// Starts the guide over from the first step.
+    func replayGuide() { WelcomeGuide.replay(); guideStep = .welcome; screen = .setup }
+
     private func finishGuide() {
-        if let pending = WelcomeGuide.nextUnconfirmed(.standard) { guideStep = pending; return }
-        WelcomeGuide.complete(.standard); guideStep = .welcome; screen = .home
+        if let pending = WelcomeGuide.nextUnconfirmed() { guideStep = pending; return }
+        WelcomeGuide.complete(); guideStep = .welcome; screen = .home
     }
 
     var setup: some View {
-        let steps = guideSteps
-        let index = WelcomeGuide.Step.allCases.firstIndex(of: guideStep)!, step = steps[index]
+        let index = WelcomeGuide.Step.allCases.firstIndex(of: guideStep)!, step = guideInfo(guideStep)
         let last = guideStep == .tryIt
         return GeometryReader { geometry in
             HStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(guideStep.phase == .getReady ? "Get ready · \(index) of \(WelcomeGuide.Step.allCases.count - 2)" : guideStep.phase.title).font(WindowType.body(12, weight: .medium)).foregroundStyle(SetupPalette.muted).id(index)
+                    Text(guideStep.phase == .getReady ? "Get ready · \(index) of \(WelcomeGuide.Step.allCases.filter { $0.phase == .getReady }.count)" : guideStep.phase.title).font(WindowType.body(12, weight: .medium)).foregroundStyle(SetupPalette.muted).id(index)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("murmur").font(WindowType.body(40, weight: .medium)).tracking(-1.6)
                     }
@@ -112,12 +112,12 @@ extension SettingsView {
                                 .buttonStyle(.plain).accessibilityAddTraits(current ? .isSelected : [])
                                 if phase == .getReady && current {
                                     ForEach(WelcomeGuide.Step.allCases.filter { $0.phase == .getReady }, id: \.self) { sub in
-                                        let i = WelcomeGuide.Step.allCases.firstIndex(of: sub)!
+                                        let info = guideInfo(sub)
                                         Button { guideStep = sub } label: {
                                             HStack(spacing: 8) {
-                                                Text(steps[i].title).font(WindowType.body(13, weight: sub == guideStep ? .semibold : .regular)).foregroundStyle(SetupPalette.ink)
+                                                Text(info.title).font(WindowType.body(13, weight: sub == guideStep ? .semibold : .regular)).foregroundStyle(SetupPalette.ink)
                                                 Spacer()
-                                                if steps[i].done { Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(SetupPalette.blue).accessibilityLabel("Ready") }
+                                                if info.done { Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(SetupPalette.blue).accessibilityLabel("Ready") }
                                             }
                                             .padding(.leading, 28).frame(minHeight: 30).contentShape(Rectangle())
                                         }
@@ -184,10 +184,10 @@ extension SettingsView {
                         Button("Not Now") { screen = .home }.buttonStyle(InkButtonStyle(kind: .plain))
                         Spacer()
                         if last {
-                            Button(WelcomeGuide.nextUnconfirmed(.standard) == nil ? "Finish" : "Review Choices →") { finishGuide() }.buttonStyle(InkButtonStyle(kind: .filled))
+                            Button(WelcomeGuide.nextUnconfirmed() == nil ? "Finish" : "Review Choices →") { finishGuide() }.buttonStyle(InkButtonStyle(kind: .filled))
                         } else {
                             Button(guideStep == .welcome ? "Get started →" : guideStep.isConfiguration ? "Use These Settings →" : step.done ? "Continue →" : "Skip for Now →") {
-                                WelcomeGuide.confirm(guideStep, .standard)
+                                WelcomeGuide.confirm(guideStep)
                                 controller.settingsChanged()
                                 guideStep = WelcomeGuide.Step.allCases[index + 1]
                             }

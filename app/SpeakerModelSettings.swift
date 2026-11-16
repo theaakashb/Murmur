@@ -13,7 +13,7 @@ extension ModelFacts {
         summaryLead: "pyannote community-1",
         placement: ModelFacts.savedIn,
         licenseNotice: SpeakerFacts.credits,
-        closing: "With speaker separation on, the call’s audio from each meeting is kept until separation finishes after Stop, at most 24 hours.",
+        closing: "With speaker separation on, the call’s audio from each meeting is kept until separation finishes after Stop, at most \(RetryWindow.text).",
         removeTitle: "Remove speaker separation?",
         removeBody: { folder, _ in "New meetings label the call’s side as Them until you download it again. This deletes \(folder.path)." },
         completed: "Speaker separation is downloaded and verified.",
@@ -24,7 +24,7 @@ extension ModelFacts {
 /// It tells the recorder which verified model folder to use; nil while off, missing or unverified.
 @MainActor final class SpeakerModelSettings: ObservableObject {
     @Published var enabled: Bool { didSet { defaults.set(enabled, forKey: SpeakerFacts.key); refresh() } }
-    @Published var separateRoom: Bool { didSet { defaults.set(separateRoom, forKey: "meetingRoomSpeakers"); refresh() } }
+    @Published var separateRoom: Bool { didSet { defaults.set(separateRoom, forKey: SpeakerFacts.roomKey); refresh() } }
     @Published var slot: ModelSlot
     var row: ModelRowPresentation { ModelRowPresentation.make(slot.downloader == nil && !fixture ? nil : slot.status) }
     var summary: String { slot.facts.summary(downloadSize: slot.downloader?.downloadSize ?? 21_599_417) }
@@ -37,7 +37,7 @@ extension ModelFacts {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         enabled = defaults.bool(forKey: SpeakerFacts.key)
-        separateRoom = defaults.bool(forKey: "meetingRoomSpeakers")
+        separateRoom = defaults.bool(forKey: SpeakerFacts.roomKey)
         slot = ModelSlot(.speaker, pins: BundledModels.pins, home: FileManager.default.homeDirectoryForCurrentUser)
         slot.status = slot.downloader?.status() ?? .notDownloaded
     }

@@ -20,42 +20,42 @@ enum WelcomeGuide {
     static let stepKey = "welcomeGuideStep", completedKey = "welcomeGuideCompletedVersion"
 
     private static let reviewedKey = "welcomeGuideReviewedChoices"
-    static func confirm(_ step: Step, _ defaults: UserDefaults) {
+    static func confirm(_ step: Step, _ defaults: UserDefaults = .standard) {
         guard step.isConfiguration else { return }
         let reviewed = defaults.array(forKey: reviewedKey) as? [Int] ?? []
         defaults.set(Array(Set(reviewed + [step.rawValue])), forKey: reviewedKey)
     }
-    static func isConfirmed(_ step: Step, _ defaults: UserDefaults) -> Bool {
+    static func isConfirmed(_ step: Step, _ defaults: UserDefaults = .standard) -> Bool {
         (defaults.array(forKey: reviewedKey) as? [Int] ?? []).contains(step.rawValue)
     }
-    static func nextUnconfirmed(_ defaults: UserDefaults) -> Step? {
+    static func nextUnconfirmed(_ defaults: UserDefaults = .standard) -> Step? {
         Step.allCases.first { $0.isConfiguration && !isConfirmed($0, defaults) }
     }
 
     /// The step to reopen at, clamped so a step removed in a later version cannot strand the guide.
-    static func resumeStep(_ defaults: UserDefaults) -> Step {
+    static func resumeStep(_ defaults: UserDefaults = .standard) -> Step {
         if defaults.object(forKey: stepKey) == nil { return .welcome }
         let saved = defaults.integer(forKey: stepKey)
         // 0 was the first step of the old guide; an in-progress install keeps its place, a removed step moves on.
         guard let step = Step(rawValue: saved) else { return saved < 0 ? .welcome : .tryIt }
         return step == .meetings ? .model : step
     }
-    static func save(_ step: Step, _ defaults: UserDefaults) { defaults.set(step.rawValue, forKey: stepKey) }
+    static func save(_ step: Step, _ defaults: UserDefaults = .standard) { defaults.set(step.rawValue, forKey: stepKey) }
     /// Installs from before the guide recorded completion count as having finished version 1 when they
     /// are already set up, so an update does not walk them through it again.
     static func completedVersion(_ defaults: UserDefaults, alreadySetUp: Bool) -> Int {
         if defaults.object(forKey: completedKey) != nil { return defaults.integer(forKey: completedKey) }
         return alreadySetUp && defaults.object(forKey: stepKey) == nil ? 1 : 0
     }
-    static func opensAtLaunch(_ defaults: UserDefaults, alreadySetUp: Bool) -> Bool {
+    static func opensAtLaunch(_ defaults: UserDefaults = .standard, alreadySetUp: Bool) -> Bool {
         let done = completedVersion(defaults, alreadySetUp: alreadySetUp)
         // Record the upgrade default, so saving a step later does not undo it.
         if done > 0 && defaults.object(forKey: completedKey) == nil { defaults.set(done, forKey: completedKey) }
         return done < version
     }
-    static func complete(_ defaults: UserDefaults) {
+    static func complete(_ defaults: UserDefaults = .standard) {
         defaults.set(version, forKey: completedKey); defaults.removeObject(forKey: stepKey)
     }
     /// Replay from the menu starts over; finishing it again records the version again.
-    static func replay(_ defaults: UserDefaults) { defaults.removeObject(forKey: reviewedKey); save(.welcome, defaults) }
+    static func replay(_ defaults: UserDefaults = .standard) { defaults.removeObject(forKey: reviewedKey); save(.welcome, defaults) }
 }

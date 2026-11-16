@@ -32,9 +32,10 @@ extension SettingsView {
         }
     }
 
-    private var snippetDraftIsEmpty: Bool {
-        newCue.trimmingCharacters(in: .whitespaces).isEmpty || newSnippetText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
+    /// A snippet needs both a cue and some text.
+    private func snippetIsIncomplete(cue: String, text: String) -> Bool { cue.isBlank() || text.isBlank(multiline: true) }
+
+    private var snippetDraftIsEmpty: Bool { snippetIsIncomplete(cue: newCue, text: newSnippetText) }
 
     private func addSnippet() {
         guard !snippetDraftIsEmpty else { return }
@@ -78,7 +79,7 @@ extension SettingsView {
                 help("\(editSnippetText.count) of \(SnippetStore.maxTextLength) characters")
                 Spacer()
                 Button("Save", action: save).buttonStyle(InkButtonStyle(kind: .filled)).fixedSize()
-                    .disabled(editSnippetCue.trimmingCharacters(in: .whitespaces).isEmpty || editSnippetText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(snippetIsIncomplete(cue: editSnippetCue, text: editSnippetText))
                 Button("Cancel") { controller.snippetMessage = ""; editingSnippetID = nil }.buttonStyle(InkButtonStyle(kind: .outline)).fixedSize()
                     .keyboardShortcut(.cancelAction)
             }

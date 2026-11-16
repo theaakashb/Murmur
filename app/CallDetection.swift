@@ -9,6 +9,7 @@ enum CallDetectionSettings {
     static let enabledKey = "callDetectionEnabled"
     static let neverKey = "callDetectionNever"
     static func enabled(_ defaults: UserDefaults) -> Bool { defaults.object(forKey: enabledKey) as? Bool ?? true }
+    static func setEnabled(_ on: Bool, _ defaults: UserDefaults) { defaults.set(on, forKey: enabledKey) }
     static func never(_ defaults: UserDefaults) -> [String] { defaults.stringArray(forKey: neverKey) ?? [] }
     static func addNever(_ bundleID: String, _ defaults: UserDefaults) {
         var list = never(defaults)

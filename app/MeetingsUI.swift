@@ -4,13 +4,6 @@ import SwiftUI
 // Meeting notes UI (PRD 11.9): the Meetings page in Murmur's window, the one-time consent sheet,
 // and the live panel that stays on screen for the whole recording (PRD 11.3).
 
-private func mono(_ text: String, size: CGFloat = 12, color: Color = Palette.ink) -> some View {
-    Text(text).font(.system(size: size, design: .monospaced)).tracking(size * 0.08).textCase(.uppercase).foregroundStyle(color)
-}
-private func lede(_ text: String, color: Color = Palette.ink70) -> some View {
-    Text(text).font(WindowType.body(14)).lineSpacing(2).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
-}
-
 /// The Start menu (Q1): running call apps first, then All apps, then the microphone alone.
 struct MeetingStartMenu: View {
     @ObservedObject var controller: AppController
@@ -95,7 +88,7 @@ struct MeetingsPage: View {
                 if let live = recorder.live {
                     HStack(spacing: 8) {
                         Rectangle().fill(Color.red).frame(width: 9, height: 9)
-                        mono("Recording \(MeetingExport.clock(recorder.elapsed)) · \(live.source.name)")
+                        monoLabel("Recording \(MeetingExport.clock(recorder.elapsed)) · \(live.source.name)")
                     }
                     Button("Stop", action: recorder.stop).buttonStyle(InkButtonStyle(kind: .filled))
                 } else {
@@ -128,7 +121,7 @@ struct MeetingsPage: View {
                 .foregroundStyle(Color.white).padding(.horizontal, 24).padding(.vertical, 10).background(Palette.accent)
             }
             if controller.historyMode == .off {
-                lede("History is off, so meetings are kept only until Murmur quits. Export one to keep it.", color: Palette.accentDeep).padding(.horizontal, 24).padding(.bottom, 8)
+                lede("History is off, so meetings are kept only until Murmur quits. Export one to keep it.", color: Palette.accentInk).padding(.horizontal, 24).padding(.bottom, 8)
             }
             Rectangle().fill(Palette.ink).frame(height: 1.5)
             if recorder.meetings.isEmpty {
@@ -172,10 +165,7 @@ struct MeetingsPage: View {
             deletionIDs.formIntersection(recorder.meetings.map(\.id))
         }
         .background(Color.clear.sheet(isPresented: Binding(get: { recorder.notesChoicePending != nil && recorder.consentPending == nil }, set: { if !$0 { recorder.notesChoicePending = nil } })) {
-            MeetingNotesChoiceSheet(controller: controller) { route in
-                controller.meetingNotesRoute = route
-                recorder.notesRouteChosen(route)
-            }
+            MeetingNotesChoiceSheet(controller: controller, done: controller.chooseNotesRoute)
         })
     }
 
@@ -264,12 +254,12 @@ struct MeetingsPage: View {
                 Text(preview).font(WindowType.body(12)).foregroundStyle(Palette.ink70).lineLimit(2).multilineTextAlignment(.leading)
             }
             HStack(spacing: 8) {
-                mono(MeetingExport.clock(meeting.seconds), size: 11, color: Palette.ink70)
+                monoLabel(MeetingExport.clock(meeting.seconds), size: 11, color: Palette.ink70)
                 Text(meeting.recordedAt, format: .dateTime.month(.abbreviated).day())
                     .font(WindowType.body(11)).foregroundStyle(Palette.ink70)
-                if recorder.finishing.contains(meeting.id) { mono("Finishing", size: 11, color: Palette.accentDeep) }
-                else if recorder.separating.contains(meeting.id) { mono("Separating speakers", size: 11, color: Palette.accentDeep) }
-                else if let left = recorder.leftovers[meeting.id] { mono("\(left) parts left", size: 11, color: Palette.accentDeep) }
+                if recorder.finishing.contains(meeting.id) { monoLabel("Finishing", size: 11, color: Palette.accentInk) }
+                else if recorder.separating.contains(meeting.id) { monoLabel("Separating speakers", size: 11, color: Palette.accentInk) }
+                else if let left = recorder.leftovers[meeting.id] { monoLabel("\(left) parts left", size: 11, color: Palette.accentInk) }
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -309,7 +299,7 @@ struct MeetingsPage: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(meeting.title).font(WindowType.body(22, weight: .bold)).tracking(-0.5).textSelection(.enabled)
-                    mono("\(MeetingExport.clock(meeting.seconds)) · \(meeting.source.micOnly ? "My microphone only" : "Me and \(meeting.source.name)") · \(meeting.transcribedBy.map { "Transcribed by \($0)" } ?? "Transcribed on this Mac")", size: 11, color: Palette.ink70)
+                    monoLabel("\(MeetingExport.clock(meeting.seconds)) · \(meeting.source.micOnly ? "My microphone only" : "Me and \(meeting.source.name)") · \(meeting.transcribedBy.map { "Transcribed by \($0)" } ?? "Transcribed on this Mac")", size: 11, color: Palette.ink70)
                     let actions = Group {
                         if meeting.notes?.isEmpty == false { Button("Copy Notes") { recorder.copyNotes(meeting) }.buttonStyle(InkButtonStyle(kind: .outline)) }
                         Button("Copy Transcript") { recorder.copyTranscript(meeting) }.buttonStyle(InkButtonStyle(kind: .outline))
@@ -320,7 +310,7 @@ struct MeetingsPage: View {
                         HStack(spacing: 12) { actions }.fixedSize(horizontal: true, vertical: false)
                         VStack(alignment: .leading, spacing: 8) { actions }
                     }
-                    if recorder.finishing.contains(meeting.id) { lede("Finishing the transcript…", color: Palette.accentDeep) }
+                    if recorder.finishing.contains(meeting.id) { lede("Finishing the transcript…", color: Palette.accentInk) }
                     else if let left = recorder.leftovers[meeting.id] {
                         HStack {
                             lede("\(left) \(left == 1 ? "part" : "parts") of this meeting \(left == 1 ? "was" : "were") not transcribed. The audio is kept for up to \(RetryWindow.text).")
@@ -384,20 +374,19 @@ struct MeetingsPage: View {
         recorder.notesWriting.contains(meeting.id) || recorder.finishing.contains(meeting.id) || meeting.speakers?.state == .pending
     }
     /// The notes route is unset or None.
-    private var notesRouteOff: Bool { controller.meetingNotesRoute == nil || controller.meetingNotesRoute == MeetingNotesRoute.none }
 
     /// Notes, with each item's cited lines as links into the transcript (PRD 11.6, 11.9).
     @ViewBuilder private func notesTab(_ meeting: Meeting) -> some View {
         let route = controller.meetingNotesRoute
         let separating = meeting.speakers?.state == .pending
         if recorder.notesWriting.contains(meeting.id) {
-            lede("Writing notes…", color: Palette.accentDeep)
+            lede("Writing notes…", color: Palette.accentInk)
         } else if separating {
             // Notes wait for speaker names (W7d): "Separating speakers…" first, then "Writing notes…".
-            lede(recorder.separating.contains(meeting.id) ? "Separating speakers… Notes are written after that, with their names." : "Notes are written once speakers are separated. Skip separation to write them now.", color: Palette.accentDeep)
+            lede(recorder.separating.contains(meeting.id) ? "Separating speakers… Notes are written after that, with their names." : "Notes are written once speakers are separated. Skip separation to write them now.", color: Palette.accentInk)
         } else if let problem = recorder.notesProblem[meeting.id] {
             HStack(alignment: .firstTextBaseline) {
-                lede(problem, color: Palette.accentDeep)
+                lede(problem, color: Palette.accentInk)
                 Spacer()
                 Button("Try Again") { recorder.writeNotes(meeting.id) }.buttonStyle(InkButtonStyle(kind: .outline))
             }
@@ -405,7 +394,7 @@ struct MeetingsPage: View {
         if let notes = meeting.notes {
             if notes.outdated == true {
                 HStack(alignment: .firstTextBaseline) {
-                    lede("The transcript, your notes or the speakers changed after these notes were written.", color: Palette.accentDeep)
+                    lede("The transcript, your notes or the speakers changed after these notes were written.", color: Palette.accentInk)
                     Spacer()
                 }
             }
@@ -418,13 +407,13 @@ struct MeetingsPage: View {
             HStack(alignment: .firstTextBaseline) {
                 lede("Written by \(notes.route). Items cite the lines they rest on\(notes.dropped > 0 ? "; \(notes.dropped) the transcript did not support \(notes.dropped == 1 ? "was" : "were") left out" : "").", color: Palette.ink64)
                 Spacer()
-                if !notesRouteOff {
+                if !controller.notesRouteOff {
                     Button("Update Notes") { recorder.writeNotes(meeting.id) }.buttonStyle(InkButtonStyle(kind: .outline))
                         .disabled(notesBusy(meeting))
                 }
             }
         } else if !recorder.notesWriting.contains(meeting.id) && !separating {
-            if notesRouteOff {
+            if controller.notesRouteOff {
                 HStack(alignment: .firstTextBaseline) {
                     lede(route == nil ? "Choose how notes are written: a title, summary, key points, decisions and action items." : "Notes are off. This meeting keeps its transcript.")
                     Spacer()
@@ -453,18 +442,15 @@ struct MeetingsPage: View {
             noteSection(titles.decisions, notes.decisions, meeting: meeting)
             noteSection(titles.actions, notes.actions, meeting: meeting)
             lede("Written by \(notes.route). Unsupported items dropped: \(notes.dropped).")
-            Button("Copy Lecture Notes") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(MeetingExport.notes(meeting, lecture: true), forType: .string)
-            }.buttonStyle(InkButtonStyle(kind: .outline))
+            Button("Copy Lecture Notes") { recorder.copyNotes(meeting, lecture: true) }.buttonStyle(InkButtonStyle(kind: .outline))
         }
         if let problem = recorder.notesProblem[meeting.id] { lede(problem) }
         if recorder.notesWriting.contains(meeting.id) { lede("Writing notes…") }
         Button(meeting.lectureNotes == nil ? "Generate Lecture Notes" : "Update Lecture Notes") {
             recorder.writeNotes(meeting.id, lecture: true)
         }.buttonStyle(InkButtonStyle(kind: .filled))
-            .disabled(notesRouteOff || !meeting.finished || notesBusy(meeting) || meeting.lines.allSatisfy(\.isHidden))
-        if notesRouteOff { lede("Choose a notes provider in Settings → Meetings first.") }
+            .disabled(controller.notesRouteOff || !meeting.finished || notesBusy(meeting) || meeting.lines.allSatisfy(\.isHidden))
+        if controller.notesRouteOff { lede("Choose a notes provider in Settings → Meetings first.") }
     }
 
     /// Speaker separation (W7d, PRD 11.8 and 11.9): progress with Skip, then each speaker with
@@ -472,14 +458,14 @@ struct MeetingsPage: View {
     @ViewBuilder private func speakers(_ meeting: Meeting) -> some View {
         if let status = SpeakerFacts.status(meeting.speakers, running: recorder.separating.contains(meeting.id), room: meeting.source.micOnly) {
             HStack(spacing: 12) {
-                lede(status, color: meeting.speakers?.state == .failed ? Palette.ink70 : Palette.accentDeep)
+                lede(status, color: meeting.speakers?.state == .failed ? Palette.ink70 : Palette.accentInk)
                 Spacer()
                 if meeting.speakers?.state == .pending { Button("Skip") { recorder.skipSeparation(meeting.id) }.buttonStyle(InkButtonStyle(kind: .outline)) }
             }
         }
         let numbers = MeetingSpeakers.numbers(meeting)
         if meeting.speakers?.state == .done, !numbers.isEmpty {
-            mono("Speakers", size: 11, color: Palette.accentInk).padding(.top, 6)
+            monoLabel("Speakers", size: 11, color: Palette.accentInk).padding(.top, 6)
             FlowRow(numbers.map { number in
                 AnyView(Menu(meeting.speakers?.names[number] ?? "Speaker \(number)") {
                     Button("Rename…") { nameDraft = meeting.speakers?.names[number] ?? ""; renaming = number }
@@ -499,7 +485,7 @@ struct MeetingsPage: View {
     @ViewBuilder private func noteSection(_ title: String, _ items: [NoteItem], meeting: Meeting, actions: Bool = false) -> some View {
         if !items.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                mono(title, size: 11, color: Palette.accentInk).padding(.top, 6)
+                monoLabel(title, size: 11, color: Palette.accentInk).padding(.top, 6)
                 ForEach(items.indices, id: \.self) { index in
                     let item = items[index]
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -511,11 +497,11 @@ struct MeetingsPage: View {
                             Text(item.text).font(WindowType.body(14)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                                 .strikethrough(item.done == true)
                             HStack(spacing: 8) {
-                                if let owner = item.owner { mono(owner, size: 11, color: Palette.ink70) }
-                                if let due = item.due { mono("Due \(due)", size: 11, color: Palette.ink70) }
+                                if let owner = item.owner { monoLabel(owner, size: 11, color: Palette.ink70) }
+                                if let due = item.due { monoLabel("Due \(due)", size: 11, color: Palette.ink70) }
                                 ForEach(item.lines, id: \.self) { id in
                                     if let line = meeting.lines.first(where: { $0.id == id }) {
-                                        Button { tab = .transcript; jump = id } label: { mono(MeetingExport.clock(line.start), size: 11, color: Palette.accentInk).underline() }
+                                        Button { tab = .transcript; jump = id } label: { monoLabel(MeetingExport.clock(line.start), size: 11, color: Palette.accentInk).underline() }
                                             .buttonStyle(.plain).help("Show this line in the transcript")
                                             .accessibilityLabel("Cited line at \(MeetingExport.clock(line.start))")
                                     }
@@ -527,6 +513,13 @@ struct MeetingsPage: View {
             }
         }
     }
+}
+
+extension AppController {
+    /// Saves the notes route and lets the recorder act on it (a meeting waiting for the choice); keep the two together.
+    func chooseNotesRoute(_ route: MeetingNotesRoute) { meetingNotesRoute = route; meetingRecorder.notesRouteChosen(route) }
+    /// True while no notes provider is chosen (never asked, or None).
+    var notesRouteOff: Bool { meetingNotesRoute == nil || meetingNotesRoute == MeetingNotesRoute.none }
 }
 
 /// The notes route options with the selected route's disclosure (Settings, and the first-Stop question).
@@ -543,7 +536,7 @@ struct MeetingNotesRoutePicker: View {
                 if tooltipDetails && selection != .appleIntelligence { SettingInfoButton(text: controller.meetingNotesDisclosure(selection)) }
             }
             if !tooltipDetails { lede(controller.meetingNotesDisclosure(selection), color: Palette.ink) }
-            if selection != MeetingNotesRoute.none, let refusal = controller.meetingNotesSetupProblem(selection) { lede(refusal, color: Palette.accentDeep) }
+            if selection != MeetingNotesRoute.none, let refusal = controller.meetingNotesSetupProblem(selection) { lede(refusal, color: Palette.accentInk) }
         }
     }
 }
@@ -599,25 +592,25 @@ struct MeetingLineRow: View {
     var speakers: [(Int, String)] = []
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            mono(MeetingExport.clock(line.start), size: 11, color: Palette.ink64).frame(width: 56, alignment: .leading)
+            monoLabel(MeetingExport.clock(line.start), size: 11, color: Palette.ink64).frame(width: 56, alignment: .leading)
             let name = label ?? line.stream.label
             Group {
                 if let moveTo {
                     Menu {
                         ForEach(speakers.filter { $0.0 != line.speaker }, id: \.0) { speaker in Button("Move to \(speaker.1)") { moveTo(speaker.0) } }
                         Button("Move to a new speaker") { moveTo((speakers.map(\.0).max() ?? 0) + 1) }
-                    } label: { mono(name, size: 11, color: Palette.ink).lineLimit(1) }
+                    } label: { monoLabel(name, size: 11, color: Palette.ink).lineLimit(1) }
                     .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).accessibilityLabel("\(name), change speaker")
                 } else {
-                    mono(name, size: 11, color: line.stream == .me ? Palette.accentInk : Palette.ink).lineLimit(1)
+                    monoLabel(name, size: 11, color: line.stream == .me ? Palette.accentInk : Palette.ink).lineLimit(1)
                 }
             }
             .frame(width: label == nil ? 44 : 96, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(showEcho ? line.text : line.visibleText).font(WindowType.body(14)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                     .foregroundStyle(line.isHidden ? Palette.ink64 : Palette.ink)
-                if line.localFallback == true { mono("Transcribed on this Mac: the cloud failed", size: 11, color: Palette.ink64) }
-                if showEcho && line.shown != nil { mono(line.isHidden ? "Hidden as echo" : "Echo partly hidden", size: 11, color: Palette.ink64) }
+                if line.localFallback == true { monoLabel("Transcribed on this Mac: the cloud failed", size: 11, color: Palette.ink64) }
+                if showEcho && line.shown != nil { monoLabel(line.isHidden ? "Hidden as echo" : "Echo partly hidden", size: 11, color: Palette.ink64) }
             }
         }
         .accessibilityElement(children: .combine)
@@ -665,8 +658,8 @@ struct MeetingLiveView: View {
     /// Click the compact indicator to expand; drag it to move. Stop stays in the full panel.
     private var pill: some View {
         Button { collapsed = false } label: {
-            HStack(spacing: 8) { dot; mono(MeetingExport.clock(recorder.elapsed), size: 12) }
-                .frame(width: 120, height: 40).contentShape(Capsule())
+            HStack(spacing: 8) { dot; monoLabel(MeetingExport.clock(recorder.elapsed), size: 12) }
+                .frame(width: livePillSize.width, height: livePillSize.height).contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .overlay { MeetingDragHandle { collapsed = false }.accessibilityHidden(true) }
@@ -679,9 +672,9 @@ struct MeetingLiveView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 dot
-                mono("Recording \(MeetingExport.clock(recorder.elapsed))", size: 12)
+                monoLabel("Recording \(MeetingExport.clock(recorder.elapsed))", size: 12)
                 Spacer()
-                if let live = recorder.live { mono((live.source.micOnly ? "Mic only" : live.source.name) + (live.transcribedBy.map { " · " + $0 } ?? ""), size: 11, color: Palette.ink70).lineLimit(1) }
+                if let live = recorder.live { monoLabel((live.source.micOnly ? "Mic only" : live.source.name) + (live.transcribedBy.map { " · " + $0 } ?? ""), size: 11, color: Palette.ink70).lineLimit(1) }
                 Button { collapsed = true } label: { Label("Minimize", systemImage: "arrow.down.right.and.arrow.up.left").labelStyle(.iconOnly).font(.system(size: 13, weight: .semibold)).frame(width: 28, height: 24).contentShape(Rectangle()) }
                     .buttonStyle(.plain).help("Minimize to a small indicator with the recording timer").accessibilityLabel("Minimize to a small indicator")
             }
@@ -690,7 +683,7 @@ struct MeetingLiveView: View {
                 Spacer(minLength: 4)
                 Button("Copy Notice", action: recorder.copyNotice).buttonStyle(.link).font(.system(size: 13))
             }
-            if !recorder.persists { Text("History is off: this meeting is kept only until Murmur quits.").font(.system(size: 12)).foregroundStyle(Palette.accentDeep) }
+            if !recorder.persists { Text("History is off: this meeting is kept only until Murmur quits.").font(.system(size: 12)).foregroundStyle(Palette.accentInk) }
             if let problem = recorder.systemAudioProblem {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(problem).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
@@ -701,7 +694,7 @@ struct MeetingLiveView: View {
                 }
                 .padding(8).background(Palette.accent16)
             }
-            if let warning = recorder.warning { Text(warning).font(.system(size: 12, weight: .semibold)).foregroundStyle(Palette.accentDeep).fixedSize(horizontal: false, vertical: true) }
+            if let warning = recorder.warning { Text(warning).font(.system(size: 12, weight: .semibold)).foregroundStyle(Palette.accentInk).fixedSize(horizontal: false, vertical: true) }
             if recorder.behind { Text("The transcript is behind; nothing is lost.").font(.system(size: 12)).foregroundStyle(Palette.ink70) }
             if recorder.askEnded {
                 HStack { Text("Call ended?").font(.system(size: 13, weight: .semibold)); Spacer(); Button("Stop", action: recorder.stop) }
@@ -724,7 +717,7 @@ struct MeetingLiveView: View {
                 .frame(maxHeight: .infinity)
                 .onChange(of: recorder.live?.lines.count) { if let last = recorder.live?.lines.last?.id { proxy.scrollTo(last, anchor: .bottom) } }
             }
-            mono("My notes", size: 11, color: Palette.accentInk)
+            monoLabel("My notes", size: 11, color: Palette.accentInk)
             TextField("Type a note", text: $notes, axis: .vertical).textFieldStyle(.plain).font(.system(size: 13)).lineLimit(2...4)
                 .padding(6).overlay(Rectangle().strokeBorder(Palette.ink20, lineWidth: 1))
             HStack {
@@ -733,7 +726,7 @@ struct MeetingLiveView: View {
                 Button("Stop", action: recorder.stop).buttonStyle(InkButtonStyle(kind: .filled))
             }
         }
-        .padding(14).frame(width: 340, height: 520).modifier(UtilityGlass(radius: 18))
+        .padding(14).frame(width: livePanelSize.width, height: livePanelSize.height).modifier(UtilityGlass(radius: 18))
         .alert("Discard this meeting?", isPresented: $confirmCancel) {
             Button("Discard", role: .destructive, action: recorder.cancel)
             Button("Keep Recording", role: .cancel) {}
@@ -742,7 +735,7 @@ struct MeetingLiveView: View {
 
     private func meter(_ label: String, _ level: Double) -> some View {
         HStack(spacing: 8) {
-            mono(label, size: 11, color: Palette.ink70).frame(width: 40, alignment: .leading)
+            monoLabel(label, size: 11, color: Palette.ink70).frame(width: 40, alignment: .leading)
             GeometryReader { g in Rectangle().fill(Palette.accent).frame(width: g.size.width * min(1, level)) }
                 .frame(height: 6).background(Palette.ink20)
         }
@@ -775,18 +768,16 @@ final class MeetingDragView: NSView {
     }
 }
 
-private final class MeetingPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
-}
+/// The live panel's two sizes: expanded, and minimized to a pill.
+private let livePanelSize = NSSize(width: 340, height: 520), livePillSize = NSSize(width: 120, height: 40)
 
 /// Shows the live panel while a meeting records: top right of the main screen at first, then where
 /// the user drags it. Minimized or not, and where, are remembered across meetings. It cannot be
 /// closed while recording (PRD 11.3, R6).
 @MainActor final class MeetingPanelPresenter {
-    static let collapsedKey = "meetingPanelCollapsed", cornerKey = "meetingPanelTopRight"
-    private var panel: MeetingPanel?
+    private var panel: FloatingPanel?
     private let recorder: MeetingRecorder
-    private var collapsed: Bool { UserDefaults.standard.bool(forKey: Self.collapsedKey) }
+    private var collapsed: Bool { UserDefaults.standard[Prefs.meetingPanelCollapsed] }
     private var moved: NSObjectProtocol?
 
     init(recorder: MeetingRecorder) { self.recorder = recorder }
@@ -797,25 +788,23 @@ private final class MeetingPanel: NSPanel {
         guard recorder.live != nil else {
             if let moved { NotificationCenter.default.removeObserver(moved) }; moved = nil
             panel?.orderOut(nil); panel = nil
-            NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [.announcement: "Meeting notes stopped", .priority: NSAccessibilityPriorityLevel.high.rawValue])
+            announce("Meeting notes stopped")
             return
         }
         if panel == nil {
-            let next = MeetingPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 520), styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: false)
-            next.level = .floating; next.isFloatingPanel = true; next.hidesOnDeactivate = false
-            next.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            next.backgroundColor = .clear; next.isOpaque = false; next.hasShadow = true; next.isMovableByWindowBackground = true
+            let next = FloatingPanel(size: livePanelSize, keyable: true)
+            next.isFloatingPanel = true; next.isMovableByWindowBackground = true
             next.contentView = NSHostingView(rootView: LivePanelRoot(recorder: recorder) { [weak self] _ in self?.place() })
             panel = next
             // Remember where the user drags it (its top-right corner, so minimizing keeps it in place).
             moved = NotificationCenter.default.addObserver(forName: NSWindow.didMoveNotification, object: next, queue: .main) { [weak next] _ in
                 MainActor.assumeIsolated {
                     guard let frame = next?.frame else { return }
-                    UserDefaults.standard.set([frame.maxX, frame.maxY], forKey: Self.cornerKey)
+                    UserDefaults.standard[Prefs.meetingPanelTopRight] = [frame.maxX, frame.maxY]
                 }
             }
             place(initial: true)
-            NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [.announcement: "Meeting notes recording", .priority: NSAccessibilityPriorityLevel.high.rawValue])
+            announce("Meeting notes recording")
         }
         panel?.orderFrontRegardless()
     }
@@ -823,11 +812,11 @@ private final class MeetingPanel: NSPanel {
     /// Keeps the panel's top-right corner where it was (or where it was last left) and resizes around it.
     private func place(initial: Bool = false) {
         guard let panel, let screen = NSScreen.main ?? NSScreen.screens.first else { return }
-        let size = collapsed ? NSSize(width: 120, height: 40) : NSSize(width: 340, height: 520)
+        let size = collapsed ? livePillSize : livePanelSize
         let visible = screen.visibleFrame
         var corner = NSPoint(x: visible.maxX - 16, y: visible.maxY - 16)
         if !initial { corner = NSPoint(x: panel.frame.maxX, y: panel.frame.maxY) }
-        else if let saved = UserDefaults.standard.array(forKey: Self.cornerKey) as? [Double], saved.count == 2,
+        else if case let saved = UserDefaults.standard[Prefs.meetingPanelTopRight], saved.count == 2,
                 NSScreen.screens.contains(where: { $0.visibleFrame.insetBy(dx: -1, dy: -1).contains(NSPoint(x: saved[0] - 1, y: saved[1] - 1)) }) {
             corner = NSPoint(x: saved[0], y: saved[1])
         }
@@ -838,7 +827,7 @@ private final class MeetingPanel: NSPanel {
 private struct LivePanelRoot: View {
     @ObservedObject var recorder: MeetingRecorder
     let changed: (Bool) -> Void
-    @AppStorage(MeetingPanelPresenter.collapsedKey) private var collapsed = false
+    @AppStorage(Prefs.meetingPanelCollapsed.key) private var collapsed = Prefs.meetingPanelCollapsed.fallback
     var body: some View {
         MeetingLiveView(recorder: recorder, collapsed: $collapsed)
             .onChange(of: collapsed) { changed(collapsed) }
@@ -863,7 +852,7 @@ struct SpeakerSettingsSection: View {
     @ObservedObject var settings: SpeakerModelSettings
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            mono("Speakers", size: 11, color: Palette.accentInk).padding(.top, 18)
+            monoLabel("Speakers", size: 11, color: Palette.accentInk).padding(.top, 18)
             Toggle(isOn: $settings.enabled) {
                 HStack(spacing: 4) {
                     Text(SpeakerFacts.displayName).font(.system(size: 16, weight: .semibold))
@@ -879,7 +868,7 @@ struct SpeakerSettingsSection: View {
                     slot: settings.slot,
                     title: AnyView(Text(settings.slot.facts.title).font(WindowType.body(14, weight: .medium)).fixedSize(horizontal: false, vertical: true)),
                     license: SpeakerFacts.credits,
-                    ready: AnyView(mono("Ready ✓", color: Palette.accentInk)),
+                    ready: AnyView(monoLabel("Ready ✓", color: Palette.accentInk)),
                     status: { AnyView(lede($0)) },
                     progress: { AnyView(ProgressView(value: $0).accessibilityLabel("Download progress")) },
                     message: { AnyView(lede($0, color: Palette.ink)) },

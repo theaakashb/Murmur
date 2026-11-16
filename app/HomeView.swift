@@ -60,9 +60,7 @@ extension SettingsView {
             }
             .padding(.top, 28)
             VStack(spacing: 0) {
-                permissionRow("Microphone", allowed: controller.microphoneAuthorized, actionTitle: "Allow", action: controller.requestMicrophone)
-                permissionRow("Accessibility", allowed: controller.accessibilityAuthorized, actionTitle: "Open Settings…") { controller.openPermissionSettings("accessibility") }
-                permissionRow("Input Monitoring", allowed: controller.inputMonitoringAuthorized, actionTitle: "Open Settings…") { controller.openPermissionSettings("input-monitoring") }
+                ForEach(Permission.allCases, id: \.self) { permissionRow($0) }
                 permissionRow("Speech model", allowed: modelSatisfied, actionTitle: "Open Transcription") { section = .transcription; screen = .settings }
             }
             .overlay(alignment: .top) { rule }.padding(.top, 8)
@@ -85,7 +83,7 @@ extension SettingsView {
                                 .font(.system(size: 13, design: .monospaced)).foregroundStyle(Palette.ink70).lineLimit(1).frame(width: 120, alignment: .leading)
                             Text((entry.finalText.isEmpty ? entry.rawText : entry.finalText).replacingOccurrences(of: "\n", with: " "))
                                 .font(WindowType.body(15)).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                            if let label = Self.statusLabel(entry.status) { mono(label, size: 11, color: Palette.accentDeep) }
+                            if let label = Self.statusLabel(entry.status) { mono(label, size: 11, color: Palette.accentInk) }
                         }
                         .padding(.vertical, 12).contentShape(Rectangle())
                     }
@@ -93,7 +91,7 @@ extension SettingsView {
                 }
             }
             .overlay(alignment: .top) { rule }.padding(.top, 8)
-            Button("Replay Welcome Guide") { WelcomeGuide.replay(.standard); guideStep = .welcome; screen = .setup }
+            Button("Replay Welcome Guide", action: replayGuide)
                 .buttonStyle(InkButtonStyle(kind: .outline)).padding(.top, 28)
         }
     }

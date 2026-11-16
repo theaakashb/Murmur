@@ -21,7 +21,7 @@ extension SettingsView {
                 eyebrow("Meeting notes")
                 SettingInfoButton(text: controller.meetingNotesRoute == nil ? "Not chosen yet: Murmur asks after your first meeting." : "Notes are written after Stop from the transcript and your own notes. Every item cites the lines it rests on; items the transcript does not support are left out.")
             }.padding(.top, 20)
-            MeetingNotesRoutePicker(controller: controller, tooltipDetails: true, selection: Binding(get: { controller.meetingNotesRoute ?? .none }, set: { controller.meetingNotesRoute = $0; controller.meetingRecorder.notesRouteChosen($0) }))
+            MeetingNotesRoutePicker(controller: controller, tooltipDetails: true, selection: Binding(get: { controller.meetingNotesRoute ?? .none }, set: controller.chooseNotesRoute))
         }
     }
 
@@ -86,6 +86,10 @@ extension SettingsView {
                 .font(Font.system(size: 13)).toggleStyle(.checkbox).padding(.top, 12).id("detailed-info")
 
         }
+    }
+
+    func permissionRow(_ permission: Permission) -> some View {
+        permissionRow(permission.title, allowed: isAllowed(permission), actionTitle: permission.actionTitle) { grant(permission) }
     }
 
     func permissionRow(_ title: String, allowed: Bool, actionTitle: String, action: @escaping () -> Void) -> some View {
@@ -184,21 +188,28 @@ extension SettingsView {
         }
     }
 
-    /// Faithful disables the edit toggles; choosing another style restores the standard edits.
+    /// The one view-side mapping between the cleanup style and the controller's switches; every view reads and writes it here.
     var cleanupStyle: Binding<CleanupStyle> {
-        Binding(get: {
-            guard controller.cleanupFillers || controller.cleanupCorrections || controller.cleanupLists || controller.cleanupPunctuation || controller.cleanupSpoken else { return .faithful }
-            return controller.cleanupChoice == .localRules ? .strict : controller.cleanupProfessional ? .professional : controller.cleanupPolish ? .polish : .strict
-        }, set: { style in
-            if style == .faithful { controller.useFaithfulTranscription(); return }
-            if self.cleanupStyle.wrappedValue == .faithful {
-                controller.cleanupFillers = true; controller.cleanupCorrections = true; controller.cleanupLists = true
-                controller.cleanupPunctuation = true; controller.cleanupSpoken = true
-            }
-            controller.cleanupPolish = style.needsModel; controller.cleanupProfessional = style == .professional
-            // Polish and Professional need a model; Strict keeps the stored one for next time.
-            if style.needsModel, controller.cleanupChoice == .localRules, let first = Self.aiCleanupChoices.first { controller.cleanupChoice = first }
-        })
+        // CONNECT: replace the next line with `Binding(get: { controller.cleanupStyle }, set: { controller.cleanupStyle = $0 })` once AppController has it.
+        Binding(get: currentCleanupStyle, set: applyCleanupStyle)
+    }
+
+    private func currentCleanupStyle() -> CleanupStyle {
+        let flags = CleanupOptions(fillers: controller.cleanupFillers, corrections: controller.cleanupCorrections, lists: controller.cleanupLists,
+                                   punctuation: controller.cleanupPunctuation, polish: controller.cleanupPolish, professional: controller.cleanupProfessional, spoken: controller.cleanupSpoken)
+        return controller.cleanupChoice == .localRules && flags.anyEnabled ? .strict : CleanupStyle(flags)
+    }
+
+    /// Faithful disables the edit toggles; choosing another style restores the standard edits.
+    private func applyCleanupStyle(_ style: CleanupStyle) {
+        if style == .faithful { controller.useFaithfulTranscription(); return }
+        if currentCleanupStyle() == .faithful {
+            controller.cleanupFillers = true; controller.cleanupCorrections = true; controller.cleanupLists = true
+            controller.cleanupPunctuation = true; controller.cleanupSpoken = true
+        }
+        controller.cleanupPolish = style.needsModel; controller.cleanupProfessional = style == .professional
+        // Polish and Professional need a model; Strict keeps the stored one for next time.
+        if style.needsModel, controller.cleanupChoice == .localRules, let first = Self.aiCleanupChoices.first { controller.cleanupChoice = first }
     }
 
     static let aiCleanupChoices = CleanupChoice.selectable.filter { $0 != .localRules }
@@ -315,7 +326,7 @@ extension SettingsView {
     private func modeStyle(_ mode: Binding<WritingMode>) -> Binding<CleanupStyle?> {
         Binding(get: {
             guard let o = mode.wrappedValue.options else { return nil }
-            return !o.anyEnabled ? .faithful : o.professional ? .professional : o.polish ? .polish : .strict
+            return CleanupStyle(o)
         }, set: { value in
             guard let value else { mode.wrappedValue.options = nil; return }
             guard value != .faithful else { mode.wrappedValue.options = .faithful; return }
@@ -462,8 +473,8 @@ extension SettingsView {
                 field("Preferred spelling", text: $newPreferred).frame(minWidth: 100, idealWidth: 180, maxWidth: 220).onSubmit(addEntry)
                 field("Heard as (optional)", text: $newVariants).help("Separate alternate spellings with commas.").onSubmit(addEntry)
                 Button("Add", action: addEntry)
-                    .buttonStyle(InkButtonStyle(kind: newPreferred.trimmingCharacters(in: .whitespaces).isEmpty ? .outline : .filled)).fixedSize()
-                    .disabled(newPreferred.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .buttonStyle(InkButtonStyle(kind: newPreferred.isBlank() ? .outline : .filled)).fixedSize()
+                    .disabled(newPreferred.isBlank())
             }
             .padding(.top, 20)
             if !controller.dictionaryMessage.isEmpty {
@@ -512,7 +523,7 @@ extension SettingsView {
     }
 
     func addEntry() {
-        guard !newPreferred.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        guard !newPreferred.isBlank() else { return }
         if controller.addDictionaryEntry(preferred: newPreferred, variants: newVariants) { newPreferred = ""; newVariants = "" }
     }
 
@@ -546,7 +557,7 @@ extension SettingsView {
 
     private func suggestionRow(_ item: DictionarySuggestion) -> some View {
         let spelling = Binding(get: { suggestionSpellings[item.id] ?? item.preferred }, set: { suggestionSpellings[item.id] = $0 })
-        let empty = spelling.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty
+        let empty = spelling.wrappedValue.isBlank()
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 field("Spelling", text: spelling).frame(minWidth: 100, idealWidth: 180, maxWidth: 220)
@@ -587,7 +598,7 @@ extension SettingsView {
             field("Preferred spelling", text: $editPreferred).frame(minWidth: 100, idealWidth: 160, maxWidth: 220).onSubmit(save)
             field("Heard as, comma-separated (optional)", text: $editVariants).onSubmit(save)
             Button("Save", action: save).buttonStyle(InkButtonStyle(kind: .filled)).fixedSize()
-                .disabled(editPreferred.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(editPreferred.isBlank())
             Button("Cancel") { controller.dictionaryMessage = ""; editingEntryID = nil }.buttonStyle(InkButtonStyle(kind: .outline)).fixedSize()
                 .keyboardShortcut(.cancelAction)
         }
@@ -597,9 +608,7 @@ extension SettingsView {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Permissions").padding(.top, 20)
             VStack(spacing: 0) {
-                permissionRow("Microphone", allowed: controller.microphoneAuthorized, actionTitle: "Allow", action: controller.requestMicrophone)
-                permissionRow("Accessibility", allowed: controller.accessibilityAuthorized, actionTitle: "Open Settings…") { controller.openPermissionSettings("accessibility") }
-                permissionRow("Input Monitoring", allowed: controller.inputMonitoringAuthorized, actionTitle: "Open Settings…") { controller.openPermissionSettings("input-monitoring") }
+                ForEach(Permission.allCases, id: \.self) { permissionRow($0) }
             }
             .overlay(alignment: .top) { rule }.padding(.top, 8)
             Button("Refresh Permissions", action: controller.refreshPermissionsAndShortcut)
@@ -623,7 +632,7 @@ extension SettingsView {
             if controller.hasRecoveryAudio {
                 Button("Show Retained Audio…", action: controller.revealRecoveryAudio)
                     .buttonStyle(InkButtonStyle(kind: .outline)).padding(.top, 20)
-                help("Failed recordings stay on this Mac for up to 24 hours.").padding(.top, 8)
+                help("Failed recordings stay on this Mac for up to \(RetryWindow.text).").padding(.top, 8)
             }
             HStack(spacing: 20) {
                 titled("Delete all data", DeleteAllDataText.explanation)
@@ -779,7 +788,7 @@ private struct ModeListEditor: View {
                     .padding(.horizontal, 12).frame(height: 44).overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Palette.ink20, lineWidth: 1))
                     .onSubmit(add)
                 Button("Add", action: add).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize()
-                    .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(draft.isBlank())
             }
         }
         .padding(.top, 8)
@@ -809,12 +818,9 @@ struct AutoApplySettings: ViewModifier {
 /// Settings → Meetings: meeting detection's switch and "Never" list (PRD 11.7, Q6).
 private struct CallDetectionRows: View {
     @ObservedObject var presenter: CallOfferPresenter
-    private func help(_ text: String, color: Color = Palette.ink70) -> some View {
-        Text(text).font(WindowType.body(13)).lineSpacing(2).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
-    }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Call detection").font(.system(size: 11, design: .monospaced)).tracking(0.88).textCase(.uppercase).foregroundStyle(Palette.accentInk).padding(.top, 20)
+            monoLabel("Call detection", size: 11, color: Palette.accentInk).padding(.top, 20)
             Toggle(isOn: $presenter.enabled) {
                 HStack(spacing: 4) {
                     Text("Offer to take notes when a call starts").font(WindowType.body(16, weight: .semibold))

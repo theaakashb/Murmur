@@ -2,7 +2,6 @@ import AppKit
 import AVFoundation
 import os
 
-private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "meeting")
 
 /// Records one meeting at a time (PRD 11.1–11.5): the microphone through a meeting-only Capture,
 /// the call's audio through SystemAudioTap, both chunked into one MeetingPump that shares the warm
@@ -206,7 +205,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         let clients = AudioProcessList.all().map(\.bundleID)
         let target: TapTarget
         if let id = source.bundleID {
-            target = .only(CallApp.app(id) ?? CallApp(bundleID: id, name: source.name, isBrowser: false, helpers: []))
+            target = .only(CallApp.resolve(id, name: source.name))
         } else {
             target = .allExcept(CallApp.ownBundleIDs(main: Bundle.main.bundleIdentifier, running: clients))
         }
@@ -302,11 +301,13 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
             // A leftover finished after notes were written: they no longer cover the whole transcript.
             if !spelled.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { $0.markNotesOutdated() }
         }
-        let meeting = live?.id == id ? live : meetings.first { $0.id == id }
-        if job.stream == (meeting?.source.speakerStream ?? .them) { keepAudio(id, job) }
+        if job.stream == (anyMeeting(id)?.source.speakerStream ?? .them) { keepAudio(id, job) }
         try? FileManager.default.removeItem(at: job.url)
         settle(id)
     }
+
+    /// The meeting being recorded, or a saved one.
+    private func anyMeeting(_ id: String) -> Meeting? { live?.id == id ? live : meetings.first { $0.id == id } }
 
     private func settle(_ id: String) {
         guard live?.id != id, pumps[id]?.isIdle != false else { return }
@@ -489,7 +490,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
                 gap(.them, reason: "output-device-changed"); rebuild(.them, reason: "output-device-changed")
             }
             if let callApp {
-                let app = CallApp.app(callApp) ?? CallApp(bundleID: callApp, name: "", isBrowser: false, helpers: [])
+                let app = CallApp.resolve(callApp)
                 let using = AudioProcessList.all().contains { $0.input && app.matches($0.bundleID) }
                 if callWasUsingMic && !using { askEnded = true }
                 callWasUsingMic = using
@@ -532,7 +533,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
 
     func delete(_ id: String) {
         guard live?.id != id else { message = "Stop the meeting before deleting it."; return }
-        if persists, let store, FileManager.default.fileExists(atPath: store.directory.appendingPathComponent(id + ".json").path) {
+        if persists, let store, store.exists(id) {
             do { try store.delete(id) } catch { message = "Could not delete this meeting."; return }
         }
         pumps.removeValue(forKey: id)?.stop(); finishing.remove(id); notesProblem[id] = nil
@@ -606,7 +607,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
 
     /// Writes a transcribed Them chunk into the meeting's kept stream, at its own time.
     private func keepAudio(_ id: String, _ job: MeetingPump.Job) {
-        guard (live?.id == id ? live : meetings.first { $0.id == id })?.speakers?.state == .pending, let speakerRoot else { return }
+        guard anyMeeting(id)?.speakers?.state == .pending, let speakerRoot else { return }
         do {
             let file = try AVAudioFile(forReading: job.url, commonFormat: .pcmFormatInt16, interleaved: false)
             guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)) else { return }
@@ -644,7 +645,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
             }
             else {
                 meeting.speakers?.state = .failed; meeting.speakers?.failure = reason
-                for i in meeting.lines.indices { meeting.lines[i].words = nil }
+                meeting.dropWordTimes()
             }
         }
         deleteKeptAudio(id)
@@ -655,11 +656,11 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
 
     /// "Separating speakers" → Skip: stops the helper, deletes the kept audio, keeps the Them labels.
     func skipSeparation(_ id: String) {
-        guard let meeting = live?.id == id ? live : meetings.first(where: { $0.id == id }), meeting.speakers?.state == .pending else { return }
+        guard let meeting = anyMeeting(id), meeting.speakers?.state == .pending else { return }
         speakerRunner.cancel(id); separating.remove(id)
         update(id) { meeting in
             meeting.speakers?.state = .skipped
-            for i in meeting.lines.indices { meeting.lines[i].words = nil }
+            meeting.dropWordTimes()
         }
         deleteKeptAudio(id)
         transcriptDone(id)
@@ -678,9 +679,8 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
 
     // MARK: Export
 
-    func copyTranscript(_ meeting: Meeting) {
-        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(MeetingExport.transcript(meeting), forType: .string)
-    }
+    private func copyToPasteboard(_ text: String) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string) }
+    func copyTranscript(_ meeting: Meeting) { copyToPasteboard(MeetingExport.transcript(meeting)) }
     func saveMarkdown(_ meeting: Meeting) {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = MeetingExport.fileName(meeting)
@@ -689,10 +689,8 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         do { try Data(MeetingExport.markdown(meeting).utf8).write(to: url, options: .atomic) }
         catch { message = "Could not save the Markdown file." }
     }
-    func copyNotes(_ meeting: Meeting) {
-        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(MeetingExport.notes(meeting), forType: .string)
-    }
-    func copyNotice() { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(MeetingConsent.notice, forType: .string) }
+    func copyNotes(_ meeting: Meeting, lecture: Bool = false) { copyToPasteboard(MeetingExport.notes(meeting, lecture: lecture)) }
+    func copyNotice() { copyToPasteboard(MeetingConsent.notice) }
 
     /// Running call apps and browsers, for the Start menu (Q1).
     static func runningCallApps() -> [CallApp] {

@@ -1,21 +1,13 @@
 import AppKit
 import SwiftUI
-import os
 
 // The meeting-detection offer (PRD 11.7) in its own floating panel at the bubble's spot. It has its own
 // panel because the dictation bubble hides itself on every status change. The panel never becomes key,
 // so clicking it leaves the user's app (and its cursor) in front.
 
-private let detectionLog = Logger(subsystem: "cc.clouddev.dictation", category: "meeting")
-
-private final class OfferPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
-    override var canBecomeMain: Bool { false }
-}
-
 @MainActor final class CallOfferPresenter: ObservableObject {
     @Published var enabled = CallDetectionSettings.enabled(.standard) {
-        didSet { UserDefaults.standard.set(enabled, forKey: CallDetectionSettings.enabledKey); if !enabled { hide() } }
+        didSet { CallDetectionSettings.setEnabled(enabled, .standard); if !enabled { hide() } }
     }
     @Published private(set) var never = CallDetectionSettings.never(.standard)
     @Published private(set) var offer: CallOffer?
@@ -24,15 +16,10 @@ private final class OfferPanel: NSPanel {
     private var detector = CallDetector()
     private var lastPoll: TimeInterval = 0
     private var shownAt: TimeInterval = 0
-    private let panel = OfferPanel(contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: false)
+    private let panel = FloatingPanel(title: "Murmur meeting offer")
 
     init(controller: AppController) {
         self.controller = controller
-        panel.title = "Murmur meeting offer"
-        panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
-        panel.hidesOnDeactivate = false; panel.isReleasedWhenClosed = false
     }
 
     /// Called from the controller's 0.15 s timer; reads Core Audio's process list about once a second.
@@ -61,15 +48,14 @@ private final class OfferPanel: NSPanel {
     func show(_ found: CallOffer) {
         offer = found; shownAt = ProcessInfo.processInfo.systemUptime
         // Content-free: which app, never what it is doing.
-        detectionLog.notice("call-offer app=\(found.app.bundleID, privacy: .public)")
-        let frame = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        meetingLog.notice("call-offer app=\(found.app.bundleID, privacy: .public)")
+        let frame = BubbleGeometry(screen: nil).frame
         let width = min(340, max(220, frame.width - 32))
         let host = NSHostingView(rootView: CallOfferCard(offer: found, presenter: self).frame(width: width))
         panel.contentView = host
         panel.setFrame(NSRect(x: frame.midX - width / 2, y: frame.minY + 24, width: width, height: host.fittingSize.height), display: true)
         panel.orderFrontRegardless()
-        NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
-                             userInfo: [.announcement: "\(found.text) \(found.question)", .priority: NSAccessibilityPriorityLevel.medium.rawValue])
+        announce("\(found.text) \(found.question)", priority: .medium)
     }
 
     func hide() { offer = nil; panel.orderOut(nil) }

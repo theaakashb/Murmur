@@ -84,6 +84,8 @@ struct CallApp: Equatable {
         CallApp(bundleID: "com.brave.Browser", name: "Brave", isBrowser: true, helpers: []),
         CallApp(bundleID: "org.mozilla.firefox", name: "Firefox", isBrowser: true, helpers: []),
     ]
+    /// The catalog entry for a bundle ID, or a plain app (not a browser, no helpers) for one the catalog does not know.
+    static func resolve(_ bundleID: String, name: String = "") -> CallApp { app(bundleID) ?? CallApp(bundleID: bundleID, name: name, isBrowser: false, helpers: []) }
     static func app(_ bundleID: String) -> CallApp? { catalog.first { isBundle(bundleID, of: $0.bundleID, scope: .exact, caseSensitive: true) } }
 
     /// Bundle IDs to tap for this app: its own, every running audio process whose ID starts with it

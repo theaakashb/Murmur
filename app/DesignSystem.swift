@@ -33,7 +33,7 @@ enum Palette {
     private static func rgb(_ hex: Int) -> NSColor {
         NSColor(srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
     }
-    private static func dynamic(light: Int, dark: Int) -> NSColor {
+    static func dynamic(light: Int, dark: Int) -> NSColor {
         NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? rgb(dark) : rgb(light) }
     }
     static let paperNS = dynamic(light: 0xFAFAFA, dark: 0x181818)
@@ -47,7 +47,6 @@ enum Palette {
     static let accent = Color(red: 77 / 255, green: 111 / 255, blue: 240 / 255)
     /// Small labels use neutral light text on dark surfaces to preserve contrast.
     static let accentInk = Color(nsColor: dynamic(light: 0x244BDF, dark: 0xFAFAFA))
-    static let accentDeep = accentInk
     static let accent16 = Color(nsColor: dynamic(light: 0xEEEEEE, dark: 0x242424))
 }
 
@@ -66,31 +65,20 @@ extension EnvironmentValues {
 }
 
 enum EditorialPalette {
-    private static func color(_ light: Int, _ dark: Int) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            let hex = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
-            return NSColor(srgbRed: CGFloat(hex >> 16 & 255) / 255,
-                           green: CGFloat(hex >> 8 & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: 1)
-        })
-    }
+    private static func color(_ light: Int, _ dark: Int) -> Color { Color(nsColor: Palette.dynamic(light: light, dark: dark)) }
     static let paper = color(0xFAFAFA, 0x181818)
     static let ink = color(0x202020, 0xFAFAFA)
     static let ink70 = color(0x555555, 0xBBBBBB)
     static let ink20 = color(0xCCCCCC, 0x555555)
     static let accent = color(0x4D6FF0, 0x4D6FF0)
     static let accentInk = Palette.accentInk
-    static let accent16 = color(0xEEEEEE, 0x242424)
+    static let accent16 = Palette.accent16
     static let sidebar = color(0xFFFFFF, 0x111111)
 }
 
 /// First-run guide colours, matching the Murmur website: ground, pale-blue pane, ink, muted ink, blue.
 enum SetupPalette {
-    private static func color(_ light: Int, _ dark: Int) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            let hex = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
-            return NSColor(srgbRed: CGFloat(hex >> 16 & 255) / 255, green: CGFloat(hex >> 8 & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: 1)
-        })
-    }
+    private static func color(_ light: Int, _ dark: Int) -> Color { Color(nsColor: Palette.dynamic(light: light, dark: dark)) }
     static let ground = color(0xF4F4EF, 0x181818)
     static let pane = color(0xE5E9FF, 0x1C2238)
     static let ink = color(0x20221F, 0xF4F4EF)
@@ -98,31 +86,44 @@ enum SetupPalette {
     static let blue = color(0x4568E8, 0x7F98FF)
 }
 
-/// Static paper and voice: no animation, permission state, or user content.
-struct PaperVoice: View {
-    var body: some View {
-        Canvas { context, size in
-            let sheet = CGRect(x: size.width * 0.34, y: 8, width: size.width * 0.56, height: size.height - 16)
-            context.fill(Path(roundedRect: sheet, cornerRadius: 8), with: .color(EditorialPalette.paper))
-            for row in 0..<4 {
-                let y = 28 + CGFloat(row) * 15
-                var line = Path()
-                line.move(to: CGPoint(x: sheet.minX + 18, y: y))
-                line.addLine(to: CGPoint(x: sheet.maxX - (row == 3 ? 40 : 18), y: y))
-                context.stroke(line, with: .color(EditorialPalette.ink20), lineWidth: 2)
-            }
-            var ribbon = Path()
-            ribbon.move(to: CGPoint(x: 8, y: size.height * 0.6))
-            ribbon.addCurve(to: CGPoint(x: sheet.midX, y: size.height * 0.65),
-                control1: CGPoint(x: size.width * 0.18, y: -20),
-                control2: CGPoint(x: size.width * 0.25, y: size.height + 28))
-            ribbon.addCurve(to: CGPoint(x: sheet.maxX - 18, y: size.height * 0.65),
-                control1: CGPoint(x: sheet.midX + 25, y: size.height * 0.3),
-                control2: CGPoint(x: sheet.maxX - 36, y: size.height * 0.9))
-            context.stroke(ribbon, with: .color(EditorialPalette.accent), style: StrokeStyle(lineWidth: 5, lineCap: .round))
-        }
-        .frame(height: 112).accessibilityHidden(true).allowsHitTesting(false)
+/// A borderless panel that floats over every Space (the dictation bubble, the call offer, the live meeting panel). It never
+/// becomes key unless `keyable`, so clicking it leaves the user's app in front.
+class FloatingPanel: NSPanel {
+    private let keyable: Bool
+    override var canBecomeKey: Bool { keyable }
+    override var canBecomeMain: Bool { false }
+    init(title: String = "", size: NSSize = .zero, keyable: Bool = false) {
+        self.keyable = keyable
+        super.init(contentRect: NSRect(origin: .zero, size: size), styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: false)
+        self.title = title
+        level = .floating
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        isOpaque = false; backgroundColor = .clear; hasShadow = true
+        hidesOnDeactivate = false; isReleasedWhenClosed = false
     }
+}
+
+/// A small monospaced uppercase label; `plain` is Settings' look (system font, as typed).
+func monoLabel(_ text: String, size: CGFloat = 12, color: Color = Palette.ink, plain: Bool = false) -> some View {
+    Text(text).font(plain ? .system(size: size) : .system(size: size, design: .monospaced)).tracking(plain ? 0 : size * 0.08)
+        .textCase(plain ? nil : .uppercase).foregroundStyle(color)
+}
+
+/// Wrapping explanatory text; Settings sets it in the system font (`system`), the other pages in DM Sans.
+func helpText(_ text: String, size: CGFloat = 13, color: Color = Palette.ink70, system: Bool = false) -> some View {
+    Text(text).font(system ? .system(size: size) : WindowType.body(size)).lineSpacing(2).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
+}
+
+func lede(_ text: String, color: Color = Palette.ink70) -> some View { helpText(text, size: 14, color: color) }
+
+extension String {
+    /// Nothing but spaces (or, with `multiline`, line breaks too): what a form field treats as empty.
+    func isBlank(multiline: Bool = false) -> Bool { trimmingCharacters(in: multiline ? .whitespacesAndNewlines : .whitespaces).isEmpty }
+}
+
+/// Posts a VoiceOver announcement for a change that has no focused control.
+func announce(_ text: String, priority: NSAccessibilityPriorityLevel = .high) {
+    NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [.announcement: text, .priority: priority.rawValue])
 }
 
 /// Fonts ship with the app; the window never fetches typography from the network.

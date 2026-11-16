@@ -86,8 +86,8 @@ private struct BubbleView: View {
     }
 
     private func openError() {
+        controller.screenRequest = .settings
         controller.showSettings()
-        DispatchQueue.main.async { NotificationCenter.default.post(name: .dictationShowError, object: nil) }
     }
 }
 
@@ -243,13 +243,8 @@ private struct RecoveryBackground: ViewModifier {
     }
 }
 
-private final class DictationPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
-    override var canBecomeMain: Bool { false }
-}
-
 /// Where the bubble goes on one screen: its visible frame and the notch, if any.
-private struct BubbleGeometry {
+struct BubbleGeometry {
     let screen: NSScreen?
     let frame: NSRect
     let left: NSRect?
@@ -257,6 +252,8 @@ private struct BubbleGeometry {
     var hasNotch: Bool { left != nil && right != nil }
     var notchWidth: CGFloat { (right?.minX ?? 0) - (left?.maxX ?? 0) }
     var notchHeight: CGFloat { screen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32 }
+    /// The empty strip a card leaves over the notch's right half.
+    var notchInset: CGFloat { notchWidth / 2 + 10 }
     init(screen: NSScreen?) {
         let target = screen ?? NSScreen.main ?? NSScreen.screens.first
         self.screen = target
@@ -269,20 +266,12 @@ private struct BubbleGeometry {
 @MainActor
 final class BubblePresenter {
     private let controller: AppController
-    private let panel = DictationPanel(contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: false)
+    private let panel = FloatingPanel(title: "Murmur status")
     private var transition = UUID()
     private var atNotch = false
 
     init(controller: AppController) {
         self.controller = controller
-        panel.title = "Murmur status"
-        panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.hidesOnDeactivate = false
-        panel.isReleasedWhenClosed = false
     }
 
     func show(phase: Phase, message: String, screen: NSScreen? = nil) {
@@ -301,10 +290,10 @@ final class BubblePresenter {
         transition = UUID()
         atNotch = notch
         panel.alphaValue = 1
-        let width = notch ? 72 + notchWidth / 2 + 10 : live ? min(420, max(240, frame.width - 32)) : minimal ? 80 : card != nil ? min(320, max(200, frame.width - 32)) : min(240, max(180, frame.width - 32))
+        let width = notch ? 72 + geo.notchInset : live ? min(420, max(240, frame.width - 32)) : minimal ? 80 : card != nil ? min(320, max(200, frame.width - 32)) : min(240, max(180, frame.width - 32))
         let content = notch ? AnyView(HStack(spacing: 0) {
             VoiceBubbles(controller: controller, phase: phase, ink: Palette.accent).scaleEffect(0.75).frame(width: 72, height: notchHeight)
-            Color.clear.frame(width: notchWidth / 2 + 10, height: notchHeight)
+            Color.clear.frame(width: geo.notchInset, height: notchHeight)
         }.frame(height: notchHeight).background(Color(red: 0, green: 0, blue: 0), in: UnevenRoundedRectangle(bottomLeadingRadius: 12)))
             : live ? AnyView(LiveWordsBubble(controller: controller))
             : minimal ? AnyView(VoiceBubbles(controller: controller, phase: phase))
@@ -363,17 +352,17 @@ final class BubblePresenter {
     var isVisible: Bool { panel.isVisible }
 
     private var notice: UUID?
-    /// The Undo card; it leaves with the "Recording canceled" status (5 s) or when anything else is shown.
-    func showUndo(screen: NSScreen?) {
+    /// A card beside the notch, or centred above the bottom edge on a screen without one; `notchMax` and `plain` are its widths.
+    private func showCard<Card: View>(screen: NSScreen?, notchMax: CGFloat, plain: ClosedRange<CGFloat>, _ card: (Bool) -> Card) {
         transition = UUID(); atNotch = false; panel.alphaValue = 1
         let geo = BubbleGeometry(screen: screen)
-        let frame = geo.frame, left = geo.left, hasNotch = geo.hasNotch, notchWidth = geo.notchWidth, notchHeight = geo.notchHeight
-        let width = hasNotch ? min(225, left!.width) : min(260, max(200, frame.width - 32))
+        let frame = geo.frame, left = geo.left, hasNotch = geo.hasNotch, notchHeight = geo.notchHeight
+        let width = hasNotch ? min(notchMax, left!.width) : min(plain.upperBound, max(plain.lowerBound, frame.width - 32))
         let content = hasNotch ? AnyView(HStack(spacing: 0) {
-            UndoCancelCard(controller: controller, inNotch: true).frame(width: width, height: notchHeight)
-            Color.clear.frame(width: notchWidth / 2 + 10, height: notchHeight)
+            card(true).frame(width: width, height: notchHeight)
+            Color.clear.frame(width: geo.notchInset, height: notchHeight)
         }.background(Color.black, in: UnevenRoundedRectangle(bottomLeadingRadius: 12)))
-            : AnyView(UndoCancelCard(controller: controller).frame(width: width))
+            : AnyView(card(false).frame(width: width))
         let host = NSHostingView(rootView: content)
         panel.contentView = host
         panel.hasShadow = !hasNotch
@@ -381,30 +370,18 @@ final class BubblePresenter {
         let height = host.fittingSize.height
         present(NSRect(x: hasNotch ? left!.maxX - width : frame.midX - width / 2,
                        y: hasNotch ? geo.screen!.frame.maxY - height : frame.minY + 24,
-                       width: hasNotch ? width + notchWidth / 2 + 10 : width, height: height), slideFrom: hasNotch ? width : nil)
+                       width: hasNotch ? width + geo.notchInset : width, height: height), slideFrom: hasNotch ? width : nil)
+    }
+    /// The Undo card; it leaves with the "Recording canceled" status (5 s) or when anything else is shown.
+    func showUndo(screen: NSScreen?) {
+        showCard(screen: screen, notchMax: 225, plain: 200...260) { UndoCancelCard(controller: controller, inNotch: $0) }
         notice = UUID()
     }
     private var recoveryNotice: UUID?
     /// The mode recovery pill; leaves after 12 s unless something else took the panel first.
     func showRecovery(screen: NSScreen?) {
-        transition = UUID(); atNotch = false; panel.alphaValue = 1
-        let geo = BubbleGeometry(screen: screen)
-        let frame = geo.frame, left = geo.left, hasNotch = geo.hasNotch, notchWidth = geo.notchWidth, notchHeight = geo.notchHeight
-        let width = hasNotch ? min(320, left!.width) : min(380, max(260, frame.width - 32))
+        showCard(screen: screen, notchMax: 320, plain: 260...380) { ModeRecoveryCard(controller: controller, inNotch: $0) }
         let shown = UUID()
-        let content = hasNotch ? AnyView(HStack(spacing: 0) {
-            ModeRecoveryCard(controller: controller, inNotch: true).frame(width: width, height: notchHeight)
-            Color.clear.frame(width: notchWidth / 2 + 10, height: notchHeight)
-        }.background(Color.black, in: UnevenRoundedRectangle(bottomLeadingRadius: 12)))
-            : AnyView(ModeRecoveryCard(controller: controller).frame(width: width))
-        let host = NSHostingView(rootView: content)
-        panel.contentView = host
-        panel.hasShadow = !hasNotch
-        panel.level = hasNotch ? .statusBar : .floating
-        let height = host.fittingSize.height
-        present(NSRect(x: hasNotch ? left!.maxX - width : frame.midX - width / 2,
-                       y: hasNotch ? geo.screen!.frame.maxY - height : frame.minY + 24,
-                       width: hasNotch ? width + notchWidth / 2 + 10 : width, height: height), slideFrom: hasNotch ? width : nil)
         notice = shown; recoveryNotice = shown
         DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
             guard let self, self.recoveryNotice == shown else { return }
