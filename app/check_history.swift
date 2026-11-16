@@ -79,11 +79,12 @@ import Darwin
         let forever = try store.expired(retention: .forever, now: now); precondition(forever.isEmpty)
         let mismatched = root.appendingPathComponent(UUID().uuidString + ".json")
         try JSONEncoder().encode(entry).write(to: mismatched)
-        do { _ = try store.entries(); fatalError("Mismatched history identity accepted") } catch {}
-        try FileManager.default.removeItem(at: mismatched)
+        let beforeMismatch = try store.entries().count
+        let mismatchedMoved = try FileManager.default.contentsOfDirectory(at: store.unreadableDirectory, includingPropertiesForKeys: nil)
+        precondition(beforeMismatch == 1 && mismatchedMoved.count == 1 && !FileManager.default.fileExists(atPath: mismatched.path), "a file named for another id is quarantined, not accepted")
+        try FileManager.default.removeItem(at: mismatchedMoved[0])
         let corrupt = root.appendingPathComponent(UUID().uuidString + ".json")
         try Data("broken JSON".utf8).write(to: corrupt)
-        do { _ = try store.entries(); fatalError("Unreadable history silently hidden") } catch {}
         // Startup moves it aside instead of refusing to start; it still expires by modification date.
         let movedCount = try store.quarantineUnreadable(), remaining = try store.entries().count
         precondition(movedCount == 1 && remaining == 1)
@@ -93,6 +94,22 @@ import Darwin
         try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-200 * 86400)], ofItemAtPath: moved[0].path)
         try store.purge(retention: .forever, now: now); precondition(FileManager.default.fileExists(atPath: moved[0].path))
         try store.purge(retention: .sixMonths, now: now); precondition(!FileManager.default.fileExists(atPath: moved[0].path))
+        // A file damaged while the app runs: entries() returns the others, moves it aside, says so once per move, and saving still works.
+        var told: [Int] = []
+        let live = try HistoryStore(directory: root) { told.append($0) }
+        let others = (0..<3).map { HistoryEntry(id: UUID().uuidString, recordedAt: now.addingTimeInterval(Double($0)), rawText: "Mid-session \($0)", finalText: "Mid-session \($0)", insertionStatus: "verified") }
+        for other in others { try live.save(other) }
+        try Data("broken JSON".utf8).write(to: root.appendingPathComponent(others[1].id + ".json"))
+        let survivors = try live.entries()
+        let quarantined = try FileManager.default.contentsOfDirectory(at: live.unreadableDirectory, includingPropertiesForKeys: nil)
+        precondition(Set(survivors.map(\.id)).isSuperset(of: [others[0].id, others[2].id]) && !survivors.contains { $0.id == others[1].id }, "a damaged file does not hide the others")
+        precondition(quarantined.count == 1 && !FileManager.default.fileExists(atPath: root.appendingPathComponent(others[1].id + ".json").path), "the damaged file is moved aside, not deleted")
+        let again = try live.entries().count
+        precondition(told == [1] && again == survivors.count, "told once, not on every read")
+        try live.save(others[1])
+        let afterSave = try live.entries().count
+        precondition(afterSave == survivors.count + 1, "saving still works")
+        for other in others { try live.delete(other) }
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let sixMonths = calendar.date(from: DateComponents(year: 2026, month: 8, day: 31))!
         let cutoff = calendar.date(byAdding: .month, value: -6, to: sixMonths)!

@@ -328,7 +328,7 @@ enum ScreenRequest: Equatable {
             if preview { previewDirectory = base }
             dataDirectory = base
             let locations = MurmurDataLocations.standard(base: base)
-            store = try HistoryStore(directory: locations.history)
+            store = try makeHistoryStore(locations.history)
             if let store { records = HistoryRouter(disk: historyDisk(store), persists: appliedHistoryMode.persistsTranscripts) }
             applyRecordingSetting()
             retry = try RetryAudio(directory: locations.retryAudio)
@@ -349,7 +349,7 @@ enum ScreenRequest: Equatable {
             }
             // One damaged file must not stop Murmur: move it aside, say so, and still expire it on schedule.
             if let moved = try store?.quarantineUnreadable(), moved > 0 {
-                historyNotice = "\(moved) damaged history \(moved == 1 ? "file was" : "files were") moved to the history/unreadable folder. \(moved == 1 ? "It" : "They") still expire with your retention setting."
+                historyNotice = HistoryStore.quarantineNotice(moved)
             }
             try store?.purge(retention: appliedRetention)
             configureMeetings(locations)

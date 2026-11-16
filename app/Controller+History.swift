@@ -64,6 +64,9 @@ extension AppController {
         try FileManager.default.createDirectory(at: chunks, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         Chunker.directory = chunks
     }
+    func makeHistoryStore(_ directory: URL) throws -> HistoryStore {
+        try HistoryStore(directory: directory) { [weak self] moved in DispatchQueue.main.async { self?.historyNotice = HistoryStore.quarantineNotice(moved) } }
+    }
     func historyDisk(_ store: HistoryStore) -> HistoryDisk<HistoryEntry> {
         HistoryDisk(save: store.save, entries: store.entries, delete: store.delete)
     }
@@ -127,7 +130,7 @@ extension AppController {
                 UserDefaults.standard.removeObject(forKey: Prefs.dismissedSuggestions.key); dictionarySuggestions = []
                 recoveryEntryID = nil; recoveryAudio = nil; historyCapWarning = nil; historyNotice = nil
             case .recreateHistory:
-                let next = try HistoryStore(directory: locations.history)
+                let next = try makeHistoryStore(locations.history)
                 store = next; records = HistoryRouter(disk: historyDisk(next), persists: appliedHistoryMode.persistsTranscripts)
                 configureMeetings(locations)
             case .recreateRetryAudio:

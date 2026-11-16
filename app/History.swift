@@ -147,8 +147,11 @@ struct StageTiming: Codable, Equatable {
 
 struct HistoryStore {
     let directory: URL
-    init(directory: URL) throws {
+    /// Told how many unreadable files `entries()` just moved aside; may run on any thread.
+    private let onQuarantine: (Int) -> Void
+    init(directory: URL, onQuarantine: @escaping (Int) -> Void = { _ in }) throws {
         self.directory = directory
+        self.onQuarantine = onQuarantine
         if FileManager.default.fileExists(atPath: directory.path) {
             let attrs = try FileManager.default.attributesOfItem(atPath: directory.path)
             guard attrs[.type] as? FileAttributeType == .typeDirectory else { throw RetentionError("History requires a real directory") }
@@ -200,7 +203,7 @@ struct HistoryStore {
         try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isSymbolicLinkKey])
             .filter { $0.pathExtension == "json" && ((try? $0.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true) }
     }
-    /// The one validity rule: the file decodes and its name is its entry's id. `entries()` throws on a file that fails it; `quarantineUnreadable` moves it aside.
+    /// The one validity rule: the file decodes and its name is its entry's id. `entries()` and `quarantineUnreadable` move a file that fails it aside.
     private func readEntry(_ file: URL) throws -> HistoryEntry {
         let entry = try JSONDecoder().decode(HistoryEntry.self, from: Data(contentsOf: file))
         guard UUID(uuidString: entry.id) != nil, file.lastPathComponent == entry.id + ".json" else {
@@ -208,8 +211,14 @@ struct HistoryStore {
         }
         return entry
     }
+    /// Newest first. A file that cannot be read is quarantined, so one damaged file never hides the others.
     func entries() throws -> [HistoryEntry] {
-        try entryFiles().map(readEntry).sorted { $0.recordedAt > $1.recordedAt }
+        var readable: [HistoryEntry] = [], moved = 0
+        for file in try entryFiles() {
+            if let entry = try? readEntry(file) { readable.append(entry) } else if try quarantine(file) { moved += 1 }
+        }
+        if moved > 0 { onQuarantine(moved) }
+        return readable.sorted { $0.recordedAt > $1.recordedAt }
     }
     func delete(_ entry: HistoryEntry) throws {
         guard UUID(uuidString: entry.id) != nil else { throw RetentionError("Invalid history identifier") }
@@ -221,18 +230,24 @@ struct HistoryStore {
     }
     /// Files moved aside by `quarantineUnreadable`. Inside the history folder, so Delete All Data removes them.
     var unreadableDirectory: URL { directory.appendingPathComponent("unreadable", isDirectory: true) }
+    static func quarantineNotice(_ moved: Int) -> String {
+        "\(moved) damaged history \(moved == 1 ? "file was" : "files were") moved to the history/unreadable folder. \(moved == 1 ? "It" : "They") still expire with your retention setting."
+    }
     /// Moves history files that cannot be decoded (or whose name does not match their id) into
     /// `unreadable/`, so one damaged file cannot stop Murmur from starting. Returns how many moved.
     func quarantineUnreadable() throws -> Int {
         var moved = 0
-        for file in try entryFiles() {
-            if (try? readEntry(file)) != nil { continue }
-            try FileManager.default.createDirectory(at: unreadableDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-            let target = unreadableDirectory.appendingPathComponent(UUID().uuidString + ".json")
-            try FileManager.default.moveItem(at: file, to: target)
-            moved += 1
-        }
+        for file in try entryFiles() where (try? readEntry(file)) == nil { if try quarantine(file) { moved += 1 } }
         return moved
+    }
+    /// False when another reader already moved the file.
+    private func quarantine(_ file: URL) throws -> Bool {
+        try locked {
+            guard FileManager.default.fileExists(atPath: file.path) else { return false }
+            try FileManager.default.createDirectory(at: unreadableDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            try FileManager.default.moveItem(at: file, to: unreadableDirectory.appendingPathComponent(UUID().uuidString + ".json"))
+            return true
+        }
     }
     /// Expires entries, and unreadable files by their modification date: their text still counts as history.
     func purge(retention: HistoryRetention, now: Date = Date()) throws {
