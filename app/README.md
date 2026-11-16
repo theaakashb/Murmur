@@ -4,7 +4,7 @@ See the [main README](../README.md) for requirements, setup, privacy and data re
 
 ## Source map
 
-- `Controller.swift` coordinates recording, processing, delivery and recovery.
+- `Controller.swift` coordinates recording, processing, delivery and recovery. `ModelHelper.swift` runs the ModelBench transcription helper process.
 - `Processing.swift`, `Cleanup.swift`, `Dictionary.swift` and `Learning.swift` handle text processing and correction learning. [Vocabulary routing](VOCABULARY.md) describes the transcription safeguards.
 - `Providers.swift`, `Credentials.swift` and `Routes.swift` handle optional cloud processing and Keychain credentials. See [provider integration](PROVIDERS.md).
 - `History.swift`, `Retention.swift` and `AppServices.swift` handle local storage, retention and data removal.
