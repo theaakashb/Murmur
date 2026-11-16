@@ -7,8 +7,8 @@ import Foundation
 // preferred spellings are already in the text the cleanup guard compares against. Relevant
 // entries are also passed as allowed terms, and as prompt terms on the cloud route.
 //
-// Snippets (Snippets.swift) are matched on the raw transcript before any of this. The dictation is cut at
-// each command, every stretch of spoken words takes the path below on its own, and snippet text bypasses it.
+// Cues (VoiceCues.swift) are matched on the raw transcript before any of this. The dictation is cut at
+// each command, every stretch of spoken words takes the path below on its own, and cue text bypasses it.
 //
 // Failure policy (user decision, October 6, 2026: behave like Wispr Flow): a dictation is never held.
 // When the guard rejects the cleaned words, the transcript's own words go in with the model's
@@ -47,8 +47,8 @@ struct ProcessingResult: Sendable {
     var cleanupInput: String?
     /// Screen context went to the cleanup provider with this dictation.
     var contextUsed = false
-    /// How many snippets were expanded; never their cues or text.
-    var snippets = 0
+    /// How many cues were expanded; never their phrases or text.
+    var cues = 0
 }
 
 /// Settings owned by processing, persisted in UserDefaults (keys and defaults: `Prefs`).
@@ -96,7 +96,7 @@ struct ProcessingSettings: Equatable, Sendable {
 final class ProcessingCoordinator {
     let dictionary: DictionaryStore
     let ledger: CorrectionLedger
-    let snippets: SnippetStore
+    let cues: VoiceCueStore
     private(set) var settings: ProcessingSettings
     private let defaults: UserDefaults
     /// The local route's cleaner. Tests substitute failing or misbehaving cleaners.
@@ -107,13 +107,13 @@ final class ProcessingCoordinator {
     /// What the punctuation transfer is guarded as: sentence punctuation and capitals, no word changes.
     static let punctuationOnly = CleanupOptions(fillers: false, corrections: false, lists: false, punctuation: true)
 
-    /// `directory` holds dictionary.json, ledger.json and snippets.json (MurmurDataLocations.standard layout).
+    /// `directory` holds dictionary.json, ledger.json and cues.json (MurmurDataLocations.standard layout).
     /// `isCommonWord` guards learning and dictionary respelling (NSSpellChecker in the app).
     init(directory: URL, defaults: UserDefaults = .standard, isCommonWord: ((String) -> Bool)? = nil) throws {
         self.defaults = defaults
         dictionary = try DictionaryStore(directory: directory, isCommonWord: isCommonWord)
         ledger = try CorrectionLedger(directory: directory, dictionary: dictionary)
-        snippets = SnippetStore(directory: directory)
+        cues = VoiceCueStore(directory: directory)
         settings = ProcessingSettings.load(from: defaults)
         if ledger.learningEnabled != settings.learningEnabled { try ledger.setLearningEnabled(settings.learningEnabled) }
     }
@@ -163,7 +163,7 @@ final class ProcessingCoordinator {
     /// `style` carries a writing mode's overrides; nil uses the settings. Screen context and custom
     /// instructions are never used here: local rules send nothing and take no instructions.
     func process(_ raw: String, style: DictationStyle? = nil) -> ProcessingResult {
-        guard let pieces = SnippetText.split(raw, snippets: snippets.snippets) else { return processSegment(raw, style: style) }
+        guard let pieces = VoiceCueText.split(raw, cues: cues.cues) else { return processSegment(raw, style: style) }
         return assemble(pieces, results: pieces.map { if case .text(let text) = $0 { processSegment(text, style: style) } else { nil } })
     }
 
@@ -189,7 +189,7 @@ final class ProcessingCoordinator {
     /// Full path including the cloud route. Always inserts: see the failure policy above.
     /// Main actor: the dictionary is read on the main thread; only the provider calls run elsewhere.
     @MainActor func processAsync(_ raw: String, style: DictationStyle? = nil) async -> ProcessingResult {
-        guard let pieces = SnippetText.split(raw, snippets: snippets.snippets) else { return await processSegmentAsync(raw, style: style) }
+        guard let pieces = VoiceCueText.split(raw, cues: cues.cues) else { return await processSegmentAsync(raw, style: style) }
         var results: [ProcessingResult?] = []
         for piece in pieces {
             if case .text(let text) = piece { results.append(await processSegmentAsync(text, style: style)) } else { results.append(nil) }
@@ -197,12 +197,12 @@ final class ProcessingCoordinator {
         return assemble(pieces, results: results)
     }
 
-    /// A dictation with snippet commands: each stretch of spoken words goes through the ordinary path on its
+    /// A dictation with cue commands: each stretch of spoken words goes through the ordinary path on its
     /// own (as a cleanup section does), the expansions are never sent anywhere, and the pieces are joined.
     /// A whole-dictation cue has no stretch, so no cleaner or provider runs.
-    private func assemble(_ pieces: [SnippetPiece], results: [ProcessingResult?]) -> ProcessingResult {
+    private func assemble(_ pieces: [VoiceCuePiece], results: [ProcessingResult?]) -> ProcessingResult {
         var evidence = ProcessingResult(outcome: .insert(""))
-        evidence.snippets = pieces.filter { if case .expansion = $0 { true } else { false } }.count
+        evidence.cues = pieces.filter { if case .expansion = $0 { true } else { false } }.count
         let done = results.compactMap { $0 }
         func joined(_ parts: [String], _ separator: String) -> String? { parts.isEmpty ? nil : parts.joined(separator: separator) }
         evidence.cleanupPath = done.isEmpty ? .off : [CleanupPath.localRules, .modelPunctuationOnLocal, .modelAccepted, .localRoute, .off].first { path in done.contains { $0.cleanupPath == path } }
@@ -214,7 +214,7 @@ final class ProcessingCoordinator {
         evidence.guardVerdict = joined(done.compactMap(\.guardVerdict), ",")
         for term in done.flatMap(\.terms) where !evidence.terms.contains(term) { evidence.terms.append(term) }
         let texts = results.map { result -> String in if case .insert(let text)? = result?.outcome { text } else { "" } }
-        evidence.outcome = .insert(SnippetText.join(pieces, processed: texts, keepsCase: { [dictionary] in dictionary.apply(to: $0) != $0 }))
+        evidence.outcome = .insert(VoiceCueText.join(pieces, processed: texts, keepsCase: { [dictionary] in dictionary.apply(to: $0) != $0 }))
         return evidence
     }
 

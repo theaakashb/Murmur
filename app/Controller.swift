@@ -97,9 +97,9 @@ enum ScreenRequest: Equatable {
     /// Forms and spellings learning skips (conflicting, undone or deleted fixes), for Settings.
     @Published var blockedWords: [CorrectionLedger.Blocked] = []
     @Published var dictionaryMessage = ""
-    /// Voice snippets for Settings; `snippetMessage` reports the last edit error.
-    @Published var snippets: [Snippet] = []
-    @Published var snippetMessage = ""
+    /// Voice cues for Settings; `cueMessage` reports the last edit error.
+    @Published var cues: [VoiceCue] = []
+    @Published var cueMessage = ""
     @Published var dictionarySuggestions: [DictionarySuggestion] = []
     var spellingCache: [String: Bool] = [:]
     // Model downloads. Each slot's message reports the last download action, never interrupting dictation.
@@ -353,7 +353,7 @@ enum ScreenRequest: Equatable {
             }
             try store?.purge(retention: appliedRetention)
             configureMeetings(locations)
-            historySaved(); refreshRecoveryAudio(); refreshDictionary(); refreshSnippets()
+            historySaved(); refreshRecoveryAudio(); refreshDictionary(); refreshCues()
         } catch { store = nil; records = nil; retry = nil; processing = nil; phase = .error; message = "Private storage is unavailable. Murmur cannot start." }
         for slot in modelSlots { self[keyPath: slot].status = self[keyPath: slot].downloader?.status() ?? .notDownloaded }
         warm.onDictionaryStatus = { [weak self] failed in DispatchQueue.main.async { self?.dictionarySupportFailed = failed } }
@@ -1065,7 +1065,7 @@ enum ScreenRequest: Equatable {
         // Consumed here for every outcome, so a later retry never measures from an old key release.
         let released = finishedAt; finishedAt = 0
         entry.cleanupOutcome = result.cleanupPath
-        entry.snippets = result.snippets > 0 ? result.snippets : nil
+        entry.cues = result.cues > 0 ? result.cues : nil
         entry.timing?.cleanup = ProcessInfo.processInfo.systemUptime - cleanupStartedAt
         if processing != nil {
             var detail = entry.cleanup ?? CleanupDetail()
@@ -1165,7 +1165,7 @@ enum ScreenRequest: Equatable {
             switch delivery {
             case .delivered(let insertion):
                 // An expansion is the user's stored text, not a dictation to learn spellings from.
-                if entry.snippets == nil { watchCorrections(insertion, text: entry.finalText, entryID: entry.id, at: target?.selection?.location, pid: target?.pid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier) }
+                if entry.cues == nil { watchCorrections(insertion, text: entry.finalText, entryID: entry.id, at: target?.selection?.location, pid: target?.pid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier) }
                 showInsertionResult(insertion, entryID: entry.id, text: entry.finalText)
                 if insertion.status != .failed { offerModeRecovery(entry: entry, inserted: entry.finalText, insertion: insertion, target: target) }
                 // A provider failure is not silent: a bad key or quota would otherwise degrade every dictation.

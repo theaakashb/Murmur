@@ -14,7 +14,7 @@ import Foundation
 
     static func main() {
         // What a user types or says has nowhere to go: a custom endpoint becomes "custom", and no field takes text.
-        let sentinels = ["SENTINEL-TRANSCRIPT", "SENTINEL-KEY", "SENTINEL-TERM", "https://SENTINEL-ENDPOINT.example/v1", "SENTINEL-CUSTOM-MODEL", "SENTINEL-BUNDLE", "SENTINEL-SNIPPET-CUE", "SENTINEL-SNIPPET-TEXT"]
+        let sentinels = ["SENTINEL-TRANSCRIPT", "SENTINEL-KEY", "SENTINEL-TERM", "https://SENTINEL-ENDPOINT.example/v1", "SENTINEL-CUSTOM-MODEL", "SENTINEL-BUNDLE", "SENTINEL-CUE-PHRASE", "SENTINEL-CUE-TEXT"]
         var custom = sample(cleanup: .custom); custom.transcription = .custom
         let text = custom.text, url = IssueReport.url(body: text).absoluteString.removingPercentEncoding!
         for marker in sentinels { assert(!text.contains(marker) && !url.contains(marker), "leaked \(marker)") }

@@ -6,7 +6,7 @@ Murmur is a macOS dictation app. Press a global shortcut, speak, and Murmur type
 
 Pre-release source project. There is no production-signed, notarized download; build a development bundle from source.
 
-Murmur transcribes locally by default and inserts text into the focused field. It also offers optional cloud transcription and cleanup, a custom dictionary, voice snippets, correction learning, meeting capture, and update checks. Cloud features require your own provider configuration.
+Murmur transcribes locally by default and inserts text into the focused field. It also offers optional cloud transcription and cleanup, a custom dictionary, voice cues, correction learning, meeting capture, and update checks. Cloud features require your own provider configuration.
 
 ## Requirements
 
@@ -53,22 +53,22 @@ Murmur keeps dictation local by default. Review these data flows before enabling
 - API keys are stored in the macOS Keychain. The provider client redacts key representations and uses content-free errors; do not include keys in issue reports.
 - Transcript history stays on the Mac with no cloud sync. Retention is 30 days by default, with six-month and forever options. History Off keeps new transcripts only until Murmur quits, but does not erase existing history or disable retry audio and dictionary learning. Each entry also keeps diagnostic detail (segment scores, cleanup output, timing) in the same file. Settings can optionally keep each dictation's recording for 7 days (off by default); Delete All Data removes it.
 - Audio is not kept as a permanent history. Failed dictation audio, unfinished meeting chunks and call audio waiting for speaker separation can remain locally for up to 24 hours. Expiry is enforced while Murmur runs; quitting the app does not run a background deletion service.
-- Voice snippets (Settings → Writing → Snippets) are saved in an owner-only file on the Mac and are never sent to a cleanup provider; the text of a snippet reaches the destination exactly as saved. Bug-report diagnostics never include them.
+- Voice cues (Settings → Writing → Cues) are saved in an owner-only file on the Mac and are never sent to a cleanup provider; the text of a cue reaches the destination exactly as saved. Bug-report diagnostics never include them.
 - Correction learning is on by default. It observes edits to the inserted span for up to a minute; in unreadable fields it can use an in-memory key observer. Disable learning or require readable fields in Settings → Dictionary. Learned spellings are saved separately from transcript history.
 - Optional screen context is off by default. When enabled for AI cleanup, selected text, clipboard text and focused-window text can accompany the transcript to the chosen cleanup route.
 - Meetings start only after your action. Review the capture source and notify participants before recording; meeting transcription and generated notes have separate route choices in Settings → Meetings. Cloud transcription sends meeting audio; cloud notes send transcript content and your notes.
 - No transcript or audio telemetry.
-- Help → Report an Issue shows a text block of versions, permission states, routes and model names, with no dictated text, audio, keys, dictionary entries, snippets or endpoint addresses. You can edit it before choosing Email Report, which opens your mail app with the text addressed to bugs-murmur@clouddev.cc, or Open GitHub Issue, which opens your browser on a public, prefilled GitHub issue. Murmur itself sends nothing.
+- Help → Report an Issue shows a text block of versions, permission states, routes and model names, with no dictated text, audio, keys, dictionary entries, cues or endpoint addresses. You can edit it before choosing Email Report, which opens your mail app with the text addressed to bugs-murmur@clouddev.cc, or Open GitHub Issue, which opens your browser on a public, prefilled GitHub issue. Murmur itself sends nothing.
 - Configured builds use Sparkle for GitHub-hosted updates. Automatic installation is off by default and can be enabled in Settings. Updates wait while dictation or meeting work is active; update checks do not send transcripts, audio, dictionary entries or provider keys.
 
 ## Removing your data
 
-Settings → History & Privacy → Delete All Data removes local dictation and meeting history, generated and personal meeting notes, retry audio, dictionary, snippets and learning data, held transcripts, and Murmur's API keys. Settings and downloaded models remain. It does not delete copies held by cloud providers, backups, or other applications.
+Settings → History & Privacy → Delete All Data removes local dictation and meeting history, generated and personal meeting notes, retry audio, dictionary, cues and learning data, held transcripts, and Murmur's API keys. Settings and downloaded models remain. It does not delete copies held by cloud providers, backups, or other applications.
 
 For manual removal after quitting Murmur, including downloaded models:
 
 ```sh
-# History, settings data, dictionary, snippets, learned entries and retry audio
+# History, settings data, dictionary, cues, learned entries and retry audio
 rm -rf ~/Library/Application\ Support/Dictation
 # Downloaded models
 rm -rf ~/Library/Caches/Dictation

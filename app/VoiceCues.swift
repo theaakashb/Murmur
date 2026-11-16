@@ -1,26 +1,26 @@
 import Foundation
 
-// Voice snippets: a spoken cue and the text to insert in its place, stored as snippets.json beside
+// Voice cues: a cue is a spoken phrase and the text to insert in its place, stored as cues.json beside
 // dictionary.json. Foundation only. Matching works on the raw transcript, before the dictionary, so a
-// cue is stored the way speech recognition writes it. The expansion is never processed (README, Snippets).
+// phrase is stored the way speech recognition writes it. The expansion is never processed (README, Cues).
 
-struct Snippet: Codable, Identifiable, Equatable {
+struct VoiceCue: Codable, Identifiable, Equatable {
     let id: UUID
-    var cue: String
+    var phrase: String
     /// Inserted exactly as stored, newlines included.
     var text: String
     let createdAt: Date
 }
 
-/// A dictation cut at its snippet commands.
-enum SnippetPiece: Equatable {
+/// A dictation cut at its cue commands.
+enum VoiceCuePiece: Equatable {
     /// Spoken words between commands, still raw; processed like any dictation.
     case text(String)
-    /// The snippet text, and the ", . ! ? ; :" that followed the command.
+    /// The cue text, and the ", . ! ? ; :" that followed the command.
     case expansion(String, closing: String)
 }
 
-enum SnippetText {
+enum VoiceCueText {
     static let leadWords: Set<String> = ["insert", "paste"]
     static let reserved: Set<String> = ["insert", "paste", "here"]
     static let closing: Set<Character> = [",", ".", "!", "?", ";", ":"]
@@ -31,21 +31,21 @@ enum SnippetText {
     }
     private static func word(_ token: TermText.Token) -> String { token.folded.filter { $0 != "'" && $0 != "-" } }
 
-    /// Nil when no snippet fires. A whole dictation that is just a cue becomes the snippet alone; otherwise
-    /// `insert <cue>` or `paste <cue>`, optionally followed by `here`, is replaced in full. A sentence end
-    /// inside the command breaks it ("insert my link. Here we go" keeps "Here"). The longest cue wins.
-    static func split(_ raw: String, snippets: [Snippet]) -> [SnippetPiece]? {
-        let cues = snippets.map { (words: words($0.cue), text: $0.text) }.sorted { $0.words.count > $1.words.count }
+    /// Nil when no cue fires. A whole dictation that is just a phrase becomes the cue alone; otherwise
+    /// `insert <phrase>` or `paste <phrase>`, optionally followed by `here`, is replaced in full. A sentence end
+    /// inside the command breaks it ("insert my link. Here we go" keeps "Here"). The longest phrase wins.
+    static func split(_ raw: String, cues: [VoiceCue]) -> [VoiceCuePiece]? {
+        let phrases = cues.map { (words: words($0.phrase), text: $0.text) }.sorted { $0.words.count > $1.words.count }
         let chars = Array(raw), tokens = TermText.tokens(chars), spoken = tokens.map(word)
-        guard !cues.isEmpty, !tokens.isEmpty else { return nil }
-        if let whole = cues.first(where: { $0.words == spoken }) { return [.expansion(whole.text, closing: "")] }
+        guard !phrases.isEmpty, !tokens.isEmpty else { return nil }
+        if let whole = phrases.first(where: { $0.words == spoken }) { return [.expansion(whole.text, closing: "")] }
         func joined(_ from: Int, _ to: Int) -> Bool { !chars[tokens[from].end..<tokens[to].start].contains { ".!?".contains($0) } }
-        var pieces: [SnippetPiece] = [], cursor = 0, i = 0
+        var pieces: [VoiceCuePiece] = [], cursor = 0, i = 0
         while i < tokens.count {
-            guard leadWords.contains(spoken[i]), let cue = cues.first(where: { cue in
-                i + cue.words.count < tokens.count && Array(spoken[(i + 1)...(i + cue.words.count)]) == cue.words && joined(i, i + cue.words.count)
+            guard leadWords.contains(spoken[i]), let phrase = phrases.first(where: { phrase in
+                i + phrase.words.count < tokens.count && Array(spoken[(i + 1)...(i + phrase.words.count)]) == phrase.words && joined(i, i + phrase.words.count)
             }) else { i += 1; continue }
-            var last = i + cue.words.count
+            var last = i + phrase.words.count
             if last + 1 < tokens.count, spoken[last + 1] == "here", joined(last, last + 1) { last += 1 }
             var end = tokens[last].end
             var k = end
@@ -56,7 +56,7 @@ enum SnippetText {
             if run > k { end = run }
             let before = String(chars[cursor..<tokens[i].start])
             if !before.allSatisfy(\.isWhitespace) { pieces.append(.text(before.trimmingCharacters(in: .whitespacesAndNewlines))) }
-            pieces.append(.expansion(cue.text, closing: punctuation))
+            pieces.append(.expansion(phrase.text, closing: punctuation))
             cursor = end; i = last + 1
         }
         guard !pieces.isEmpty else { return nil }
@@ -70,7 +70,7 @@ enum SnippetText {
     /// expansion that did not end a sentence keep the case they were spoken in (a separately cleaned segment
     /// would otherwise start with a capital, unless `keepsCase` says a dictionary spelling made it), and a
     /// segment before an expansion loses a period only cleanup added.
-    static func join(_ pieces: [SnippetPiece], processed: [String], keepsCase: (String) -> Bool = { _ in false }) -> String {
+    static func join(_ pieces: [VoiceCuePiece], processed: [String], keepsCase: (String) -> Bool = { _ in false }) -> String {
         var out = "", midSentence = false
         func glue(_ text: String) {
             guard let first = text.first, let last = out.last else { out += text; return }
@@ -101,22 +101,22 @@ enum SnippetText {
     }
 }
 
-/// Persists snippets as `snippets.json` in `directory` (the dictionary's folder). Every mutation writes through.
+/// Persists cues as `cues.json` in `directory` (the dictionary's folder). Every mutation writes through.
 /// A file that cannot be read leaves the store empty and read-only, so dictation still works and a save
 /// cannot overwrite the damaged file.
-final class SnippetStore {
-    static let fileName = "snippets.json"
-    static let maxCueLength = 60
+final class VoiceCueStore {
+    static let fileName = "cues.json"
+    static let maxPhraseLength = 60
     static let maxTextLength = 4000
 
     let directory: URL
-    private(set) var snippets: [Snippet] = []
+    private(set) var cues: [VoiceCue] = []
     private(set) var unreadable = false
     private var file: URL { directory.appendingPathComponent(Self.fileName) }
 
     private struct FileFormat: Codable {
         var version = 1
-        var snippets: [Snippet]
+        var cues: [VoiceCue]
     }
 
     init(directory: URL) {
@@ -124,55 +124,55 @@ final class SnippetStore {
         unreadable = (try? reload()) == nil
     }
 
-    /// Re-reads from disk; an absent file means no snippets (e.g. after Delete all data).
+    /// Re-reads from disk; an absent file means no cues (e.g. after Delete all data).
     func reload() throws {
-        snippets = []
+        cues = []
         try PrivateFiles.prepareDirectory(directory)
         guard let data = try PrivateFiles.read(file) else { return }
         let decoded = try JSONDecoder().decode(FileFormat.self, from: data)
-        guard decoded.version == 1 else { throw StoreError("Unsupported snippets version") }
-        snippets = decoded.snippets
+        guard decoded.version == 1 else { throw StoreError("Unsupported cues version") }
+        cues = decoded.cues
     }
 
     private func save() throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        try PrivateFiles.write(try encoder.encode(FileFormat(snippets: snippets)), to: file)
+        try PrivateFiles.write(try encoder.encode(FileFormat(cues: cues)), to: file)
     }
 
     @discardableResult
-    func add(cue: String, text: String, now: Date = Date()) throws -> Snippet {
-        let snippet = try validate(Snippet(id: UUID(), cue: cue, text: text, createdAt: now))
-        snippets.append(snippet)
+    func add(phrase: String, text: String, now: Date = Date()) throws -> VoiceCue {
+        let cue = try validate(VoiceCue(id: UUID(), phrase: phrase, text: text, createdAt: now))
+        cues.append(cue)
         try save()
-        return snippet
+        return cue
     }
 
-    func update(id: UUID, cue: String, text: String) throws {
-        guard let index = snippets.firstIndex(where: { $0.id == id }) else { throw StoreError("Snippet not found") }
-        snippets[index] = try validate(Snippet(id: id, cue: cue, text: text, createdAt: snippets[index].createdAt))
+    func update(id: UUID, phrase: String, text: String) throws {
+        guard let index = cues.firstIndex(where: { $0.id == id }) else { throw StoreError("Cue not found") }
+        cues[index] = try validate(VoiceCue(id: id, phrase: phrase, text: text, createdAt: cues[index].createdAt))
         try save()
     }
 
     func delete(id: UUID) throws {
-        guard let index = snippets.firstIndex(where: { $0.id == id }) else { throw StoreError("Snippet not found") }
-        guard !unreadable else { throw StoreError("Snippets could not be read") }
-        snippets.remove(at: index)
+        guard let index = cues.firstIndex(where: { $0.id == id }) else { throw StoreError("Cue not found") }
+        guard !unreadable else { throw StoreError("Cues could not be read") }
+        cues.remove(at: index)
         try save()
     }
 
-    private func validate(_ snippet: Snippet) throws -> Snippet {
-        guard !unreadable else { throw StoreError("Snippets could not be read") }
-        let cue = TermText.collapseWhitespace(snippet.cue)
-        let key = SnippetText.words(cue)
-        guard (1...Self.maxCueLength).contains(cue.count), cue.contains(where: \.isLetter), !key.isEmpty else {
-            throw StoreError("The cue needs at least one letter and at most \(Self.maxCueLength) characters")
+    private func validate(_ cue: VoiceCue) throws -> VoiceCue {
+        guard !unreadable else { throw StoreError("Cues could not be read") }
+        let phrase = TermText.collapseWhitespace(cue.phrase)
+        let key = VoiceCueText.words(phrase)
+        guard (1...Self.maxPhraseLength).contains(phrase.count), phrase.contains(where: \.isLetter), !key.isEmpty else {
+            throw StoreError("The phrase needs at least one letter and at most \(Self.maxPhraseLength) characters")
         }
-        guard !(key.count == 1 && SnippetText.reserved.contains(key[0])) else { throw StoreError("“\(cue)” is already a command word") }
-        guard !snippets.contains(where: { $0.id != snippet.id && SnippetText.words($0.cue) == key }) else { throw StoreError("Another snippet already uses that cue") }
-        guard (1...Self.maxTextLength).contains(snippet.text.count), !snippet.text.allSatisfy(\.isWhitespace) else {
+        guard !(key.count == 1 && VoiceCueText.reserved.contains(key[0])) else { throw StoreError("“\(phrase)” is already a command word") }
+        guard !cues.contains(where: { $0.id != cue.id && VoiceCueText.words($0.phrase) == key }) else { throw StoreError("Another cue already uses that phrase") }
+        guard (1...Self.maxTextLength).contains(cue.text.count), !cue.text.allSatisfy(\.isWhitespace) else {
             throw StoreError("The text needs 1 to \(Self.maxTextLength) characters")
         }
-        return Snippet(id: snippet.id, cue: cue, text: snippet.text, createdAt: snippet.createdAt)
+        return VoiceCue(id: cue.id, phrase: phrase, text: cue.text, createdAt: cue.createdAt)
     }
 }

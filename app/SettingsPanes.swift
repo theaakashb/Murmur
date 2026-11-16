@@ -4,7 +4,7 @@ import Foundation
 /// A settings page. The raw values are stored (`settingsSection`), so they stay stable. Each page
 /// belongs to a sidebar group (named by its first page); the group supplies title, icon and lede.
 enum SettingsPane: Int, CaseIterable {
-    case general = 0, transcription, cleanup, modes, dictionary, privacy, apiKeys, updates, meetings, recording, insertion, snippets
+    case general = 0, transcription, cleanup, modes, dictionary, privacy, apiKeys, updates, meetings, recording, insertion, cues
 
     var name: String {
         switch self {
@@ -13,7 +13,7 @@ enum SettingsPane: Int, CaseIterable {
         case .cleanup: "Cleanup"
         case .modes: "Modes"
         case .dictionary: "Dictionary"
-        case .snippets: "Snippets"
+        case .cues: "Cues"
         case .privacy: "History & Privacy"
         case .apiKeys: "API Keys"
         case .updates: "Updates"
@@ -26,14 +26,14 @@ enum SettingsPane: Int, CaseIterable {
     var group: SettingsPane {
         switch self {
         case .transcription, .recording, .insertion: .recording
-        case .cleanup, .modes, .dictionary, .snippets: .cleanup
+        case .cleanup, .modes, .dictionary, .cues: .cleanup
         default: self
         }
     }
     var tabs: [SettingsPane] {
         switch group {
         case .recording: [.recording, .transcription, .insertion]
-        case .cleanup: [.cleanup, .modes, .dictionary, .snippets]
+        case .cleanup: [.cleanup, .modes, .dictionary, .cues]
         default: []
         }
     }
@@ -112,7 +112,7 @@ enum SettingsSearch {
         .init("Dictionary", .dictionary, "vocabulary preferred spelling aliases words", target: "top"),
         .init("Learn from my corrections", .dictionary, "automatic learning spelling dictionary"),
         .init("Limit learning to readable fields", .dictionary, "keystroke learning privacy dictionary"),
-        .init("Snippets", .snippets, "saved text expand insert paste email address link signature shortcut cue", target: "top"),
+        .init("Cues", .cues, "saved text expand insert paste email address link signature shortcut cue", target: "top"),
         .init("Transcript history", .privacy, "save off privacy storage"),
         .init("Keep transcripts for", .privacy, "retention delete thirty 30 days six months forever"),
         .init("Keep recordings for diagnostics (7 days)", .privacy, "audio wav replay debug developer quality"),

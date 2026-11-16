@@ -12,7 +12,7 @@ struct InsightsItem: Equatable {
     let seconds: Double?
     /// Bundle ID of the app the text was pasted into; nil when unknown or not pasted.
     let app: String?
-    /// A voice snippet was expanded into the final text, which is not an edit of what was said.
+    /// A voice cue was expanded into the final text, which is not an edit of what was said.
     var expanded = false
 }
 

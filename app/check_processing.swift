@@ -93,7 +93,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         try learningChecks(root.appendingPathComponent("learn"), defaults)
         try await sectionChecks(ProcessingCoordinator(directory: root.appendingPathComponent("sections"), defaults: defaults))
         try editorChecks(ProcessingCoordinator(directory: root.appendingPathComponent("editor"), defaults: defaults))
-        try await snippetChecks(ProcessingCoordinator(directory: root.appendingPathComponent("snippets"), defaults: defaults))
+        try await cueChecks(ProcessingCoordinator(directory: root.appendingPathComponent("cues"), defaults: defaults))
         try recordingChecks(root.appendingPathComponent("recordings"))
         print("\(passes) checks passed, \(failures) failed")
         if failures > 0 { exit(1) }
@@ -761,11 +761,11 @@ extension ProcessingChecks {
 }
 
 extension ProcessingChecks {
-    /// Snippet text reaches the destination as stored: no cleaner, provider, guard, tone or dictionary sees it.
-    static func snippetChecks(_ p: ProcessingCoordinator) async throws {
-        let text = "SNIPPET-SENTINEL um, acme: Monday, no wait, Thursday new paragraph 3 reports\nSecond line."
+    /// Cue text reaches the destination as stored: no cleaner, provider, guard, tone or dictionary sees it.
+    static func cueChecks(_ p: ProcessingCoordinator) async throws {
+        let text = "CUE-SENTINEL um, acme: Monday, no wait, Thursday new paragraph 3 reports\nSecond line."
         try p.addEntry(preferred: "Akme", variants: "acme")
-        try p.snippets.add(cue: "my profile", text: text)
+        try p.cues.add(phrase: "my profile", text: text)
         let local = SpyCleaner(.echo); p.localCleaner = local
         var settings = p.settings; settings.route = .local; try p.update(settings, persist: false)
         let styles: [(String, DictationStyle)] = [("Faithful", DictationStyle(options: .faithful)), ("Strict", DictationStyle(options: .standard)),
@@ -773,12 +773,12 @@ extension ProcessingChecks {
         for (name, style) in styles {
             local.inputs = []; local.calls = 0
             let whole = p.process("My profile.", style: style)
-            check(whole.outcome == .insert(text) && whole.snippets == 1 && local.calls == 0, "\(name): whole cue is the text alone, no cleaner call")
+            check(whole.outcome == .insert(text) && whole.cues == 1 && local.calls == 0, "\(name): whole cue is the text alone, no cleaner call")
             let inline = p.process("call acme insert my profile here um thanks", style: style)
             guard case .insert(let out) = inline.outcome else { check(false, "\(name): inserted"); continue }
-            check(out.contains(text) && inline.snippets == 1, "\(name): inline expansion is byte for byte")
+            check(out.contains(text) && inline.cues == 1, "\(name): inline expansion is byte for byte")
             check(out.hasPrefix("call Akme") || out.hasPrefix("Call Akme"), "\(name): the dictionary still applies to the spoken words: \(out.prefix(12))")
-            check(!local.inputs.contains { $0.contains("SENTINEL") }, "\(name): the cleaner never saw the snippet")
+            check(!local.inputs.contains { $0.contains("SENTINEL") }, "\(name): the cleaner never saw the cue")
             let async = await p.processAsync("insert my profile here", style: style)
             check(async.outcome == .insert(text), "\(name): async whole command")
         }
@@ -796,16 +796,16 @@ extension ProcessingChecks {
         check(whole.outcome == .insert(text) && provider.messages.isEmpty && whole.cleanupPath == .off, "Polish: a whole cue makes no provider request")
         let inline = await p.processAsync("call acme insert my profile here", style: polish)
         check(inline.outcome == .insert("Call Akme " + text) && provider.messages.count == 1, "Polish: one request for the spoken words, no period before the expansion")
-        check(provider.messages.allSatisfy { !$0.system.contains("SENTINEL") && !$0.user.contains("SENTINEL") && !$0.user.contains("Monday") }, "Polish: the provider never receives snippet text")
-        check(inline.cleanupPath == .modelAccepted && inline.snippets == 1, "Polish: path of the spoken words, one snippet counted")
+        check(provider.messages.allSatisfy { !$0.system.contains("SENTINEL") && !$0.user.contains("SENTINEL") && !$0.user.contains("Monday") }, "Polish: the provider never receives cue text")
+        check(inline.cleanupPath == .modelAccepted && inline.cues == 1, "Polish: path of the spoken words, one cue counted")
         let two = await p.processAsync("call acme insert my profile here and again insert my profile here", style: polish)
-        check(provider.messages.count == 3 && two.snippets == 2, "Polish: each stretch of words is its own request")
+        check(provider.messages.count == 3 && two.cues == 2, "Polish: each stretch of words is its own request")
         // A rejected rewrite of the spoken words falls back locally; the expansion is untouched.
         let wrong = MockCloudCleaner(.success("Entirely different words appear now."))
         p.cloudCleaner = wrong
         let rejected = await p.processAsync("call acme insert my profile here", style: polish)
         check(rejected.outcome == .insert("Call Akme " + text) && rejected.fallback != nil, "Polish: the guard judges only the spoken words: \(rejected.outcome) \(String(describing: rejected.fallback))")
-        check(wrong.messages.allSatisfy { !$0.user.contains("SENTINEL") }, "Polish: rejected path sent no snippet text")
+        check(wrong.messages.allSatisfy { !$0.user.contains("SENTINEL") }, "Polish: rejected path sent no cue text")
         let failing = MockCloudCleaner(.failure(.network(.gemini)))
         p.cloudCleaner = failing
         let failed = await p.processAsync("call acme insert my profile here", style: polish)

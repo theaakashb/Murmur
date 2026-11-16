@@ -50,7 +50,7 @@ struct Diagnostics {
 
 
         ---
-        Murmur diagnostics (no dictated text, audio, keys, dictionary, snippets or app names)
+        Murmur diagnostics (no dictated text, audio, keys, dictionary, cues or app names)
         Murmur: \(appVersion) (\(build))
         macOS: \(macOS)
         Mac: \(macModel)

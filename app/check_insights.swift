@@ -50,7 +50,7 @@ func stats(_ items: [InsightsItem], calendar: Calendar = utc, at: Date = now) ->
         check(Insights.wordsChanged(raw: "ship it to cube control", final: "ship it to kubectl") == 2, "two heard words become one")
         check(stats([item(0, raw: "um hello", final: "Hello")])?.wordsChanged == 2, "stats sum word changes")
         let expanded = InsightsItem(recordedAt: now, rawText: "insert my link here", finalText: "https://example.com/a/b", seconds: nil, app: nil, expanded: true)
-        check(stats([expanded])?.wordsChanged == 0 && stats([expanded])?.words == 1, "an expanded snippet is not counted as an edit")
+        check(stats([expanded])?.wordsChanged == 0 && stats([expanded])?.words == 1, "an expanded cue is not counted as an edit")
 
         // Apps, where History has them.
         let apps = stats([item(0, app: "com.apple.TextEdit"), item(0, app: "com.apple.mail"), item(1, app: "com.apple.mail"), item(1)])

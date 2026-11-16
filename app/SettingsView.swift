@@ -96,11 +96,11 @@ struct SettingsView: View {
     @State var editingEntryID: UUID?
     @State var suggestionSpellings: [String: String] = [:]
     @State var editPreferred = ""
-    @State var newCue = ""
-    @State var newSnippetText = ""
-    @State var editingSnippetID: UUID?
-    @State var editSnippetCue = ""
-    @State var editSnippetText = ""
+    @State var newPhrase = ""
+    @State var newCueText = ""
+    @State var editingCueID: UUID?
+    @State var editCuePhrase = ""
+    @State var editCueText = ""
     @State var editVariants = ""
     @State var openKey: ProviderID?
     @State var keyDraft = ""
@@ -518,7 +518,7 @@ struct SettingsView: View {
         case .cleanup: cleanup
         case .modes: modes
         case .dictionary: dictionary
-        case .snippets: snippetsPane
+        case .cues: cuesPane
         case .privacy: privacy
         case .apiKeys: apiKeys
         case .recording: recordingSettings

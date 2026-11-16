@@ -1,6 +1,6 @@
 import Foundation
 
-// Owner-only private JSON file IO shared by the dictionary, snippets, learning and the controller. Throws `StoreError` (Dictionary.swift).
+// Owner-only private JSON file IO shared by the dictionary, cues, learning and the controller. Throws `StoreError` (Dictionary.swift).
 
 /// Owner-only private JSON files with atomic replacement, using FileManager only.
 /// The containing directory is 0700, so the short interval before the file's own 0600

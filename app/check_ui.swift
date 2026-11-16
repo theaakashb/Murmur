@@ -147,15 +147,15 @@ extension AppController {
                                                         DictionarySuggestion(preferred: "Proxmox", heard: ["Proxmox", "Proxmonk"], dictations: 6)]
                 }
             }
-            if args.contains("--snippets") {
-                controller.addSnippet(cue: "my website", text: "https://example.com/sample")
-                controller.addSnippet(cue: "my address", text: "1 Sample Street\nExample Town, EX 00000")
+            if args.contains("--cues") {
+                controller.addCue(phrase: "my website", text: "https://example.com/sample")
+                controller.addCue(phrase: "my address", text: "1 Sample Street\nExample Town, EX 00000")
             }
             if args.contains("--insights") || args.contains("--history-off") { controller.screenRequest = .insights }
             if args.contains("--history") { controller.screenRequest = .history }
             if args.contains("--settings") { controller.screenRequest = .settings }
             if args.contains("--dictionary") { controller.screenRequest = .settingsPane(.dictionary) }
-            if args.contains("--snippets") { controller.screenRequest = .settingsPane(.snippets) }
+            if args.contains("--cues") { controller.screenRequest = .settingsPane(.cues) }
             // --cleanup-style -1|0|1|2: Faithful, Strict, Polish or Professional, with an AI model stored.
             if let flag = args.firstIndex(of: "--cleanup-style"), args.indices.contains(flag + 1), let style = Int(args[flag + 1]) {
                 controller.cleanupChoice = args.contains("--custom-cleanup") ? .customAPI : .localModel; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
