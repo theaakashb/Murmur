@@ -313,7 +313,7 @@ struct SettingsView: View {
         .background(WindowTitle(title: windowTitle))
         .overlay { if settingsSearchOpen { settingsSearchOverlay } }
         .onChange(of: sidebarCollapsed) { settingsSearchOpen = false; settingsQuery = "" }
-        .frame(minWidth: 760, minHeight: 560)
+        .frame(minWidth: 880, minHeight: 680)
         // Every setting applies as soon as it changes; attached here so hidden sections still apply.
         .modifier(AutoApplyGeneral(controller: controller))
         .modifier(AutoApplyRoutes(controller: controller, apiFieldFocused: apiFieldFocused))
@@ -978,7 +978,6 @@ struct SettingsView: View {
                 HStack(alignment: .center, spacing: 16) { info; Spacer(minLength: 8); actions }
                 VStack(alignment: .leading, spacing: 12) { info; actions }
             }
-            help(LocalCleanupFacts.explanation)
             if let progress = controller.localModelRow.progress { progressBar(progress) }
             if !controller.localModelRow.isReady && controller.localModelRow.progress == nil && controller.localModelRow.actions.contains(.download) {
                 help("Until it is downloaded, dictations are cleaned with Local rules.")

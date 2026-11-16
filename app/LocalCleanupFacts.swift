@@ -8,7 +8,6 @@ enum LocalCleanupFacts {
     static func summary(downloadSize: Int64) -> String {
         "\(modelName) · \(ModelFacts.formatBytes(downloadSize)) download · English · Apache-2.0 · \(ModelFacts.location)"
     }
-    static let explanation = "Cleans up each dictation on this Mac; the text never leaves it. It does not use screen context, custom writing instructions or rewrite presets, and it can miss numbered lists. Those cases fall back to Local rules."
     static let removedGeminiNotice = "Gemini cleanup was removed. Cleanup is now Local rules; choose Local model or Custom Provider if you want a model."
     static func confirmation(downloadSize: Int64, license: ModelLicenseInfo) -> (title: String, body: String) {
         ("Download \(modelName) (\(ModelFacts.formatBytes(downloadSize)))?",

@@ -83,11 +83,11 @@ import Combine
         controller.cleanupChoice = savedChoice
         let compact = CommandLine.arguments.contains("--compact")
         let opaque = CommandLine.arguments.contains("--opaque")
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: compact ? 760 : 1000, height: compact ? 560 : args.contains("--tall") ? 1100 : 680), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: compact ? 880 : 1000, height: compact ? 680 : args.contains("--tall") ? 1100 : 680), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = "Murmur UI Check"; window.titleVisibility = .hidden; window.titlebarAppearsTransparent = true; window.backgroundColor = Palette.paperNS
         window.contentView = NSHostingView(rootView: SettingsView(controller: controller,
             editingModeID: args.contains("--mode-editor") ? WritingMode.presets[0].id : nil).environment(\.utilityOpaquePreview, opaque))
-        window.contentMinSize = NSSize(width: 760, height: 560)
+        window.contentMinSize = NSSize(width: 880, height: 680)
         window.isReleasedWhenClosed = false
         window.center(); window.makeKeyAndOrderFront(nil)
         var entries = [
