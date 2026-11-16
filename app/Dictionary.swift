@@ -163,9 +163,9 @@ final class DictionaryStore {
     }
 
     /// Gap #12: spoken commands a dictionary entry may target ("Kocia Mark" -> "question mark").
-    /// Derived from `RuleCleaner.markCommands` (plus its "@" phrases) so the two never drift. Dictionary
+    /// Derived from `RuleCleaner.markCommands` (plus `RuleCleaner.atPhrases`) so the two never drift. Dictionary
     /// application runs before cleanup (`ProcessingCoordinator.prepare`), so these entries apply first.
-    static let commandPhrases: Set<String> = Set(RuleCleaner.markCommands.map { $0.0.joined(separator: " ") } + ["at the rate", "at sign"])
+    static let commandPhrases: Set<String> = Set((RuleCleaner.markCommands.map(\.0) + RuleCleaner.atPhrases).map { $0.joined(separator: " ") })
     /// An entry whose preferred form is a spoken command: applied ahead of other entries and kept
     /// out of every transcription boost and cleanup hint (it is not a word to bias toward).
     static func isCommandTarget(_ entry: DictionaryEntry) -> Bool {

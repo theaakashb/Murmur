@@ -70,10 +70,8 @@ enum CleanupGuard {
         if a != nil || b != nil { return a == b }
         return CleanupText.similarity(heard, written) >= 0.5
     }
-    static let correctionCues: [[String]] = [
-        ["sorry"], ["i", "mean"], ["i", "meant"], ["no", "wait"], ["wait", "no"], ["actually", "no"], ["or", "rather"],
-        ["actually"], ["no"], ["scratch", "that"],
-    ]
+    /// The rule engine's cues plus "actually no", which the rules reach through "actually" and "no" separately.
+    static let correctionCues: [[String]] = RuleCleaner.cuePatterns.map(\.0) + [["actually", "no"]]
 
     static func words(_ s: String) -> [Word] {
         let tokens = CleanupText.tokenize(s.replacingOccurrences(of: "\u{2019}", with: "'"))
@@ -137,7 +135,11 @@ enum CleanupGuard {
 
     /// Cues professional accepts without a comma: unambiguous, unlike "sorry", "no" or "I mean".
     /// "I mean" only before a determiner ("by 5 I mean the quarterly one"), never "I mean business".
-    static let looseCorrectionCues: [[String]] = [["no", "wait"], ["wait", "no"], ["actually", "no"], ["i", "meant"], ["or", "rather"], ["scratch", "that"], ["i", "mean"]]
+    static let looseCorrectionCues: [[String]] = correctionCues.filter { !commaRequiredCues.contains($0) }
+    /// The ordinary words that are corrections only after a comma (or dash).
+    static let commaRequiredCues: Set<[String]> = [["sorry"], ["actually"], ["no"]]
+    /// "no" before one of these quantifies it ("no one", "no longer") and is not a correction cue.
+    static let noQuantified: Set<String> = ["one", "body", "longer", "matter", "way", "doubt", "problem", "idea", "more"]
 
     /// Raw word indices that a spoken correction could legitimately delete: the cue itself plus up
     /// to eight preceding words in the same sentence (whole sentence for "scratch that"). With
@@ -169,7 +171,7 @@ enum CleanupGuard {
                 if commaFree {
                     // "no" quantifying the next word is not a cue: "wait no one blamed Bob".
                     if cue.last == "no", wi + cue.count < tokenOfWord.count,
-                       ["one", "body", "longer", "matter", "way", "doubt", "problem", "idea", "more"].contains(tokens[tokenOfWord[wi + cue.count]].lower) { continue }
+                       noQuantified.contains(tokens[tokenOfWord[wi + cue.count]].lower) { continue }
                     let before = wi > 0 ? tokens[tokenOfWord[wi - 1]].lower : ""
                     let after = wi + cue.count < tokenOfWord.count ? tokens[tokenOfWord[wi + cue.count]].lower : ""
                     if ["what", "which", "who", "how", "whatever", "all", "if"].contains(before)
@@ -215,7 +217,7 @@ enum CleanupGuard {
                     // Restated means the same word, an inflection of it, or the same kind of word
                     // ("Friday" -> "Monday"); never a merely similar spelling ("mad" / "said").
                     func restates(_ x: String, _ y: String) -> Bool {
-                        let kinds = [RuleCleaner.weekdays, RuleCleaner.months.union(["may"]), RuleCleaner.relativeTimes, RuleCleaner.colors]
+                        let kinds = [RuleCleaner.weekdays, RuleCleaner.monthsAndMay, RuleCleaner.relativeTimes, RuleCleaner.colors]
                         return x == y || zip(x, y).prefix { $0 == $1 }.count >= 4
                             || kinds.contains { $0.contains(x) && $0.contains(y) }
                             || (CleanupText.numberValue(x) != nil && CleanupText.numberValue(y) != nil)
@@ -293,7 +295,9 @@ enum CleanupGuard {
         return CleanupText.render(CleanupText.normalize(t))
     }
 
-    static let explicitRepairCues: [[String]] = [["no", "i", "mean"], ["no", "i", "meant"], ["actually", "no"], ["let", "me", "start", "again"], ["scratch", "that"]]
+    /// "No I mean" / "No I meant" prefix the ordinary cues; "actually no" and "scratch that" are shared; "let me start again" is its own.
+    static let explicitRepairCues: [[String]] = [["i", "mean"], ["i", "meant"]].map { ["no"] + $0 }
+        + correctionCues.filter { [["actually", "no"], ["scratch", "that"]].contains($0) } + [["let", "me", "start", "again"]]
 
     /// Polish and Professional: `raw` with each explicitly cued repair applied ("um what time is it no I mean
     /// what day is it" -> "um what day is it"). The cue goes with the whole clause before it, back to the
@@ -321,7 +325,7 @@ enum CleanupGuard {
             while end < tokenOfWord.count, CleanupText.hesitations.contains(word(end)), !between(end - 1, end, \.isTerminal) { end += 1 }
             // A declarative or quantifying use is not a cue: "no I mean it", "actually no one came".
             guard end < tokenOfWord.count, !between(end - 1, end, \.isTerminal),
-                  !["it", "business", "well", "to", "was", "is", "one", "body", "longer", "matter", "way", "doubt", "problem", "idea", "more"].contains(word(end)),
+                  !(noQuantified.union(["it", "business", "well", "to", "was", "is"])).contains(word(end)),
                   start > (cuts.last?.upperBound ?? -1) + 1,
                   // "No, I mean" may follow a question it corrects ("What time is it? No, I mean, what day is it?"):
                   // a speaker does not answer their own question with "I mean". A bare "No," there stays an answer.
@@ -598,7 +602,7 @@ enum CleanupGuard {
             guard let n = CleanupText.ordinals[a[i]] else { return nil }
             if i + 1 < a.count, !rawWords[i].commaAfter, ordinalPhraseNouns.contains(a[i + 1]) { return nil }
             // A date's day ("May first", "June second") is never a list marker.
-            if i > 0, RuleCleaner.months.union(["may"]).contains(a[i - 1]) { return nil }
+            if i > 0, RuleCleaner.monthsAndMay.contains(a[i - 1]) { return nil }
             return n
         }
         // A marker counts inside a counted sequence ("first ... second") that starts at an announced first

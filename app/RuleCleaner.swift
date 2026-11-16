@@ -164,6 +164,8 @@ struct RuleCleaner: Cleaner {
     static let anchors: Set<String> = ["at", "on", "in", "to", "for", "with", "from", "by", "the", "a", "an", "my", "your", "his", "her", "our", "their", "this", "into", "onto", "before", "after", "until"]
     static let weekdays: Set<String> = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
     static let months: Set<String> = ["january", "february", "march", "april", "june", "july", "august", "september", "october", "november", "december"]
+    /// "may" is a modal, so `months` omits it: `category` accepts only a capitalized "May", the guard's lowercase word lists accept it always.
+    static let monthsAndMay: Set<String> = months.union(["may"])
     static let relativeTimes: Set<String> = ["today", "tomorrow", "tonight", "yesterday", "morning", "afternoon", "evening", "noon", "midnight"]
     static let colors: Set<String> = ["red", "blue", "green", "yellow", "black", "white", "orange", "purple", "pink", "gray", "grey", "brown", "silver", "gold"]
 
@@ -237,7 +239,14 @@ struct RuleCleaner: Cleaner {
 
     // "Actually" crosses a period only for a one-word repair fragment; a full sentence may
     // introduce a new fact. "Scratch that" already accepts a preceding period.
-    static let splitCue = try! NSRegularExpression(pattern: #"(?<=[\p{L}\p{N}])\. (?:(Oh|Ah),? )?(No wait|Wait,? no|I mean|I meant|Or rather|Sorry|No|Actually(?=[.,] +[\p{L}\p{N}]+[.!?](?:\s|$)))[.,] +(\p{L}+|\p{N}+)"#, options: .caseInsensitive)
+    // Every `cuePatterns` cue except "scratch that"; "wait no" may carry a comma, "actually" only before a one-word repair.
+    static let splitCue = try! NSRegularExpression(pattern: #"(?<=[\p{L}\p{N}])\. (?:(Oh|Ah),? )?("# + cuePatterns.filter { $0.1 != .scratch }.map { cue -> String in
+        switch cue.0 {
+        case ["wait", "no"]: return "wait,? no"
+        case ["actually"]: return #"actually(?=[.,] +[\p{L}\p{N}]+[.!?](?:\s|$))"#
+        default: return cue.0.joined(separator: " ")
+        }
+    }.joined(separator: "|") + #")[.,] +(\p{L}+|\p{N}+)"#, options: .caseInsensitive)
 
     static func mergeSplitCues(_ text: String) -> String {
         let ns = text as NSString
@@ -471,6 +480,8 @@ extension RuleCleaner {
         (["exclamation", "point"], "!"), (["full", "stop"], "."), (["period"], "."), (["comma"], ","), (["colon"], ":"),
         (["semicolon"], ";"), (["hyphen"], "-"), (["dash"], "\u{2014}"),
     ]
+    /// Spoken forms of "@", before a handle; `Dictionary` targets them too.
+    static let atPhrases: [[String]] = [["at", "the", "rate"], ["at", "sign"]]
     /// A word before a command that makes it an ordinary noun: "a period", "the colon", "notice period", "a new line".
     static let commandBlockersBefore: Set<String> = [
         "a", "an", "the", "this", "that", "these", "those", "my", "your", "his", "her", "our", "their", "its", "of", "per",
@@ -666,7 +677,7 @@ extension RuleCleaner {
             }
             // "at the rate KV" / "at sign KV" -> "@KV"; "name at the rate gmail dot com" -> "name@gmail.com".
             // Not "at the rate of", "at the rate we're going" or "at the rate things are going".
-            if w == "at", let e = phrase(i, ["at", "the", "rate"]) ?? phrase(i, ["at", "sign"]), let x = after(e), let handle = word(x),
+            if w == "at", let e = atPhrases.lazy.compactMap({ phrase(i, $0) }).first, let x = after(e), let handle = word(x),
                handle != "of", !CleanupGuard.grammarWords.contains(handle), !CleanupGuard.persons.contains(where: { $0.contains(handle) }),
                !CleanupGuard.modals.contains(handle), CleanupText.numberValue(handle) == nil {
                 var parts = [t[x]], end = x
