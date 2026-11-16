@@ -20,7 +20,7 @@ extension AppController {
         flow.didDownload = { [weak self] result in
             if case .success = result, let self, let target = self.modelSlot.downloader?.target {
                 self.modelDirectory = target.path
-                UserDefaults.standard.set(target.path, forKey: "modelDirectory")
+                UserDefaults.standard[Prefs.modelDirectory] = target.path
             }
         }
         flow.download()

@@ -117,21 +117,23 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(strict.text == "Send 3 reports." && strict.reason != nil, "local rules retain strict guard")
         check(fresh == ProcessingSettings(), "missing keys load approved defaults")
         check(!fresh.options.polish, "strict cleanup by default")
-        check(fresh.options == CleanupOptions(punctuation: true, spoken: true, trustModel: true) && fresh.route == .local && fresh.learningEnabled && fresh.historyMode == .on && fresh.updateChecksEnabled, "defaults: all comforts on, local, learning on")
+        check(fresh.options == CleanupOptions(punctuation: true, spoken: true, trustModel: true) && fresh.route == .local && fresh.learningEnabled && defaults[Prefs.historyMode] == .on && defaults[Prefs.updateChecks], "defaults: all comforts on, local, learning on")
         var next = ProcessingSettings()
         next.options = CleanupOptions(fillers: false, corrections: true, lists: false, professional: true, trustModel: true)
-        next.route = .cloud; next.learningEnabled = false; next.learningRequiresReadableField = true; next.historyMode = .off; next.updateChecksEnabled = false
+        next.route = .cloud; next.learningEnabled = false
         next.save(to: defaults)
+        defaults[Prefs.readableLearning] = true; defaults[Prefs.historyMode] = .off; defaults[Prefs.updateChecks] = false
         check(ProcessingSettings.load(from: defaults) == next, "settings round-trip")
-        defaults.removeObject(forKey: ProcessingSettings.Key.readableLearning)
-        check(!ProcessingSettings.load(from: defaults).learningRequiresReadableField, "strict learning is opt-in")
+        check(defaults[Prefs.readableLearning] && defaults[Prefs.historyMode] == .off && !defaults[Prefs.updateChecks], "controller settings round-trip")
+        defaults.removeObject(forKey: Prefs.readableLearning.key)
+        check(!defaults[Prefs.readableLearning], "strict learning is opt-in")
         for key in ["cleanupFillers", "cleanupCorrections", "cleanupLists", "cleanupRoute", "learningEnabled", "historyMode", "updateChecksEnabled"] {
             check(defaults.object(forKey: key) != nil, "key \(key) written")
         }
-        defaults.set("satellite", forKey: ProcessingSettings.Key.route)
-        defaults.set("maybe", forKey: ProcessingSettings.Key.historyMode)
+        defaults.set("satellite", forKey: Prefs.cleanupRoute.key)
+        defaults.set("maybe", forKey: Prefs.historyMode.key)
         let unknown = ProcessingSettings.load(from: defaults)
-        check(unknown.route == .local && unknown.historyMode == .on, "unknown values fall back to defaults")
+        check(unknown.route == .local && defaults[Prefs.historyMode] == .on, "unknown values fall back to defaults")
         for key in ["cleanupFillers", "cleanupCorrections", "cleanupLists", "cleanupRoute", "learningEnabled", "historyMode", "updateChecksEnabled"] {
             defaults.removeObject(forKey: key)
         }

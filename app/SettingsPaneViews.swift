@@ -759,28 +759,6 @@ struct ShortcutRecorder: View {
     }
 }
 
-struct AutoApplyGeneral: ViewModifier {
-    @ObservedObject var controller: AppController
-    func body(content: Content) -> some View {
-        content
-            .onChange(of: controller.shortcut) { controller.settingsChanged() }
-            .onChange(of: controller.automaticInsertion) { controller.settingsChanged() }
-            .onChange(of: controller.pressToToggle) { controller.settingsChanged() }
-            .onChange(of: controller.recordingSounds) { controller.settingsChanged() }
-            .onChange(of: controller.liveWords) { controller.settingsChanged() }
-            .onChange(of: controller.liveWordsOnCloud) { controller.settingsChanged() }
-            .onChange(of: controller.intelligentLeadingSpace) { controller.settingsChanged() }
-            .onChange(of: controller.showMenuBar) { controller.settingsChanged() }
-            .onChange(of: controller.showInDock) { controller.settingsChanged() }
-            .onChange(of: controller.inputDeviceUID) { controller.settingsChanged() }
-            .onChange(of: controller.retention) { controller.settingsChanged() }
-            .onChange(of: controller.historyMode) { controller.settingsChanged() }
-            .onChange(of: controller.keepRecordings) { controller.settingsChanged() }
-            .onChange(of: controller.updateChecksEnabled) { controller.settingsChanged() }
-            .onChange(of: controller.installUpdatesAutomatically) { controller.settingsChanged() }
-    }
-}
-
 /// A list of short strings with an add field and remove buttons (mode websites and trigger words).
 private struct ModeListEditor: View {
     @Binding var items: [String]
@@ -813,30 +791,17 @@ private struct ModeListEditor: View {
     }
 }
 
-struct AutoApplyRoutes: ViewModifier {
+/// Applies settings as soon as they change (README "Settings and recovery"). The settings are `AppController.persisted`
+/// and `routeSettings`, not a list kept here; provider URL and model fields wait for Return or focus loss.
+struct AutoApplySettings: ViewModifier {
     @ObservedObject var controller: AppController
     let apiFieldFocused: Bool
     func body(content: Content) -> some View {
         content
-            .onChange(of: controller.cleanupFillers) { controller.settingsChanged() }
-            .onChange(of: controller.cleanupCorrections) { controller.settingsChanged() }
-            .onChange(of: controller.cleanupLists) { controller.settingsChanged() }
-            .onChange(of: controller.cleanupPunctuation) { controller.settingsChanged() }
-            .onChange(of: controller.cleanupSpoken) { controller.settingsChanged() }
-            .onChange(of: controller.cleanupPolish) { controller.settingsChanged() }
-            .onChange(of: controller.cleanupProfessional) { controller.settingsChanged() }
-            .onChange(of: controller.screenContext) { controller.settingsChanged() }
-            .onChange(of: controller.learningEnabled) { controller.settingsChanged() }
-            .onChange(of: controller.learningRequiresReadableField) { controller.settingsChanged() }
-            .onChange(of: controller.transcriptionRoute) { controller.settingsChanged() }
-            .onChange(of: controller.cloudTranscriber) { controller.settingsChanged() }
-            .onChange(of: controller.cleanupChoice) { controller.settingsChanged() }
-            // Typing in a provider field waits for Return or focus loss.
-            .onChange(of: controller.customAPIModel) { if !apiFieldFocused { controller.settingsChanged() } }
-            .onChange(of: controller.customTranscriptionModel) { if !apiFieldFocused { controller.settingsChanged() } }
-            .onChange(of: controller.geminiTranscriptionModel) { if !apiFieldFocused { controller.settingsChanged() } }
-            .onChange(of: controller.customAPIBaseURL) { if !apiFieldFocused { controller.settingsChanged() } }
-            .onChange(of: controller.customTranscriptionAPIBaseURL) { if !apiFieldFocused { controller.settingsChanged() } }
+            .onChange(of: controller.immediateSettings) { controller.settingsChanged() }
+            .onChange(of: controller.routeSettings) { old, new in
+                if !apiFieldFocused || old.transcription != new.transcription || old.cloudTranscriber != new.cloudTranscriber || old.cleanup != new.cleanup { controller.settingsChanged() }
+            }
             .onChange(of: apiFieldFocused) { _, focused in if !focused { controller.settingsChanged() } }
     }
 }

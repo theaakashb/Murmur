@@ -50,7 +50,7 @@ extension AppController {
            let observation = DictationObservation(value: value, insertedRange: NSRange(location: offset, length: length), now: now) {
             watch = Watch(observation: observation, pid: field.pid, field: field, keys: nil, current: text, entryID: entryID, route: "ax")
             timingLog.notice("watch route=ax")
-        } else if processing?.settings.learningRequiresReadableField != true, !IsSecureEventInputEnabled(),
+        } else if !learningRequiresReadableField, !IsSecureEventInputEnabled(),
                   let pid, CGPreflightListenEventAccess(), startKeyTap(),
                   let observation = DictationObservation(value: text, insertedRange: NSRange(location: 0, length: length), now: now) {
             var keys = KeystrokeSpan(text)

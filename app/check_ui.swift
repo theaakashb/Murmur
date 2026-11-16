@@ -37,7 +37,7 @@ import Combine
             application.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
         }
         // The fixture's defaults persist between runs: set the guide and History mode every time.
-        UserDefaults.standard.set(args.contains("--history-off") ? "off" : "on", forKey: "historyMode")
+        UserDefaults.standard[Prefs.historyMode] = args.contains("--history-off") ? .off : .on
         if let flag = args.firstIndex(of: "--guide") {
             let step = args.indices.contains(flag + 1) ? Int(args[flag + 1]) ?? 0 : 0
             UserDefaults.standard.set(0, forKey: WelcomeGuide.completedKey); UserDefaults.standard.set(step, forKey: WelcomeGuide.stepKey)

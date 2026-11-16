@@ -38,15 +38,15 @@ enum ScreenRequest: Equatable {
     @Published var recoveryEntryID: String?
     @Published var recoveryAudio: URL?
     @Published var modelDirectory: String
-    @Published var shortcut: String
+    @Published var shortcut = Prefs.shortcut.fallback
     @Published var voiceLevel = 0.0
-    @Published var showMenuBar: Bool
+    @Published var showMenuBar = Prefs.showMenuBar.fallback
     /// A Dock icon (gap #20); off by default, as in PRD R6. Applies as soon as it changes.
-    @Published var showInDock: Bool
+    @Published var showInDock = Prefs.showInDock.fallback
     /// A screen the window should switch to, set from a menu item or the UI fixture. The window clears it once shown.
     @Published var screenRequest: ScreenRequest?
     /// CoreAudio UID of the chosen microphone; empty means the system default.
-    @Published var inputDeviceUID: String
+    @Published var inputDeviceUID = Prefs.inputDeviceUID.fallback
     /// Connected microphones, cached: Settings re-renders with every voice-level tick.
     @Published private(set) var inputDevices = Capture.inputDevices()
     func refreshInputDevices() { inputDevices = Capture.inputDevices() }
@@ -58,18 +58,18 @@ enum ScreenRequest: Equatable {
     var accessibilityAuthorized: Bool { AXIsProcessTrusted() }
     var inputMonitoringAuthorized: Bool { CGPreflightListenEventAccess() }
     var modelAvailable: Bool { modelFilesAvailable() }
-    @Published var intelligentLeadingSpace: Bool
-    @Published var automaticInsertion: Bool
+    @Published var intelligentLeadingSpace = Prefs.intelligentLeadingSpace.fallback
+    @Published var automaticInsertion = Prefs.automaticInsertion.fallback
     /// One press starts recording and the next press stops it, instead of hold-to-record.
-    @Published var pressToToggle: Bool
+    @Published var pressToToggle = Prefs.pressToToggle.fallback
     /// Short system sounds when recording starts and stops (gap #15); none on insertion.
-    @Published var recordingSounds: Bool
+    @Published var recordingSounds = Prefs.recordingSounds.fallback
     /// "Keep recordings for diagnostics (7 days)": off by default; see `DiagnosticRecordings`.
-    @Published var keepRecordings: Bool
+    @Published var keepRecordings = Prefs.keepRecordings.fallback
     /// Live words in the bubble while recording (gap #13); needs the optional download.
-    @Published var liveWords: Bool
+    @Published var liveWords = Prefs.liveWords.fallback
     /// Live words also while transcription runs in the cloud; off by default (user, Oct 15, 2026).
-    @Published var liveWordsOnCloud: Bool
+    @Published var liveWordsOnCloud = Prefs.liveWordsOnCloud.fallback
     /// The running preview transcript. Display only: never saved, logged, learned from or cleaned.
     @Published var liveText = ""
     @Published var liveWordsSlot: ModelSlot
@@ -78,25 +78,25 @@ enum ScreenRequest: Equatable {
     /// The UI fixture's synthetic preview; never set in the app.
     private var liveWordsFixture = false
     func showLiveWordsFixture(_ text: String) { liveWordsFixture = true; liveText = text }
-    @Published var retention: String
+    @Published var retention = Prefs.retention.fallback
     // Cleanup and learning settings, applied as soon as they change like the others.
-    @Published var cleanupFillers: Bool
-    @Published var cleanupCorrections: Bool
-    @Published var cleanupLists: Bool
-    @Published var cleanupPunctuation: Bool
+    @Published var cleanupFillers = Prefs.cleanupFillers.fallback
+    @Published var cleanupCorrections = Prefs.cleanupCorrections.fallback
+    @Published var cleanupLists = Prefs.cleanupLists.fallback
+    @Published var cleanupPunctuation = Prefs.cleanupPunctuation.fallback
     /// Polish instead of strict cleanup (`CleanupOptions.polish`).
-    @Published var cleanupPolish: Bool
+    @Published var cleanupPolish = Prefs.cleanupPolish.fallback
     /// Professional above Polish (`CleanupOptions.professional`).
-    @Published var cleanupProfessional: Bool
-    @Published var cleanupSpoken: Bool
+    @Published var cleanupProfessional = Prefs.cleanupProfessional.fallback
+    @Published var cleanupSpoken = Prefs.cleanupSpoken.fallback
     /// Screen context for AI cleanup (gap #8), opt-in; a writing mode can override it.
-    @Published var screenContext: Bool
+    @Published var screenContext = Prefs.screenContext.fallback
     /// Writing modes (gap #6), saved as soon as they change and read at each recording start.
     @Published var writingModes: [WritingMode] { didSet { WritingModes.save(writingModes, to: .standard) } }
     /// Apps dictated into since launch, newest first, for the mode app picker. Memory only.
     @Published private(set) var recentApps: [String] = []
-    @Published var learningEnabled: Bool
-    @Published var learningRequiresReadableField: Bool
+    @Published var learningEnabled = Prefs.learningEnabled.fallback
+    @Published var learningRequiresReadableField = Prefs.readableLearning.fallback
     // Dictionary edits apply immediately; dictionaryMessage reports the last edit error.
     @Published var dictionaryEntries: [DictionaryEntry] = []
     /// Forms and spellings learning skips (conflicting, undone or deleted fixes), for Settings.
@@ -119,7 +119,7 @@ enum ScreenRequest: Equatable {
     func dismissGeminiCleanupNotice() { UserDefaults.standard.removeObject(forKey: RouteSettings.Key.geminiCleanupRemovedNotice); geminiCleanupNotice = false }
     var usesCustomModelFolder: Bool { modelSlot.downloader.map { URL(fileURLWithPath: modelDirectory).standardizedFileURL.path != $0.target.path } ?? false }
     // History-off mode and the size cap (R9, §6). History-off and update checks apply as soon as they change.
-    @Published var historyMode: HistoryMode
+    @Published var historyMode = Prefs.historyMode.fallback
     @Published var historyCapWarning: String?
     /// Set at launch when damaged history files were moved aside.
     @Published var historyNotice: String?
@@ -131,7 +131,7 @@ enum ScreenRequest: Equatable {
     @Published var insights: Insights = .empty
     var historySummary: String { HistoryText.summary(mode: appliedHistoryMode, count: history.count, sessionOnly: sessionOnlyIDs.count) }
     // Sparkle owns update dialogs, installation and the automatic schedule (R12).
-    @Published var updateChecksEnabled: Bool
+    @Published var updateChecksEnabled = Prefs.updateChecks.fallback
     @Published var updateStatus = ""
     @Published var installUpdatesAutomatically = false
     private lazy var sparkleUpdater = AppUpdater(isBusy: { [weak self] in
@@ -316,44 +316,20 @@ enum ScreenRequest: Equatable {
         liveWordsSlot = ModelSlot(.liveWords, pins: pins, home: home)
         let local = ModelSlot(.localCleanup, pins: pins, home: home)
         localSlot = local
-        modelDirectory = defaults.string(forKey: "modelDirectory") ?? ModelFacts.batch.directory(home).path
+        modelDirectory = defaults[Prefs.modelDirectory]
         if let downloader = local.downloader {
             // The first launch of the helper in a session checks every file's size and checksum against the pins.
             LocalCleanupRunner.verifier = { downloader.verifyInstalled() == .ready }
         }
-        shortcut = defaults.string(forKey: "shortcut") ?? ShortcutBinding.defaultID
-        showMenuBar = defaults.object(forKey: "showMenuBar") as? Bool ?? true
-        showInDock = defaults.bool(forKey: "showInDock")
-        let inputDevice = defaults.string(forKey: "inputDeviceUID") ?? ""
-        inputDeviceUID = inputDevice; Capture.preferredInputUID = inputDevice.isEmpty ? nil : inputDevice
-        intelligentLeadingSpace = defaults.bool(forKey: "intelligentLeadingSpace")
-        automaticInsertion = defaults.object(forKey: "automaticInsertion") as? Bool ?? true
-        pressToToggle = defaults.bool(forKey: "pressToToggle")
-        recordingSounds = defaults.object(forKey: "recordingSounds") as? Bool ?? true
-        keepRecordings = defaults.bool(forKey: "keepRecordings")
-        liveWords = defaults.object(forKey: "liveWords") as? Bool ?? true
-        liveWordsOnCloud = defaults.bool(forKey: "liveWordsOnCloud")
-        let storedRetention = defaults.string(forKey: "retention") ?? HistoryRetention.thirtyDays.rawValue
-        retention = storedRetention; appliedRetention = storedRetention
-        let processingSettings = ProcessingSettings.load(from: defaults)
-        cleanupFillers = processingSettings.options.fillers
-        cleanupCorrections = processingSettings.options.corrections
-        cleanupLists = processingSettings.options.lists
-        cleanupPunctuation = processingSettings.options.punctuation
-        cleanupPolish = processingSettings.options.polish
-        cleanupProfessional = processingSettings.options.professional
-        cleanupSpoken = processingSettings.options.spoken
-        screenContext = processingSettings.screenContext
+        let inputDevice = defaults[Prefs.inputDeviceUID]
+        Capture.preferredInputUID = inputDevice.isEmpty ? nil : inputDevice
+        appliedRetention = defaults[Prefs.retention]; appliedHistoryMode = defaults[Prefs.historyMode]
         writingModes = WritingModes.load(from: defaults)
-        learningEnabled = processingSettings.learningEnabled
-        learningRequiresReadableField = processingSettings.learningRequiresReadableField
-        historyMode = processingSettings.historyMode
-        appliedHistoryMode = processingSettings.historyMode
-        updateChecksEnabled = processingSettings.updateChecksEnabled
         let routes = RouteSettings.load(from: defaults)
         transcriptionRoute = routes.transcription; cloudTranscriber = routes.cloudTranscriber; cleanupChoice = routes.cleanup
         customAPIBaseURL = routes.customAPIBaseURL; customTranscriptionAPIBaseURL = routes.customTranscriptionAPIBaseURL; customAPIModel = routes.customAPIModel; customTranscriptionModel = routes.customTranscriptionModel; geminiTranscriptionModel = routes.geminiTranscriptionModel; appliedRoutes = routes
         self.preview = preview
+        loadSettings(from: defaults)
         let isolatedStorage = isolatedStorage ?? preview
         do {
             let base = isolatedStorage ? FileManager.default.temporaryDirectory.appendingPathComponent("Dictation-preview-" + UUID().uuidString) : FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Dictation")
@@ -540,15 +516,9 @@ enum ScreenRequest: Equatable {
         appliedHistoryMode = historyMode; records?.persistsTranscripts = historyMode.persistsTranscripts
         if meetingRecorder.persists != historyMode.persistsTranscripts { meetingRecorder.persists = historyMode.persistsTranscripts; meetingRecorder.reload() }
         let defaults = UserDefaults.standard
-        defaults.set(modelDirectory, forKey: "modelDirectory"); defaults.set(shortcut, forKey: "shortcut")
-        defaults.set(showMenuBar, forKey: "showMenuBar"); defaults.set(showInDock, forKey: "showInDock"); defaults.set(automaticInsertion, forKey: "automaticInsertion"); defaults.set(pressToToggle, forKey: "pressToToggle")
-        defaults.set(recordingSounds, forKey: "recordingSounds")
-        defaults.set(keepRecordings, forKey: "keepRecordings"); applyRecordingSetting()
-        defaults.set(liveWordsOnCloud, forKey: "liveWordsOnCloud")
-        defaults.set(liveWords, forKey: "liveWords"); if liveWords { prepareLiveWords() }
-        defaults.set(intelligentLeadingSpace, forKey: "intelligentLeadingSpace")
-        defaults.set(inputDeviceUID, forKey: "inputDeviceUID"); Capture.preferredInputUID = inputDeviceUID.isEmpty ? nil : inputDeviceUID
-        defaults.set(retention, forKey: "retention")
+        defaults[Prefs.modelDirectory] = modelDirectory; saveSettings(to: defaults)
+        applyRecordingSetting(); if liveWords { prepareLiveWords() }
+        Capture.preferredInputUID = inputDeviceUID.isEmpty ? nil : inputDeviceUID
         if let processing {
             if !learningEnabled || (learningRequiresReadableField && watch?.keys != nil) {
                 if let watch { try? processing.ledger.revert(sessionID: watch.observation.sessionID) }
@@ -557,15 +527,9 @@ enum ScreenRequest: Equatable {
             var next = processing.settings
             next.options = CleanupOptions(fillers: cleanupFillers, corrections: cleanupCorrections, lists: cleanupLists, punctuation: cleanupPunctuation, polish: cleanupPolish, professional: cleanupProfessional, spoken: cleanupSpoken, trustModel: true)
             next.learningEnabled = learningEnabled; next.route = routes.cleanup.processingRoute
-            next.learningRequiresReadableField = learningRequiresReadableField
-            next.historyMode = historyMode; next.updateChecksEnabled = updateChecksEnabled
             next.screenContext = screenContext
             do { try processing.update(next) } catch { setPhase(.error, "Could not save cleanup and learning settings.") }
         }
-        // Also saved directly, so they persist when the dictionary (and so processing) is unavailable.
-        defaults.set(historyMode.rawValue, forKey: ProcessingSettings.Key.historyMode)
-        defaults.set(learningRequiresReadableField, forKey: ProcessingSettings.Key.readableLearning)
-        defaults.set(updateChecksEnabled, forKey: ProcessingSettings.Key.updateChecks)
         if !preview { sparkleUpdater.setPreferences(checks: updateChecksEnabled, installs: installUpdatesAutomatically) }
         // Unrelated switches must not scan disk and recompute Insights during their animation.
         if retentionChanged {

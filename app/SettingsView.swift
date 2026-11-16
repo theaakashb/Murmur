@@ -145,8 +145,7 @@ struct SettingsView: View {
         .onChange(of: sidebarCollapsed) { settingsSearchOpen = false; settingsQuery = "" }
         .frame(minWidth: 880, minHeight: 680)
         // Every setting applies as soon as it changes; attached here so hidden sections still apply.
-        .modifier(AutoApplyGeneral(controller: controller))
-        .modifier(AutoApplyRoutes(controller: controller, apiFieldFocused: apiFieldFocused))
+        .modifier(AutoApplySettings(controller: controller, apiFieldFocused: apiFieldFocused))
         .onAppear {
             controller.refreshPermissions(); controller.refreshHistory(); controller.refreshInputDevices()
             if !checkedSetup {

@@ -46,63 +46,39 @@ struct ProcessingResult: Sendable {
     var contextUsed = false
 }
 
-/// Settings owned by processing, persisted in UserDefaults.
+/// Settings owned by processing, persisted in UserDefaults (keys and defaults: `Prefs`).
 struct ProcessingSettings: Equatable, Sendable {
-    var options: CleanupOptions = CleanupOptions(punctuation: true, spoken: true, trustModel: true)
-    var route: CleanupRoute = .local
-    var learningEnabled = true
-    var learningRequiresReadableField = false
-    /// Applied by AppController, as soon as the setting changes, through HistoryRouter.
-    var historyMode: HistoryMode = .on
-    /// Read by AppController for the automatic update check.
-    var updateChecksEnabled = true
-    /// Screen context for AI cleanup routes (gap #8): opt-in, off by default. A writing mode can override it.
-    var screenContext = false
+    var options = ProcessingSettings.options { $0.fallback }
+    /// Derived from `RouteSettings.cleanup` by AppController; persisted here.
+    var route = Prefs.cleanupRoute.fallback
+    var learningEnabled = Prefs.learningEnabled.fallback
+    var screenContext = Prefs.screenContext.fallback
 
-    enum Key {
-        static let fillers = "cleanupFillers"
-        static let corrections = "cleanupCorrections"
-        static let lists = "cleanupLists"
-        static let punctuation = "cleanupPunctuation"
-        static let polish = "cleanupPolish"
-        static let professional = "cleanupProfessional"
-        static let spoken = "cleanupSpokenCommands"
-        static let route = "cleanupRoute"
-        static let learning = "learningEnabled"
-        static let readableLearning = "learningRequiresReadableField"
-        static let historyMode = "historyMode"
-        static let updateChecks = "updateChecksEnabled"
-        static let screenContext = "cleanupScreenContext"
+    private static func options(_ flag: (Setting<Bool>) -> Bool) -> CleanupOptions {
+        CleanupOptions(fillers: flag(Prefs.cleanupFillers), corrections: flag(Prefs.cleanupCorrections), lists: flag(Prefs.cleanupLists), punctuation: flag(Prefs.cleanupPunctuation), polish: flag(Prefs.cleanupPolish), professional: flag(Prefs.cleanupProfessional), spoken: flag(Prefs.cleanupSpoken), trustModel: true)
     }
 
     /// Missing or unknown values fall back to the approved defaults (all comforts on, local route).
     static func load(from defaults: UserDefaults) -> ProcessingSettings {
         var settings = ProcessingSettings()
-        func flag(_ key: String, _ fallback: Bool) -> Bool { defaults.object(forKey: key) as? Bool ?? fallback }
-        settings.options = CleanupOptions(fillers: flag(Key.fillers, true), corrections: flag(Key.corrections, true), lists: flag(Key.lists, true), punctuation: flag(Key.punctuation, true), polish: flag(Key.polish, false), professional: flag(Key.professional, false), spoken: flag(Key.spoken, true), trustModel: true)
-        settings.route = defaults.string(forKey: Key.route).flatMap(CleanupRoute.init(rawValue:)) ?? .local
-        settings.learningEnabled = flag(Key.learning, true)
-        settings.learningRequiresReadableField = flag(Key.readableLearning, false)
-        settings.historyMode = defaults.string(forKey: Key.historyMode).flatMap(HistoryMode.init(rawValue:)) ?? .on
-        settings.updateChecksEnabled = flag(Key.updateChecks, true)
-        settings.screenContext = flag(Key.screenContext, false)
+        settings.options = options { defaults[$0] }
+        settings.route = defaults[Prefs.cleanupRoute]
+        settings.learningEnabled = defaults[Prefs.learningEnabled]
+        settings.screenContext = defaults[Prefs.screenContext]
         return settings
     }
 
     func save(to defaults: UserDefaults) {
-        defaults.set(options.fillers, forKey: Key.fillers)
-        defaults.set(options.corrections, forKey: Key.corrections)
-        defaults.set(options.lists, forKey: Key.lists)
-        defaults.set(options.punctuation, forKey: Key.punctuation)
-        defaults.set(options.polish, forKey: Key.polish)
-        defaults.set(options.professional, forKey: Key.professional)
-        defaults.set(options.spoken, forKey: Key.spoken)
-        defaults.set(route.rawValue, forKey: Key.route)
-        defaults.set(learningEnabled, forKey: Key.learning)
-        defaults.set(learningRequiresReadableField, forKey: Key.readableLearning)
-        defaults.set(historyMode.rawValue, forKey: Key.historyMode)
-        defaults.set(updateChecksEnabled, forKey: Key.updateChecks)
-        defaults.set(screenContext, forKey: Key.screenContext)
+        defaults[Prefs.cleanupFillers] = options.fillers
+        defaults[Prefs.cleanupCorrections] = options.corrections
+        defaults[Prefs.cleanupLists] = options.lists
+        defaults[Prefs.cleanupPunctuation] = options.punctuation
+        defaults[Prefs.cleanupPolish] = options.polish
+        defaults[Prefs.cleanupProfessional] = options.professional
+        defaults[Prefs.cleanupSpoken] = options.spoken
+        defaults[Prefs.cleanupRoute] = route
+        defaults[Prefs.learningEnabled] = learningEnabled
+        defaults[Prefs.screenContext] = screenContext
     }
 }
 
