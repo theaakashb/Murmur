@@ -1,7 +1,5 @@
 import Foundation
 
-// Checks for Insights.swift (gap #19).
-
 nonisolated(unsafe) var failures = 0
 func check(_ condition: Bool, _ name: String) {
     if !condition { failures += 1; print("FAIL: \(name)") }
@@ -34,11 +32,11 @@ func stats(_ items: [InsightsItem], calendar: Calendar = utc, at: Date = now) ->
         let paced = stats([item(0, raw: "abcd abcd abcd abcd abcd abcd abcd abcd abcd abcde", seconds: 6)])
         check(near(paced?.wordsPerMinute, 100), "WPM uses five-character words")
         // Typing 10 standard words at 51.56 WPM takes 11.637 s; speaking took 6 s.
-        check(near(paced?.secondsSaved, 10 / 51.56 * 60 - 6), "time saved is typing time minus speaking time")
+        check(near(paced?.secondsSaved, 5.637), "time saved is typing time minus speaking time")
         check(paced?.words == 10 && paced?.timedDictations == 1, "plain word count and timed count")
         // Pace over several entries is total words over total time, not an average of averages.
         let mixed = stats([item(0, raw: String(repeating: "x", count: 50), seconds: 6), item(0, raw: String(repeating: "x", count: 50), seconds: 18)])
-        check(near(mixed?.wordsPerMinute, 20 / (24.0 / 60)), "pace pools words and time")
+        check(near(mixed?.wordsPerMinute, 50), "pace pools words and time")
         // Slow speech never shows negative time saved.
         check(near(stats([item(0, raw: "short", seconds: 60)])?.secondsSaved, 0), "time saved is clamped at zero")
         // Entries from before durations were recorded count as words but not pace.

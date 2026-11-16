@@ -1,4 +1,4 @@
-// Speaker separation W7d through the real MeetingRecorder (PRD 11.8, 11.10): a stand-in helper
+// Speaker separation through the real MeetingRecorder: a stand-in helper
 // script answers like `ModelBench --diarize`. No capture, no models, no network.
 import AppKit
 import Foundation

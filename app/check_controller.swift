@@ -66,11 +66,11 @@ import AVFoundation
         let remaining = try FileManager.default.contentsOfDirectory(atPath: retry.directory.path)
         precondition(remaining.isEmpty)
         try MainActor.assumeIsolated { try checkDismissal() }
-        // Gap #9: settle once the accepted reading has been stable for 2 s, never before, never without one.
+        // Settle once the accepted reading has been stable for 2 s, never before, never without one.
         precondition(!AppController.settlesEarly(pending: true, changedAt: 10, now: 11.9))
         precondition(AppController.settlesEarly(pending: true, changedAt: 10, now: 12))
         precondition(!AppController.settlesEarly(pending: false, changedAt: 10, now: 30), "rejected or already settled reading waits for the window")
-        // Undo (gap #18) keeps a canceled recording as 16 kHz mono samples.
+        // Undo keeps a canceled recording as 16 kHz mono samples.
         let undoAudio = FileManager.default.temporaryDirectory.appendingPathComponent("murmur-undo-\(UUID()).wav")
         defer { try? FileManager.default.removeItem(at: undoAudio) }
         do {
@@ -161,11 +161,11 @@ import AVFoundation
         }
         controller.showInsertionResult(InsertionResult(status: .failed, detail: "synthetic", snapshot: nil), entryID: entry.id, text: entry.finalText)
         precondition(controller.phase == .error && controller.message.contains("⌃⌘V") && controller.lastDictationText == entry.finalText)
-        precondition(controller.pasteFailure == AppController.PasteFailure(entryID: entry.id, text: entry.finalText), "a failed paste shows the text card (gap #17)")
+        precondition(controller.pasteFailure == AppController.PasteFailure(entryID: entry.id, text: entry.finalText), "a failed paste shows the text card")
         precondition(controller.pasteFailure?.title == "Couldn’t paste here", "a failed paste (app quit, focus moved, secure field, Secure Input) is titled as a failure")
         controller.setPhase(.error, "Another failure")
         precondition(controller.pasteFailure == nil, "any later status replaces the card")
-        // Paths where Murmur deliberately did not paste also show the card (follow-up, Oct 15, 2026).
+        // Paths where Murmur deliberately did not paste also show the card.
         controller.showNotPasted(.insertionOff, saved: "Saved.", entryID: entry.id, text: entry.finalText)
         precondition(controller.phase == .saved && controller.message.contains("⌃⌘V") && controller.pasteFailure == AppController.PasteFailure(entryID: entry.id, text: entry.finalText, title: "Saved, not pasted"), "insertion off: Saved, with the card")
         controller.showNotPasted(.unsaved, saved: "Saved.", entryID: entry.id, text: entry.finalText)
@@ -234,7 +234,7 @@ import AVFoundation
         controller.downloadModel()
         precondition(controller.modelSlot.message == ModelDownloadError.invalidManifest.userMessage && controller.phase == .saved)
         precondition(controller.historySummary.hasPrefix(controller.historyMode == .on ? "Saved locally" : "History is off"))
-        // Routes and keys (R4, R5): nothing to cancel while idle; preview keeps keys in memory and publishes only presence.
+        // Routes and keys: nothing to cancel while idle; preview keeps keys in memory and publishes only presence.
         precondition(!controller.canCancelRequest)
         controller.cancelCloudRequest()
         precondition(controller.phase == .saved)
@@ -255,7 +255,7 @@ import AVFoundation
         controller.removeKey(.customCleanup)
         // The learning lexicon uses the real English spell checker.
         precondition(isCommonEnglishWord("lunch") && isCommonEnglishWord("launch") && !isCommonEnglishWord("akmeq"))
-        // Gap #11 with the real lexicon: one History edit learns the replacement, the notice's Undo
+        // With the real lexicon: one History edit learns the replacement, the notice's Undo
         // removes and tombstones it, and an ordinary-word swap is never learned.
         let edited = HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "Ask Acme today", finalText: "Ask Acme today", insertionStatus: InsertionStatus.savedNotInserted.rawValue)
         controller.history = [edited]
@@ -282,7 +282,9 @@ import AVFoundation
         precondition(controller.lastDictationText == nil && controller.setupTestTranscript.isEmpty, "wipe clears paste and setup buffers")
         precondition(UserDefaults.standard.object(forKey: dismissedKey) == nil, "wipe removes the words of dismissed dictionary suggestions")
         if let keptDismissed { UserDefaults.standard.set(keptDismissed, forKey: dismissedKey) }
-        let invalidRetention = UserDefaults(suiteName: "murmur-check-retention-\(UUID())")!
+        let invalidRetentionSuite = "murmur-check-retention-\(UUID())"
+        let invalidRetention = UserDefaults(suiteName: invalidRetentionSuite)!
+        defer { invalidRetention.removePersistentDomain(forName: invalidRetentionSuite) }
         invalidRetention.set("invalid", forKey: Prefs.retention.key)
         precondition(invalidRetention[Prefs.retention] == .thirtyDays, "an unknown stored retention reads as 30 days")
         precondition(controller.history.isEmpty && !controller.hasRecoveryAudio && !manager.fileExists(atPath: recovery.path), "wipe refreshes empty storage")
@@ -295,7 +297,7 @@ import AVFoundation
         try liveStreamChecks()
     }
 
-    /// Live words (gap #13) with fake helpers: text reaches the app, closing stdin ends a helper,
+    /// Live words with fake helpers: text reaches the app, closing stdin ends a helper,
     /// and one that never reads neither blocks capture nor outlives stop() by more than its watchdog.
     @MainActor static func liveStreamChecks() throws {
         signal(SIGPIPE, SIG_IGN)

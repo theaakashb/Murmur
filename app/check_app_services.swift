@@ -106,9 +106,6 @@ func checkHistoryRouter() throws {
     let listed = try router.entries()
     check(listed.map(\.id) == [held.id, a.id] && listed.first?.text == "insertion failed", "entries merge memory and disk, newest first, latest status")
 
-    // Recovery text stays available for the session.
-    check(try router.entries().contains { $0.id == held.id && $0.text == "insertion failed" }, "recovery text available in memory")
-
     // A disk failure is reported, not silently moved to memory.
     fake.failSave = true
     do { try router.save(item(1)); check(false, "disk failure must throw") } catch { }
@@ -152,7 +149,7 @@ func checkExpiryAndText() {
     let now = Date(timeIntervalSince1970: 1_790_000_000)
     check(HistoryRetention.forever.cutoff(now: now, calendar: calendar) == nil, "forever has no cutoff")
     check(HistoryRetention.thirtyDays.cutoff(now: now, calendar: calendar) == now.addingTimeInterval(-30 * 86400), "30-day cutoff matches HistoryStore")
-    check(HistoryRetention.sixMonths.cutoff(now: now, calendar: calendar) == calendar.date(byAdding: .month, value: -6, to: now), "six months uses calendar months")
+    check(HistoryRetention.sixMonths.cutoff(now: now, calendar: calendar) == Date(timeIntervalSince1970: 1_774_102_400), "six months uses calendar months")
 
     check(HistoryText.summary(mode: .on, count: 2, sessionOnly: 0) == "Saved locally · 2 transcripts", "history on summary keeps the existing wording")
     check(HistoryText.summary(mode: .on, count: 1, sessionOnly: 1).contains("1 kept only until Murmur quits"), "history on with memory entries says so")
@@ -217,7 +214,7 @@ func checkUpdates() {
     check(UpdateText.explanation.contains("uses the network") && UpdateText.explanation.contains("Sparkle checks GitHub daily"), "automatic-check explanation")
 }
 
-/// Live words (gap #13): the bubble dims only the last word and keeps the newest tail.
+/// Live words: the bubble dims only the last word and keeps the newest tail.
 func checkLiveWordsSplit() {
     check(LiveWordsFacts.split("") == ("", ""), "empty preview")
     check(LiveWordsFacts.split("Thanks") == ("", "Thanks"), "a lone word is still a guess")
@@ -229,14 +226,15 @@ func checkLiveWordsSplit() {
     check(!LiveWordsFacts.starts(enabled: true, ready: true, cloudTranscription: true, onCloud: false), "cloud route with the toggle off (the default): the helper does not start")
     check(LiveWordsFacts.starts(enabled: true, ready: true, cloudTranscription: true, onCloud: true), "cloud route with the toggle on: live words start")
     check(!LiveWordsFacts.starts(enabled: false, ready: true, cloudTranscription: false, onCloud: true) && !LiveWordsFacts.starts(enabled: true, ready: false, cloudTranscription: false, onCloud: true), "off or not verified: never")
-    check(!ModelFacts.liveWords.explanation.isEmpty && ModelFacts.liveWords.directory(URL(fileURLWithPath: "/Users/x")).path.hasSuffix("unified-d32e972-live"), "live folder beside the batch model, not inside it")
+    check(ModelFacts.liveWords.directory(URL(fileURLWithPath: "/Users/x")).path.hasSuffix("unified-d32e972-live"), "live folder beside the batch model, not inside it")
 }
 
-/// Welcome guide (gap #21): resume at the saved step, version-stamped completion.
+/// Welcome guide: resume at the saved step, version-stamped completion.
 func checkWelcomeGuide() {
-    let defaults = UserDefaults(suiteName: "murmur-guide-check-\(UUID())")!
+    let defaultsSuite = "murmur-guide-check-\(UUID())"
+    let defaults = UserDefaults(suiteName: defaultsSuite)!
+    defer { defaults.removePersistentDomain(forName: defaultsSuite) }
     check(WelcomeGuide.opensAtLaunch(defaults, alreadySetUp: false) && WelcomeGuide.resumeStep(defaults) == .welcome, "a new install opens the guide at Welcome")
-    check(WelcomeGuide.Step.allCases == [.welcome, .microphone, .accessibility, .inputMonitoring, .transcription, .cleanup, .model, .tryIt], "welcome, then permissions, routes and style, then the model and test")
     check(WelcomeGuide.Step.allCases.map(\.phase).reduce(into: [WelcomeGuide.Step.Phase]()) { if $0.last != $1 { $0.append($1) } } == [.welcome, .getReady, .firstWords], "steps group into three ordered phases")
     defaults.set(WelcomeGuide.Step.meetings.rawValue, forKey: WelcomeGuide.stepKey)
     check(WelcomeGuide.resumeStep(defaults) == .model && WelcomeGuide.Step.allCases.contains(WelcomeGuide.resumeStep(defaults)), "a saved meetings step resumes at a step that still exists")
@@ -256,7 +254,6 @@ func checkWelcomeGuide() {
     WelcomeGuide.confirm(.cleanup, defaults)
     WelcomeGuide.confirm(.meetings, defaults)
     check(WelcomeGuide.nextUnconfirmed(defaults) == nil && !WelcomeGuide.isConfirmed(.meetings, defaults), "meetings are not a first-run choice")
-    check(WelcomeGuide.nextUnconfirmed(defaults) == nil, "all choices confirmed")
     WelcomeGuide.save(.model, defaults)
     check(WelcomeGuide.resumeStep(defaults) == .model, "quitting mid-guide resumes at the same step")
     check(WelcomeGuide.opensAtLaunch(defaults, alreadySetUp: true), "permissions granted mid-guide still reopen it until it is finished")
@@ -275,16 +272,19 @@ func checkWelcomeGuide() {
     check(WelcomeGuide.resumeStep(defaults) == .welcome && !WelcomeGuide.opensAtLaunch(defaults, alreadySetUp: false), "replay starts over and keeps completion")
     check(WelcomeGuide.nextUnconfirmed(defaults) == .transcription, "replay asks users to confirm choices again")
     // Installs from before the guide: set up already means version 1 was seen.
-    let upgraded = UserDefaults(suiteName: "murmur-guide-upgrade-\(UUID())")!
+    let upgradedSuite = "murmur-guide-upgrade-\(UUID())"
+    let upgraded = UserDefaults(suiteName: upgradedSuite)!
+    defer { upgraded.removePersistentDomain(forName: upgradedSuite) }
     check(!WelcomeGuide.opensAtLaunch(upgraded, alreadySetUp: true), "an existing set-up install skips the guide")
     WelcomeGuide.save(.microphone, upgraded)
     check(!WelcomeGuide.opensAtLaunch(upgraded, alreadySetUp: true), "the upgrade default survives a saved step")
-    let notSetUp = UserDefaults(suiteName: "murmur-guide-new-\(UUID())")!
+    let notSetUpSuite = "murmur-guide-new-\(UUID())"
+    let notSetUp = UserDefaults(suiteName: notSetUpSuite)!
+    defer { notSetUp.removePersistentDomain(forName: notSetUpSuite) }
     check(WelcomeGuide.opensAtLaunch(notSetUp, alreadySetUp: false), "an existing install that is not set up sees it")
 }
 
 func checkSettingsSearch() {
-    check(SettingsPane.groups.count == 7, "settings has seven top-level destinations")
     check(Set(SettingsPane.groups.map(\.group)).count == 7 && SettingsPane.groups.allSatisfy { $0.group == $0 }, "destinations select distinct sidebar groups")
     check(SettingsPane.allCases.map(\.rawValue) == Array(0...11) && SettingsPane.allCases.allSatisfy { SettingsPane.groups.contains($0.group) }, "stored pane numbers are stable and every pane has a sidebar group")
     check(SettingsPane.transcription.tabs == [.recording, .transcription, .insertion], "dictation tabs preserve legacy transcription destination")

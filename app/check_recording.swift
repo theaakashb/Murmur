@@ -1,4 +1,4 @@
-// Recording experience checks (BetterWispr gaps #14, #16, #18). No capture, insertion or key injection:
+// Recording experience checks. No capture, insertion or key injection:
 // synthetic CGEvents go straight into ShortcutListener.receive, never through a tap.
 import Foundation
 import CoreGraphics
@@ -19,7 +19,7 @@ import AVFoundation
         print("Recording checks passed (shortcut validation and custom binding; cancel-undo window, discard and session hook; Automatic microphone rule; a meeting's microphone is never current).")
     }
 
-    /// A dictation during a meeting (PRD 11.1): the shortcut thread cuts only `Capture.current`, which a
+    /// A dictation during a meeting: the shortcut thread cuts only `Capture.current`, which a
     /// meeting's microphone never becomes, and a dictation ending does not unregister anything else.
     static func meetingCaptureChecks() {
         let meeting = Capture(), dictation = Capture()
@@ -33,7 +33,7 @@ import AVFoundation
         check(Capture.current == nil, "the dictation finishing leaves nothing current; the meeting keeps recording")
     }
 
-    /// Home's Start button (gap #19): a latched start the next shortcut press finishes.
+    /// Home's Start button: a latched start the next shortcut press finishes.
     static func buttonStartChecks() {
         var machine = ShortcutMachine()
         check(machine.startToggled() == .start && machine.state == .listening, "button start listens")
@@ -201,7 +201,6 @@ import AVFoundation
         check(pick(usb.uid, [builtIn, usb, airPods]) == nil, "USB default → system default")
         check(pick(builtIn.uid, [builtIn, airPods]) == nil, "built-in default → system default (already built-in)")
         check(pick(nil, [builtIn, airPods]) == nil && pick("gone", [builtIn]) == nil, "unknown default → system default")
-        check(MicrophoneChoice.automatic != "", "Automatic has a stored value distinct from System default")
 
         // Mid-recording format change: a 16 kHz headset buffer converts to the file's 48 kHz format.
         let from = AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1)!, to = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!

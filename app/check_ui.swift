@@ -102,7 +102,7 @@ extension AppController {
         entries[0].cleanupOptions = CleanupOptions(professional: true); entries[0].cleanupFallback = CleanupFailureReason.unexplainedDeletion.rawValue
         entries[0].cleanupOutcome = .localRules
         if CommandLine.arguments.contains("--empty") { entries = [] }
-        // Insights (gap #19): timed dictations into a few apps on most of the last 24 days.
+        // Insights: timed dictations into a few apps on most of the last 24 days.
         if args.contains("--insights") && !args.contains("--empty") {
             let apps = ["com.apple.TextEdit", "com.apple.mail", "com.apple.Notes", "com.apple.Safari"]
             let text = "Synthetic dictation about the quarterly plan with um enough words to measure a speaking pace."
@@ -216,7 +216,7 @@ extension AppController {
                 if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
             }
             if CommandLine.arguments.contains("--learned") { controller.bubble.showLearned("Aakash", entryID: UUID(), screen: nil) }
-            // Meeting detection (PRD 11.7): --call-offer shows Zoom's offer, --call-offer-browser Arc's. The fixture's
+            // Meeting detection: --call-offer shows Zoom's offer, --call-offer-browser Arc's. The fixture's
             // defaults persist, so the switch and Never list are reset every run; --never seeds the list.
             UserDefaults.standard.removeObject(forKey: CallDetectionSettings.enabledKey)
             UserDefaults.standard.set(args.contains("--never") ? ["us.zoom.xos", "company.thebrowser.Browser"] : [], forKey: CallDetectionSettings.neverKey)
@@ -239,7 +239,7 @@ extension AppController {
                 print("Report text:\n\(synthetic.text)\nReport URL length: \(IssueReport.url(body: synthetic.text).absoluteString.count)")
                 fixtureReportIssue.show(synthetic)
             }
-            // Meeting notes (PRD 11.9): --meetings shows the page, --meeting-live the live panel, --consent the sheet.
+            // Meeting notes: --meetings shows the page, --meeting-live the live panel, --consent the sheet.
             // The fixture's defaults persist: set the panel's minimized state every time (--collapsed).
             UserDefaults.standard[Prefs.meetingPanelCollapsed] = args.contains("--collapsed")
             UserDefaults.standard.removeObject(forKey: Prefs.meetingPanelTopRight.key)
@@ -251,7 +251,7 @@ extension AppController {
                 call.insert(stream: .them, start: 30, end: 44, text: "That works. Send it to the team channel when it's ready.")
                 call.myNotes = "Synthetic note: checklist due Thursday."
                 call.seconds = 1834; call.finished = true
-                // Speaker separation (W7d): --speakers shows separated, renamed speakers; --separating the progress line with Skip.
+                // Speaker separation: --speakers shows separated, renamed speakers; --separating the progress line with Skip.
                 if args.contains("--speakers") || args.contains("--separating") {
                     call.speakers = SpeakerSeparation(state: .pending, threshold: MeetingSpeakers.threshold)
                     call.insert(stream: .them, start: 45, end: 58, text: "I can review it on Friday before the synthetic launch.")
@@ -260,7 +260,7 @@ extension AppController {
                                                SpeakerSegment(speaker: "c", start: 45, end: 58)], to: &call)
                     }
                 }
-                // --meeting-notes: synthetic notes, as the notes route would write them (W7b).
+                // --meeting-notes: synthetic notes, as the notes route would write them.
                 if args.contains("--meeting-notes") {
                     let ids = call.lines.map(\.id)
                     // With --speakers the notes name the speaker ("Speaker 2"), and the rename below relabels them.

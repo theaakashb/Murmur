@@ -1,4 +1,4 @@
-// Meeting detection W7c checks (PRD 11.7). No Core Audio, no UI, no network.
+// Meeting detection checks. No Core Audio, no UI, no network.
 import Foundation
 
 nonisolated(unsafe) var failures = 0
@@ -78,8 +78,10 @@ func run(_ detector: inout CallDetector, _ inputs: [String], from: Int, to: Int,
             var off = own; off.enabled = false
             var e = CallDetector()
             check(run(&e, ["us.zoom.xos"], from: 0, to: 30, off).isEmpty, "the global switch off: no offer")
-            let defaults = UserDefaults(suiteName: "murmur-detection-check-" + UUID().uuidString)!
-            check(CallDetectionSettings.enabled(defaults), "detection is on by default (Q6)")
+            let suite = "murmur-detection-check-" + UUID().uuidString
+            let defaults = UserDefaults(suiteName: suite)!
+            defer { defaults.removePersistentDomain(forName: suite) }
+            check(CallDetectionSettings.enabled(defaults), "detection is on by default")
             CallDetectionSettings.addNever("us.zoom.xos", defaults); CallDetectionSettings.addNever("US.zoom.xos", defaults)
             check(CallDetectionSettings.never(defaults) == ["us.zoom.xos"], "Never is stored once")
             CallDetectionSettings.removeNever("US.ZOOM.XOS", defaults)
@@ -91,7 +93,7 @@ func run(_ detector: inout CallDetector, _ inputs: [String], from: Int, to: Int,
             let chrome = CallOffer(app: CallDetector.app(for: "com.google.Chrome")!), zoom = CallOffer(app: CallDetector.app(for: "us.zoom.xos")!)
             check(chrome.text == "Google Chrome is using the microphone.", "browser: \"<Browser> is using the microphone\"")
             check(chrome.question.hasPrefix("If this is a call"), "browser question does not claim a call")
-            check(zoom.text == "Zoom is using the microphone." && zoom.question == "Take meeting notes?", "call app wording (PRD 11.7)")
+            check(zoom.text == "Zoom is using the microphone." && zoom.question == "Take meeting notes?", "call app wording")
             check(zoom.neverLabel == "Never for Zoom", "Never button names the app")
             check(zoom.source == MeetingSource(name: "Zoom", bundleID: "us.zoom.xos") && !zoom.source.allApps && !zoom.source.micOnly, "Take Notes preselects the app as the source")
         }

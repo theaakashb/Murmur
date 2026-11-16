@@ -1,4 +1,4 @@
-// Meeting notes W7a checks (PRD section 11). No audio, no taps, no network.
+// Meeting notes checks. No audio, no taps, no network.
 import Foundation
 
 nonisolated(unsafe) var failures = 0
@@ -173,10 +173,12 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(delivered.count == 3 && pending.isEmpty, "after stop, answers are ignored and nothing new starts")
         }
 
-        // Meeting transcription route (decision of October 15, 2026): local by default, fixed per meeting,
+        // Meeting transcription route: local by default, fixed per meeting,
         // a failed cloud chunk goes to this Mac and is marked, and a local chunk never goes to the cloud.
         do {
-            let defaults = UserDefaults(suiteName: "murmur-meeting-route-" + UUID().uuidString)!
+            let defaultsSuite = "murmur-meeting-route-" + UUID().uuidString
+            let defaults = UserDefaults(suiteName: defaultsSuite)!
+            defer { defaults.removePersistentDomain(forName: defaultsSuite) }
             check(MeetingTranscription.load(defaults) == .local, "default is On this Mac")
             defaults.set("cloud", forKey: MeetingTranscription.key)
             check(MeetingTranscription.load(defaults) == .cloud, "Cloud is remembered")
@@ -259,7 +261,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(left > 0.3 && left < 0.4, "meter decay matches the tick interval")
         }
 
-        // Limits (Q7).
+        // Limits.
         do {
             check(MeetingLimits.action(elapsed: 60, silentFor: 0) == .none, "short meeting: nothing")
             check(MeetingLimits.action(elapsed: 2 * 3600 + 51 * 60, silentFor: 0) == .warnCap, "warning at 2 h 50 min")
@@ -270,7 +272,9 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
 
         // Consent is versioned.
         do {
-            let defaults = UserDefaults(suiteName: "murmur-meetings-check-" + UUID().uuidString)!
+            let defaultsSuite = "murmur-meetings-check-" + UUID().uuidString
+            let defaults = UserDefaults(suiteName: defaultsSuite)!
+            defer { defaults.removePersistentDomain(forName: defaultsSuite) }
             check(MeetingConsent.needed(defaults), "first meeting asks")
             MeetingConsent.acknowledge(defaults)
             check(!MeetingConsent.needed(defaults), "acknowledged once")
@@ -310,12 +314,12 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(!arc.matches("company.thebrowser.browserx") && CallApp.app("com.apple.FaceTime")!.matches("COM.APPLE.AVCONFERENCED"), "no look-alikes; known helpers ignore case too")
         }
 
-        // W7b notes (PRD 11.6): W7a records still load, the prompt, the grounding check, map-reduce.
+        // Notes: records without notes still load, the prompt, the grounding check, map-reduce.
         do {
             // A record saved before notes existed has no notes key; it must decode, not move to unreadable/.
             let old = #"{"id":"6F1C2D3E-0000-4000-8000-000000000001","recordedAt":0,"seconds":12,"source":{"name":"Zoom","bundleID":"us.zoom.xos","allApps":false,"micOnly":false},"lines":[{"id":1,"stream":"them","start":0,"end":4,"text":"Hello."}],"myNotes":"","gaps":[],"finished":true}"#
             let decoded = try? JSONDecoder().decode(Meeting.self, from: Data(old.utf8))
-            check(decoded != nil && decoded?.notes == nil && decoded?.title.hasPrefix("Meeting with Zoom") == true, "a W7a record without notes decodes")
+            check(decoded != nil && decoded?.notes == nil && decoded?.title.hasPrefix("Meeting with Zoom") == true, "a record without notes decodes")
 
             var meeting = Meeting(id: UUID().uuidString, recordedAt: Date(timeIntervalSince1970: 0), source: MeetingSource(name: "Zoom", bundleID: "us.zoom.xos"))
             meeting.insert(stream: .them, start: 0, end: 10, text: "Dana here. Can you send the budget deck to finance by Friday?")
@@ -346,7 +350,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(reason(Item(text: "Send the budget deck", lines: [1, 2], owner: "Dana"), .action) == nil, "an owner named in the cited lines")
             check(reason(Item(text: "Price stays at 1500 dollars", lines: [3])) == nil, "$1,500 and 1500 are the same number")
             check(reason(Item(text: "Ask Priya about hiring", lines: [2])) != .invented, "a name from my notes is not invented")
-            // Dropped: each rule of PRD 11.6.
+            // Dropped: each grounding rule.
             check(reason(Item(text: "Move the launch", lines: [])) == .noCitation, "no citation")
             check(reason(Item(text: "Move the launch", lines: [3, 99])) == .unknownLine, "a line that does not exist")
             check(reason(Item(text: "Hire two engineers", lines: [3])) == .noSharedWord, "no shared content word")
@@ -364,7 +368,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(NotesGrounding.numbers("What about twelve? Twelve feels small") == ["12"], "number word runs end at punctuation")
             check(NotesGrounding.names("Finalize the deck with Dana. Sam will review it. I'll ship on Monday.") == ["dana", "sam"], "names, not imperatives, pronouns or weekdays")
             check(NotesGrounding.dates("We may ship in May") == ["may"], "may is a month only when capitalized")
-            // Polarity (October 16, 2026, a real call): an item may not reverse what its lines say.
+            // Polarity (from a real call): an item may not reverse what its lines say.
             var weather = Meeting(id: "w", recordedAt: Date(timeIntervalSince1970: 0), source: MeetingSource(name: "Zoom", bundleID: "us.zoom.xos"))
             weather.insert(stream: .them, start: 0, end: 9, text: "Much of the northern part of the country is expected to get less snow. And no states are expected to be cooler than average.")
             let weatherSource = NotesGrounding.source(MeetingNotesPrompt.number(weather), myNotes: "")
@@ -456,7 +460,9 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             catch { check(error as? NotesFailure == .failed("Part of this meeting is too long for the notes route."), "overflow twice fails with a reason") }
 
             // The route setting: unset until the first Stop asks; Apple carries its label.
-            let defaults = UserDefaults(suiteName: "murmur-notes-\(UUID().uuidString)")!
+            let defaultsSuite = "murmur-notes-\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: defaultsSuite)!
+            defer { defaults.removePersistentDomain(forName: defaultsSuite) }
             check(MeetingNotesRoute.load(defaults) == nil, "the notes route is unset until asked")
             defaults.set(MeetingNotesRoute.appleIntelligence.rawValue, forKey: MeetingNotesRoute.key)
             check(MeetingNotesRoute.load(defaults) == .appleIntelligence && MeetingNotesRoute.appleIntelligence.label == "Apple Intelligence (on-device)", "Apple Intelligence is labelled on-device")
@@ -465,7 +471,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(MeetingNotesRoute.disclosure(.customAPI, host: "127.0.0.1:8080", local: true, retention: nil).contains("nothing leaves this Mac"), "a loopback endpoint counts as local")
         }
 
-        // Notes with speaker names (W7d after W7b): labels in the prompt, grounding, renames afterwards.
+        // Notes with speaker names: labels in the prompt, grounding, renames afterwards.
         do {
             var meeting = Meeting(id: UUID().uuidString, recordedAt: Date(timeIntervalSince1970: 0), source: MeetingSource(name: "Zoom", bundleID: "us.zoom.xos"))
             meeting.insert(stream: .them, start: 0, end: 10, text: "Can you send the budget deck to finance by Friday?")

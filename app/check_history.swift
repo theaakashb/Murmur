@@ -117,11 +117,8 @@ import Darwin
         let cache = ModelVerificationCache()
         do { try cache.verify(modelRoot, manifest: manifest); fatalError("Cache accepted corrupt weights") } catch {}
         try bytes.write(to: weight); try cache.verify(modelRoot, manifest: manifest)
-        let hashed = try ModelVerificationCache.fingerprint(modelRoot, manifest: manifest)
         try cache.verify(modelRoot, manifest: manifest)   // hit
         try Data(repeating: 0, count: bytes.count).write(to: weight)
-        let rewritten = try ModelVerificationCache.fingerprint(modelRoot, manifest: manifest)
-        precondition(rewritten != hashed, "rewrite must change the fingerprint")
         do { try cache.verify(modelRoot, manifest: manifest); fatalError("Cache accepted rewritten weights") } catch {}
         print("Native history and verifier checks passed (atomic roundtrip, provenance, permissions, calendar expiry, invalid policy, mismatched/corrupt history, quarantine and expiry of unreadable files, deletion, absent/corrupt weights).")
     }

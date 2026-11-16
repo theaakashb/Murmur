@@ -1,4 +1,4 @@
-// Speaker separation W7d checks (PRD 11.8). No audio models, no network; the helper is a stand-in script.
+// Speaker separation checks. No audio models, no network; the helper is a stand-in script.
 import Foundation
 
 nonisolated(unsafe) var failures = 0
@@ -27,7 +27,11 @@ func segment(_ speaker: String, _ start: Double, _ end: Double) -> SpeakerSegmen
             check(meeting.lines.first { $0.stream == .me }?.speaker == nil, "Me lines are never assigned a speaker")
             check(MeetingSpeakers.label(them[1], in: meeting) == "Speaker 2" && MeetingSpeakers.label(meeting.lines[1], in: meeting) == "Me", "labels: Speaker N for Them, Me for the microphone")
             check(meeting.speakers?.state == .done && meeting.speakers?.threshold == 0.6, "separation done, threshold recorded")
-            check(MeetingSpeakers.speaker(0, 1, [], nearest: true) == nil, "no segments: no speaker")
+            var unseparated = Meeting(id: UUID().uuidString, recordedAt: Date(), source: call)
+            unseparated.speakers = SpeakerSeparation(state: .pending)
+            unseparated.insert(stream: .them, start: 0, end: 5, text: "Nobody was detected.")
+            MeetingSpeakers.apply([], to: &unseparated)
+            check(unseparated.lines[0].speaker == nil, "no segments: no speaker")
         }
 
         do {
@@ -86,7 +90,7 @@ func segment(_ speaker: String, _ start: Double, _ end: Double) -> SpeakerSegmen
             check(MeetingSpeakers.split(changed.lines[0], words: [[0, 1]], segments: [segment("a", 0, 5)]).count == 1, "mismatched times never split")
         }
 
-        // Renaming, merging and reassigning: per meeting, persisted, dated for notes (PRD 11.6).
+        // Renaming, merging and reassigning: per meeting, persisted, dated for notes.
         do {
             var meeting = Meeting(id: UUID().uuidString, recordedAt: Date(), source: call)
             meeting.speakers = SpeakerSeparation(state: .pending)
@@ -141,11 +145,11 @@ func segment(_ speaker: String, _ start: Double, _ end: Double) -> SpeakerSegmen
             check(try store.meetings().isEmpty, "retention removes the meeting and its speaker names together")
         }
 
-        // Older records (W7a) decode without the new fields.
+        // Older records decode without the speaker fields.
         do {
-            let w7a = #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","recordedAt":0,"seconds":30,"source":{"name":"Zoom","bundleID":"us.zoom.xos","allApps":false,"micOnly":false},"lines":[{"id":1,"stream":"them","start":0,"end":5,"text":"Hello."}],"myNotes":"","gaps":[],"finished":true}"#
-            let meeting = try JSONDecoder().decode(Meeting.self, from: Data(w7a.utf8))
-            check(meeting.speakers == nil && meeting.lines[0].speaker == nil && MeetingSpeakers.label(meeting.lines[0], in: meeting) == "Them", "a W7a record still decodes and reads Them")
+            let older = #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","recordedAt":0,"seconds":30,"source":{"name":"Zoom","bundleID":"us.zoom.xos","allApps":false,"micOnly":false},"lines":[{"id":1,"stream":"them","start":0,"end":5,"text":"Hello."}],"myNotes":"","gaps":[],"finished":true}"#
+            let meeting = try JSONDecoder().decode(Meeting.self, from: Data(older.utf8))
+            check(meeting.speakers == nil && meeting.lines[0].speaker == nil && MeetingSpeakers.label(meeting.lines[0], in: meeting) == "Them", "an older record still decodes and reads Them")
         }
 
         // Voice embeddings are never persisted: the reply parser keeps only ids and times.
