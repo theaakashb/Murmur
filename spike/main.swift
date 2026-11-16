@@ -77,7 +77,7 @@ func observe(_ insertion: InsertionResult, insertedText: String, insertionOffset
         // Access is about the dictated field; another app's unreadable focus is a departure, not lost access.
         let readable = AXIsProcessTrusted() && (sameField ? current?.learningEligible == true : true)
         let selected = current?.selection.map { NSRange(location: $0.location, length: $0.length) } ?? NSRange(location: 0, length: 0)
-        let candidate = tracker.observe(value: current?.value ?? "", selection: selected,
+        let candidate = tracker.observeCandidate(value: current?.value ?? "", selection: selected,
                                         now: ProcessInfo.processInfo.systemUptime,
                                         sameFocusedField: sameField, readableNonsecure: readable)
         if candidate != previous {

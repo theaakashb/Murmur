@@ -949,15 +949,10 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
         Respond only with a JSON object of the form {"transcript": "<the spoken words>"} with no other fields and no other text.
         """
 
-    /// How the JSON schema is requested. The current reference marks `responseSchema` deprecated
-    /// in favour of `responseFormat`; the legacy form is kept selectable for the live key test.
-    enum SchemaStyle: Sendable { case responseFormat, legacyResponseSchema }
-
     let id = ProviderID.gemini
     let apiKey: APIKey
     var baseURL: URL = GeminiTranscriptionProvider.defaultBaseURL
     var model: String = GeminiTranscriptionProvider.defaultModel
-    var schemaStyle: SchemaStyle = .responseFormat
     var timeout: TimeInterval = 60
     /// Bounds runaway output (a hallucinating model); five minutes of speech is about 1,500 tokens.
     var maxOutputTokens: Int? = 8192
@@ -1009,21 +1004,13 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
         let required = ["transcript"]
         let additionalProperties = false
     }
-    /// OpenAPI-subset schema for the deprecated `responseSchema` (no `additionalProperties`).
-    private struct LegacySchema: Encodable {
-        let type = "object"
-        let properties = Properties()
-        let required = ["transcript"]
-    }
     private struct TextFormat: Encodable { let mimeType = "APPLICATION_JSON"; let schema = TranscriptSchema() }
     private struct ResponseFormat: Encodable { let text = TextFormat() }
     private struct GenerationConfig: Encodable {
         let temperature: Double
         let candidateCount: Int
         let maxOutputTokens: Int?
-        let responseFormat: ResponseFormat?
-        let responseMimeType: String?
-        let responseSchema: LegacySchema?
+        let responseFormat: ResponseFormat
     }
     private struct Body: Encodable { let systemInstruction: Content; let contents: [Content]; let generationConfig: GenerationConfig }
 
@@ -1041,11 +1028,10 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
         return text
     }
 
-    static func makeRequest(audio: AudioPayload, apiKey: APIKey, model: String = defaultModel, baseURL: URL = defaultBaseURL, maxOutputTokens: Int? = 8192, schemaStyle: SchemaStyle = .responseFormat) throws -> URLRequest {
+    static func makeRequest(audio: AudioPayload, apiKey: APIKey, model: String = defaultModel, baseURL: URL = defaultBaseURL, maxOutputTokens: Int? = 8192) throws -> URLRequest {
         let url = try GeminiResponse.generateContentURL(baseURL: baseURL, model: model)
         let mime = audio.mimeType.lowercased()
         guard supportedMIMETypes.contains(mime) else { throw ProviderError.invalidConfiguration(.gemini) }
-        let legacy = schemaStyle == .legacyResponseSchema
         let body = Body(
             systemInstruction: Content(role: nil, parts: [Part(text: instruction(for: audio))]),
             contents: [Content(role: "user", parts: [
@@ -1053,9 +1039,7 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
                 Part(text: "Transcribe the speech in this audio verbatim as JSON."),
             ])],
             generationConfig: GenerationConfig(temperature: 0, candidateCount: 1, maxOutputTokens: maxOutputTokens,
-                                               responseFormat: legacy ? nil : ResponseFormat(),
-                                               responseMimeType: legacy ? "application/json" : nil,
-                                               responseSchema: legacy ? LegacySchema() : nil))
+                                               responseFormat: ResponseFormat()))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         var request = URLRequest(url: url)
@@ -1087,7 +1071,7 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
 
     func transcribe(_ audio: AudioPayload) async throws -> String {
         guard audio.data.count <= Self.maxInlineAudioBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: Self.maxInlineAudioBytes) }
-        let request = try Self.makeRequest(audio: audio, apiKey: apiKey, model: model, baseURL: baseURL, maxOutputTokens: maxOutputTokens, schemaStyle: schemaStyle)
+        let request = try Self.makeRequest(audio: audio, apiKey: apiKey, model: model, baseURL: baseURL, maxOutputTokens: maxOutputTokens)
         guard (request.httpBody?.count ?? 0) <= Self.requestLimitBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: Self.maxInlineAudioBytes) }
         return try Self.parse(try await ProviderHTTP(provider: id, transport: transport, deadline: timeout).execute(request))
     }
@@ -1639,9 +1623,6 @@ enum LocalEndpoint {
 struct OpenAICompatibleCleanupProvider: CleanupProvider {
     /// Documented default base URLs (see PROVIDERS.md).
     static let ollamaDefault = "http://localhost:11434"
-    static let lmStudioDefault = "http://localhost:1234"
-    static let llamaServerDefault = "http://127.0.0.1:8080"
-    static let vllmDefault = "http://localhost:8000"
     /// Local models can take a long time on a cold load; bounded so a hung server still fails.
     static let defaultTimeout: TimeInterval = 120
     static let maximumTimeout: TimeInterval = 300

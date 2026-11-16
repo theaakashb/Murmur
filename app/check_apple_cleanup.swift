@@ -101,11 +101,6 @@ private func provider(_ status: OnDeviceModelUnavailable?, _ model: FakeModel) -
         _ = (await p.processAsync(raw)).outcome
         check(short.calls.count == 1, "short text is one request")
 
-        // The AsyncCleaner entry point builds the shared prompt.
-        let direct = FakeModel { $0 }
-        _ = try await provider(nil, direct).clean(raw, options: .standard)
-        check(direct.calls == [raw.split(separator: " ").count], "clean() sends the transcript in the shared prompt")
-
         print("\(passes) checks passed, \(failures) failed")
         if failures > 0 { exit(1) }
     }

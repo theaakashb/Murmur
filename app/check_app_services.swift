@@ -210,52 +210,8 @@ func checkWipe() throws {
 
 // MARK: Updates
 
-func checkUpdates() async throws {
-    let release = ReleaseInfo(version: SemanticVersion("0.2.0")!, tag: "v0.2.0", title: "Murmur 0.2.0", notes: "Fixes.", pageURL: URL(string: "https://github.com/theaakashb/Murmur/releases/tag/v0.2.0")!, publishedAt: nil)
-    let fixed: (Date) -> String = { _ in "10:00" }
-    check(UpdateText.status(.updateAvailable(release), manual: false, currentVersion: "0.1.0", timeFormatter: fixed) == "Murmur 0.2.0 is available. This Mac has 0.1.0.", "update available names both versions")
-    check(UpdateText.status(.upToDate(latest: nil), manual: true, currentVersion: "0.1.0") == "Murmur 0.1.0 is up to date.", "up to date")
-    check(UpdateText.status(.noReleases, manual: false, currentVersion: "0.1.0")?.contains("No Murmur releases") == true, "no releases is quiet text")
-    check(UpdateText.status(.throttled(nextCheck: Date()), manual: false, currentVersion: "0.1.0") == nil, "skipped automatic check keeps the current line")
-    check(UpdateText.status(.offline, manual: false, currentVersion: "0.1.0")?.contains("try again later") == true, "automatic offline is quiet")
-    check(UpdateText.status(.offline, manual: true, currentVersion: "0.1.0")?.contains("internet connection") == true, "manual offline suggests the connection")
-    check(UpdateText.status(.rateLimited(until: Date()), manual: true, currentVersion: "0.1.0", timeFormatter: fixed) == "GitHub is limiting update checks. Try again after 10:00.", "rate limit names the time")
-    check(UpdateText.status(.rateLimited(until: nil), manual: true, currentVersion: "0.1.0")?.contains("later") == true, "rate limit without time")
-    check(UpdateText.status(.failed(.malformedResponse), manual: true, currentVersion: "0.1.0") != nil, "failure is text, not an error state")
-
-    check(UpdateText.release(.updateAvailable(release), previous: nil) == release, "release kept for display")
-    check(UpdateText.release(.offline, previous: release) == release, "offline keeps a known release")
-    check(UpdateText.release(.upToDate(latest: nil), previous: release) == nil, "up to date clears it")
-    check(UpdateText.headline(release) == "Murmur 0.2.0", "headline")
-    check(UpdateText.headline(ReleaseInfo(version: release.version, tag: "v0.2.0", title: "  ", notes: "", pageURL: release.pageURL, publishedAt: nil)) == "Murmur 0.2.0", "blank title falls back to the version")
-    check(UpdateText.notesExcerpt(String(repeating: "a", count: 2000), limit: 10) == "aaaaaaaaaa…" && UpdateText.notesExcerpt("  short \n") == "short", "notes are trimmed")
-    check(UpdateText.menuTitle(nil) == "Check for Updates…" && UpdateText.menuTitle(release) == "Update Available: Murmur 0.2.0…", "menu title")
-    let t0 = Date(timeIntervalSince1970: 1_790_000_000)
-    check(UpdateSchedule.shouldAttemptAutomatic(lastAttempt: nil, now: t0), "first automatic attempt runs")
-    check(!UpdateSchedule.shouldAttemptAutomatic(lastAttempt: t0, now: t0.addingTimeInterval(60)), "no automatic retry a minute later")
-    check(UpdateSchedule.shouldAttemptAutomatic(lastAttempt: t0, now: t0.addingTimeInterval(3600)), "automatic attempt again after an hour")
-    check(UpdateSchedule.shouldAttemptAutomatic(lastAttempt: t0.addingTimeInterval(500), now: t0), "a future attempt time (clock change) does not block")
+func checkUpdates() {
     check(UpdateText.explanation.contains("uses the network") && UpdateText.explanation.contains("Sparkle checks GitHub daily"), "automatic-check explanation")
-
-    // The bundled version string parses, and the UserDefaults throttle store skips a second automatic check.
-    let plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: URL(fileURLWithPath: "app/Info.plist")), format: nil) as? [String: Any]
-    let version = plist?["CFBundleShortVersionString"] as? String ?? ""
-    check(SemanticVersion(version) != nil, "Info.plist CFBundleShortVersionString is a semantic version (\(version))")
-    let suite = "murmur-app-services-check-" + UUID().uuidString
-    let defaults = UserDefaults(suiteName: suite)!
-    defer { defaults.removePersistentDomain(forName: suite) }
-    final class CountingClient: UpdateHTTPClient, @unchecked Sendable {
-        var calls = 0
-        func get(_ request: URLRequest) async throws -> UpdateHTTPResponse { calls += 1; return UpdateHTTPResponse(status: 200, headers: [:], body: Data("[]".utf8)) }
-    }
-    let client = CountingClient()
-    let configuration = try UpdateConfiguration(currentVersion: version)
-    let first = await UpdateChecker(configuration: configuration, client: client, store: UserDefaultsUpdateCheckStore(defaults: defaults)).check(manual: false)
-    let second = await UpdateChecker(configuration: configuration, client: client, store: UserDefaultsUpdateCheckStore(defaults: defaults)).check(manual: false)
-    let manual = await UpdateChecker(configuration: configuration, client: client, store: UserDefaultsUpdateCheckStore(defaults: defaults)).check(manual: true)
-    check(first == .noReleases && client.calls == 2, "manual check bypasses the throttle")
-    if case .throttled = second {} else { check(false, "second automatic check after relaunch is throttled by UserDefaults") }
-    check(manual == .noReleases, "manual result")
 }
 
 /// Live words (gap #13): the bubble dims only the last word and keeps the newest tail.
@@ -346,8 +302,8 @@ func checkSettingsSearch() {
         try checkHistoryRouter()
         checkExpiryAndText()
         try checkWipe()
-        try await checkUpdates()
+        checkUpdates()
         if failures > 0 { print("\(failures) app services check(s) failed."); exit(1) }
-        print("App services checks passed (model row, gates, history-off routing, retention, wipe reload, update text, throttle).")
+        print("App services checks passed (model row, gates, history-off routing, retention, wipe reload, update text).")
     }
 }

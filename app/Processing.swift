@@ -232,12 +232,6 @@ enum WritingModes {
         return enabled.first { $0.apps.contains { $0.lowercased() == bundleID } }
     }
 
-    /// Trigger word first, then website, then app. Returns the mode and the transcript to process.
-    static func resolve(_ modes: [WritingMode], transcript: String, bundleID: String?, url: URL?) -> (mode: WritingMode?, text: String) {
-        if let hit = trigger(modes, in: transcript) { return hit }
-        return (match(modes, bundleID: bundleID, url: url), transcript)
-    }
-
     /// "github.com" matches github.com and any subdomain, never "notgithub.com". A path matches
     /// itself and anything below it by whole segments; "/*" and a leading "*." add nothing.
     /// Scheme, port, query and case are ignored.

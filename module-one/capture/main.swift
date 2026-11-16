@@ -2,6 +2,11 @@ import Foundation
 import AVFoundation
 import Darwin
 
+func recoveryDirectory() -> URL {
+    FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("DictationCaptureSpike/retry-audio", isDirectory: true)
+}
+
 func check(_ condition: @autoclosure () -> Bool, _ message: String) throws {
     guard condition() else { throw CaptureError("Self-check failed: \(message)") }
 }

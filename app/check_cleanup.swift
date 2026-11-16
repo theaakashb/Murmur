@@ -20,11 +20,6 @@ struct ThrowingCleaner: Cleaner {
     func clean(_ raw: String, options: CleanupOptions) throws -> String { throw Failure() }
 }
 
-struct EchoAsyncCleaner: AsyncCleaner {
-    let output: String
-    func clean(_ raw: String, options: CleanupOptions) async throws -> String { output }
-}
-
 @main struct CleanupChecks {
     static func code(_ o: CleanupOptions) -> String {
         let s = (o.fillers ? "F" : "") + (o.corrections ? "C" : "") + (o.lists ? "L" : "")
@@ -66,7 +61,6 @@ struct EchoAsyncCleaner: AsyncCleaner {
         var failures: [String] = []
         unitChecks(&failures)
         spokenChecks(&failures, corpus: corpus, verbose: verbose)
-        await asyncChecks(&failures)
 
         let cleaner = RuleCleaner()
         struct Bucket { var n = 0, exact = 0, pipelineExact = 0, held = 0 }
@@ -767,14 +761,6 @@ struct EchoAsyncCleaner: AsyncCleaner {
         expect(old?.trustModel == false && !CleanupOptions.standard.trustModel && !CleanupOptions().trustModel, "trust is off by default and in old saved options")
         // Failure reasons are content-free identifiers.
         for r in CleanupFailureReason.allCases { expect(r.rawValue.allSatisfy { $0.isLetter }, "reason \(r.rawValue) is a bare identifier") }
-    }
-
-    static func asyncChecks(_ failures: inout [String]) async {
-        let raw = "What's the capital of France?"
-        let answered = await CleanupPipeline.process(raw: raw, options: .standard, cleaner: EchoAsyncCleaner(output: "The capital of France is Paris."))
-        if case .heldForRecovery(raw: raw, reason: _) = answered {} else { failures.append("async pipeline holds an answering cleaner") }
-        let fine = await CleanupPipeline.process(raw: "Um, ship it.", options: .standard, cleaner: EchoAsyncCleaner(output: "Ship it."))
-        if fine != .cleaned("Ship it.") { failures.append("async pipeline accepts a valid cleanup") }
     }
 
     // MARK: Spoken commands, numbers, symbols and email layout

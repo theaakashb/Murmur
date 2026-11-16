@@ -515,10 +515,6 @@ extension ProviderChecks {
         check(((schema?["properties"] as? [String: Any])?["transcript"] as? [String: Any])?["type"] as? String == "string" && (schema?["properties"] as? [String: Any])?.count == 1, "schema: transcript is the only property, a string")
         check(config["responseSchema"] == nil && config["responseMimeType"] == nil, "default uses responseFormat only")
 
-        let legacy = json((try? GeminiTranscriptionProvider.makeRequest(audio: audio, apiKey: key, schemaStyle: .legacyResponseSchema))?.httpBody)
-        let legacyConfig = legacy["generationConfig"] as? [String: Any] ?? [:]
-        check(legacyConfig["responseMimeType"] as? String == "application/json" && (legacyConfig["responseSchema"] as? [String: Any])?["required"] as? [String] == ["transcript"] && legacyConfig["responseFormat"] == nil, "legacy schema style")
-
         expectError(.invalidConfiguration(.gemini), "unsupported audio MIME rejected locally") { try GeminiTranscriptionProvider.makeRequest(audio: AudioPayload(data: audioBytes, mimeType: "audio/x-caf"), apiKey: key) }
         expectError(.invalidConfiguration(.gemini), "Gemini STT rejects model with path") { try GeminiTranscriptionProvider.makeRequest(audio: audio, apiKey: key, model: "../files") }
         check((try? GeminiTranscriptionProvider.makeRequest(audio: AudioPayload(data: audioBytes, mimeType: "AUDIO/FLAC"), apiKey: key)) != nil, "MIME match is case-insensitive")
@@ -664,9 +660,9 @@ extension ProviderChecks {
         guard let ollama = try? OpenAICompatibleCleanupProvider(baseURL: OpenAICompatibleCleanupProvider.ollamaDefault, model: "llama3.2:latest") else { check(false, "Ollama provider builds"); return }
         check(ollama.chatCompletionsURL.absoluteString == "http://localhost:11434/v1/chat/completions", "Ollama chat URL")
         check(ollama.modelsURL.absoluteString == "http://localhost:11434/v1/models" && ollama.ollamaTagsURL.absoluteString == "http://localhost:11434/api/tags", "model list URLs")
-        for (raw, chat) in [(OpenAICompatibleCleanupProvider.lmStudioDefault, "http://localhost:1234/v1/chat/completions"),
-                            (OpenAICompatibleCleanupProvider.llamaServerDefault, "http://127.0.0.1:8080/v1/chat/completions"),
-                            (OpenAICompatibleCleanupProvider.vllmDefault, "http://localhost:8000/v1/chat/completions")] {
+        for (raw, chat) in [("http://localhost:1234", "http://localhost:1234/v1/chat/completions"),
+                            ("http://127.0.0.1:8080", "http://127.0.0.1:8080/v1/chat/completions"),
+                            ("http://localhost:8000", "http://localhost:8000/v1/chat/completions")] {
             check((try? OpenAICompatibleCleanupProvider(baseURL: raw, model: "m"))?.chatCompletionsURL.absoluteString == chat, "default chat URL \(raw)")
             check((try? OpenAICompatibleCleanupProvider(baseURL: raw, model: "m"))?.locality == .onDevice, "documented default is on-device: \(raw)")
         }

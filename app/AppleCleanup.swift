@@ -12,7 +12,7 @@ import FoundationModels
 // 2026: a single 900-word unpunctuated request did not exceed the context, but long text is slow
 // (about 3 s per 100 words), and a context error would only fall back to local rules. Without FoundationModels (Linux checks) the model reports itself unavailable.
 
-struct AppleCleanupProvider: CleanupProvider, AsyncCleaner {
+struct AppleCleanupProvider: CleanupProvider {
     let id = ProviderID.appleIntelligence
     /// Nil when the model can run. Checks inject a fixed status.
     var status: @Sendable () -> OnDeviceModelUnavailable? = AppleSystemModel.status
@@ -30,10 +30,6 @@ struct AppleCleanupProvider: CleanupProvider, AsyncCleaner {
 
     func validate() async throws {
         if let reason = status() { throw ProviderError.modelUnavailable(id, reason) }
-    }
-
-    func clean(_ raw: String, options: CleanupOptions) async throws -> String {
-        try await cleanup(CleanupPrompt.build(transcript: raw, options: options))
     }
 
     /// Loads the model ahead of the first request (route selected, recording started).

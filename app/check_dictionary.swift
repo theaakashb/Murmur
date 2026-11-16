@@ -654,7 +654,6 @@ private struct Item: RetainedHistoryItem { let id: String; let recordedAt: Date 
         check(deleted == items.prefix(2).map(\.id) && result.status.usedBytes == 3000, "enforce deletes oldest")
         try check(HistoryCap.usage(directory: history) == 3000, "files removed")
         let remaining = Array(items.suffix(3))
-        try check(HistoryCap.capStatus(entries: remaining, directory: history, retention: .forever, capBytes: 3200) == .approachingCap(usedBytes: 3000, capBytes: 3200), "capStatus forever")
         let noDrop = try HistoryCap.enforce(entries: remaining, directory: history, retention: .forever, capBytes: 1000) { _ in check(false, "forever must not delete") }
         check(noDrop.dropped.isEmpty, "forever enforce drops nothing")
         let quarantine = history.appendingPathComponent("unreadable")
@@ -673,7 +672,7 @@ private struct Item: RetainedHistoryItem { let id: String; let recordedAt: Date 
         let locations = MurmurDataLocations.standard(base: base2)
         let dict = try DictionaryStore(directory: locations.dictionary)
         try dict.add(preferred: "Akme", variants: ["Acme"])
-        let ledger = try CorrectionLedger(directory: locations.ledger, dictionary: dict)
+        let ledger = try CorrectionLedger(directory: locations.dictionary, dictionary: dict)
         try ledger.record(ObservedCorrection(sessionID: UUID(), source: "Acme", target: "Akme", observedAt: base))
         try FileManager.default.createDirectory(at: locations.history, withIntermediateDirectories: true)
         try Data("{}".utf8).write(to: locations.history.appendingPathComponent(UUID().uuidString + ".json"))
@@ -685,7 +684,7 @@ private struct Item: RetainedHistoryItem { let id: String; let recordedAt: Date 
         let report = DataWipe.deleteAllData(locations) { keychainCalled = true; return ["gemini-api-key"] }
         check(report.succeeded && keychainCalled && report.keychainItems == ["gemini-api-key"], "deleteAll reports keychain removal")
         check(report.removed.count == 4, "history, dictionary+ledger, retry audio and abandoned chunks removed")
-        for url in [locations.history, locations.dictionary, locations.ledger, locations.retryAudio, locations.chunks] {
+        for url in [locations.history, locations.dictionary, locations.retryAudio, locations.chunks] {
             check(!FileManager.default.fileExists(atPath: url.path), "\(url.lastPathComponent) gone")
         }
         try dict.reload(); try ledger.reload()

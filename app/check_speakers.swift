@@ -210,10 +210,9 @@ func segment(_ speaker: String, _ start: Double, _ end: Double) -> SpeakerSegmen
             nonisolated(unsafe) var called = false
             runner.run("b", helper: slow, models: dir, audio: dir, threshold: 0.6) { _ in called = true }
             Thread.sleep(forTimeInterval: 0.3)
-            check(runner.active == ["b"], "a running separation is active")
             runner.cancel("b")
             Thread.sleep(forTimeInterval: 0.5)
-            check(runner.active.isEmpty && !called, "Skip terminates the helper and answers nothing")
+            check(!called, "Skip terminates the helper and answers nothing")
             runner.run("c", helper: quick, models: dir, audio: dir, check: { false }, threshold: 0.6) { answer = $0; done.signal() }
             check(done.wait(timeout: .now() + 10) == .success && answer == nil, "a model that fails verification never runs")
         }

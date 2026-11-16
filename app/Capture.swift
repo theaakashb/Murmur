@@ -538,8 +538,3 @@ func permission() -> String {
     @unknown default: return "unknown"
     }
 }
-
-func recoveryDirectory() -> URL {
-    FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("DictationCaptureSpike/retry-audio", isDirectory: true)
-}

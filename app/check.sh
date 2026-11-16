@@ -11,27 +11,27 @@ deps() {
   case "$1" in
     launch) echo "LaunchOptions" ;;
     history) echo "Shortcut Capture Session Cleanup History" ;;
-    controller|meeting_start) echo "app" ;;
+    controller) echo "app ../spike/InsertionChecks" ;;
+    meeting_start) echo "app" ;;
     recording) echo "Shortcut Capture Session" ;;
-    speaker_flow) echo "Shortcut Capture Session History ModelDownload Updates AppServices $meetings MeetingCapture MeetingRecorder" ;;
+    speaker_flow) echo "Shortcut Capture Session History ModelDownload AppServices $meetings MeetingCapture MeetingRecorder" ;;
     delivery) echo "Delivery" ;;
     dictionary) echo "$text" ;;
     processing|modes) echo "$cloud Observation" ;;
     apple_cleanup) echo "$cloud Routes AppleCleanup Observation" ;;
     routes) echo "$cloud Routes AppleCleanup" ;;
     providers) echo "Cleanup Providers Credentials" ;;
-    updates) echo "Updates" ;;
     insights) echo "Insights" ;;
     meetings|speakers) echo "$meetings" ;;
     call_detection) echo "$meetings CallDetection" ;;
     model_download) echo "ModelDownload" ;;
-    app_services) echo "Retention ModelDownload Updates AppServices" ;;
+    app_services) echo "Retention ModelDownload AppServices" ;;
     boost_filter) echo "../module-one/models/Runner/Sources/ModelBench/BoostFilter" ;;
     cleanup) echo "Cleanup" ;;
     *) return 1 ;;
   esac
 }
-swift_checks="launch history controller meeting_start recording speaker_flow delivery dictionary processing modes apple_cleanup routes providers updates insights meetings speakers call_detection model_download app_services boost_filter cleanup"
+swift_checks="launch history controller meeting_start recording speaker_flow delivery dictionary processing modes apple_cleanup routes providers insights meetings speakers call_detection model_download app_services boost_filter cleanup"
 script_checks="http update_config"
 if [ "${1:-}" = "--list" ]; then echo $swift_checks $script_checks; exit 0; fi
 out="${TMPDIR:-/tmp}/murmur-checks"; mkdir -p "$out"; cd "$project_root" || exit 1

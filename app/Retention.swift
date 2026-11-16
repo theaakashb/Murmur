@@ -121,18 +121,6 @@ enum HistoryCap {
         return result
     }
 
-    /// Current status without deleting anything (e.g. for the History settings row).
-    static func capStatus<Item: RetainedHistoryItem>(entries: [Item], directory: URL, retention: HistoryRetention,
-                                                     capBytes: Int64 = defaultCapBytes) throws -> HistoryCapStatus {
-        let used = try usage(directory: directory)
-        if retention == .forever {
-            return plan(entries: [Item](), sizes: [:], otherBytes: used, retention: .forever, capBytes: capBytes).status
-        }
-        let sizes = try entrySizes(entries, directory: directory)
-        return plan(entries: entries, sizes: sizes, otherBytes: max(0, used - sizes.values.reduce(0, +)),
-                    retention: retention, capBytes: capBytes).status
-    }
-
     private static func entrySizes<Item: RetainedHistoryItem>(_ entries: [Item], directory: URL) throws -> [String: Int64] {
         var sizes: [String: Int64] = [:]
         for item in entries {
@@ -196,19 +184,17 @@ enum HistoryMode: String, Codable {
     static let offDisclosure = "With history off, Murmur does not save transcript history to disk. If insertion fails and Murmur quits or stops unexpectedly, that text cannot be recovered. Retry audio can still remain for up to 24 hours, and learning can still save spellings in your dictionary. Turning history off does not delete existing history; delete it separately."
 }
 
-/// Where Murmur keeps user data. The dictionary and ledger may share one directory.
+/// Where Murmur keeps user data. The dictionary and ledger share the `dictionary` directory.
 struct MurmurDataLocations {
     var history: URL
     var dictionary: URL
-    var ledger: URL
     var retryAudio: URL
     var chunks: URL
 
     /// Matches Controller's layout under Application Support/Dictation.
     static func standard(base: URL) -> MurmurDataLocations {
-        let dictionary = base.appendingPathComponent("dictionary")
-        return MurmurDataLocations(history: base.appendingPathComponent("history"), dictionary: dictionary,
-                                   ledger: dictionary, retryAudio: base.appendingPathComponent("retry-audio"), chunks: base.appendingPathComponent("chunks"))
+        MurmurDataLocations(history: base.appendingPathComponent("history"), dictionary: base.appendingPathComponent("dictionary"),
+                            retryAudio: base.appendingPathComponent("retry-audio"), chunks: base.appendingPathComponent("chunks"))
     }
 }
 
@@ -232,7 +218,7 @@ enum DataWipe {
         var report = DeleteAllReport()
         var seen = Set<String>()
         let fm = FileManager.default
-        for url in [locations.history, locations.dictionary, locations.ledger, locations.retryAudio, locations.chunks] {
+        for url in [locations.history, locations.dictionary, locations.retryAudio, locations.chunks] {
             let path = url.standardizedFileURL.path
             guard seen.insert(path).inserted else { continue }
             guard (try? fm.attributesOfItem(atPath: path)) != nil else { report.absent.append(url); continue }

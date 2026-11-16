@@ -81,13 +81,9 @@ private enum EditorialPalette {
     static let paper = color(0xFAFAFA, 0x181818)
     static let ink = color(0x202020, 0xFAFAFA)
     static let ink70 = color(0x555555, 0xBBBBBB)
-    static let ink64 = ink70
-    static let ink80 = ink
-    static let ink45 = ink70
     static let ink20 = color(0xCCCCCC, 0x555555)
     static let accent = color(0x4D6FF0, 0x4D6FF0)
     static let accentInk = Palette.accentInk
-    static let accentDeep = accentInk
     static let accent16 = color(0xEEEEEE, 0x242424)
     static let sidebar = color(0xFFFFFF, 0x111111)
 }
@@ -147,11 +143,6 @@ enum Logo {
     ]
     static func path(in size: CGSize) -> Path {
         Path { path in bars.forEach { path.addRect($0.applying(CGAffineTransform(scaleX: size.width / 96, y: size.height / 96))) } }
-    }
-    /// Full-colour mark: bars stay literal ink on accent in both appearances.
-    static func mark(size: CGFloat) -> some View {
-        path(in: CGSize(width: size, height: size)).fill(Color(red: 0x14 / 255, green: 0x14 / 255, blue: 0x14 / 255))
-            .frame(width: size, height: size).background(Palette.accent).accessibilityHidden(true)
     }
     /// One-colour menu bar mark; the template tint follows the menu bar.
     static let menuBarImage: NSImage = {
@@ -656,7 +647,7 @@ struct SettingsView: View {
                         }.overlay(alignment: .bottom) { softRule }.padding(.bottom, 24)
                     }
                     sectionBody.disabled(controller.isBusy)
-                    if controller.isBusy { help("Finish dictating to change settings.", color: EditorialPalette.ink64).padding(.top, 12) }
+                    if controller.isBusy { help("Finish dictating to change settings.", color: EditorialPalette.ink70).padding(.top, 12) }
                 }
                 .padding(.vertical, 32)
                 .frame(maxWidth: 760, alignment: .leading)
@@ -827,7 +818,7 @@ struct SettingsView: View {
                         help((controller.usesCustomModelFolder ? "Custom folder" : "Default folder") + " · " + (controller.modelAvailable ? "model files found ✓" : "no model files in this folder"))
                         if !controller.modelDirectory.isEmpty {
                             Text(URL(fileURLWithPath: controller.modelDirectory).lastPathComponent)
-                                .font(.system(size: 12, design: .monospaced)).foregroundStyle(EditorialPalette.ink64).lineLimit(1)
+                                .font(.system(size: 12, design: .monospaced)).foregroundStyle(EditorialPalette.ink70).lineLimit(1)
                                 .textSelection(.enabled).help(controller.modelDirectory)
                         }
                     }
@@ -1071,13 +1062,13 @@ struct SettingsView: View {
                 .accessibilityLabel("Custom instructions").padding(.top, 8)
             help("\(m.instructions.count) of \(WritingModeLimits.instructions) characters. " + (m.transform == nil
                  ? "Sent only to AI cleanup routes. Cleanup still preserves what you said."
-                 : "These are the rewriting instructions sent to AI cleanup. Edit them to make this mode your own. Murmur checks the result, but rewrites can still make mistakes."), color: EditorialPalette.ink64)
+                 : "These are the rewriting instructions sent to AI cleanup. Edit them to make this mode your own. Murmur checks the result, but rewrites can still make mistakes."), color: EditorialPalette.ink70)
                 .font(Font.system(size: 12)).padding(.top, 6)
 
             eyebrow("Apps").padding(.top, 20)
             ForEach(m.apps, id: \.self) { app in
                 HStack {
-                    Text(appName(app)).font(Font.system(size: 15)); help(app, color: EditorialPalette.ink64).font(Font.system(size: 12))
+                    Text(appName(app)).font(Font.system(size: 15)); help(app, color: EditorialPalette.ink70).font(Font.system(size: 12))
                     Spacer()
                     Button("Remove") { mode.wrappedValue.apps.removeAll { $0 == app } }.buttonStyle(InkButtonStyle(kind: .plain)).fixedSize()
                 }
@@ -1091,13 +1082,13 @@ struct SettingsView: View {
 
             eyebrow("Websites").padding(.top, 20)
             ModeListEditor(items: mode.websites, placeholder: "github.com, docs.google.com/document/*, *.slack.com", label: "Website")
-            help("Matches the page open in the browser when recording starts. A site includes its subdomains; add a path to match only that part. The address is read through Accessibility, only while a mode lists a website, and is never saved or sent. A browser that does not show its page to Accessibility matches by app only.", color: EditorialPalette.ink64)
+            help("Matches the page open in the browser when recording starts. A site includes its subdomains; add a path to match only that part. The address is read through Accessibility, only while a mode lists a website, and is never saved or sent. A browser that does not show its page to Accessibility matches by app only.", color: EditorialPalette.ink70)
                 .font(Font.system(size: 12)).padding(.top, 6)
 
             eyebrow("Trigger words").padding(.top, 20)
             ModeListEditor(items: mode.triggers, placeholder: "email mode", label: "Trigger")
             help(m.transform == nil ? "Say one at the start or end of a dictation to use this mode; it is removed from the text. Pick a phrase you would not otherwise say there."
-                 : "Say one at the very start of a dictation to use this mode; it is removed from the text. This built-in mode rewrites the text on AI cleanup routes (not On this Mac); the custom instructions above control its rewrite.", color: EditorialPalette.ink64)
+                 : "Say one at the very start of a dictation to use this mode; it is removed from the text. This built-in mode rewrites the text on AI cleanup routes (not On this Mac); the custom instructions above control its rewrite.", color: EditorialPalette.ink70)
                 .font(Font.system(size: 12)).padding(.top, 6)
 
             eyebrow("Cleanup").padding(.top, 20)
@@ -1115,9 +1106,9 @@ struct SettingsView: View {
             help(m.tone == .formal ? "Text stays as cleanup wrote it."
                  : m.tone == .casual ? "Drops commas and the final period. Commas inside numbers stay."
                  : m.tone == .veryCasual ? "Casual, and sentences start in lowercase. “I” and words like “iPhone” keep their capitals."
-                 : "The final period becomes “!”.", color: EditorialPalette.ink64)
+                 : "The final period becomes “!”.", color: EditorialPalette.ink70)
                 .font(Font.system(size: 12)).padding(.top, 6)
-            help("Applied by rules after cleanup, on every route. Never applied to an email laid out from “write an email to…”.", color: EditorialPalette.ink64)
+            help("Applied by rules after cleanup, on every route. Never applied to an email laid out from “write an email to…”.", color: EditorialPalette.ink70)
                 .font(Font.system(size: 12))
 
             eyebrow("Screen context").padding(.top, 20)
@@ -1251,7 +1242,7 @@ struct SettingsView: View {
             }
             .opacity(entry.enabled ? 1 : 0.45)
             Spacer()
-            mono(entry.source == .learned ? "Learned" : "Manual", size: 11, color: EditorialPalette.accentDeep)
+            mono(entry.source == .learned ? "Learned" : "Manual", size: 11, color: EditorialPalette.accentInk)
                 .padding(.horizontal, 8).padding(.vertical, 3).background(EditorialPalette.accent16)
             Toggle(isOn: Binding(get: { entry.enabled }, set: { on in
                 controller.updateDictionaryEntry(entry, preferred: entry.preferred, variants: entry.variants.joined(separator: ", "), enabled: on)
@@ -1772,7 +1763,7 @@ struct SettingsView: View {
                                         }
                                         if guideStep == .model && !controller.modelMessage.isEmpty { help(controller.modelMessage) }
                                         if guideStep == .inputMonitoring || guideStep == .accessibility {
-                                            help("After you allow Murmur in System Settings, come back here; this page updates on its own.", color: EditorialPalette.ink64)
+                                            help("After you allow Murmur in System Settings, come back here; this page updates on its own.", color: EditorialPalette.ink70)
                                         }
                                     }
                                 }

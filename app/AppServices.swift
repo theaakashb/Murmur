@@ -1,13 +1,11 @@
 import Foundation
 
-// App-level decisions that sit between the Foundation modules (ModelDownload, Retention, Updates)
+// App-level decisions that sit between the Foundation modules (ModelDownload, Retention)
 // and Controller/UI. Foundation only, so app/check_app_services.swift runs on Linux. Controller keeps
 // only the AppKit calls (alerts, NSWorkspace) and the wiring.
 
 // MARK: - Model row (PRD R2)
 
-// TODO(R2): show measured on-device performance in the row and offer model selection once a
-// second model is pinned; only Parakeet Unified is pinned today.
 enum ModelFacts {
     static let displayName = "Parakeet Unified English 0.6B"
     static let language = "English"
@@ -407,71 +405,10 @@ enum PostWipeStep: String, CaseIterable, Equatable {
     }
 }
 
-// MARK: - Update check presentation (PRD R12)
-
-enum UpdateSchedule {
-    /// The running app attempts an automatic check at launch and then at most hourly. The checker's
-    /// UserDefaults store limits completed checks to one a day; an offline attempt does not count
-    /// there, so this interval is what keeps an offline Mac from retrying every minute.
-    static let automaticAttemptInterval: TimeInterval = 60 * 60
-
-    static func shouldAttemptAutomatic(lastAttempt: Date?, now: Date = Date()) -> Bool {
-        guard let lastAttempt, lastAttempt <= now else { return true }
-        return now.timeIntervalSince(lastAttempt) >= automaticAttemptInterval
-    }
-}
+// MARK: - Update settings text (PRD R12)
 
 enum UpdateText {
     static let explanation = "Sparkle checks GitHub daily for updates. This uses the network even when transcription runs on this Mac. Update requests contain no transcripts, audio, dictionary or API keys."
-
-    /// Status line for Settings. Nil means keep the current line (a skipped automatic check).
-    static func status(_ result: UpdateCheckResult, manual: Bool, currentVersion: String,
-                       timeFormatter: (Date) -> String = { DateFormatter.localizedString(from: $0, dateStyle: .none, timeStyle: .short) }) -> String? {
-        switch result {
-        case .updateAvailable(let release):
-            return "Murmur \(release.version) is available. This Mac has \(currentVersion)."
-        case .upToDate:
-            return "Murmur \(currentVersion) is up to date."
-        case .noReleases:
-            return "No Murmur releases have been published yet."
-        case .repositoryNotFound:
-            return "The Murmur release page could not be found. Try again later."
-        case .throttled:
-            return manual ? "Murmur checked for updates recently. Try again later." : nil
-        case .rateLimited(let until):
-            if let until { return "GitHub is limiting update checks. Try again after \(timeFormatter(until))." }
-            return "GitHub is limiting update checks. Try again later."
-        case .offline:
-            return manual ? "Could not reach GitHub. Check your internet connection and try again." : "Could not reach GitHub to check for updates. Murmur will try again later."
-        case .failed:
-            return "The update check did not complete. Try again later."
-        }
-    }
-
-    /// Nil clears a previously shown release only when the check positively says there is none newer.
-    static func release(_ result: UpdateCheckResult, previous: ReleaseInfo?) -> ReleaseInfo? {
-        switch result {
-        case .updateAvailable(let release): return release
-        case .upToDate, .noReleases: return nil
-        default: return previous
-        }
-    }
-
-    static func headline(_ release: ReleaseInfo) -> String {
-        let title = release.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return title.isEmpty ? "Murmur \(release.version)" : title
-    }
-
-    /// Release notes are shown as plain text, never rendered as Markdown or HTML, and trimmed.
-    static func notesExcerpt(_ notes: String, limit: Int = 1500) -> String {
-        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count > limit else { return trimmed }
-        return String(trimmed.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
-    }
-
-    static func menuTitle(_ release: ReleaseInfo?) -> String {
-        release.map { "Update Available: Murmur \($0.version)…" } ?? "Check for Updates…"
-    }
 }
 
 /// Search only authored setting labels and aliases; never user text or credentials.

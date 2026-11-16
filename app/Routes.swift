@@ -54,11 +54,10 @@ enum CloudTranscriber: String, CaseIterable, Identifiable, Sendable {
 
 /// The one place a cloud transcriber is constructed. Custom servers may not require a key.
 func makeTranscriptionProvider(id: CloudTranscriber, key: APIKey?, apiBaseURL: String = RouteSettings.defaultCustomAPIURL, model: String = "whisper-1", geminiModel: String = GeminiTranscribeProvider.defaultModel) -> TranscriptionProvider? {
-    if id == .customAPI { return try? OpenAICompatibleTranscriptionProvider(baseURL: apiBaseURL, model: model, apiKey: key) }
-    guard let key else { return nil }
     switch id {
-    case .customAPI: return nil // Handled above; custom endpoints may not require a key.
+    case .customAPI: return try? OpenAICompatibleTranscriptionProvider(baseURL: apiBaseURL, model: model, apiKey: key)
     case .gemini:
+        guard let key else { return nil }
         let name = geminiModel.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
         guard name != GeminiTranscribeProvider.defaultModel else {

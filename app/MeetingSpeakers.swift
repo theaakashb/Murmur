@@ -258,8 +258,6 @@ final class SpeakerRunner: @unchecked Sendable {
     private let lock = NSLock()
     private var running: [String: Process] = [:]
 
-    var active: Set<String> { lock.withLock { Set(running.keys) } }
-
     /// `done` runs on a background queue with the segments, or nil when the helper failed or timed out.
     /// It is not called for a run that was cancelled or replaced.
     /// `check` verifies the model files against their pins first, off the main thread.

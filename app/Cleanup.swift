@@ -1601,11 +1601,6 @@ protocol Cleaner {
     func clean(_ raw: String, options: CleanupOptions) throws -> String
 }
 
-/// An asynchronous cleanup provider (e.g. a cloud or local LLM route).
-protocol AsyncCleaner: Sendable {
-    func clean(_ raw: String, options: CleanupOptions) async throws -> String
-}
-
 // MARK: - Pipeline
 
 /// Splits a long transcript at sentence ends into sections of about `target` words, so a slow
@@ -1649,13 +1644,6 @@ enum CleanupPipeline {
         if !options.anyEnabled || raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .unchanged(raw) }
         let cleaned: String
         do { cleaned = try cleaner.clean(raw, options: options) } catch { return .heldForRecovery(raw: raw, reason: .cleanerFailed) }
-        return judge(raw: raw, cleaned: cleaned, options: options, allowedTerms: allowedTerms)
-    }
-
-    static func process(raw: String, options: CleanupOptions, cleaner: AsyncCleaner, allowedTerms: [String] = []) async -> CleanupOutcome {
-        if !options.anyEnabled || raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .unchanged(raw) }
-        let cleaned: String
-        do { cleaned = try await cleaner.clean(raw, options: options) } catch { return .heldForRecovery(raw: raw, reason: .cleanerFailed) }
         return judge(raw: raw, cleaned: cleaned, options: options, allowedTerms: allowedTerms)
     }
 
