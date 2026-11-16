@@ -2,24 +2,42 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const html = fs.readFileSync(__dirname + '/index.html', 'utf8');
-function element(extra = {}) { return {hidden:false, disabled:false, textContent:'', dataset:{}, listeners:{}, classList:{add(){},remove(){}}, addEventListener(type,fn){this.listeners[type]=fn},setAttribute(){},removeAttribute(){},querySelector(){return {focus(){}}}, ...extra}; }
+function element(extra = {}) { return {hidden:false, disabled:false, textContent:'', dataset:{}, listeners:{}, classList:{add(){},remove(){}}, addEventListener(type,fn){this.listeners[type]=fn},setPointerCapture(){},attributes:{},setAttribute(name,value){this.attributes[name]=value},removeAttribute(name){delete this.attributes[name]},querySelector(){return {focus(){}}}, ...extra}; }
 const steps=Array.from({length:3},()=>element());
 const nav=Array.from({length:3},(_,i)=>element({dataset:{go:String(i)}}));
 const permissions=['microphone','accessibility','shortcut'].map(name=>element({dataset:{permission:name}}));
-const ids=Object.fromEntries(['continue','permission-status','record','transcript','record-status','dictation-title','dictation-description','handoff','finish','retry','reset'].map(id=>[id,element()]));
+const ids=Object.fromEntries(['play-sample','continue','permission-status','record','transcript','record-status','dictation-title','dictation-description','handoff','finish','retry','reset'].map(id=>[id,element()]));
 const document={querySelectorAll(selector){return selector==='.step'?steps:selector==='nav button'?nav:selector==='[data-go]'?nav:permissions}, querySelector(selector){return ids[selector.slice(1)]},getElementById(id){return ids[id]}};
-vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1],{document,window:{addEventListener(){}},console});
+const windowEvents={};
+vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1],{document,window:{addEventListener(type,fn){windowEvents[type]=fn}},console});
 nav[1].listeners.click();
 assert.equal(steps[0].hidden,true); assert.equal(steps[1].hidden,false);
-permissions[0].listeners.click();assert.equal(ids.continue.disabled,true);
+permissions[0].listeners.click();assert.equal(permissions[0].attributes['aria-label'],'Microphone permission ready');assert.equal(ids.continue.disabled,true);
 permissions[1].listeners.click();permissions[2].listeners.click();assert.equal(ids.continue.disabled,false);
 nav[2].listeners.click();
 ids.record.listeners.keydown({code:'Space',preventDefault(){}}); assert.equal(ids.transcript.textContent,'Listening…');
 ids.record.listeners.keyup({code:'Space',preventDefault(){}});assert.equal(ids.transcript.textContent,'I finally found the words.');assert.equal(ids.finish.hidden,false);
 ids.finish.listeners.click();assert.equal(ids.handoff.hidden,false);
-ids.reset.listeners.click();assert.equal(steps[0].hidden,false);assert.equal(ids.continue.disabled,true);assert.equal(ids.finish.hidden,true);assert.ok(permissions.every(p=>!p.disabled));
+ids.reset.listeners.click();assert.equal(steps[0].hidden,false);assert.equal(ids.continue.disabled,true);assert.equal(ids.finish.hidden,true);assert.ok(permissions.every(p=>!p.disabled));assert.equal(permissions[0].attributes['aria-label'],'Try Microphone permission');
+nav[2].listeners.click();
+ids.retry.listeners.click();
+ids['play-sample'].listeners.click();
+assert.equal(ids.transcript.textContent,'I finally found the words.');
+for(const cancel of [ids.record.listeners.pointercancel,ids.record.listeners.lostpointercapture,ids.record.listeners.blur,windowEvents.blur,()=>windowEvents.keydown({code:'Escape'}),()=>nav[0].listeners.click()]){
+  nav[2].listeners.click();ids.retry.listeners.click();
+  const before=ids.transcript.textContent;
+  ids.record.listeners.pointerdown({button:0,pointerId:1});
+  cancel();ids.record.listeners.keydown({code:'Space',repeat:true,preventDefault(){}});ids.record.listeners.pointerup();
+  assert.equal(ids.transcript.textContent,before,'Cancellation must preserve prior text');
+  assert.equal(ids.finish.hidden,true,'Cancellation must not reveal success');
+}
+nav[2].listeners.click();ids['play-sample'].listeners.click();ids.finish.listeners.click();
+ids.record.listeners.pointerdown({button:0,pointerId:1});ids.record.listeners.pointercancel();
+assert.equal(ids.transcript.textContent,'I finally found the words.');assert.equal(ids.handoff.hidden,false);
+assert.ok(['Microphone','Accessibility','Input Monitoring'].every(name=>html.includes(`aria-label="Try ${name} permission"`)));
+assert.ok(!/font-size:(9|10|11)px/.test(html.match(/@media\(max-width:720px\)(.*?)@media/s)[1]));
 assert.ok(!/getUserMedia|SpeechRecognition/.test(html));
 assert.ok(html.includes("src:url('dm-sans.woff2')"));
 assert.ok(!/Instrument|,serif|#4d6ff0/.test(html));
 assert.ok(['#f4f4ef','#20221f','#50594e','#4568e8','#e5e9ff'].every(color=>html.includes(color)));
-console.log('PASS: navigation, permissions, keyboard dictation, handoff, reset, and no audio APIs');
+console.log('PASS: navigation, permissions, keyboard and click dictation, all cancellation paths, labels, mobile type, handoff, reset, and no audio APIs');
