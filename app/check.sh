@@ -7,15 +7,16 @@ set -u
 text="CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention"
 providers="CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials"
 cloud="$text Cleanup CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials Processing WritingModes"
-meetings="Retention CleanupText Meetings MeetingNotes MeetingSpeakers"
+meetings="Retention CleanupText CallApps Meetings MeetingStore MeetingExport MeetingNotes MeetingSpeakers"
+models="Digests ModelManifest ModelDownload"
 deps() {
   case "$1" in
     launch) echo "LaunchOptions" ;;
-    history) echo "Capture CleanupTypes CleanupText Retention History" ;;
+    history) echo "Capture CleanupTypes CleanupText Retention History ModelFiles" ;;
     controller) echo "app ../spike/InsertionChecks" ;;
     meeting_start) echo "app" ;;
     recording) echo "Shortcut Capture Session" ;;
-    speaker_flow) echo "Capture CleanupTypes History ModelDownload AppServices $meetings MeetingCapture MeetingRecorder" ;;
+    speaker_flow) echo "Capture CleanupTypes History ModelFiles ModelText $models $meetings MeetingCapture MeetingRecorder SpeakerModelSettings" ;;
     delivery) echo "Delivery" ;;
     dictionary) echo "$text" ;;
     processing) echo "$cloud Observation" ;;
@@ -25,9 +26,9 @@ deps() {
     providers) echo "$providers" ;;
     insights) echo "Insights" ;;
     meetings|speakers) echo "$meetings" ;;
-    call_detection) echo "$meetings CallDetection" ;;
-    model_download) echo "ModelDownload" ;;
-    app_services) echo "Retention ModelDownload AppServices" ;;
+    call_detection) echo "CallApps CallDetection" ;;
+    model_download) echo "$models" ;;
+    app_services) echo "Retention $models ModelText HistoryRouter WelcomeGuide SettingsPanes AppUpdater" ;;
     boost_filter) echo "../module-one/models/Runner/Sources/ModelBench/BoostFilter" ;;
     cleanup) echo "Cleanup CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner" ;;
     *) return 1 ;;

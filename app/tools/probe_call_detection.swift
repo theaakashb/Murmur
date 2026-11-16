@@ -2,9 +2,7 @@
 // (AudioProcessList), once a second as the app does, and prints every change in microphone use and
 // every offer. For the W7c evidence (PRD 11.10). Reads bundle IDs only; records nothing.
 //
-//   SDKROOT="$(dirname "$(xcrun --show-sdk-path)")/MacOSX26.sdk" swiftc -swift-version 5 -parse-as-library -suppress-warnings \
-//     app/Capture.swift app/Retention.swift app/Meetings.swift app/MeetingStore.swift app/MeetingExport.swift app/CallApps.swift app/MeetingCapture.swift app/CallDetection.swift \
-//     app/tools/probe_call_detection.swift -o /tmp/probe-detection
+//   app/tools/build.sh probe_call_detection   # prints the executable path, called /tmp/probe-detection below
 //   /tmp/probe-detection SECONDS [--own BUNDLE_ID] [--meeting-live] [--dictating] [--never BUNDLE_ID] [--off]
 import AppKit
 

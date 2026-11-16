@@ -5,8 +5,7 @@
 // word attribution. `--long MINUTES` instead times diarization alone on one long stream and reports
 // the helper's peak memory. No microphone, tap or network.
 //
-//   SDKROOT="$(dirname "$(xcrun --show-sdk-path)")/MacOSX26.sdk" swiftc -O -swift-version 5 -parse-as-library -suppress-warnings \
-//     app/Capture.swift app/Retention.swift app/Meetings.swift app/MeetingStore.swift app/MeetingExport.swift app/CallApps.swift app/MeetingSpeakers.swift app/MeetingCapture.swift app/tools/measure_speakers.swift -o /tmp/ms
+//   app/tools/build.sh measure_speakers   # prints the executable path, called /tmp/ms below
 //   /tmp/ms HELPER ASR_MODELS DIARIZER_MODELS LIBRISPEECH_TEST_CLEAN [--long MINUTES] [--threshold T]
 import Foundation
 import AVFoundation

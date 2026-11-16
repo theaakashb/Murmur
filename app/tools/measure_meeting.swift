@@ -3,8 +3,7 @@
 // warm `ModelBench --serve` helper, and prints transcript accuracy, timing, CPU and memory. No
 // microphone, tap or network. The helper client is a serial queue, like WarmRunner.
 //
-//   SDKROOT="$(dirname "$(xcrun --show-sdk-path)")/MacOSX26.sdk" swiftc -O -swift-version 5 -parse-as-library -suppress-warnings \
-//     app/Capture.swift app/Retention.swift app/CleanupText.swift app/Meetings.swift app/MeetingSpeakers.swift app/MeetingNotes.swift app/MeetingCapture.swift app/tools/measure_meeting.swift -o /tmp/mm
+//   app/tools/build.sh measure_meeting   # prints the executable path, called /tmp/mm below
 //   /tmp/mm HELPER MODELS BENCH_DIR MINUTES SPEED [--dictation]
 //
 // BENCH_DIR holds test-clean-100.jsonl and wav/ (MODEL_BENCHMARK.md). MINUTES of meeting audio per

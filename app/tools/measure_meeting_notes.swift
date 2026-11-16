@@ -10,10 +10,8 @@
 // run, a number word or a mid-sentence capitalized word in an item that appears nowhere in the
 // meeting's text or the user's notes, plus traps that are names or numbers.
 //
-//   SDKROOT="$(dirname "$(xcrun --show-sdk-path)")/MacOSX26.sdk" swiftc -swift-version 5 -parse-as-library -suppress-warnings \
-//     app/Cleanup*.swift app/RuleCleaner.swift app/Dictionary.swift app/PrivateFiles.swift app/Learning.swift app/Retention.swift app/Provider*.swift app/OpenAICompatible.swift app/Gemini.swift app/Credentials.swift \
-//     app/Processing.swift app/WritingModes.swift app/Routes.swift app/CloudAudio.swift app/KeyCheck.swift app/AppleCleanup.swift app/Observation.swift app/Meetings.swift app/MeetingNotes.swift app/MeetingSpeakers.swift \
-//     app/tools/measure_meeting_notes.swift -o /tmp/mmn && /tmp/mmn apple|gemini|custom [--long] [--verbose]
+//   app/tools/build.sh measure_meeting_notes   # prints the executable path, called /tmp/mmn below
+//   /tmp/mmn apple|gemini|custom [--long] [--verbose]
 import Foundation
 
 struct Corpus: Decodable {
