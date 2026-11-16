@@ -1675,12 +1675,20 @@ struct SettingsView: View {
         ]
     }
 
-    @Environment(\.colorScheme) private var colorScheme
+        /// The site's drawing in two layers, tinted so it follows light and dark: blue ribbon, ink paper.
     private var welcome: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            help("Hold \(shortcutName), speak, release: your words appear where your cursor is.")
-            help("Audio stays on this Mac unless you choose a cloud route, and you will see exactly what a cloud route sends before you confirm it.")
-            help("Next: allow what Murmur needs, then say your first words. Meetings are set up when you record your first one.")
+        VStack(alignment: .leading, spacing: 16) {
+            help("Audio stays on this Mac unless you choose a cloud route. You see what a cloud route sends before you confirm it.")
+            ZStack {
+                ForEach(["hero-ink", "hero-ribbon"], id: \.self) { name in
+                    if let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "Images"), let art = NSImage(contentsOf: url) {
+                        Image(nsImage: art).renderingMode(.template).resizable().scaledToFit()
+                            .foregroundStyle(name == "hero-ribbon" ? SetupPalette.blue : SetupPalette.ink)
+                    }
+                }
+            }
+            .frame(maxWidth: 380, maxHeight: 380).frame(maxWidth: .infinity, alignment: .center)
+            .accessibilityElement(children: .ignore).accessibilityLabel("A blue voice ribbon becomes ink lines on a curling sheet of paper.")
         }
     }
 
@@ -1727,7 +1735,6 @@ struct SettingsView: View {
                     Text(guideStep.phase == .getReady ? "Get ready · \(index) of \(WelcomeGuide.Step.allCases.count - 2)" : guideStep.phase.title).font(WindowType.body(12, weight: .medium)).foregroundStyle(SetupPalette.muted).id(index)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("murmur").font(WindowType.body(40, weight: .medium)).tracking(-1.6)
-                        Text("A little room for thought.").font(WindowType.body(18)).foregroundStyle(SetupPalette.muted)
                     }
                     .accessibilityElement(children: .combine).padding(.top, 16)
                     ScrollView {
@@ -1765,14 +1772,8 @@ struct SettingsView: View {
                     }
                     .padding(.top, 28)
                     Spacer()
-                    if colorScheme == .light, let url = Bundle.main.url(forResource: "hero-thought", withExtension: "png", subdirectory: "Images"), let art = NSImage(contentsOf: url) {
-                        // The site's ink-and-ribbon drawing, keyed to transparency so it sits on the pale pane.
-                        Image(nsImage: art).resizable().scaledToFit().frame(maxWidth: 300, maxHeight: 300)
-                            .accessibilityLabel("A blue voice ribbon becomes ink lines on a curling sheet of paper.")
-                    } else {
-                        Logo.path(in: CGSize(width: 48, height: 48)).fill(SetupPalette.ink)
-                            .frame(width: 48, height: 48).accessibilityHidden(true)
-                    }
+                    Logo.path(in: CGSize(width: 48, height: 48)).fill(SetupPalette.ink)
+                        .frame(width: 48, height: 48).accessibilityHidden(true)
                 }
                 .padding(24).frame(width: geometry.size.width * 5 / 12, alignment: .leading).frame(maxHeight: .infinity, alignment: .top)
                 .background(SetupPalette.pane)
