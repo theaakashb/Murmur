@@ -16,19 +16,19 @@ import Foundation
         // What a user types or says has nowhere to go: a custom endpoint becomes "custom", and no field takes text.
         let sentinels = ["SENTINEL-TRANSCRIPT", "SENTINEL-KEY", "SENTINEL-TERM", "https://SENTINEL-ENDPOINT.example/v1", "SENTINEL-CUSTOM-MODEL", "SENTINEL-BUNDLE", "SENTINEL-CUE-PHRASE", "SENTINEL-CUE-TEXT"]
         var custom = sample(cleanup: .custom); custom.transcription = .custom
-        let text = custom.text, url = IssueReport.url(body: text).absoluteString.removingPercentEncoding!
+        let text = IssueReport.body(description: "", details: custom.details), url = IssueReport.url(body: text).absoluteString.removingPercentEncoding!
         for marker in sentinels { assert(!text.contains(marker) && !url.contains(marker), "leaked \(marker)") }
         assert(text.contains("Transcription: custom") && text.contains("Cleanup: custom, style Strict"))
 
-        let normal = sample().text
+        let normal = sample().details
         for line in ["Murmur: 0.3.0 (12)", "Mac: Mac15,6", "Permissions: microphone authorized, accessibility allowed, input monitoring needed",
                      "Transcription: this Mac (FluidInference/parakeet)", "History: on, keeping 30 days", "Models: Speech model installed; Local cleanup not installed",
                      "Newest dictation: verified, cleanup fallback lengthRatio, cleanup modelAccepted, 2.3 s"] { assert(normal.contains(line), line) }
 
-        let off = sample(historyOn: false).text
+        let off = sample(historyOn: false).details
         assert(off.contains("History: off (this session only)") && off.contains("Newest dictation: not recorded (History is off)") && !off.contains("verified"))
         var empty = sample(); empty.lastResult = nil
-        assert(empty.text.contains("Newest dictation: none yet"))
+        assert(empty.details.contains("Newest dictation: none yet"))
 
         // Round trip through the query, with characters that need escaping.
         let awkward = "a & b = c # d + e % f ? g\nline two é 🙂 日本語"
@@ -58,6 +58,14 @@ import Foundation
         let fits = String(repeating: "x", count: 500)
         assert(body(IssueReport.url(body: fits)) == fits)
         assert(IssueReport.url(body: "").absoluteString.count <= IssueReport.maxURLLength)
+        // The body: description, divider, diagnostics as edited; an empty description keeps the same shape.
+        let details = sample().details
+        assert(IssueReport.body(description: "", details: details) == "What happened:\n\n\n---\n" + details)
+        assert(IssueReport.body(description: "  line one\nline two\n\n", details: details) == "What happened:\nline one\nline two\n\n---\n" + details)
+        // A long description fills the URL: it is cut with the note, and the cap holds.
+        let longBody = IssueReport.body(description: String(repeating: "word ", count: 2000), details: details)
+        let longURL = IssueReport.url(body: longBody)
+        assert(longURL.absoluteString.count <= IssueReport.maxURLLength && body(longURL).hasPrefix("What happened:\nword word") && body(longURL).hasSuffix(IssueReport.truncationNote) && !body(longURL).contains("Murmur diagnostics"))
         print("Diagnostics checks passed")
     }
 }

@@ -228,7 +228,7 @@ extension AppController {
                     MainActor.assumeIsolated { controller.bubble.showLearned("Aakash", entryID: UUID(), screen: nil) }
                 }
             }
-            // --report-issue opens the Report an Issue window with synthetic values; quit it from the menu, since --snapshot does not close it.
+            // --report-issue opens the Report an Issue window with synthetic values (--report-details with the details section open); quit it from the menu, since --snapshot does not close it.
             if args.contains("--report-issue") {
                 let synthetic = Diagnostics(
                     appVersion: "0.3.0", build: "12", macOS: "Version 26.1 (Build 25B1)", macModel: "Mac15,6", microphone: "authorized",
@@ -236,8 +236,8 @@ extension AppController {
                     cleanup: .service(name: "Local model (this Mac)", model: "heyvedu/vedu-scribe-0.8b@7dced58"), cleanupStyle: "Polish", historyOn: true, retention: "30 days",
                     models: [("Parakeet Unified English 0.6B", true), ("Local cleanup", false)],
                     lastResult: .init(insertionStatus: "verified", cleanupFailure: "lengthRatio", cleanupPath: "modelAccepted", totalSeconds: 2.3))
-                print("Report text:\n\(synthetic.text)\nReport URL length: \(IssueReport.url(body: synthetic.text).absoluteString.count)")
-                fixtureReportIssue.show(synthetic, shortcut: controller.shortcutName)
+                print("Report details:\n\(synthetic.details)\nReport URL length: \(IssueReport.url(body: IssueReport.body(description: "", details: synthetic.details)).absoluteString.count)")
+                fixtureReportIssue.show(synthetic, shortcut: controller.shortcutName, expanded: args.contains("--report-details"))
             }
             // Meeting notes: --meetings shows the page, --meeting-live the live panel, --consent the sheet.
             // The fixture's defaults persist: set the panel's minimized state every time (--collapsed).

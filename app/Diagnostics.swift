@@ -36,8 +36,8 @@ struct Diagnostics {
     /// Only read while History is on.
     var lastResult: LastResult?
 
-    /// The editable block the report sheet shows and the issue body starts from.
-    var text: String {
+    /// The editable block the report sheet tucks into its details section.
+    var details: String {
         func allowed(_ on: Bool) -> String { on ? "allowed" : "needed" }
         let last: String
         if !historyOn { last = "not recorded (History is off)" }
@@ -46,10 +46,6 @@ struct Diagnostics {
             last = ([result.insertionStatus] + details.compactMap { $0 }).joined(separator: ", ")
         } else { last = "none yet" }
         return """
-        What happened:
-
-
-        ---
         Murmur diagnostics (no dictated text, audio, keys, dictionary, cues or app names)
         Murmur: \(appVersion) (\(build))
         macOS: \(macOS)
@@ -69,10 +65,15 @@ enum IssueReport {
     static let title = "Bug: "
     /// GitHub and mail apps document no limit; this is a conservative assumption for the encoded URL's length.
     static let maxURLLength = 4000
-    static let truncationNote = "\n\n(Cut off here. Paste the rest from Copy Diagnostics.)"
+    static let truncationNote = "\n\n(Cut off here. Paste the rest from Copy Report.)"
 
     private static let unreserved = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
     private static func encode(_ text: String) -> String { text.addingPercentEncoding(withAllowedCharacters: unreserved) ?? "" }
+
+    /// The one text every route sends: the description, a divider, then the diagnostics as edited.
+    static func body(description: String, details: String) -> String {
+        "What happened:\n\(description.trimmingCharacters(in: .whitespacesAndNewlines))\n\n---\n\(details)"
+    }
 
     /// Where reports go for people without a GitHub account.
     static let email = "bugs-murmur@clouddev.cc"
