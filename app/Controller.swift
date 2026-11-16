@@ -1096,6 +1096,11 @@ final class PreStart: @unchecked Sendable {
             listener.emit(listener.machine.startToggled())
         }
     }
+    /// First-run Try it button: starts or ends a dictation without hiding Murmur, so the result lands in the guide.
+    func toggleSetupDictation() {
+        guard let listener else { return }
+        if listener.machine.state == .idle { if !isBusy { listener.emit(listener.machine.startToggled()) } } else { stopRecording() }
+    }
     func stopRecording() { guard let listener else { return }; listener.emit(listener.machine.finish()) }
     func cancelRecording() {
         if cloudRequest.isActive { cancelCloudRequest(); return }
