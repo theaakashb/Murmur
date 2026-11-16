@@ -37,6 +37,7 @@ swiftc -O -swift-version 5 -target arm64-apple-macos26.0 \
   -F "$sparkle_path" -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
   -o "$app_path/Contents/MacOS/Murmur"
 cp -R "$project_root/app/Fonts" "$app_path/Contents/Resources/"
+cp -R "$project_root/app/Images" "$app_path/Contents/Resources/"
 cp -R "$project_root/app/Licenses" "$app_path/Contents/Resources/"
 cp "$project_root/LICENSE" "$project_root/THIRD_PARTY_NOTICES.md" "$app_path/Contents/Resources/"
 cp "$project_root/app/Info.plist" "$app_path/Contents/Info.plist"

@@ -92,6 +92,21 @@ private enum EditorialPalette {
     static let sidebar = color(0xFFFFFF, 0x111111)
 }
 
+/// First-run guide colours, matching the Murmur website: ground, pale-blue pane, ink, muted ink, blue.
+private enum SetupPalette {
+    private static func color(_ light: Int, _ dark: Int) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let hex = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            return NSColor(srgbRed: CGFloat(hex >> 16 & 255) / 255, green: CGFloat(hex >> 8 & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: 1)
+        })
+    }
+    static let ground = color(0xF4F4EF, 0x181818)
+    static let pane = color(0xE5E9FF, 0x1C2238)
+    static let ink = color(0x20221F, 0xF4F4EF)
+    static let muted = color(0x50594E, 0xC4C9C2)
+    static let blue = color(0x4568E8, 0x7F98FF)
+}
+
 /// Static paper and voice: no animation, permission state, or user content.
 private struct PaperVoice: View {
     var body: some View {
@@ -212,7 +227,7 @@ struct SettingsView: View {
     private enum Screen { case home, insights, meetings, settings, history, setup }
     @State private var screen = Screen.home
     /// The welcome guide's current step (gap #21), saved as it changes so the guide resumes there.
-    @State private var guideStep = WelcomeGuide.Step.microphone
+    @State private var guideStep = WelcomeGuide.Step.welcome
     /// The last settings pane, restored by ⌘, and on relaunch.
     @AppStorage("settingsSection") private var section = 0
     @State private var showAdvanced = false
@@ -331,7 +346,7 @@ struct SettingsView: View {
         case "settings-search":
             screen = .settings; section = 0
             settingsQuery = "meeting"; settingsSearchOpen = true
-        case "guide": WelcomeGuide.replay(.standard); guideStep = .microphone; screen = .setup
+        case "guide": WelcomeGuide.replay(.standard); guideStep = .welcome; screen = .setup
         case "insights": screen = .insights
         case "meetings": screen = .meetings
         case "meeting-settings": section = 8; screen = .settings
@@ -726,14 +741,7 @@ struct SettingsView: View {
             HStack(spacing: 12) {
                 Text("Dictation shortcut").font(.system(size: 13))
                 Spacer()
-                Picker("Dictation shortcut", selection: $controller.shortcut) {
-                    Text("Right Option").tag("right-option")
-                    Text("Fn / Globe").tag("fn")
-                    Text("Control–Option–Space").tag("ctrl-option-space")
-                    if !["right-option", "fn", "ctrl-option-space"].contains(controller.shortcut) {
-                        Text("Custom shortcut").tag(controller.shortcut)
-                    }
-                }.labelsHidden().frame(maxWidth: 190)
+                ShortcutPresetPicker(controller: controller)
             }.padding(.vertical, 12)
             ShortcutRecorder(controller: controller).padding(.bottom, 12)
             toggleRow("Press once to start, again to stop", "Holding still works: release to stop. Off means hold to record.", isOn: $controller.pressToToggle)
@@ -1686,22 +1694,55 @@ struct SettingsView: View {
     /// The guide's permission and model steps; the last step is the test dictation.
     private var guideSteps: [(title: String, detail: String, done: Bool, action: String, run: () -> Void)] {
         [
-            ("Microphone", "So Murmur can hear you while the shortcut is held. Audio stays on this Mac unless you choose a cloud route.", controller.microphoneAuthorized, "Allow", controller.requestMicrophone),
+            ("A little room for thought.", "Speak freely. Your voice becomes text, right where you’re writing.", false, "", {}),
+            ("Microphone", "A little access, a clear reason. So Murmur can hear you while the shortcut is held. Audio stays on this Mac unless you choose a cloud route.", controller.microphoneAuthorized, "Allow", controller.requestMicrophone),
             ("Accessibility", "So Murmur can paste into the field you are using. It never presses Return or sends a message.", controller.accessibilityAuthorized, "Open Settings…", { controller.openPermissionSettings("accessibility") }),
             ("Input Monitoring", "So the shortcut works in every app. Murmur listens only for the shortcut, Escape and its two ⌃⌘ chords.", controller.inputMonitoringAuthorized, "Open Settings…", { controller.openPermissionSettings("input-monitoring") }),
             ("Transcription", "Choose where dictation audio is transcribed. Cloud routes send audio to the provider shown below.", WelcomeGuide.isConfirmed(.transcription, .standard), "", {}),
             ("Cleanup", "Choose where cleanup runs and how much it changes your words. Faithful keeps cleanup off.", WelcomeGuide.isConfirmed(.cleanup, .standard), "", {}),
-            ("Meetings", "Choose meeting transcription separately from dictation, then choose how meeting notes are written. None keeps only the transcript.", WelcomeGuide.isConfirmed(.meetings, .standard), "", {}),
             ("Speech model", controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud && !controller.modelRow.isReady ? "Not needed while dictation and meeting transcription both run in the cloud." : ModelFacts.displayName, controller.modelRow.isReady || (controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud),
              controller.modelRow.actions.contains(.retry) ? "Retry…" : "Download…", controller.downloadModel),
-            ("Try it", "Press \(controller.shortcutName) and say a sentence. With this window in front, your words land in the field below instead of another app.", !controller.setupTestTranscript.isEmpty, "", {})
+            ("Find your words.", "Press \(controller.shortcutName) and say a sentence. With this window in front, your words land in the field below instead of another app.", !controller.setupTestTranscript.isEmpty, "", {})
         ]
+    }
+
+        /// The site's drawing in two layers, tinted so it follows light and dark: blue ribbon, ink paper.
+    private var welcome: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            help("Audio stays on this Mac unless you choose a cloud route. You see what a cloud route sends before you confirm it.")
+            ZStack {
+                ForEach(["hero-ink", "hero-ribbon"], id: \.self) { name in
+                    if let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "Images"), let art = NSImage(contentsOf: url) {
+                        Image(nsImage: art).renderingMode(.template).resizable().scaledToFit()
+                            .foregroundStyle(name == "hero-ribbon" ? SetupPalette.blue : SetupPalette.ink)
+                    }
+                }
+            }
+            .frame(maxWidth: 380, maxHeight: 380).frame(maxWidth: .infinity, alignment: .center)
+            .accessibilityElement(children: .ignore).accessibilityLabel("A blue voice ribbon becomes ink lines on a curling sheet of paper.")
+        }
     }
 
     /// Test dictation uses the routes and cleanup style chosen earlier in the guide.
     private var tryIt: some View {
         VStack(alignment: .leading, spacing: 0) {
             if !setupComplete { help("Finish the earlier steps first; dictation needs all of them.", color: Palette.ink).padding(.bottom, 12) }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    Text("Your shortcut").font(WindowType.body(14, weight: .medium))
+                    ShortcutPresetPicker(controller: controller)
+                }
+                ShortcutRecorder(controller: controller)
+            }
+            .disabled(controller.isBusy).padding(.bottom, 16)
+            HStack(spacing: 10) {
+                let recording = controller.phase == "Listening"
+                Button(recording ? "Stop and Transcribe" : "Start Dictating") { controller.toggleSetupDictation() }
+                    .buttonStyle(InkButtonStyle()).disabled(!setupComplete || (controller.isBusy && !recording))
+                if controller.isBusy { Button("Cancel") { controller.cancelRecording() }.buttonStyle(InkButtonStyle(kind: .outline)) }
+                Text(!(controller.isBusy || controller.phase == "Error") ? "Or hold \(shortcutName) and speak." : controller.message)
+                    .font(WindowType.body(13)).foregroundStyle(SetupPalette.muted).fixedSize(horizontal: false, vertical: true)
+            }.padding(.bottom, 12)
             TextEditor(text: $controller.setupTestTranscript)
                 .font(WindowType.body(16)).scrollContentBackground(.hidden)
                 .frame(minHeight: 96).padding(8)
@@ -1714,13 +1755,14 @@ struct SettingsView: View {
                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Palette.ink20, lineWidth: 1))
                 .accessibilityLabel("Test dictation")
         }
+        .onChange(of: controller.shortcut) { controller.settingsChanged() }
         .onAppear { controller.setupShowing = true }
         .onDisappear { controller.setupShowing = false }
     }
 
     private func finishGuide() {
         if let pending = WelcomeGuide.nextUnconfirmed(.standard) { guideStep = pending; return }
-        WelcomeGuide.complete(.standard); guideStep = .microphone; screen = .home
+        WelcomeGuide.complete(.standard); guideStep = .welcome; screen = .home
     }
 
     private var setup: some View {
@@ -1730,45 +1772,56 @@ struct SettingsView: View {
         return GeometryReader { geometry in
             HStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
-                    eyebrow("Welcome guide · Step \(index + 1) of \(steps.count)")
-                    VStack(alignment: .leading, spacing: -8) {
-                        Text("Set up").font(.system(size: 42, weight: .regular, design: .serif)).tracking(-1.28)
-                        wordmark("Murmur", size: 48)
+                    Text(guideStep.phase == .getReady ? "Get ready · \(index) of \(WelcomeGuide.Step.allCases.count - 2)" : guideStep.phase.title).font(WindowType.body(12, weight: .medium)).foregroundStyle(SetupPalette.muted).id(index)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("murmur").font(WindowType.body(40, weight: .medium)).tracking(-1.6)
                     }
                     .accessibilityElement(children: .combine).padding(.top, 16)
-                    PaperVoice().padding(.top, 16)
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            ForEach(steps.indices, id: \.self) { i in
-                                let on = i == index
-                                Button { guideStep = WelcomeGuide.Step.allCases[i] } label: {
+                            ForEach(WelcomeGuide.Step.Phase.allCases, id: \.self) { phase in
+                                let current = phase == guideStep.phase
+                                let first = WelcomeGuide.Step.allCases.first { $0.phase == phase }!
+                                Button { guideStep = first } label: {
                                     HStack(spacing: 12) {
-                                        mono(String(format: "%02d", i + 1), size: 12, color: EditorialPalette.ink70)
-                                        mono(steps[i].title, size: 12, color: EditorialPalette.ink)
+                                        Text(String(format: "%02d", phase.rawValue + 1)).font(WindowType.body(13)).foregroundStyle(SetupPalette.muted)
+                                        Text(phase.title).font(WindowType.body(14, weight: current ? .semibold : .regular)).foregroundStyle(SetupPalette.ink)
                                         Spacer()
-                                        if steps[i].done { mono("✓", size: 12, color: EditorialPalette.accentInk) }
                                     }
                                     .frame(height: 40)
-                                    .overlay(alignment: .bottom) { Rectangle().fill(on ? EditorialPalette.accent : Color.clear).frame(height: 2) }
+                                    .overlay(alignment: .bottom) { Rectangle().fill(current ? SetupPalette.blue : Color.clear).frame(height: 2) }
                                     .contentShape(Rectangle())
                                 }
-                                .buttonStyle(.plain).accessibilityAddTraits(on ? .isSelected : [])
+                                .buttonStyle(.plain).accessibilityAddTraits(current ? .isSelected : [])
+                                if phase == .getReady && current {
+                                    ForEach(WelcomeGuide.Step.allCases.filter { $0.phase == .getReady }, id: \.self) { sub in
+                                        let i = WelcomeGuide.Step.allCases.firstIndex(of: sub)!
+                                        Button { guideStep = sub } label: {
+                                            HStack(spacing: 8) {
+                                                Text(steps[i].title).font(WindowType.body(13, weight: sub == guideStep ? .semibold : .regular)).foregroundStyle(SetupPalette.ink)
+                                                Spacer()
+                                                if steps[i].done { Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(SetupPalette.blue).accessibilityLabel("Ready") }
+                                            }
+                                            .padding(.leading, 28).frame(minHeight: 30).contentShape(Rectangle())
+                                        }
+                                        .buttonStyle(.plain).accessibilityAddTraits(sub == guideStep ? .isSelected : [])
+                                    }
+                                }
                             }
                         }
                     }
                     .padding(.top, 28)
                     Spacer()
-                    Logo.path(in: CGSize(width: 48, height: 48)).fill(EditorialPalette.ink)
+                    Logo.path(in: CGSize(width: 48, height: 48)).fill(SetupPalette.ink)
                         .frame(width: 48, height: 48).accessibilityHidden(true)
                 }
                 .padding(24).frame(width: geometry.size.width * 5 / 12, alignment: .leading).frame(maxHeight: .infinity, alignment: .top)
-                .background(EditorialPalette.sidebar)
+                .background(SetupPalette.pane)
 
                 VStack(alignment: .leading, spacing: 0) {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            mono(String(format: "%02d", index + 1), size: 13, color: EditorialPalette.accentInk)
-                            Text(step.title).font(.system(size: 42, weight: .regular, design: .serif)).tracking(-1.28).padding(.top, 8)
+                            Text(step.title).font(WindowType.body(40, weight: .medium)).tracking(-1.2).fixedSize(horizontal: false, vertical: true)
                             HStack(alignment: .top, spacing: 4) {
                                 help(step.detail)
                                 if guideStep == .model {
@@ -1783,22 +1836,13 @@ struct SettingsView: View {
                                     if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() { help(reason.userMessage).padding(.top, 12) }
                                                     disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
                                 }
-                                else if guideStep == .meetings {
-                                    meetingRoutes
-                                    if controller.meetingTranscription == .cloud {
-                                        cloudTranscriptionSettings
-                                        disclosure(controller.meetingCloudNote?.disclosure).padding(.top, 12)
-                                    }
-                                    help("Cloud meetings use the provider configured in the Transcription step. Notes use the cleanup provider configuration.").padding(.top, 12)
-                                    if controller.meetingNotesRoute == .gemini { keyRow(.gemini).padding(.top, 12) }
-                                    if controller.meetingNotesRoute == .customAPI { customCleanupSettings }
-                                }
+                                else if guideStep == .welcome { welcome }
                                 else if last { tryIt }
                                 else {
                                     let working = guideStep == .model && controller.modelRow.isWorking
                                     VStack(alignment: .leading, spacing: 10) {
                                         HStack(spacing: 14) {
-                                            if step.done { mono("Done ✓", color: EditorialPalette.accentInk) }
+                                            if step.done { HStack(spacing: 6) { Image(systemName: "checkmark").foregroundStyle(SetupPalette.blue); Text("Ready").foregroundStyle(SetupPalette.ink) }.font(WindowType.body(14, weight: .semibold)).accessibilityElement(children: .combine) }
                                             else if working { Button("Cancel", action: controller.cancelModelDownload).buttonStyle(InkButtonStyle(kind: .outline)) }
                                             else { Button(step.action, action: step.run).buttonStyle(InkButtonStyle()) }
                                             Spacer()
@@ -1809,7 +1853,7 @@ struct SettingsView: View {
                                         }
                                         if guideStep == .model && !controller.modelMessage.isEmpty { help(controller.modelMessage) }
                                         if guideStep == .inputMonitoring || guideStep == .accessibility {
-                                            help("After you allow Murmur in System Settings, come back here; this page updates on its own.", color: EditorialPalette.ink64)
+                                            help("After you allow Murmur in System Settings, come back here; this page updates on its own.", color: SetupPalette.muted)
                                         }
                                     }
                                 }
@@ -1825,22 +1869,21 @@ struct SettingsView: View {
                         if last {
                             Button(WelcomeGuide.nextUnconfirmed(.standard) == nil ? "Finish" : "Review Choices →") { finishGuide() }.buttonStyle(InkButtonStyle(kind: .filled))
                         } else {
-                            Button(guideStep.isConfiguration ? "Use These Settings →" : step.done ? "Continue →" : "Skip for Now →") {
-                                if guideStep == .meetings && controller.meetingNotesRoute == nil { controller.meetingNotesRoute = MeetingNotesRoute.none }
+                            Button(guideStep == .welcome ? "Get started →" : guideStep.isConfiguration ? "Use These Settings →" : step.done ? "Continue →" : "Skip for Now →") {
                                 WelcomeGuide.confirm(guideStep, .standard)
                                 controller.settingsChanged()
                                 guideStep = WelcomeGuide.Step.allCases[index + 1]
                             }
-                                .buttonStyle(InkButtonStyle(kind: step.done ? .filled : .outline))
+                                .buttonStyle(InkButtonStyle(kind: step.done || guideStep == .welcome ? .filled : .outline))
                         }
                     }
                     .padding(.top, 24)
                 }
                 .padding(24)
-                .background(EditorialPalette.paper)
+                .background(SetupPalette.ground)
             }
-            .foregroundStyle(EditorialPalette.ink)
-            .tint(EditorialPalette.accent)
+            .foregroundStyle(SetupPalette.ink)
+            .tint(SetupPalette.blue)
         }
     }
 }
@@ -1936,7 +1979,7 @@ extension SettingsView {
                 }
             }
             .overlay(alignment: .top) { rule }.padding(.top, 8)
-            Button("Replay Welcome Guide") { WelcomeGuide.replay(.standard); guideStep = .microphone; screen = .setup }
+            Button("Replay Welcome Guide") { WelcomeGuide.replay(.standard); guideStep = .welcome; screen = .setup }
                 .buttonStyle(InkButtonStyle(kind: .outline)).padding(.top, 28)
         }
     }
@@ -2171,6 +2214,20 @@ struct SettingInfoButton: View {
 
 /// Records a custom shortcut (gap #14). While it waits, the global tap is off so the current
 /// shortcut can't start a dictation or be swallowed. Escape stops waiting; a refused key says why.
+private struct ShortcutPresetPicker: View {
+    @ObservedObject var controller: AppController
+    var body: some View {
+        Picker("Dictation shortcut", selection: $controller.shortcut) {
+            Text("Right Option").tag("right-option")
+            Text("Fn / Globe").tag("fn")
+            Text("Control–Option–Space").tag("ctrl-option-space")
+            if !["right-option", "fn", "ctrl-option-space"].contains(controller.shortcut) {
+                Text("Custom shortcut").tag(controller.shortcut)
+            }
+        }.labelsHidden().frame(maxWidth: 190)
+    }
+}
+
 private struct ShortcutRecorder: View {
     @ObservedObject var controller: AppController
     @State private var monitor: Any?
