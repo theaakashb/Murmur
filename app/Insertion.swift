@@ -238,7 +238,7 @@ func flushClipboardRestore() {
     pendingRestoreLock.withLock { defer { pendingRestore = nil }; return pendingRestore }?.run()
 }
 
-/// Stages `text` on the clipboard and posts ⌘V, then returns without waiting. the
+/// Stages `text` on the clipboard and posts ⌘V, then returns without waiting. The
 /// previous clipboard goes back `lease` seconds after the post, on a background timer, only if the clipboard
 /// still holds this paste's staged item; otherwise the text stays there for a manual paste.
 /// `stillTarget` is checked once more after staging. Returns why nothing was pasted (nil if it was)
@@ -343,8 +343,8 @@ func pasteIntoFrontmostApp(_ text: String) -> InsertionResult {
     return InsertionResult(status: .unverified, detail: "clipboard paste into an unreadable field", snapshot: nil, visibleAt: pasted.postedAt)
 }
 
-/// Reads the field back until it shows the pasted text, for at most `clipboardLease` after the post
-/// (the old fixed wait, now ended by the first match). The text counts as visible at that match, or at
+/// Reads the field back until it shows the pasted text, for at most `clipboardLease` after the post.
+/// The text counts as visible at that match, or at
 /// the post when the field never matched.
 private func verifyInsertion(_ before: FocusSnapshot, expected: String?, method: String, postedAt: TimeInterval) -> InsertionResult {
     func readBack() -> (FocusSnapshot?, Bool) {

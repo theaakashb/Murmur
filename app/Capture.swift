@@ -98,7 +98,7 @@ final class Capture {
     }
 
     /// Only a dictation's capture becomes `current`, the one the shortcut thread cuts at release.
-    /// A meeting's microphone passes false, so a dictation during a meeting never cuts it (PRD 11.1).
+    /// A meeting's microphone passes false, so a dictation during a meeting never cuts it.
     func register(current: Bool) { if current { Self.currentLock.withLock { Self._current = self } } }
     /// Clears `current` only when it is this capture, as `stop` does.
     func unregister() { Self.currentLock.withLock { if Self._current === self { Self._current = nil } } }
@@ -116,7 +116,7 @@ final class Capture {
         queue.sync { guard let chunker else { return false }; chunker.attach(handler); return true }
     }
 
-    /// Queue-owned: also receives each kept buffer, in the file's format (live words, gap #13).
+    /// Queue-owned: also receives each kept buffer, in the file's format (live words).
     private var tee: ((AVAudioPCMBuffer) -> Void)?
     func setTee(_ handler: ((AVAudioPCMBuffer) -> Void)?) { queue.async { [self] in tee = handler } }
     /// The file's format, fixed at start. After a device change, buffers are converted to it.
@@ -133,7 +133,7 @@ final class Capture {
         if status != noErr { captureLog.notice("input-device-set failed status=\(status)") }
     }
 
-    /// Dictation passes only `url`. A meeting's microphone (PRD 11.1) passes no file, a fixed 16 kHz
+    /// Dictation passes only `url`. A meeting's microphone passes no file, a fixed 16 kHz
     /// mono format, its own chunk folder, and `current: false` so the shortcut thread never cuts it.
     func start(url: URL?, fixedFormat: AVAudioFormat? = nil, chunkFolder: URL? = nil, current: Bool = true) throws {
         let input = engine.inputNode
@@ -249,7 +249,7 @@ final class Capture {
     }
 }
 
-/// The "Automatic" microphone (gap #16). A Bluetooth headset's microphone forces it into its low-
+/// The "Automatic" microphone. A Bluetooth headset's microphone forces it into its low-
 /// quality call mode, so while one is the default input and the built-in microphone is available,
 /// Automatic records from the built-in one and the headset keeps full playback quality.
 enum MicrophoneChoice {
@@ -273,7 +273,7 @@ enum MicrophoneChoice {
 final class Chunker {
     /// Private per-user folder for chunk files; nil turns chunking off.
     nonisolated(unsafe) static var directory: URL?
-    /// A meeting stream's own folder (PRD 11.5); nil uses `directory`.
+    /// A meeting stream's own folder; nil uses `directory`.
     private let folder: URL?
     /// Boundary clips repair dictionary terms in a joined dictation; meeting lines are not joined.
     private let boundaries: Bool

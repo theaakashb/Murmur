@@ -2,7 +2,7 @@
 import AppKit
 
 extension AppController {
-    // MARK: Model download (R2)
+    // MARK: Model download
 
     /// The shared flow for one model; the transcription, dictionary and live-words models refuse while dictating.
     private func flow(_ slot: ReferenceWritableKeyPath<AppController, ModelSlot>, gated: Bool = true) -> ModelFlow<AppController> {
@@ -16,7 +16,6 @@ extension AppController {
 
     func downloadModel() {
         var flow = flow(\.modelSlot)
-        // Point dictation at the verified download right away (an explicit user action, like Apply).
         flow.didDownload = { [weak self] result in
             if case .success = result, let self, let target = self.modelSlot.downloader?.target {
                 self.modelDirectory = target.path
@@ -60,7 +59,7 @@ extension AppController {
         }
         flow.remove()
     }
-    // MARK: Live words (gap #13)
+    // MARK: Live words
 
     /// Checks the live folder's hashes once per launch, then loads the model once with no audio, so
     /// its first compile (about 10 s) happens now rather than in a recording. Off the main thread.

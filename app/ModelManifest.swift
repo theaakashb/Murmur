@@ -2,7 +2,6 @@ import Foundation
 
 // Model manifest, license declarations and the URL building for pinned files.
 
-// MARK: - Manifest and license
 
 struct ModelManifestFile: Equatable {
     let rfilename: String
@@ -34,7 +33,6 @@ struct ModelManifest: Equatable {
     let repository: String
     /// Immutable 40-hex commit; branch or tag names are rejected so the source cannot drift.
     let revision: String
-    /// Exactly the pinned file list, in manifest order.
     let files: [ModelManifestFile]
     let license: ModelLicenseInfo
 

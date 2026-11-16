@@ -117,7 +117,7 @@ final class CaptureSession {
     }
 }
 
-/// Holds one item for `lifetime` seconds, then lets it go (gap #18: a canceled recording's audio,
+/// Holds one item for `lifetime` seconds, then lets it go (a canceled recording's audio,
 /// in memory only, so Undo can still process it). `take` hands it over once, inside the window.
 final class UndoWindow<Item> {
     let lifetime: TimeInterval

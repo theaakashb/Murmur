@@ -49,7 +49,6 @@ struct LocalModelCleanupProvider: CleanupProvider {
 
     func validate() async throws { if let reason = status() { throw ProviderError.modelUnavailable(id, reason) } }
 
-    /// Loads the model ahead of the first request.
     func prewarm() { if status() == nil { Task { await LocalCleanupRunner.shared.warm() } } }
 }
 
@@ -136,7 +135,6 @@ actor LocalCleanupRunner {
     /// Ends the helper (idle, memory pressure, quit). Safe at any time; an in-flight request fails and falls back.
     func shutdown() { idleTask?.cancel(); verified = false; terminate() }
 
-    // MARK: Internals
 
     private enum Reply { case text(String), tooLong, timeout, failed }
 

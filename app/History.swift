@@ -12,7 +12,7 @@ struct HistoryEntry: Codable, Identifiable, RetainedHistoryItem {
     let id: String
     let recordedAt: Date
     let rawText: String
-    /// Editable in History (gap #10); `rawText` never changes.
+    /// Editable in History; `rawText` never changes.
     var finalText: String
     var insertionStatus: String
     var status: InsertionStatus? { InsertionStatus(rawValue: insertionStatus) }
@@ -21,7 +21,7 @@ struct HistoryEntry: Codable, Identifiable, RetainedHistoryItem {
     /// The cleanup model's output the guard rejected, kept for debugging (user request, October 6,
     /// 2026). It is dictation text, so it lives and expires with the rest of the entry.
     var cleanupRejectedOutput: String? = nil
-    /// Recording length in seconds, for Insights' pace and time saved (gap #19); nil before October 15, 2026.
+    /// Recording length in seconds, for Insights' pace and time saved; nil before October 15, 2026.
     var seconds: Double? = nil
     /// Bundle ID of the app the text was pasted into, for Insights; nil when unknown or not pasted.
     var app: String? = nil

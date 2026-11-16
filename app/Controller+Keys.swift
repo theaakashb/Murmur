@@ -2,7 +2,7 @@
 import Foundation
 
 extension AppController {
-    // MARK: API keys (R5) and custom API provider
+    // MARK: API keys and custom API provider
 
     /// Publishes which providers have a key. The key itself never leaves the Keychain store.
     func refreshKeys() { savedKeys = Set(KeyText.providers.filter { credentials.exists($0) }) }

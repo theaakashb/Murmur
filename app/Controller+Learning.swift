@@ -5,10 +5,10 @@ import Carbon
 import os
 
 extension AppController {
-    // Learning from corrections (PRD R10): after an insertion, watch the dictated span until focus
+    // Learning from corrections: after an insertion, watch the dictated span until focus
     // leaves, 60 seconds pass, attribution is lost or the next insertion; each change goes to the
     // ledger, which settles when the watch ends or once the edited span has been stable for
-    // `stableSettleDelay` with an accepted reading (gap #9); the watch then goes on, and a later
+    // `stableSettleDelay` with an accepted reading; the watch then goes on, and a later
     // edit or undo replaces or withdraws what that early settle learned. A field that reads back the dictated text is read
     // through AX; any other field (VS Code's stub, web canvases) is followed by the keys typed in
     // that app during the window, which are never stored or logged.
@@ -26,7 +26,7 @@ extension AppController {
         var entryID = "", route = ""
     }
     private static let stableSettleDelay: TimeInterval = 2
-    /// Gap #9: an accepted reading unchanged for `stableSettleDelay` settles before the window closes.
+    /// An accepted reading unchanged for `stableSettleDelay` settles before the window closes.
     static func settlesEarly(pending: Bool, changedAt: TimeInterval, now: TimeInterval) -> Bool {
         pending && now - changedAt >= stableSettleDelay
     }

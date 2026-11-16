@@ -53,7 +53,6 @@ enum HistoryCapStatus: Equatable {
         }
     }
 
-    /// User-facing warning, or nil when no warning is needed.
     var warning: String? {
         switch self {
         case .withinCap: return nil
@@ -188,7 +187,7 @@ final class DiagnosticRecordings: @unchecked Sendable {
     }
 }
 
-/// The PRD's 24-hour retry-audio window (section 6): how long audio left for retry or speaker separation
+/// The 24-hour retry-audio window: how long audio left for retry or speaker separation
 /// stays. User text that names the window is built from `text`.
 enum RetryWindow {
     static let lifetime: TimeInterval = 24 * 60 * 60

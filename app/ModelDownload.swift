@@ -7,7 +7,6 @@ import FoundationNetworking
 // artifact-pins.json, and moves the verified set into place with one rename. Foundation only, so the
 // checks also run on Linux. Digests are in Digests.swift, the manifest and license in ModelManifest.swift.
 
-// MARK: - Errors
 
 /// Every case maps to a short, user-facing message that names no file, path, or URL.
 enum ModelDownloadError: Error, Equatable {
@@ -48,7 +47,6 @@ enum ModelDownloadError: Error, Equatable {
     }
 }
 
-// MARK: - Transport
 
 /// One GET. `rangeStart > 0` asks the server for `Range: bytes=<rangeStart>-`.
 struct ModelFetchRequest: Equatable {
@@ -144,7 +142,6 @@ final class URLSessionModelTransport: ModelDownloadTransport {
     }
 }
 
-// MARK: - Downloader
 
 struct ModelDownloadProgress: Equatable {
     let bytesDone: Int64
@@ -203,7 +200,6 @@ final class ModelDownloader {
     }
 
     var license: ModelLicenseInfo { manifest.license }
-    /// Bytes to download, from the pinned sizes. Show this before starting.
     var downloadSize: Int64 { manifest.totalBytes }
 
     /// Hidden sibling of `target`, keyed by revision so a retry resumes the same pinned set.
@@ -276,7 +272,6 @@ final class ModelDownloader {
         }
     }
 
-    // MARK: Internals
 
     private var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelRequested }
 
@@ -302,7 +297,6 @@ final class ModelDownloader {
         (try? fileManager.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType) == .typeSymbolicLink
     }
 
-    /// Resolves `rfilename` under `root`, refusing anything that would land outside it.
     private func location(of file: ModelManifestFile, in root: URL) throws -> URL {
         guard ModelManifest.isSafeRelativePath(file.rfilename) else { throw ModelDownloadError.unsafePath }
         let url = root.appendingPathComponent(file.rfilename).standardizedFileURL
@@ -341,7 +335,6 @@ final class ModelDownloader {
             let value = ModelDownloadProgress(bytesDone: bytes, totalBytes: total)
             publish(value)
         }
-        // Validate every path and URL before touching the network or disk.
         let plan: [(ModelManifestFile, URL, URL)] = try manifest.files.map { file in
             guard let url = manifest.resolveURL(for: file, base: baseURL) else { throw ModelDownloadError.invalidManifest }
             return (file, try location(of: file, in: staging), url)

@@ -99,7 +99,7 @@ extension AppController {
         }
     }
     enum NotPasted { case insertionOff, unsaved }
-    /// Murmur deliberately did not paste: the card shows the text with Copy (gap #17, Oct 15 follow-up).
+    /// Murmur deliberately did not paste: the card shows the text with Copy.
     /// Failed pastes go through `showInsertionResult`; a posted but unconfirmed paste stays quiet.
     func showNotPasted(_ why: NotPasted, saved: String, entryID: String?, text: String) {
         switch why {

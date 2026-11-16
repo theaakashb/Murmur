@@ -119,7 +119,7 @@ enum ShortcutBinding: Equatable {
         if case .custom(let shortcut) = self { return shortcut.label }
         return Self.presets.first { $0.binding == self }?.name ?? ""
     }
-    /// A recorded key (gap #14); see `CustomShortcut.refusal` for what can be recorded.
+    /// A recorded key; see `CustomShortcut.refusal` for what can be recorded.
     case custom(CustomShortcut)
     /// The stored `shortcut` setting: a preset name or `CustomShortcut.stored`. Anything else is
     /// the default, Right Option.
@@ -223,7 +223,6 @@ final class ShortcutListener {
     var onPasteChord: (() -> Void)?
     /// ⌃⌘C exactly: Control and Command, no Option or Shift.
     static func isCopyChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(Int64(kVK_ANSI_C), keyCode, flags) }
-    /// ⌃⌘V exactly.
     static func isPasteChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(Int64(kVK_ANSI_V), keyCode, flags) }
     private static func isControlCommand(_ key: Int64, _ keyCode: Int64, _ flags: CGEventFlags) -> Bool {
         keyCode == key && flags.intersection([.maskControl, .maskCommand, .maskAlternate, .maskShift]) == [.maskControl, .maskCommand]
@@ -272,7 +271,7 @@ final class ShortcutListener {
         if let onAction {
             onAction(action) { [self] in machine.processingFinished(); replayQueued(); publishState() }
         } else if action == .finish {
-            // ponytail: simulated processing only; wire real completion in the recording milestone.
+            // Without a controller (the spike listener) processing is only simulated.
             DispatchQueue.main.asyncAfter(deadline: .now() + processingSeconds) { [self] in
                 machine.processingFinished()
                 print("shortcut state=\(machine.state.rawValue)")

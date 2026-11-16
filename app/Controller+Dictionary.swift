@@ -42,7 +42,6 @@ extension AppController {
             let common = isCommonEnglishWord(word); spellingCache[word] = common; return common
         })
     }
-    /// Adds the heard spellings to the entry with this spelling if there is one, else makes a new entry.
     func acceptDictionarySuggestion(_ suggestion: DictionarySuggestion, preferred: String) {
         let spelling = preferred.trimmingCharacters(in: .whitespaces)
         let heard = suggestion.heard.filter { TermText.fold($0) != TermText.fold(spelling) }
@@ -76,7 +75,7 @@ extension AppController {
     }
 }
 
-/// The learning lexicon (PRD approved condition): a word is common when the English spell checker
+/// The learning lexicon: a word is common when the English spell checker
 /// finds no misspelling in it, so ordinary-word swaps (lunch→launch) are never learned.
 /// CorrectionLedger calls it on the main thread only.
 extension ProcessingCoordinator {

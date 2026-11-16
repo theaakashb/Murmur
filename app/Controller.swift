@@ -27,7 +27,6 @@ enum Phase: String { case ready = "Ready", listening = "Listening", processing =
 /// A screen the window should show, asked for by a menu item, a controller flow or the UI fixture.
 enum ScreenRequest: Equatable {
     case home, guide, insights, meetings, history, settings, settingsSearch
-    /// Settings, opened on this page.
     case settingsPane(SettingsPane)
 }
 
@@ -41,7 +40,7 @@ enum ScreenRequest: Equatable {
     @Published var shortcut = Prefs.shortcut.fallback
     @Published var voiceLevel = 0.0
     @Published var showMenuBar = Prefs.showMenuBar.fallback
-    /// A Dock icon (gap #20); off by default, as in PRD R6. Applies as soon as it changes.
+    /// Off by default; applies as soon as it changes.
     @Published var showInDock = Prefs.showInDock.fallback
     /// A screen the window should switch to, set from a menu item or the UI fixture. The window clears it once shown.
     @Published var screenRequest: ScreenRequest?
@@ -60,25 +59,22 @@ enum ScreenRequest: Equatable {
     var modelAvailable: Bool { modelFilesAvailable() }
     @Published var intelligentLeadingSpace = Prefs.intelligentLeadingSpace.fallback
     @Published var automaticInsertion = Prefs.automaticInsertion.fallback
-    /// One press starts recording and the next press stops it, instead of hold-to-record.
     @Published var pressToToggle = Prefs.pressToToggle.fallback
-    /// Short system sounds when recording starts and stops (gap #15); none on insertion.
+    /// Short system sounds when recording starts and stops; none on insertion.
     @Published var recordingSounds = Prefs.recordingSounds.fallback
     /// "Keep recordings for diagnostics (7 days)": off by default; see `DiagnosticRecordings`.
     @Published var keepRecordings = Prefs.keepRecordings.fallback
-    /// Live words in the bubble while recording (gap #13); needs the optional download.
+    /// Live words in the bubble while recording; needs the optional download.
     @Published var liveWords = Prefs.liveWords.fallback
     /// Live words also while transcription runs in the cloud; off by default (user, Oct 15, 2026).
     @Published var liveWordsOnCloud = Prefs.liveWordsOnCloud.fallback
     /// The running preview transcript. Display only: never saved, logged, learned from or cleaned.
     @Published var liveText = ""
     @Published var liveWordsSlot: ModelSlot
-    /// Whether this recording's bubble shows live words.
     var liveWordsActive: Bool { live != nil || liveWordsFixture }
     /// The UI fixture's synthetic preview (check_ui.swift); never set in the app.
     var liveWordsFixture = false
     @Published var retention = Prefs.retention.fallback
-    // Cleanup and learning settings, applied as soon as they change like the others.
     @Published var cleanupFillers = Prefs.cleanupFillers.fallback
     @Published var cleanupCorrections = Prefs.cleanupCorrections.fallback
     @Published var cleanupLists = Prefs.cleanupLists.fallback
@@ -88,9 +84,9 @@ enum ScreenRequest: Equatable {
     /// Professional above Polish (`CleanupOptions.professional`).
     @Published var cleanupProfessional = Prefs.cleanupProfessional.fallback
     @Published var cleanupSpoken = Prefs.cleanupSpoken.fallback
-    /// Screen context for AI cleanup (gap #8), opt-in; a writing mode can override it.
+    /// Screen context for AI cleanup, opt-in; a writing mode can override it.
     @Published var screenContext = Prefs.screenContext.fallback
-    /// Writing modes (gap #6), saved as soon as they change and read at each recording start.
+    /// Writing modes, saved as soon as they change and read at each recording start.
     @Published var writingModes: [WritingMode] { didSet { WritingModes.save(writingModes, to: .standard) } }
     /// Apps dictated into since launch, newest first, for the mode app picker. Memory only.
     @Published private(set) var recentApps: [String] = []
@@ -106,7 +102,7 @@ enum ScreenRequest: Equatable {
     @Published var snippetMessage = ""
     @Published var dictionarySuggestions: [DictionarySuggestion] = []
     var spellingCache: [String: Bool] = [:]
-    // Model downloads (R2). Each slot's message reports the last download action, never interrupting dictation.
+    // Model downloads. Each slot's message reports the last download action, never interrupting dictation.
     @Published var modelSlot: ModelSlot
     @Published var dictionarySlot: ModelSlot
     /// The helper could not start dictionary support and is transcribing without it.
@@ -118,7 +114,7 @@ enum ScreenRequest: Equatable {
     var modelSlots: [ReferenceWritableKeyPath<AppController, ModelSlot>] { [\.modelSlot, \.dictionarySlot, \.liveWordsSlot, \.localSlot] }
     func dismissGeminiCleanupNotice() { UserDefaults.standard.removeObject(forKey: RouteSettings.Key.geminiCleanupRemovedNotice); geminiCleanupNotice = false }
     var usesCustomModelFolder: Bool { modelSlot.downloader.map { URL(fileURLWithPath: modelDirectory).standardizedFileURL.path != $0.target.path } ?? false }
-    // History-off mode and the size cap (R9, §6). History-off and update checks apply as soon as they change.
+    // History-off mode and the size cap. History-off and update checks apply as soon as they change.
     @Published var historyMode = Prefs.historyMode.fallback
     @Published var historyCapWarning: String?
     /// Set at launch when damaged history files were moved aside.
@@ -127,10 +123,10 @@ enum ScreenRequest: Equatable {
     var setupShowing = false
     @Published var setupTestTranscript = ""
     @Published var sessionOnlyIDs: Set<String> = []
-    /// Home and Insights (gap #19), from the History kept on disk only.
+    /// Home and Insights, from the History kept on disk only.
     @Published var insights: Insights = .empty
     var historySummary: String { HistoryText.summary(mode: appliedHistoryMode, count: history.count, sessionOnly: sessionOnlyIDs.count) }
-    // Sparkle owns update dialogs, installation and the automatic schedule (R12).
+    // Sparkle owns update dialogs, installation and the automatic schedule.
     @Published var updateChecksEnabled = Prefs.updateChecks.fallback
     @Published var updateStatus = ""
     @Published var installUpdatesAutomatically = false
@@ -142,8 +138,8 @@ enum ScreenRequest: Equatable {
         self?.installUpdatesAutomatically = installs
     })
     var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0" }
-    // Processing routes (R4) apply as soon as they change.
-    // API keys (R5) save immediately to the Keychain; only their presence is published.
+    // Processing routes apply as soon as they change.
+    // API keys save immediately to the Keychain; only their presence is published.
     @Published var transcriptionRoute: TranscriptionRoute
     @Published var cloudTranscriber: CloudTranscriber
     @Published var cleanupChoice: CleanupChoice
@@ -164,11 +160,11 @@ enum ScreenRequest: Equatable {
     var openSettings: (() -> Void)?
     var updateMenu: (() -> Void)?
     lazy var bubble = BubblePresenter(controller: self)
-    /// Meeting detection (PRD 11.7): offers meeting notes when a call app or browser uses the microphone.
+    /// Meeting detection: offers meeting notes when a call app or browser uses the microphone.
     lazy var callOffers = CallOfferPresenter(controller: self)
-    /// Meeting notes (PRD section 11): its own capture and store, sharing the warm helper.
+    /// Meeting notes: its own capture and store, sharing the warm helper.
     let meetingRecorder = MeetingRecorder()
-    /// Settings → Meetings → speaker separation (W7d): the switch and its optional download.
+    /// Settings → Meetings → speaker separation: the switch and its optional download.
     let speakerSettings = SpeakerModelSettings()
     var store: HistoryStore?
     /// All history reads and writes; it keeps entries in memory only when history is off.
@@ -286,7 +282,7 @@ enum ScreenRequest: Equatable {
     @Published var meetingTranscription = MeetingTranscription.load(.standard) {
         didSet { UserDefaults.standard.set(meetingTranscription.rawValue, forKey: MeetingTranscription.key) }
     }
-    /// Settings → Meetings → Meeting notes (Q3). Nil until the first Stop asks, with None preselected.
+    /// Settings → Meetings → Meeting notes. Nil until the first Stop asks, with None preselected.
     @Published var meetingNotesRoute = MeetingNotesRoute.load(.standard) {
         didSet {
             if let route = meetingNotesRoute { UserDefaults.standard.set(route.rawValue, forKey: MeetingNotesRoute.key) }
@@ -408,14 +404,12 @@ enum ScreenRequest: Equatable {
                 self.voiceLevel = self.capture?.currentLevel ?? 0
                 self.meetingRecorder.tick()
                 if !self.preview { self.callOffers.tick() }
-                // A canceled or empty recording's audio is gone; drop its chunk transcripts.
                 for (audio, job) in self.chunkJobs where !FileManager.default.fileExists(atPath: audio.path) { job.discard(); self.chunkJobs[audio] = nil }
-                // Download progress and the verifying phase are sampled here, on the main thread.
                 for slot in self.modelSlots where self[keyPath: slot].inFlight {
                     if let status = self[keyPath: slot].downloader?.status(), status != self[keyPath: slot].status { self[keyPath: slot].status = status }
                 }
                 if self.sessionAvailable && self.session.state == .listening, let capture = self.capture,
-                   // A device change stops the engine; it restarts on the current device (gap #16) and only
+                   // A device change stops the engine; it restarts on the current device and only
                    // an engine that cannot restart counts as an interruption.
                    (!capture.engine.isRunning && !capture.restart()) || capture.failed {
                     let running = capture.engine.isRunning, writeFailed = capture.failed
@@ -478,7 +472,6 @@ enum ScreenRequest: Equatable {
             self.applySettings()
         }
     }
-    /// Refreshes the permission rows and starts the shortcut if Input Monitoring was just allowed.
     func refreshPermissionsAndShortcut() {
         refreshPermissions()
         if !preview, listener == nil, !isBusy, CGPreflightListenEventAccess() { configureShortcut() }
@@ -600,7 +593,6 @@ enum ScreenRequest: Equatable {
         removeShortcut(); return true
     }
     func resumeShortcutAfterRecorder() { if !preview && listener == nil { configureShortcut() } }
-    /// What Settings and the setup screen call the shortcut.
     var shortcutName: String { ShortcutBinding(stored: shortcut).displayName }
     private func removeShortcut() {
         shortcutGeneration = UUID()
@@ -608,7 +600,6 @@ enum ScreenRequest: Equatable {
         if let tap = listener?.tap { CFMachPortInvalidate(tap) }
         source = nil; listener = nil
     }
-    /// A start the shortcut machine must not keep: reset it, show why, and release the press.
     private func refuse(_ message: String, done: () -> Void) { session.resetShortcut?(); setPhase(.error, message); done() }
     private func handle(_ action: ShortcutMachine.Action, done: @escaping () -> Void) {
         // A refused start never adopts the capture begun on the tap thread; delete it.
@@ -638,7 +629,6 @@ enum ScreenRequest: Equatable {
         }
         let wasListening = session.state == .listening
         if wasListening, action == .finish {
-            // A hold's release event time when the tap thread saw one just now, else now (toggle mode).
             let now = ProcessInfo.processInfo.systemUptime
             finishedAt = Self.holdRelease.take().flatMap { now - $0 < 3 ? $0 : nil } ?? now
             session.releasedAt = finishedAt
@@ -699,7 +689,6 @@ enum ScreenRequest: Equatable {
             }
         }
     }
-    /// Local route: transcribe this recording's chunks on the warm helper while it records.
     private func attachChunks(_ capture: Capture, audio: URL) {
         let models = URL(fileURLWithPath: activeModelDirectory)
         guard let runtime = helperRuntime else { return }
@@ -736,11 +725,10 @@ enum ScreenRequest: Equatable {
         }
         return NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }
     }
-    /// The microphone level now, for the indicator's per-frame animation.
     func liveVoiceLevel() -> Double {
         capture?.currentLevel ?? 0
     }
-    /// Home's Start button (gap #19). Murmur hides first, so focus returns to the app you were in and
+    /// Home's Start button. Murmur hides first, so focus returns to the app you were in and
     /// the text pastes at its cursor on release, as with the shortcut; the next press or Finish ends it.
     func startDictationFromHome() {
         guard let listener, listener.machine.state == .idle, !isBusy else { return }
@@ -760,7 +748,7 @@ enum ScreenRequest: Equatable {
         if cloudRequest.isActive { cancelCloudRequest(); return }
         guard let listener else { return }; listener.cancelByUser()
     }
-    /// A canceled recording kept for Undo (gap #18): 16 kHz mono samples in memory, never on disk,
+    /// A canceled recording kept for Undo: 16 kHz mono samples in memory, never on disk,
     /// plus what its start captured, so Undo processes it as if it had finished normally.
     private struct Canceled {
         let samples: [Float]
@@ -795,7 +783,6 @@ enum ScreenRequest: Equatable {
         }
         return nil
     }
-    /// The Undo button: the held recording is transcribed, cleaned and inserted like any dictation.
     func undoCancel() {
         guard let listener, listener.machine.state == .idle, sessionAvailable, !isBusy, let item = undo.take() else { bubble.hide(); return }
         _ = listener.runAsProcessing { [weak self] done in
@@ -824,7 +811,7 @@ enum ScreenRequest: Equatable {
         setPhase(.ready, stage == .transcription ? CloudTranscription.message(.cancelled) ?? "Canceled." : "Canceled. The raw transcript is saved in History and was not inserted.")
         bubble.hide(); historySaved(); done()
     }
-    /// A dictation that could not be pasted, shown in the bubble with Copy (gap #17). Any other status replaces it.
+    /// A dictation that could not be pasted, shown in the bubble with Copy. Any other status replaces it.
     /// `title` names why: a failed paste, or a paste Murmur did not attempt.
     struct PasteFailure: Equatable { let entryID: String?; let text: String; var title = "Couldn’t paste here" }
     @Published private(set) var pasteFailure: PasteFailure?
@@ -852,13 +839,13 @@ enum ScreenRequest: Equatable {
         bubble.show(phase: phase, message: message, screen: destinationScreen)
         NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [.announcement: announcement ?? message, .priority: NSAccessibilityPriorityLevel.medium.rawValue])
     }
-    /// This dictation's recording length, kept with its History entry for Insights (gap #19).
+    /// This dictation's recording length, kept with its History entry for Insights.
     private var sessionSeconds: Double?
     nonisolated private static func audioSeconds(_ url: URL) -> Double? {
         guard let file = try? AVAudioFile(forReading: url), file.fileFormat.sampleRate > 0 else { return nil }
         return Double(file.length) / file.fileFormat.sampleRate
     }
-    /// `held`: an undone cancel's samples (gap #18), in memory only. There is then no file: no chunks,
+    /// `held`: an undone cancel's samples, in memory only. There is then no file: no chunks,
     /// no one-shot fallback and no retry audio.
     private func transcribe(_ audio: URL?, held: [Float]? = nil, done: @escaping () -> Void) {
         sessionSeconds = held.map { Double($0.count) / Double(AudioFormat.sampleRate) } ?? audio.flatMap(Self.audioSeconds)
@@ -940,8 +927,8 @@ enum ScreenRequest: Equatable {
             self?.handleTranscript(result, audio: audio, store: store, timestamp: timestamp, token: token, done: done)
         }
     }
-    /// Shared by the warm and one-shot helpers: parse the last JSON line, save, then deliver. Runs off main.
     nonisolated private static let heldDiscarded = "The canceled recording was discarded."
+    /// Shared by the warm and one-shot helpers: parse the last JSON line, save, then deliver. Runs off main.
     nonisolated private func handleTranscript(_ result: Result<Data, Error>, audio: URL?, store: HistoryRouter<HistoryEntry>, timestamp: Date, token: UUID, done: @escaping () -> Void) {
         do {
             let data = try result.get()
@@ -965,7 +952,7 @@ enum ScreenRequest: Equatable {
             DispatchQueue.main.async { [weak self] in guard let self, self.generation == token else { return }; self.runner = nil; self.setPhase(.error, message, quick: quick); done() }
         }
     }
-    /// Cloud transcription (R4): one provider call in a cancellable Task, never the local model.
+    /// Cloud transcription: one provider call in a cancellable Task, never the local model.
     /// The result then follows the local path: history save, processing, insertion.
     private func transcribeInCloud(_ audio: URL?, held: [Float]?, with provider: TranscriptionProvider, done: @escaping () -> Void) {
         guard let store = records else { setPhase(.error, "Private storage is unavailable. \(audio == nil ? Self.heldDiscarded : "Audio is saved for retry.")"); done(); return }
@@ -992,7 +979,6 @@ enum ScreenRequest: Equatable {
                 // Audio stays for retry (until the retry window ends) unless the provider error discards it.
                 if case .failed(_, false) = outcome, let audio { try? FileManager.default.removeItem(at: audio) }
                 var message = CloudTranscription.message(outcome) ?? CloudTranscription.unknownFailure
-                // Held audio has no file to keep for retry.
                 if audio == nil, case .failed(let reason, _) = outcome { message = reason + " " + Self.heldDiscarded }
                 if case .noSpeech = outcome { self.setPhase(.error, message, quick: true) } else { self.setPhase(.error, message) }
                 done(); return
@@ -1055,7 +1041,6 @@ enum ScreenRequest: Equatable {
         }
         setPhase(.processing, "Cleaning up with \(processing.cloudCleaner?.id.displayName ?? "the cleanup provider")…")
     }
-    /// The pre-check and segment detail as History keeps it.
     private static func transcriptionDetail(_ detail: CloudTranscriptionDetail) -> TranscriptionDetail {
         TranscriptionDetail(
             segments: detail.segments?.map { SegmentDetail(text: $0.text, start: $0.start, end: $0.end, avgLogprob: $0.avgLogprob, noSpeechProb: $0.noSpeechProb,
@@ -1098,7 +1083,6 @@ enum ScreenRequest: Equatable {
         let text = entry.rawText
         let saved = HistoryText.saved(persists: !store.sessionOnlyIDs.contains(entry.id))
         recordCleanup(outcome: result.cleanupPath, fallback: result.fallback, error: result.providerError)
-        // A held result keeps only the raw transcript and is never inserted.
         guard case .insert(let processed) = outcome else {
             let reason = result.providerError.map { " " + $0.userMessage } ?? ""
             // Content-free: the guard's category, never the text.
@@ -1243,7 +1227,6 @@ enum ScreenRequest: Equatable {
         guard let retry else { hasRecoveryAudio = false; return }
         hasRecoveryAudio = ((try? FileManager.default.contentsOfDirectory(at: retry.directory, includingPropertiesForKeys: nil)) ?? []).contains { $0.pathExtension == "wav" }
     }
-    /// Turns all three cleanup options off. Like other settings, it takes effect at once.
     func useFaithfulTranscription() { cleanupFillers = false; cleanupCorrections = false; cleanupLists = false; cleanupPunctuation = false; cleanupSpoken = false }
     /// Starts (or restarts, when what it loads changed) the warm helper in the background, so the
     /// next dictation does not wait for a model load.
@@ -1280,7 +1263,7 @@ enum ScreenRequest: Equatable {
 
 
 
-    // MARK: Update checks (R12)
+    // MARK: Update checks
 
     func checkForUpdates() {
         guard !preview else { return }

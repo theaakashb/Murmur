@@ -10,7 +10,6 @@ struct ModelFacts {
     /// The row's title when it differs from `displayName`.
     var rowTitle: String? = nil
     let repository: String
-    /// The pins' file list this model installs.
     var list = ModelManifest.batchList
     let directory: (_ home: URL) -> URL
     /// The license the model cards declare when the pins record none.
@@ -126,7 +125,7 @@ struct ModelFacts {
         explanation: "Helps on-device transcription spell your dictionary words without touching everyday English. Your words stay on this Mac.",
         unavailableMessage: "Dictionary support could not start, so on-device transcription is running without your dictionary. Remove it and download it again.")
 
-    /// Live words (gap #13): the streaming encoder and the small models it loads with, in a folder of
+    /// Live words: the streaming encoder and the small models it loads with, in a folder of
     /// their own beside the batch model. Optional; dictation never needs it.
     static let liveWords = ModelFacts(
         displayName: "Live words while speaking",
@@ -169,7 +168,7 @@ struct ModelSlot {
     var summary: String { downloader.map { facts.summary(downloadSize: $0.downloadSize) } ?? "" }
 }
 
-/// Live words (gap #13): when a recording starts the helper, and the bubble's text.
+/// Live words: when a recording starts the helper, and the bubble's text.
 enum LiveWordsFacts {
     /// Whether a recording starts the live-words helper. On a cloud transcription route it starts only
     /// with "Show live words on cloud routes" on (off by default); the preview itself is always on this Mac.

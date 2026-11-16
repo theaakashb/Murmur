@@ -29,7 +29,6 @@ struct HelperRuntime: Sendable {
     }
 }
 
-/// The JSON object on one line of helper output.
 func helperAnswer(_ line: Data?) -> [String: Any]? { line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } }
 
 /// What the transcription helper loads: the model folder plus, when dictionary support is
@@ -75,7 +74,7 @@ final class WarmRunner: @unchecked Sendable {
         send(boundary ? (try? JSONSerialization.data(withJSONObject: ["boundary": audio.path])).map { String(decoding: $0, as: UTF8.self) } : audio.path,
              helper: helper, launch: launch, completion: completion)
     }
-    /// A meeting's Them chunk with speaker separation on: the answer adds `words` (W7d).
+    /// A meeting's Them chunk with speaker separation on: the answer adds `words`.
     func transcribeTimed(_ audio: URL, helper: URL, launch: HelperLaunch, completion: @escaping (Data?) -> Void) {
         send((try? JSONSerialization.data(withJSONObject: ["timed": audio.path])).map { String(decoding: $0, as: UTF8.self) }, helper: helper, launch: launch, completion: completion)
     }
@@ -148,7 +147,6 @@ final class ChunkJob: @unchecked Sendable {
     private var waiter: ((String?) -> Void)?
     private let transcribe: (URL, Bool, @escaping (Data?) -> Void) -> Void
 
-    /// `transcribe(url, boundary, completion)`; see WarmRunner.transcribe.
     init(transcribe: @escaping (URL, Bool, @escaping (Data?) -> Void) -> Void) { self.transcribe = transcribe }
 
     /// Called on the capture queue, in order.
@@ -198,7 +196,6 @@ final class ChunkJob: @unchecked Sendable {
             settle(); pump()
         }
     }
-    /// Applies each cut's boundary replacements to the chunk texts on either side of it.
     static func repaired(_ texts: [String], _ repairs: [Int: [(from: String, to: String)]]) -> [String] {
         var texts = texts
         for (index, found) in repairs.sorted(by: { $0.key < $1.key }) where index + 1 < texts.count {
@@ -228,7 +225,7 @@ final class ChunkJob: @unchecked Sendable {
     }
 }
 
-/// Live words (gap #13): a second helper, `ModelBench LIVE_FOLDER --stream RATE`, that lives only
+/// Live words: a second helper, `ModelBench LIVE_FOLDER --stream RATE`, that lives only
 /// while one recording lasts, so its memory (about 0.5–1 GB wired) is held only then. Audio goes over
 /// its stdin pipe from this object's own queue, never to disk; when the helper falls behind, buffers
 /// are dropped rather than queued, so capture never waits. The text is display only.
@@ -373,7 +370,6 @@ extension Chunker {
         }
         return out
     }
-    /// Words a sentence cannot end on.
     static let danglingWords: Set<String> = ["a", "an", "the", "and", "or", "but", "nor", "of", "my", "your", "our", "their", "its", "than", "because"]
     /// Common words that start a chunk only because the model capitalized it.
     static let lowercaseStarts: Set<String> = danglingWords.union(["to", "in", "on", "at", "for", "with", "from", "by", "into", "as", "that", "which", "who", "is", "are", "was", "were", "be", "been", "will", "would", "could", "should", "can", "may", "might", "must", "do", "does", "did", "have", "has", "had", "this", "these", "those", "his", "her", "very", "so", "if", "when", "while", "where", "like", "about", "some", "any", "every", "each", "no", "not", "it", "it's", "we", "you", "they", "he", "she", "there", "here", "then", "more", "most", "less", "also", "just", "all", "one", "two", "what", "how", "why", "now", "even", "only", "still", "other", "another", "such", "make", "made", "get", "got", "go", "going", "see", "use", "used", "new", "same", "up", "out", "over", "after", "before", "between", "through", "during", "without", "within", "instead", "rather", "well", "really", "much", "many", "few", "things", "thing", "way", "people"])

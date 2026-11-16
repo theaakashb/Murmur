@@ -1,6 +1,6 @@
 import Foundation
 
-// Home and Insights (gap #19): counted on this Mac from the History entries Murmur still keeps.
+// Home and Insights: counted on this Mac from the History entries Murmur still keeps.
 // Nothing here is stored or sent anywhere. Foundation only, so app/check_insights.swift runs alone.
 
 /// What Insights needs from one History entry.
@@ -100,7 +100,7 @@ enum Insights: Equatable {
 
     /// Replaced, removed or added words between raw and final, a replacement counting once.
     /// It sees cleanup, dictionary spellings applied after transcription and edits made in History
-    /// (gap #10); the local model's own vocabulary pass happens before the raw text, so it is not seen.
+    ///; the local model's own vocabulary pass happens before the raw text, so it is not seen.
     static func wordsChanged(raw: String, final: String) -> Int {
         let diff = words(final).map(String.init).difference(from: words(raw).map(String.init))
         return max(diff.insertions.count, diff.removals.count)

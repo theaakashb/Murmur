@@ -34,13 +34,13 @@ enum Prefs {
     static let cleanupRoute = Setting("cleanupRoute", CleanupRoute.local)
     static let learningEnabled = Setting("learningEnabled", true)
     static let readableLearning = Setting("learningRequiresReadableField", false)
-    /// Screen context for AI cleanup routes (gap #8): opt-in, off by default. A writing mode can override it.
+    /// Screen context for AI cleanup routes: opt-in, off by default. A writing mode can override it.
     static let screenContext = Setting("cleanupScreenContext", false)
     static let historyMode = Setting("historyMode", HistoryMode.on)
     static let updateChecks = Setting("updateChecksEnabled", true)
     static let retention = Setting("retention", HistoryRetention.thirtyDays)
     static let showMenuBar = Setting("showMenuBar", true)
-    /// A Dock icon (gap #20); off by default, as in PRD R6.
+    /// Show Murmur in the Dock; off by default.
     static let showInDock = Setting("showInDock", false)
     static let inputDeviceUID = Setting("inputDeviceUID", "")
     static let intelligentLeadingSpace = Setting("intelligentLeadingSpace", false)

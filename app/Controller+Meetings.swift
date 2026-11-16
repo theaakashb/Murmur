@@ -2,10 +2,10 @@
 import AppKit
 
 extension AppController {
-    // MARK: Meeting notes (PRD section 11)
+    // MARK: Meeting notes
 
     /// Meetings are stored in `history/meetings` and their chunk audio in `retry-audio/meetings`, so
-    /// History's retention and Delete All Data cover them. They transcribe on this Mac only (Q2).
+    /// History's retention and Delete All Data cover them. They transcribe on this Mac only.
     func configureMeetings(_ locations: MurmurDataLocations) {
         let recorder = meetingRecorder
         // Without the helper and manifest (the UI fixture, or a build without them) the recorder cannot transcribe.
@@ -104,7 +104,7 @@ extension AppController {
         return MeetingNotesRoute.disclosure(route, host: disclosure?.destinationHost, local: local, retention: (disclosure?.retentionNote ?? "") + warning)
     }
 
-    /// Writes notes for a finished meeting on the route chosen now (PRD 11.6).
+    /// Writes notes for a finished meeting on the route chosen now.
     func writeMeetingNotes(_ meeting: Meeting, lecture: Bool = false) async throws -> MeetingNotesWriter.Outcome {
         let route = meetingNotesRoute ?? .none
         let built = meetingNotesProvider(route)
@@ -119,7 +119,7 @@ extension AppController {
         }
     }
 
-    /// Start from the Meetings page, Home or the menu bar. Meetings need the local model (Q2).
+    /// Start from the Meetings page, Home or the menu bar. Meetings need the local model.
     func startMeeting(_ source: MeetingSource) {
         var cloud: MeetingRoute.Cloud?, cloudName: String?
         if meetingTranscription == .cloud {

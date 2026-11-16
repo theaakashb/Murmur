@@ -11,7 +11,6 @@ extension AppController {
         }, historyOn: appliedHistoryMode == .on, now: Date(), calendar: .current)
     }
     func copyEntry(_ entry: HistoryEntry) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(entry.finalText, forType: .string) }
-    /// The explicit raw-text action for held cleanup (and any entry whose final text differs).
     /// ⌃⌘C anywhere: the latest dictation's raw transcript, so a held or uninserted one needs no
     /// trip to History. Does nothing when this launch has no transcript yet.
     func copyLatestRawTranscript() {
@@ -30,7 +29,7 @@ extension AppController {
         if setupTestTranscript == entry.finalText { setupTestTranscript = "" }
         if recoveryEntryID == entry.id { recoveryEntryID = nil }
     }
-    /// Gap #10: saves an edited final text (the raw transcript is kept) and learns from the edit
+    /// Saves an edited final text (the raw transcript is kept) and learns from the edit
     /// through the same filter and ledger as automatic observation. Returns false if it could not save.
     @discardableResult
     func editEntryText(_ entry: HistoryEntry, to text: String) -> Bool {
@@ -58,7 +57,7 @@ extension AppController {
         }
     }
 
-    // MARK: History cap and Delete All Data (R9, §6)
+    // MARK: History cap and Delete All Data
 
     /// The owner-only folder for chunk files; chunking is on only once it exists.
     func makeChunkFolder(_ chunks: URL) throws {

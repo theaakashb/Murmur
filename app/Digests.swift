@@ -2,7 +2,6 @@ import Foundation
 
 // Portable SHA-1/SHA-256 digests and the file hasher built on them (no CryptoKit, so Linux checks build).
 
-// MARK: - Hashing
 
 /// Streaming SHA-256 (FIPS 180-4). Feed any number of chunks, then call `finalize()` once.
 final class PortableSHA256 {

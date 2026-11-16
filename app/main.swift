@@ -18,7 +18,7 @@ import SwiftUI
         NSApp.mainMenu = buildMainMenu()
         controller.openSettings = { [weak self] in self?.showWindow() }
         controller.updateMenu = { [weak self] in self?.refreshMenu() }
-        // The live meeting panel shows whether or not the menu bar icon is visible (R6, PRD 11.3).
+        // The live meeting panel shows whether or not the menu bar icon is visible.
         controller.meetingPanelChanged = { [weak self] in self?.meetingPanel.update() }
         // Open at login is on by default once; after that the Settings toggle decides.
         if !options.preview && options.testAudio == nil && !UserDefaults.standard[Prefs.openAtLoginDefaulted] {
@@ -92,7 +92,7 @@ import SwiftUI
         NSApp.activate(ignoringOtherApps: true); window?.makeKeyAndOrderFront(nil); controller.refreshPermissions(); controller.refreshHistory()
     }
     func refreshMenu() {
-        // Show in Dock (gap #20) applies at once. Leaving the Dock can drop the window behind others.
+        // Show in Dock applies at once. Leaving the Dock can drop the window behind others.
         let policy: NSApplication.ActivationPolicy = controller.showInDock ? .regular : .accessory
         if NSApp.activationPolicy() != policy {
             NSApp.setActivationPolicy(policy)
@@ -145,7 +145,7 @@ import SwiftUI
     }
     @objc func openHistory() { controller.screenRequest = .history; showWindow() }
     @objc func openReportIssue() { reportIssue.show(controller.diagnostics()) }
-    /// Replays the welcome guide from its first step (gap #21).
+    /// Replays the welcome guide from its first step.
     @objc func openGuide() { controller.screenRequest = .guide; showWindow() }
     /// Keep configuration/recording errors visible even when Sparkle cannot open its dialog.
     @objc func checkForUpdates() { showWindow(); controller.checkForUpdates() }
