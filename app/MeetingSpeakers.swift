@@ -299,10 +299,8 @@ final class SpeakerRunner: @unchecked Sendable {
 
 /// Settings → Meetings → Speaker separation: an optional 21.6 MB download (PRD 11.8).
 enum SpeakerFacts {
-    static let repository = "FluidInference/speaker-diarization-coreml"
     static let key = "meetingSpeakers"
     static let displayName = "Separate speakers after a meeting"
-    static func directory(home: URL) -> URL { home.appendingPathComponent("Library/Caches/Dictation/module-one/speaker-diarization-df2625a") }
     /// `room`: microphone-only recordings can be separated too (the "Separate speakers in microphone-only recordings" switch).
     static func explanation(room: Bool) -> String {
         "After Stop, the call’s audio is split into Speaker 1, Speaker 2… on this Mac. To do that, Murmur keeps the call’s audio (\(room ? "or your microphone for microphone-only recordings" : "never your microphone")) until separation finishes, at most \(RetryWindow.text), then deletes it. Voice prints are discarded after each meeting, and nobody is recognised across meetings."

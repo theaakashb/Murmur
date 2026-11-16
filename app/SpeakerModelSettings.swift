@@ -2,19 +2,34 @@ import AppKit
 
 // Speaker-model download controller for Settings, and the NSAlert helper for destructive prompts.
 
+extension ModelFacts {
+    /// The meeting speaker model; the credits come from SpeakerFacts.
+    static let speaker = ModelFacts(
+        displayName: SpeakerFacts.displayName,
+        rowTitle: "pyannote community-1",
+        repository: "FluidInference/speaker-diarization-coreml",
+        directory: { $0.appendingPathComponent("Library/Caches/Dictation/module-one/speaker-diarization-df2625a") },
+        confirmName: "speaker separation",
+        summaryLead: "pyannote community-1",
+        placement: ModelFacts.savedIn,
+        licenseNotice: SpeakerFacts.credits,
+        closing: "With speaker separation on, the call’s audio from each meeting is kept until separation finishes after Stop, at most 24 hours.",
+        removeTitle: "Remove speaker separation?",
+        removeBody: { folder, _ in "New meetings label the call’s side as Them until you download it again. This deletes \(folder.path)." },
+        completed: "Speaker separation is downloaded and verified.",
+        removed: "Speaker separation was removed.")
+}
+
 /// Settings → Meetings → speaker separation (W7d): the switch and the optional pinned download.
 /// It tells the recorder which verified model folder to use; nil while off, missing or unverified.
 @MainActor final class SpeakerModelSettings: ObservableObject {
     @Published var enabled: Bool { didSet { defaults.set(enabled, forKey: SpeakerFacts.key); refresh() } }
     @Published var separateRoom: Bool { didSet { defaults.set(separateRoom, forKey: "meetingRoomSpeakers"); refresh() } }
-    @Published private(set) var status: ModelStatus = .notDownloaded
-    @Published var message = ""
-    let downloader: ModelDownloader?
-    var row: ModelRowPresentation { ModelRowPresentation.make(downloader == nil && !fixture ? nil : status) }
-    var summary: String { Self.summary(downloadSize: downloader?.downloadSize ?? 21_599_417) }
+    @Published var slot: ModelSlot
+    var row: ModelRowPresentation { ModelRowPresentation.make(slot.downloader == nil && !fixture ? nil : slot.status) }
+    var summary: String { slot.facts.summary(downloadSize: slot.downloader?.downloadSize ?? 21_599_417) }
     private let defaults: UserDefaults
-    private let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json")
-    private var inFlight = false, verified = false, verifying = false, fixture = false
+    private var verified = false, verifying = false, fixture = false
     private weak var recorder: MeetingRecorder?
     private var isBusy: () -> Bool = { false }
     private var preview = false
@@ -23,10 +38,8 @@ import AppKit
         self.defaults = defaults
         enabled = defaults.bool(forKey: SpeakerFacts.key)
         separateRoom = defaults.bool(forKey: "meetingRoomSpeakers")
-        if let manifest, let pins = try? ModelManifest(contentsOf: manifest, repository: SpeakerFacts.repository) {
-            downloader = ModelDownloader(manifest: pins, target: SpeakerFacts.directory(home: FileManager.default.homeDirectoryForCurrentUser))
-        } else { downloader = nil }
-        status = downloader?.status() ?? .notDownloaded
+        slot = ModelSlot(.speaker, pins: BundledModels.pins, home: FileManager.default.homeDirectoryForCurrentUser)
+        slot.status = slot.downloader?.status() ?? .notDownloaded
     }
 
     func attach(_ recorder: MeetingRecorder, preview: Bool, isBusy: @escaping () -> Bool) {
@@ -36,89 +49,54 @@ import AppKit
 
     /// Checks the model folder against its pins (cached by fingerprint); wired into the recorder, which runs it off the main thread.
     var verifyModel: () -> Bool {
-        let manifest = manifest, folder = downloader?.target
+        let manifest = BundledModels.pins, folder = slot.downloader?.target
         return {
             guard let manifest, let folder else { return false }
-            return (try? ModelVerificationCache.shared.verify(folder, manifest: manifest, repository: SpeakerFacts.repository)) != nil
+            return (try? ModelVerificationCache.shared.verify(folder, manifest: manifest, model: .speaker)) != nil
         }
     }
 
     /// Hashes the folder once (off the main thread), then hands it to the recorder while enabled.
     func refresh() {
         guard let recorder, !preview else { return }
-        recorder.speakerModel = enabled && verified ? downloader?.target : nil
+        recorder.speakerModel = enabled && verified ? slot.downloader?.target : nil
         recorder.separateRoomSpeakers = enabled && separateRoom
-        let wanted = enabled && (row.isReady || inFlight)
+        let wanted = enabled && (row.isReady || slot.inFlight)
         if recorder.speakersWanted != wanted { recorder.speakersWanted = wanted; if !wanted { recorder.reload() } }
-        guard enabled, !verified, !verifying, !inFlight, row.isReady else { return }
+        guard enabled, !verified, !verifying, !slot.inFlight, row.isReady else { return }
         verifying = true
-        let check = recorder.verifySpeakerModel
+        let check = verifyModel
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let ok = check()
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.verifying = false; self.verified = ok
-                if !ok { self.message = "Speaker separation failed verification. Remove it and download it again." }
+                if !ok { self.slot.message = "Speaker separation failed verification. Remove it and download it again." }
                 self.refresh(); recorder.reload()
             }
         }
     }
 
-    func download() {
-        guard let downloader else { message = ModelDownloadError.invalidManifest.userMessage; return }
-        if let refusal = ModelGate.downloadRefusal(isBusy: isBusy(), preview: preview, downloading: inFlight) { message = refusal; return }
-        let text = Self.confirmation(downloadSize: downloader.downloadSize, folder: downloader.target)
-        let alert = NSAlert(); alert.messageText = text.title; alert.informativeText = text.body
-        alert.addButton(withTitle: "Download"); alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        inFlight = true; message = ""; verified = false; refresh()
-        status = .downloading(ModelDownloadProgress(bytesDone: 0, totalBytes: downloader.downloadSize))
-        downloader.start(progress: { [weak self] progress in
-            DispatchQueue.main.async { if self?.inFlight == true { self?.status = .downloading(progress) } }
-        }) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.inFlight = false
-                self.status = downloader.status()
-                self.message = Self.completionMessage(result)
-                self.refresh()
-            }
+    private var flow: ModelFlow<SpeakerModelSettings> {
+        var flow = ModelFlow(owner: self, slot: \.slot)
+        flow.downloadGate = { [weak self] in self.flatMap { ModelGate.downloadRefusal(isBusy: $0.isBusy(), preview: $0.preview, downloading: $0.slot.inFlight) } }
+        flow.removeGate = { [weak self] in
+            self.flatMap { ModelGate.removeRefusal(isBusy: $0.isBusy(), preview: $0.preview, downloading: $0.slot.inFlight)
+                ?? ($0.recorder?.separating.isEmpty == false ? "Speakers are being separated now. Remove the model when that finishes, or Skip it." : nil) }
         }
+        flow.willDownload = { [weak self] in self?.verified = false; self?.refresh() }
+        flow.pushProgress = true
+        flow.didDownload = { [weak self] _ in self?.refresh() }
+        flow.release = { [weak self] go in self?.verified = false; self?.refresh(); go() }
+        flow.didRemove = { [weak self] in self?.refresh() }
+        return flow
     }
+    func download() { flow.download() }
+    func cancelDownload() { slot.downloader?.cancel() }
+    func remove() { flow.remove() }
 
-    func cancelDownload() { downloader?.cancel() }
-
-    func remove() {
-        guard let downloader else { return }
-        if let refusal = ModelGate.removeRefusal(isBusy: isBusy(), preview: preview, downloading: inFlight) { message = refusal; return }
-        if recorder?.separating.isEmpty == false { message = "Speakers are being separated now. Remove the model when that finishes, or Skip it."; return }
-        let alert = NSAlert(); alert.messageText = Self.removeTitle
-        alert.informativeText = Self.removeBody(folder: downloader.target)
-        alert.addButton(withTitle: "Remove"); alert.addButton(withTitle: "Cancel")
-        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
-        verified = false; refresh()
-        do { try downloader.remove(); message = "Speaker separation was removed." }
-        catch { message = (error as? ModelDownloadError)?.userMessage ?? ModelDownloadError.fileSystem.userMessage }
-        status = downloader.status(); refresh()
-    }
-
-    // Download text; the credits come from SpeakerFacts.
-    nonisolated static func summary(downloadSize: Int64) -> String { "pyannote community-1 · \(ModelFacts.formatBytes(downloadSize)) download · \(ModelFacts.location)" }
-    nonisolated static func confirmation(downloadSize: Int64, folder: URL) -> (title: String, body: String) {
-        ("Download speaker separation (\(ModelFacts.formatBytes(downloadSize)))?",
-         "Murmur downloads \(ModelFacts.formatBytes(downloadSize)) from Hugging Face and checks every file against its pinned checksum. It is saved in \(folder.path).\n\n\(SpeakerFacts.credits)\n\nWith speaker separation on, the call’s audio from each meeting is kept until separation finishes after Stop, at most 24 hours.")
-    }
-    nonisolated static let removeTitle = "Remove speaker separation?"
-    nonisolated static func removeBody(folder: URL) -> String { "New meetings label the call’s side as Them until you download it again. This deletes \(folder.path)." }
-    nonisolated static func completionMessage(_ result: Result<Void, ModelDownloadError>) -> String {
-        switch result {
-        case .success: return "Speaker separation is downloaded and verified."
-        case .failure(.cancelled): return "The download was cancelled. Retry continues from the files already downloaded."
-        case .failure(let error): return error.userMessage
-        }
-    }
     /// UI fixture only (check_ui.swift).
-    func showFixture(enabled: Bool, status: ModelStatus) { fixture = true; self.enabled = enabled; self.status = status }
+    func showFixture(enabled: Bool, status: ModelStatus) { fixture = true; self.enabled = enabled; slot.status = status }
 }
 
 extension NSAlert {

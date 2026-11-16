@@ -191,7 +191,7 @@ private func read(_ url: URL) -> Data? { try? Data(contentsOf: url) }
         expectError(.invalidManifest, "batch entry missing from files") { _ = try ModelManifest(data: fixture.json(batch: ["config.json", "missing.bin"]), repository: Fixture.repository) }
         expectError(.invalidManifest, "duplicate batch entry") { _ = try ModelManifest(data: fixture.json(batch: ["config.json", "config.json"]), repository: Fixture.repository) }
         expectError(.invalidManifest, "malformed checksum") { _ = try fixture.manifest(hashOverride: ["config.json": "xyz"]) }
-        expectError(.invalidManifest, "not json") { _ = try ModelManifest(data: Data("nope".utf8)) }
+        expectError(.invalidManifest, "not json") { _ = try ModelManifest(data: Data("nope".utf8), repository: Fixture.repository) }
         expectError(.invalidManifest, "empty batch") { _ = try ModelManifest(data: fixture.json(batch: []), repository: Fixture.repository) }
 
         // Path traversal and other unsafe names are rejected before anything is downloaded.
@@ -217,7 +217,7 @@ private func read(_ url: URL) -> Data? { try? Data(contentsOf: url) }
     static func pinnedManifestChecks() throws {
         let url = URL(fileURLWithPath: "module-one/models/artifact-pins.json")
         guard FileManager.default.fileExists(atPath: url.path) else { check(false, "run from repository root: artifact-pins.json not found"); return }
-        let manifest = try ModelManifest(contentsOf: url)
+        let manifest = try ModelManifest(contentsOf: url, .batch)
         check(manifest.revision == "d32e972dd4315f1dc3f6be28fb2aab0ab3e80358", "pinned revision")
         check(manifest.files.count == 19, "19 pinned batch files")
         check(manifest.totalBytes == 1_801_783_964, "pinned download size 1,801,783,964 bytes")
@@ -230,12 +230,12 @@ private func read(_ url: URL) -> Data? { try? Data(contentsOf: url) }
         let downloader = ModelDownloader(manifest: manifest, target: URL(fileURLWithPath: "/tmp/never-used/model"), transport: FakeTransport())
         check(downloader.downloadSize == 1_801_783_964 && downloader.license == license, "downloader exposes size and license before download")
         // Dictionary support: the CTC model, with its CC-BY-4.0 license recorded in the pins.
-        let ctc = try ModelManifest(contentsOf: url, repository: "FluidInference/parakeet-ctc-110m-coreml")
+        let ctc = try ModelManifest(contentsOf: url, .dictionary)
         check(ctc.revision == "accdafd8cf8a2ff1cabe3c11e54416b405d409aa" && ctc.files.count == 12 && ctc.totalBytes == 102_802_455, "CTC pins: revision, 12 files, 102,802,455 bytes")
         check(ctc.license.isPinned && ctc.license.declarations.map(\.name) == ["CC-BY-4.0"], "CTC license pinned")
         check(Set(ctc.files.map(\.rfilename)).isSuperset(of: ["tokenizer.json", "vocab.json", "AudioEncoder.mlmodelc/weights/weight.bin", "MelSpectrogram.mlmodelc/weights/weight.bin"]), "CTC files FluidAudio loads are pinned")
         // Live words (gap #13): the int8 [70,13,13] streaming encoder plus what it loads with, in their own list.
-        let live = try ModelManifest(contentsOf: url, list: "live_files")
+        let live = try ModelManifest(contentsOf: url, .liveWords)
         check(live.revision == manifest.revision && live.files.count == 13 && live.totalBytes == 609_438_170, "live pins: same revision, 13 files, 609,438,170 bytes")
         check(live.files.contains { $0.rfilename == "parakeet_unified_encoder_streaming_70_13_13_int8.mlmodelc/weights/weight.bin" && $0.checksum == "259e5818cf4acee1155409a048ec408eecd8cfc27ade04ba18bca243398cc9b6" }, "streaming int8 encoder pinned by hash")
         check(Set(live.files.map(\.rfilename)).isSuperset(of: ["vocab.json", "parakeet_unified_decoder.mlmodelc/weights/weight.bin", "parakeet_unified_joint_decision_single_step.mlmodelc/weights/weight.bin"]), "decoder, joint and vocabulary it loads are pinned")

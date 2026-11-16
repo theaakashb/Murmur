@@ -39,23 +39,23 @@ func item(_ secondsAgo: TimeInterval, _ text: String = "t", now: Date = Date()) 
 
 func checkModelRow() {
     let home = URL(fileURLWithPath: "/Users/someone")
-    check(ModelFacts.defaultDirectory(home: home).path == "/Users/someone/Library/Caches/Dictation/module-one/unified-d32e972", "default model directory matches existing installs")
+    check(ModelFacts.batch.directory(home).path == "/Users/someone/Library/Caches/Dictation/module-one/unified-d32e972", "default model directory matches existing installs")
     check(ModelFacts.formatBytes(1_801_783_964) == "1.80 GB", "pinned size formats as 1.80 GB")
     check(ModelFacts.formatBytes(512_400_000) == "512 MB", "megabytes")
     check(ModelFacts.formatBytes(-5) == "0 bytes" && ModelFacts.formatBytes(999) == "999 bytes", "small and negative sizes")
-    check(ModelFacts.summary(downloadSize: 1_801_783_964) == "1.80 GB download · English · Runs on this Mac", "row summary")
+    check(ModelFacts.batch.summary(downloadSize: 1_801_783_964) == "1.80 GB download · English · Runs on this Mac", "row summary")
 
-    let license = ModelLicenseInfo.parakeetUnifiedUnpinned
+    let license = ModelFacts.parakeetUnpinnedLicense
     let text = ModelFacts.licenseText(license)
     check(text.contains("NVIDIA Open Model License") && text.contains("CC-BY-4.0"), "license text names both declarations")
     check(text.contains("https://www.nvidia.com/") && text.contains("https://huggingface.co/FluidInference/"), "license text has both links")
     check(text.contains("has not resolved"), "license text keeps the unresolved note")
-    let confirm = ModelFacts.confirmation(downloadSize: 1_801_783_964, license: license)
+    let confirm = ModelFacts.batch.confirmation(downloadSize: 1_801_783_964, license: license, folder: home)
     check(confirm.title.contains("1.80 GB") && confirm.body.contains("1.80 GB") && confirm.body.contains("License:") && confirm.body.contains(license.note), "confirmation states size and license before download")
 
-    check(ModelFacts.completionMessage(.success(())).contains("ready"), "success message")
-    check(ModelFacts.completionMessage(.failure(.cancelled)).contains("Retry"), "cancel message explains retry")
-    check(ModelFacts.completionMessage(.failure(.diskFull)) == ModelDownloadError.diskFull.userMessage, "errors use the downloader's messages")
+    check(ModelFacts.batch.completionMessage(.success(())).contains("ready"), "success message")
+    check(ModelFacts.batch.completionMessage(.failure(.cancelled)).contains("Retry"), "cancel message explains retry")
+    check(ModelFacts.batch.completionMessage(.failure(.diskFull)) == ModelDownloadError.diskFull.userMessage, "errors use the downloader's messages")
 
     let missing = ModelRowPresentation.make(nil)
     check(missing.actions.isEmpty && missing.statusText == ModelDownloadError.invalidManifest.userMessage, "missing manifest offers nothing")
@@ -226,7 +226,7 @@ func checkLiveWordsSplit() {
     check(!LiveWordsFacts.starts(enabled: true, ready: true, cloudTranscription: true, onCloud: false), "cloud route with the toggle off (the default): the helper does not start")
     check(LiveWordsFacts.starts(enabled: true, ready: true, cloudTranscription: true, onCloud: true), "cloud route with the toggle on: live words start")
     check(!LiveWordsFacts.starts(enabled: false, ready: true, cloudTranscription: false, onCloud: true) && !LiveWordsFacts.starts(enabled: true, ready: false, cloudTranscription: false, onCloud: true), "off or not verified: never")
-    check(!LiveWordsFacts.explanation.isEmpty && LiveWordsFacts.directory(home: URL(fileURLWithPath: "/Users/x")).path.hasSuffix("unified-d32e972-live"), "live folder beside the batch model, not inside it")
+    check(!ModelFacts.liveWords.explanation.isEmpty && ModelFacts.liveWords.directory(URL(fileURLWithPath: "/Users/x")).path.hasSuffix("unified-d32e972-live"), "live folder beside the batch model, not inside it")
 }
 
 /// Welcome guide (gap #21): resume at the saved step, version-stamped completion.

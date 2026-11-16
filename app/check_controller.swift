@@ -231,9 +231,9 @@ import AVFoundation
         precondition(!controller.hasStatusToShow, "an error notice dismisses after eight seconds")
         controller.phase = .saved
         // The check binary has no bundled artifact-pins.json: the model row offers nothing and refuses quietly, without an alert.
-        precondition(controller.modelRow.actions.isEmpty && !controller.usesCustomModelFolder)
+        precondition(controller.modelSlot.row.actions.isEmpty && !controller.usesCustomModelFolder)
         controller.downloadModel()
-        precondition(controller.modelMessage == ModelDownloadError.invalidManifest.userMessage && controller.phase == .saved)
+        precondition(controller.modelSlot.message == ModelDownloadError.invalidManifest.userMessage && controller.phase == .saved)
         precondition(controller.historySummary.hasPrefix(controller.historyMode == .on ? "Saved locally" : "History is off"))
         // Routes and keys (R4, R5): nothing to cancel while idle; preview keeps keys in memory and publishes only presence.
         precondition(!controller.canCancelRequest)
@@ -376,8 +376,8 @@ import AVFoundation
         func sha(_ d: Data) -> String { SHA256.hash(data: d).map { String(format: "%02x", $0) }.joined() }
         let manifest = dir.appendingPathComponent("pins.json")
         try JSONSerialization.data(withJSONObject: ["models": [
-            unifiedRepository: ["files": [["rfilename": "w", "size": weights.count, "lfs": ["sha256": sha(weights)]]], "batch_files": ["w"]],
-            dictionaryModelRepository: ["files": [["rfilename": "e", "size": encoder.count, "lfs": ["sha256": sha(encoder)]]], "batch_files": ["e"]]]]).write(to: manifest)
+            ModelFacts.batch.repository: ["revision": String(repeating: "a", count: 40), "files": [["rfilename": "w", "size": weights.count, "lfs": ["sha256": sha(weights)]]], "batch_files": ["w"]],
+            ModelFacts.dictionary.repository: ["revision": String(repeating: "b", count: 40), "files": [["rfilename": "e", "size": encoder.count, "lfs": ["sha256": sha(encoder)]]], "batch_files": ["e"]]]]).write(to: manifest)
         let vocabulary = dir.appendingPathComponent("vocabulary.json")
         let plain = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: ctc)
         precondition(plain?.dictionaryArguments == [], "no vocabulary file: no dictionary arguments")

@@ -1,15 +1,42 @@
-// Model row text and rules: the three models' facts, the row's buttons and the download/remove gate. Foundation only.
+// Model row text and rules: every downloadable model's facts, the row's buttons and the download/remove gate. Foundation only.
 import Foundation
 
-enum ModelFacts {
-    static let displayName = "Parakeet Unified English 0.6B"
-    static let language = "English"
+/// One downloadable model: where it comes from, where it lives and what Settings says about it.
+/// The text layouts (size, summary, confirmation, completion) are written once below; a model's own
+/// wording is a field here. The speaker and local cleanup models are declared beside their features.
+struct ModelFacts {
+    /// The model's name where it is a setting or a step.
+    let displayName: String
+    /// The row's title when it differs from `displayName`.
+    var rowTitle: String? = nil
+    let repository: String
+    /// The pins' file list this model installs.
+    var list = ModelManifest.batchList
+    let directory: (_ home: URL) -> URL
+    /// The license the model cards declare when the pins record none.
+    var unpinnedLicense: ModelLicenseInfo? = nil
+    /// The model's name in "Download …?".
+    let confirmName: String
+    /// Leads the summary line ahead of the size.
+    var summaryLead: String? = nil
+    /// Summary items between the size and where it runs.
+    var summaryTail: [String] = []
+    /// The sentence after the checksum sentence in the confirmation.
+    let placement: (_ folder: URL) -> String
+    /// Replaces the "License:" block (the speaker model's required credits).
+    var licenseNotice: String? = nil
+    /// A final paragraph of the confirmation.
+    var closing: String? = nil
+    let removeTitle: String
+    let removeBody: (_ folder: URL, _ downloadSize: Int64) -> String
+    let completed: String
+    let removed: String
+    var explanation = ""
+    var unavailableMessage = ""
+
     static let location = "Runs on this Mac"
 
-    /// The folder existing installs already use, so a model placed there before is recognized.
-    static func defaultDirectory(home: URL) -> URL {
-        home.appendingPathComponent("Library/Caches/Dictation/module-one/unified-d32e972")
-    }
+    var title: String { rowTitle ?? displayName }
 
     /// Decimal units, as Finder shows download sizes: 1,801,783,964 bytes is "1.80 GB".
     static func formatBytes(_ bytes: Int64) -> String {
@@ -21,8 +48,8 @@ enum ModelFacts {
     }
 
     /// "1.80 GB download · English · Runs on this Mac"
-    static func summary(downloadSize: Int64) -> String {
-        "\(formatBytes(downloadSize)) download · \(language) · \(location)"
+    func summary(downloadSize: Int64) -> String {
+        ((summaryLead.map { [$0] } ?? []) + ["\(Self.formatBytes(downloadSize)) download"] + summaryTail + [Self.location]).joined(separator: " · ")
     }
 
     /// One line per declaration, with its link, then the note (which says when the license is unresolved).
@@ -33,84 +60,117 @@ enum ModelFacts {
     }
 
     /// Shown before any byte is downloaded.
-    static func confirmation(downloadSize: Int64, license: ModelLicenseInfo) -> (title: String, body: String) {
-        ("Download \(displayName) (\(formatBytes(downloadSize)))?",
-         "Murmur downloads \(formatBytes(downloadSize)) from Hugging Face and checks every file against its pinned checksum. After that, transcription runs on this Mac without the network.\n\nLicense:\n\(licenseText(license))")
+    func confirmation(downloadSize: Int64, license: ModelLicenseInfo, folder: URL) -> (title: String, body: String) {
+        let size = Self.formatBytes(downloadSize)
+        return ("Download \(confirmName) (\(size))?",
+                "Murmur downloads \(size) from Hugging Face and checks every file against its pinned checksum. \(placement(folder))\n\n\(licenseNotice ?? "License:\n\(Self.licenseText(license))")" + (closing.map { "\n\n" + $0 } ?? ""))
     }
 
-    static func completionMessage(_ result: Result<Void, ModelDownloadError>) -> String {
+    static func savedIn(_ folder: URL) -> String { "It is saved in \(folder.path)." }
+
+    func completionMessage(_ result: Result<Void, ModelDownloadError>) -> String {
         switch result {
-        case .success: return "The model is downloaded and verified. Murmur is ready to dictate."
-        case .failure(.cancelled): return "The download was cancelled. Retry continues from the files already downloaded."
-        case .failure(let error): return error.userMessage
-        }
-    }
-}
-
-/// The CTC model that rescores on-device transcripts toward the dictionary (FluidAudio vocabulary
-/// boosting). It lives in FluidAudio's own cache folder, because FluidAudio's rescorer reads the CTC
-/// tokenizer only from there; that folder can be shared with other apps built on FluidAudio, so
-/// Murmur checks it against the pinned hashes before every use and runs without it otherwise.
-enum DictionaryModelFacts {
-    static let displayName = "Dictionary support for on-device transcription"
-    static let modelName = "Parakeet CTC 110M"
-
-    static func directory(home: URL) -> URL {
-        home.appendingPathComponent("Library/Application Support/FluidAudio/Models/parakeet-ctc-110m-coreml")
-    }
-
-    /// "Parakeet CTC 110M · 103 MB download · Runs on this Mac"
-    static func summary(downloadSize: Int64) -> String {
-        "\(modelName) · \(ModelFacts.formatBytes(downloadSize)) download · \(ModelFacts.location)"
-    }
-
-    static let explanation = "Helps on-device transcription spell your dictionary words without touching everyday English. Your words stay on this Mac."
-
-    static func confirmation(downloadSize: Int64, license: ModelLicenseInfo, folder: URL) -> (title: String, body: String) {
-        ("Download \(modelName) (\(ModelFacts.formatBytes(downloadSize)))?",
-         "Murmur downloads \(ModelFacts.formatBytes(downloadSize)) from Hugging Face and checks every file against its pinned checksum. It is saved in FluidAudio's shared model folder (\(folder.path)); a copy another app put there is replaced.\n\nLicense:\n\(ModelFacts.licenseText(license))")
-    }
-
-    static let removeTitle = "Remove dictionary support?"
-    static func removeBody(folder: URL) -> String {
-        "On-device transcription stops using your dictionary until you download it again. This deletes \(folder.path), which other apps built on FluidAudio may also use."
-    }
-
-    static func completionMessage(_ result: Result<Void, ModelDownloadError>) -> String {
-        switch result {
-        case .success: return "Dictionary support is downloaded and verified. On-device transcription now uses your dictionary."
-        case .failure(.cancelled): return "The download was cancelled. Retry continues from the files already downloaded."
-        case .failure(let error): return error.userMessage
+        case .success: return completed
+        case .failure(let error): return Self.failureMessage(error)
         }
     }
 
-    static let unavailableMessage = "Dictionary support could not start, so on-device transcription is running without your dictionary. Remove it and download it again."
+    static func failureMessage(_ error: ModelDownloadError) -> String {
+        error == .cancelled ? "The download was cancelled. Retry continues from the files already downloaded." : error.userMessage
+    }
+
+    /// Facts from the Hugging Face model APIs (checked 2026-10-03):
+    /// nvidia/parakeet-unified-en-0.6b declares `license: other`, `license_name: nvidia-open-model-license`
+    /// with the link below; the pinned conversion repository declares `license: cc-by-4.0`.
+    static let parakeetUnpinnedLicense = ModelLicenseInfo(
+        isPinned: false,
+        declarations: [
+            ModelLicenseDeclaration(source: "Upstream NVIDIA model card (nvidia/parakeet-unified-en-0.6b)",
+                                    name: "NVIDIA Open Model License",
+                                    url: URL(string: "https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/")!),
+            ModelLicenseDeclaration(source: "Core ML conversion model card (FluidInference/parakeet-unified-en-0.6b-coreml)",
+                                    name: "CC-BY-4.0",
+                                    url: URL(string: "https://huggingface.co/FluidInference/parakeet-unified-en-0.6b-coreml")!),
+        ],
+        note: "The license is not recorded in Murmur's pinned model manifest. The upstream and conversion model cards declare different licenses, and Murmur has not resolved which terms apply. Review both before downloading.")
+
+    /// The batch transcription model. The folder is the one existing installs already use, so a model placed there before is recognized.
+    static let batch = ModelFacts(
+        displayName: "Parakeet Unified English 0.6B",
+        repository: "FluidInference/parakeet-unified-en-0.6b-coreml",
+        directory: { $0.appendingPathComponent("Library/Caches/Dictation/module-one/unified-d32e972") },
+        unpinnedLicense: parakeetUnpinnedLicense,
+        confirmName: "Parakeet Unified English 0.6B",
+        summaryTail: ["English"],
+        placement: { _ in "After that, transcription runs on this Mac without the network." },
+        removeTitle: "Remove the downloaded model?",
+        removeBody: { _, size in "Murmur cannot dictate until you download it again (\(ModelFacts.formatBytes(size))) or choose another model folder." },
+        completed: "The model is downloaded and verified. Murmur is ready to dictate.",
+        removed: "The model was removed.")
+
+    /// The CTC model that rescores on-device transcripts toward the dictionary (FluidAudio vocabulary
+    /// boosting). It lives in FluidAudio's own cache folder, because FluidAudio's rescorer reads the CTC
+    /// tokenizer only from there; that folder can be shared with other apps built on FluidAudio, so
+    /// Murmur checks it against the pinned hashes before every use and runs without it otherwise.
+    static let dictionary = ModelFacts(
+        displayName: "Dictionary support for on-device transcription",
+        repository: "FluidInference/parakeet-ctc-110m-coreml",
+        directory: { $0.appendingPathComponent("Library/Application Support/FluidAudio/Models/parakeet-ctc-110m-coreml") },
+        confirmName: "Parakeet CTC 110M",
+        summaryLead: "Parakeet CTC 110M",
+        placement: { "It is saved in FluidAudio's shared model folder (\($0.path)); a copy another app put there is replaced." },
+        removeTitle: "Remove dictionary support?",
+        removeBody: { folder, _ in "On-device transcription stops using your dictionary until you download it again. This deletes \(folder.path), which other apps built on FluidAudio may also use." },
+        completed: "Dictionary support is downloaded and verified. On-device transcription now uses your dictionary.",
+        removed: "Dictionary support was removed.",
+        explanation: "Helps on-device transcription spell your dictionary words without touching everyday English. Your words stay on this Mac.",
+        unavailableMessage: "Dictionary support could not start, so on-device transcription is running without your dictionary. Remove it and download it again.")
+
+    /// Live words (gap #13): the streaming encoder and the small models it loads with, in a folder of
+    /// their own beside the batch model. Optional; dictation never needs it.
+    static let liveWords = ModelFacts(
+        displayName: "Live words while speaking",
+        rowTitle: "Parakeet Unified streaming",
+        repository: batch.repository,
+        list: "live_files",
+        directory: { $0.appendingPathComponent("Library/Caches/Dictation/module-one/unified-d32e972-live") },
+        unpinnedLicense: parakeetUnpinnedLicense,
+        confirmName: "live words",
+        summaryLead: "Parakeet Unified streaming",
+        placement: ModelFacts.savedIn,
+        removeTitle: "Remove live words?",
+        removeBody: { folder, _ in "The bubble goes back to the level meter until you download it again. This deletes \(folder.path)." },
+        completed: "Live words are downloaded and verified.",
+        removed: "Live words were removed.",
+        explanation: "Shows your words in the bubble while you speak. Display only: the inserted text still comes from the whole recording. While you record, a second on-device model uses up to about 1 GB more memory; it quits when you stop.")
 }
 
-/// Live words (gap #13): the streaming encoder and the small models it loads with, in a folder of
-/// their own beside the batch model. Optional; dictation never needs it.
+extension ModelManifest {
+    init(contentsOf url: URL, _ model: ModelFacts) throws {
+        try self.init(contentsOf: url, repository: model.repository, list: model.list, unpinnedLicense: model.unpinnedLicense)
+    }
+}
+
+/// One model's download state beside its downloader (nil when the bundled pins are missing or invalid).
+struct ModelSlot {
+    let facts: ModelFacts
+    let downloader: ModelDownloader?
+    var status: ModelStatus = .notDownloaded
+    var message = ""
+    var inFlight = false
+
+    init(_ facts: ModelFacts, pins: URL?, home: URL) {
+        self.facts = facts
+        downloader = pins.flatMap { try? ModelManifest(contentsOf: $0, facts) }.map { ModelDownloader(manifest: $0, target: facts.directory(home)) }
+    }
+
+    var row: ModelRowPresentation { ModelRowPresentation.make(downloader == nil ? nil : status) }
+    var license: ModelLicenseInfo? { downloader?.license }
+    var summary: String { downloader.map { facts.summary(downloadSize: $0.downloadSize) } ?? "" }
+}
+
+/// Live words (gap #13): when a recording starts the helper, and the bubble's text.
 enum LiveWordsFacts {
-    static let displayName = "Live words while speaking"
-    static func directory(home: URL) -> URL {
-        home.appendingPathComponent("Library/Caches/Dictation/module-one/unified-d32e972-live")
-    }
-    static func summary(downloadSize: Int64) -> String {
-        "Parakeet Unified streaming · \(ModelFacts.formatBytes(downloadSize)) download · \(ModelFacts.location)"
-    }
-    static let explanation = "Shows your words in the bubble while you speak. Display only: the inserted text still comes from the whole recording. While you record, a second on-device model uses up to about 1 GB more memory; it quits when you stop."
-    static func confirmation(downloadSize: Int64, license: ModelLicenseInfo, folder: URL) -> (title: String, body: String) {
-        ("Download live words (\(ModelFacts.formatBytes(downloadSize)))?",
-         "Murmur downloads \(ModelFacts.formatBytes(downloadSize)) from Hugging Face and checks every file against its pinned checksum. It is saved in \(folder.path).\n\nLicense:\n\(ModelFacts.licenseText(license))")
-    }
-    static let removeTitle = "Remove live words?"
-    static func removeBody(folder: URL) -> String { "The bubble goes back to the level meter until you download it again. This deletes \(folder.path)." }
-    static func completionMessage(_ result: Result<Void, ModelDownloadError>) -> String {
-        switch result {
-        case .success: return "Live words are downloaded and verified."
-        case .failure(.cancelled): return "The download was cancelled. Retry continues from the files already downloaded."
-        case .failure(let error): return error.userMessage
-        }
-    }
     /// Whether a recording starts the live-words helper. On a cloud transcription route it starts only
     /// with "Show live words on cloud routes" on (off by default); the preview itself is always on this Mac.
     static func starts(enabled: Bool, ready: Bool, cloudTranscription: Bool, onCloud: Bool) -> Bool {
@@ -154,7 +214,7 @@ struct ModelRowPresentation: Equatable {
         case .corrupt(let reason):
             return ModelRowPresentation(statusText: reason, actions: [.retry, .remove], progress: nil, isWorking: false, isReady: false)
         case .failed(let error):
-            return ModelRowPresentation(statusText: ModelFacts.completionMessage(.failure(error)), actions: [.retry, .remove], progress: nil, isWorking: false, isReady: false)
+            return ModelRowPresentation(statusText: ModelFacts.failureMessage(error), actions: [.retry, .remove], progress: nil, isWorking: false, isReady: false)
         }
     }
 }

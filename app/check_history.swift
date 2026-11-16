@@ -22,7 +22,7 @@ import Darwin
         // Provenance round-trips, older files decode without it, and new text keeps it.
         var traced = fellBack
         traced.cleanupOptions = CleanupOptions(professional: true); traced.writingModeID = UUID().uuidString; traced.writingModeName = "Email"
-        traced.transcriptionProvider = "local"; traced.transcriptionModel = unifiedRepository
+        traced.transcriptionProvider = "local"; traced.transcriptionModel = ModelFacts.batch.repository
         traced.cleanupProvider = "gemini"; traced.cleanupModel = "gemma-4-26b-a4b-it"; traced.appVersion = "1.0 (7)"
         traced.contextUsed = true; traced.cleanupOutcome = .modelPunctuationOnLocal; traced.edited = true
         let tracedTrip = try JSONDecoder().decode(HistoryEntry.self, from: JSONEncoder().encode(traced))
@@ -108,7 +108,7 @@ import Darwin
         let bytes = Data("synthetic weight".utf8)
         let checksum = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
         let manifest = root.appendingPathComponent("manifest.json")
-        let fixture: [String: Any] = ["models": ["FluidInference/parakeet-unified-en-0.6b-coreml": ["files": [["rfilename": "weights", "size": bytes.count, "lfs": ["sha256": checksum]]], "batch_files": ["weights"]]]]
+        let fixture: [String: Any] = ["models": ["FluidInference/parakeet-unified-en-0.6b-coreml": ["revision": String(repeating: "a", count: 40), "files": [["rfilename": "weights", "size": bytes.count, "lfs": ["sha256": checksum]]], "batch_files": ["weights"]]]]
         try JSONSerialization.data(withJSONObject: fixture).write(to: manifest)
         do { try verifyAppModels(modelRoot, manifest: manifest); fatalError("Missing weights accepted") } catch {}
         let weight = modelRoot.appendingPathComponent("weights"); try bytes.write(to: weight)

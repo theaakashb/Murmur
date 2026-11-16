@@ -25,43 +25,30 @@ struct ModelLicenseInfo: Equatable {
     let isPinned: Bool
     let declarations: [ModelLicenseDeclaration]
     let note: String
-
-    /// Facts from the Hugging Face model APIs (checked 2026-10-03):
-    /// nvidia/parakeet-unified-en-0.6b declares `license: other`, `license_name: nvidia-open-model-license`
-    /// with the link below; the pinned conversion repository declares `license: cc-by-4.0`.
-    static let parakeetUnifiedUnpinned = ModelLicenseInfo(
-        isPinned: false,
-        declarations: [
-            ModelLicenseDeclaration(source: "Upstream NVIDIA model card (nvidia/parakeet-unified-en-0.6b)",
-                                    name: "NVIDIA Open Model License",
-                                    url: URL(string: "https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/")!),
-            ModelLicenseDeclaration(source: "Core ML conversion model card (FluidInference/parakeet-unified-en-0.6b-coreml)",
-                                    name: "CC-BY-4.0",
-                                    url: URL(string: "https://huggingface.co/FluidInference/parakeet-unified-en-0.6b-coreml")!),
-        ],
-        note: "The license is not recorded in Murmur's pinned model manifest. The upstream and conversion model cards declare different licenses, and Murmur has not resolved which terms apply. Review both before downloading.")
 }
 
 struct ModelManifest: Equatable {
-    static let defaultRepository = "FluidInference/parakeet-unified-en-0.6b-coreml"
+    /// The pins' list of files a model needs; live words use another list (`ModelFacts.liveWords`).
+    static let batchList = "batch_files"
 
     let repository: String
     /// Immutable 40-hex commit; branch or tag names are rejected so the source cannot drift.
     let revision: String
-    /// Exactly the pinned file list (`batch_files`, or `live_files` for live words), in manifest order.
+    /// Exactly the pinned file list, in manifest order.
     let files: [ModelManifestFile]
     let license: ModelLicenseInfo
 
     /// Sum of pinned file sizes: the download size to show before downloading.
     var totalBytes: Int64 { files.reduce(0) { $0 + $1.size } }
 
-    init(contentsOf url: URL, repository: String = ModelManifest.defaultRepository, list: String = "batch_files") throws {
+    init(contentsOf url: URL, repository: String, list: String = ModelManifest.batchList, unpinnedLicense: ModelLicenseInfo? = nil) throws {
         guard let data = try? Data(contentsOf: url) else { throw ModelDownloadError.invalidManifest }
-        try self.init(data: data, repository: repository, list: list)
+        try self.init(data: data, repository: repository, list: list, unpinnedLicense: unpinnedLicense)
     }
 
     /// Parses artifact-pins.json. Throws `.unsafePath` for traversal-like names, otherwise `.invalidManifest`.
-    init(data: Data, repository: String = ModelManifest.defaultRepository, list: String = "batch_files") throws {
+    /// `unpinnedLicense` is what the model cards declare when the pins record no license.
+    init(data: Data, repository: String, list: String = ModelManifest.batchList, unpinnedLicense: ModelLicenseInfo? = nil) throws {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let models = object["models"] as? [String: Any],
               let model = models[repository] as? [String: Any],
@@ -98,8 +85,8 @@ struct ModelManifest: Equatable {
             self.license = ModelLicenseInfo(isPinned: true,
                                             declarations: [ModelLicenseDeclaration(source: "Pinned model manifest", name: name, url: url)],
                                             note: "This license is recorded in Murmur's pinned model manifest.")
-        } else if repository == ModelManifest.defaultRepository {
-            self.license = .parakeetUnifiedUnpinned
+        } else if let unpinnedLicense {
+            self.license = unpinnedLicense
         } else {
             self.license = ModelLicenseInfo(isPinned: false, declarations: [],
                                             note: "The license for this model is not recorded in Murmur's pinned model manifest.")

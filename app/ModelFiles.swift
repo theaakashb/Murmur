@@ -1,7 +1,13 @@
-// Verifying the pinned model files on disk (sizes, checksums, a per-launch cache) and the repository names they come from.
+// Verifying the pinned model files on disk (sizes, checksums, a per-launch cache) and where the bundled pins and helper live.
 import Foundation
 import CryptoKit
 import Darwin
+
+/// The one place that finds the pins manifest and the ModelBench helper in the app bundle.
+enum BundledModels {
+    static var pins: URL? { Bundle.main.url(forResource: "artifact-pins", withExtension: "json") }
+    static var helper: URL? { Bundle.main.url(forAuxiliaryExecutable: "ModelBench") }
+}
 
 /// Hashing the 1.8 GB model took about 0.9 s before every dictation. Verify once, then reuse the
 /// result while every pinned file keeps the same size, modification time and inode.
@@ -12,58 +18,46 @@ final class ModelVerificationCache: @unchecked Sendable {
     private let lock = NSLock()
     /// Verified fingerprint per folder (the transcription model and the dictionary model).
     private var verified: [String: [String]] = [:]
-    func verify(_ directory: URL, manifest: URL, repository: String = unifiedRepository, list: String = "batch_files") throws {
-        let fingerprint = try Self.fingerprint(directory, manifest: manifest, repository: repository, list: list)
+    func verify(_ directory: URL, manifest: URL, model: ModelFacts = .batch) throws {
+        let fingerprint = try Self.fingerprint(directory, manifest: manifest, model: model)
         lock.lock(); let hit = verified[directory.path] == fingerprint; lock.unlock()
         if hit { return }
-        try verifyAppModels(directory, manifest: manifest, repository: repository, list: list)
+        try verifyAppModels(directory, manifest: manifest, model: model)
         lock.lock(); verified[directory.path] = fingerprint; lock.unlock()
     }
-    static func fingerprint(_ directory: URL, manifest: URL, repository: String = unifiedRepository, list: String = "batch_files") throws -> [String] {
-        let object = try JSONSerialization.jsonObject(with: Data(contentsOf: manifest)) as? [String: Any]
-        guard let models = object?["models"] as? [String: Any],
-              let model = models[repository] as? [String: Any],
-              let batch = model[list] as? [String] else { throw RetentionError("Invalid model manifest") }
-        return try batch.map { name in
+    static func fingerprint(_ directory: URL, manifest: URL, model: ModelFacts = .batch) throws -> [String] {
+        try pinnedFiles(manifest, model).map { file in
             var info = stat()
-            guard stat(directory.appendingPathComponent(name).path, &info) == 0 else { throw RetentionError("Missing model file") }
-            return "\(name):\(info.st_size):\(info.st_mtimespec.tv_sec).\(info.st_mtimespec.tv_nsec):\(info.st_ino)"
+            guard stat(directory.appendingPathComponent(file.rfilename).path, &info) == 0 else { throw RetentionError("Missing model file") }
+            return "\(file.rfilename):\(info.st_size):\(info.st_mtimespec.tv_sec).\(info.st_mtimespec.tv_nsec):\(info.st_ino)"
         }
     }
 }
 
-let unifiedRepository = "FluidInference/parakeet-unified-en-0.6b-coreml"
-/// The live-words files (gap #13): the streaming encoder plus the decoder, joint and vocabulary it
-/// loads with, in their own folder so the batch model is never touched.
-let liveWordsFileList = "live_files"
-/// The CTC model that rescores local transcripts toward the dictionary.
-let dictionaryModelRepository = "FluidInference/parakeet-ctc-110m-coreml"
+/// The model's pinned files, read by `ModelManifest` like the downloader reads them.
+private func pinnedFiles(_ manifest: URL, _ model: ModelFacts) throws -> [ModelManifestFile] {
+    do { return try ModelManifest(contentsOf: manifest, model).files }
+    catch ModelDownloadError.unsafePath { throw RetentionError("Invalid model file") }
+    catch { throw RetentionError("Invalid model manifest") }
+}
 
-func verifyAppModels(_ directory: URL, manifest: URL, repository: String = unifiedRepository, list: String = "batch_files") throws {
-    let object = try JSONSerialization.jsonObject(with: Data(contentsOf: manifest)) as? [String: Any]
-    guard let models = object?["models"] as? [String: Any],
-          let model = models[repository] as? [String: Any],
-          let files = model["files"] as? [[String: Any]], let batch = model[list] as? [String] else {
-        throw RetentionError("Invalid model manifest")
-    }
-    for name in batch {
-        guard !name.hasPrefix("/"), !name.split(separator: "/").contains(".."),
-              let metadata = files.first(where: { $0["rfilename"] as? String == name }),
-              let size = metadata["size"] as? Int else { throw RetentionError("Invalid model file") }
-        let path = directory.appendingPathComponent(name)
+func verifyAppModels(_ directory: URL, manifest: URL, model: ModelFacts = .batch) throws {
+    for file in try pinnedFiles(manifest, model) {
+        let path = directory.appendingPathComponent(file.rfilename)
         let attrs = try FileManager.default.attributesOfItem(atPath: path.path)
-        guard (attrs[.size] as? NSNumber)?.intValue == size else { throw RetentionError("Model file size mismatch") }
+        guard (attrs[.size] as? NSNumber)?.int64Value == file.size else { throw RetentionError("Model file size mismatch") }
         let handle = try FileHandle(forReadingFrom: path)
         defer { try? handle.close() }
-        if let lfs = metadata["lfs"] as? [String: Any], let expected = lfs["sha256"] as? String {
+        switch file.algorithm {
+        case .sha256:
             var hash = SHA256()
             while let data = try handle.read(upToCount: 1024 * 1024), !data.isEmpty { hash.update(data: data) }
-            guard hash.finalize().map({ String(format: "%02x", $0) }).joined() == expected else { throw RetentionError("Model checksum mismatch") }
-        } else if let expected = metadata["git_blob_sha1"] as? String {
+            guard hash.finalize().map({ String(format: "%02x", $0) }).joined() == file.checksum else { throw RetentionError("Model checksum mismatch") }
+        case .blobSHA1:
             var hash = Insecure.SHA1()
-            hash.update(data: Data("blob \(size)\0".utf8))
+            hash.update(data: Data("blob \(file.size)\0".utf8))
             while let data = try handle.read(upToCount: 1024 * 1024), !data.isEmpty { hash.update(data: data) }
-            guard hash.finalize().map({ String(format: "%02x", $0) }).joined() == expected else { throw RetentionError("Model checksum mismatch") }
-        } else { throw RetentionError("Missing model checksum") }
+            guard hash.finalize().map({ String(format: "%02x", $0) }).joined() == file.checksum else { throw RetentionError("Model checksum mismatch") }
+        }
     }
 }

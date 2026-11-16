@@ -12,11 +12,11 @@ models="Digests ModelManifest ModelDownload"
 deps() {
   case "$1" in
     launch) echo "LaunchOptions" ;;
-    history) echo "CleanupTypes CleanupText Retention History ModelFiles" ;;
+    history) echo "CleanupTypes CleanupText Retention History ModelFiles ModelText $models" ;;
     controller) echo "app ../spike/InsertionChecks" ;;
     meeting_start) echo "app" ;;
     recording) echo "AudioFormat Shortcut Capture Session" ;;
-    speaker_flow) echo "Capture CleanupTypes History ModelFiles ModelText $models $meetings MeetingCapture MeetingRecorder SpeakerModelSettings" ;;
+    speaker_flow) echo "Capture CleanupTypes History ModelFiles ModelText ModelFlow $models $meetings MeetingCapture MeetingRecorder SpeakerModelSettings" ;;
     delivery) echo "Delivery" ;;
     dictionary) echo "$text" ;;
     processing) echo "$cloud Observation" ;;
@@ -28,7 +28,7 @@ deps() {
     insights) echo "Insights" ;;
     meetings|speakers) echo "$meetings" ;;
     call_detection) echo "CallApps CallDetection" ;;
-    model_download) echo "$models" ;;
+    model_download) echo "$models ModelText" ;;
     app_services) echo "Retention $models ModelText HistoryRouter WelcomeGuide SettingsPanes AppUpdater" ;;
     boost_filter) echo "../module-one/models/Runner/Sources/ModelBench/BoostFilter" ;;
     cleanup) echo "Cleanup CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner" ;;

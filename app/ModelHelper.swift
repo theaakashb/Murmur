@@ -28,14 +28,15 @@ struct HelperLaunch: Equatable {
     let dictionaryArguments: [String]
     let key: String
 
-    /// Off the main thread: verifying the dictionary model hashes it once per change.
+    /// Nil unless the transcription model verifies. Off the main thread: verifying the models hashes them once per change.
     static func make(models: URL, manifest: URL, vocabulary: URL?, dictionaryModel: URL) -> HelperLaunch? {
-        guard let fingerprint = try? ModelVerificationCache.fingerprint(models, manifest: manifest) else { return nil }
+        guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
+              let fingerprint = try? ModelVerificationCache.fingerprint(models, manifest: manifest) else { return nil }
         var key = models.path + "|" + fingerprint.joined(separator: ",")
         var arguments: [String] = []
         if let vocabulary, let terms = try? Data(contentsOf: vocabulary), !terms.isEmpty,
-           (try? ModelVerificationCache.shared.verify(dictionaryModel, manifest: manifest, repository: dictionaryModelRepository)) != nil,
-           let ctc = try? ModelVerificationCache.fingerprint(dictionaryModel, manifest: manifest, repository: dictionaryModelRepository) {
+           (try? ModelVerificationCache.shared.verify(dictionaryModel, manifest: manifest, model: .dictionary)) != nil,
+           let ctc = try? ModelVerificationCache.fingerprint(dictionaryModel, manifest: manifest, model: .dictionary) {
             arguments = ["--ctc", dictionaryModel.path, "--vocabulary", vocabulary.path]
             key += "|" + ctc.joined(separator: ",") + "|" + SHA256.hash(data: terms).map { String(format: "%02x", $0) }.joined()
         }

@@ -226,6 +226,57 @@ struct ModelInfoIcons: View {
     }
 }
 
+/// The row every downloadable model shares: title and info icons, status, Download/Retry/Cancel/Remove, progress and the
+/// last message. The host passes the pieces that depend on its surface (fonts and colours differ per screen).
+struct ModelRowView: View {
+    let slot: ModelSlot
+    let title: AnyView
+    let license: String?
+    /// Shown instead of the status once the model is ready; nil shows nothing.
+    let ready: AnyView?
+    let status: (String) -> AnyView
+    let progress: (Double) -> AnyView
+    let message: (String) -> AnyView
+    var statusTop: CGFloat = 5
+    var spacing: CGFloat = 12
+    /// Stacks the buttons under the name when the row is too narrow (the setup window).
+    var narrow = false
+    /// Extra lines between the buttons and the progress bar.
+    var extras: [AnyView] = []
+    let download: () -> Void
+    let cancel: () -> Void
+    let remove: () -> Void
+
+    var body: some View {
+        let row = slot.row
+        let info = VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) { title; ModelInfoIcons(license: license, details: slot.summary) }
+            Group {
+                if row.isReady { if let ready { ready } } else { status(row.statusText) }
+            }.padding(.top, statusTop)
+        }
+        let actions = HStack(spacing: narrow ? 10 : 16) {
+            if row.actions.contains(.download) { Button("Download…", action: download).buttonStyle(InkButtonStyle()).fixedSize() }
+            if row.actions.contains(.retry) { Button("Retry…", action: download).buttonStyle(InkButtonStyle()).fixedSize() }
+            if row.actions.contains(.cancel) { Button("Cancel", action: cancel).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
+            if row.actions.contains(.remove) { Button("Remove…", role: .destructive, action: remove).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
+        }
+        VStack(alignment: .leading, spacing: spacing) {
+            if narrow {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .center, spacing: 16) { info; Spacer(minLength: 8); actions }
+                    VStack(alignment: .leading, spacing: 12) { info; actions }
+                }
+            } else {
+                HStack(alignment: .center, spacing: 16) { info; Spacer(); actions }
+            }
+            ForEach(extras.indices, id: \.self) { extras[$0] }
+            if let fraction = row.progress { progress(fraction) }
+            if !slot.message.isEmpty { message(slot.message) }
+        }
+    }
+}
+
 /// Split in two so the compiler can type-check the chains.
 struct SettingInfoButton: View {
     let text: String

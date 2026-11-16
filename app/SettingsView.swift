@@ -278,7 +278,7 @@ struct SettingsView: View {
     }
 
     /// Cloud transcription does not need the local model.
-    var modelSatisfied: Bool { controller.modelRow.isReady || controller.transcriptionRoute == .cloud }
+    var modelSatisfied: Bool { controller.modelSlot.row.isReady || controller.transcriptionRoute == .cloud }
 
     // MARK: Window navigation
 

@@ -72,11 +72,7 @@ enum ScreenRequest: Equatable {
     @Published var liveWordsOnCloud: Bool
     /// The running preview transcript. Display only: never saved, logged, learned from or cleaned.
     @Published var liveText = ""
-    @Published var liveWordsStatus: ModelStatus = .notDownloaded
-    @Published var liveWordsMessage = ""
-    var liveWordsRow: ModelRowPresentation { ModelRowPresentation.make(liveWordsDownloader == nil ? nil : liveWordsStatus) }
-    var liveWordsSummary: String { liveWordsDownloader.map { LiveWordsFacts.summary(downloadSize: $0.downloadSize) } ?? "" }
-    var liveWordsLicense: ModelLicenseInfo? { liveWordsDownloader?.license }
+    @Published var liveWordsSlot: ModelSlot
     /// Whether this recording's bubble shows live words.
     var liveWordsActive: Bool { live != nil || liveWordsFixture }
     /// The UI fixture's synthetic preview; never set in the app.
@@ -108,31 +104,20 @@ enum ScreenRequest: Equatable {
     @Published var dictionaryMessage = ""
     @Published var dictionarySuggestions: [DictionarySuggestion] = []
     var spellingCache: [String: Bool] = [:]
-    // Model download (R2). modelMessage reports the last download action, never interrupting dictation.
-    @Published var modelStatus: ModelStatus = .notDownloaded
-    @Published var modelMessage = ""
-    var modelRow: ModelRowPresentation { ModelRowPresentation.make(downloader == nil ? nil : modelStatus) }
-    var modelLicense: ModelLicenseInfo? { downloader?.license }
-    var modelSummary: String { downloader.map { ModelFacts.summary(downloadSize: $0.downloadSize) } ?? "" }
-    @Published var dictionaryModelStatus: ModelStatus = .notDownloaded
-    @Published var dictionaryModelMessage = ""
+    // Model downloads (R2). Each slot's message reports the last download action, never interrupting dictation.
+    @Published var modelSlot: ModelSlot
+    @Published var dictionarySlot: ModelSlot
     /// The helper could not start dictionary support and is transcribing without it.
     @Published var dictionarySupportFailed = false
-    var dictionaryModelRow: ModelRowPresentation { ModelRowPresentation.make(dictionaryDownloader == nil ? nil : dictionaryModelStatus) }
-    var dictionaryModelLicense: ModelLicenseInfo? { dictionaryDownloader?.license }
-    var dictionaryModelSummary: String { dictionaryDownloader.map { DictionaryModelFacts.summary(downloadSize: $0.downloadSize) } ?? "" }
     /// The managed local cleanup model (Vedu): downloaded only after the user asks, in the app's own model folder.
-    @Published var localModelStatus: ModelStatus = .notDownloaded
-    @Published var localModelMessage = ""
+    @Published var localSlot: ModelSlot
     /// A saved Gemini cleanup choice was replaced by local rules; Settings says so until dismissed.
     @Published var geminiCleanupNotice = false
-    var localModelRow: ModelRowPresentation { ModelRowPresentation.make(localCleanupDownloader == nil ? nil : localModelStatus) }
-    var localModelLicense: ModelLicenseInfo? { localCleanupDownloader?.license }
-    var localModelSummary: String { localCleanupDownloader.map { LocalCleanupFacts.summary(downloadSize: $0.downloadSize) } ?? "" }
+    var modelSlots: [ReferenceWritableKeyPath<AppController, ModelSlot>] { [\.modelSlot, \.dictionarySlot, \.liveWordsSlot, \.localSlot] }
     /// UI fixture only: shows a download state without any download.
-    func showLocalModelFixture(_ status: ModelStatus, message: String = "") { localModelStatus = status; localModelMessage = message }
+    func showLocalModelFixture(_ status: ModelStatus, message: String = "") { localSlot.status = status; localSlot.message = message }
     func dismissGeminiCleanupNotice() { UserDefaults.standard.removeObject(forKey: RouteSettings.Key.geminiCleanupRemovedNotice); geminiCleanupNotice = false }
-    var usesCustomModelFolder: Bool { downloader.map { URL(fileURLWithPath: modelDirectory).standardizedFileURL.path != $0.target.path } ?? false }
+    var usesCustomModelFolder: Bool { modelSlot.downloader.map { URL(fileURLWithPath: modelDirectory).standardizedFileURL.path != $0.target.path } ?? false }
     // History-off mode and the size cap (R9, §6). History-off and update checks apply as soon as they change.
     @Published var historyMode: HistoryMode
     @Published var historyCapWarning: String?
@@ -204,23 +189,14 @@ enum ScreenRequest: Equatable {
     var records: HistoryRouter<HistoryEntry>?
     var appliedHistoryMode: HistoryMode
     var dataDirectory: URL? // Internal so the isolated UI fixture can seed only its temporary history.
-    let downloader: ModelDownloader?
-    var modelDownloadInFlight = false
-    /// Dictionary support for on-device transcription (the pinned CTC model) and the private
-    /// vocabulary file the helper reads; see DictionaryModelFacts.
-    let dictionaryDownloader: ModelDownloader?
-    let liveWordsDownloader: ModelDownloader?
-    let localCleanupDownloader: ModelDownloader?
-    var localDownloadInFlight = false
-    var liveWordsDownloadInFlight = false
     /// Set once the live folder's hashes were checked this launch (and the model compiled).
     var liveWordsVerified = false
     var live: LiveStream?
-    var dictionaryDownloadInFlight = false
+    /// The private vocabulary file the helper reads with dictionary support (the pinned CTC model, `dictionarySlot`).
     var vocabularyFile: URL?
     /// Set by start(); until then dictionary refreshes do not pre-warm, so launch hashes the model once.
     var started = false
-    let dictionaryModelDirectory = DictionaryModelFacts.directory(home: FileManager.default.homeDirectoryForCurrentUser)
+    let dictionaryModelDirectory = ModelFacts.dictionary.directory(FileManager.default.homeDirectoryForCurrentUser)
     var retry: RetryAudio?
     var processing: ProcessingCoordinator?
     var appliedRoutes: RouteSettings
@@ -334,26 +310,17 @@ enum ScreenRequest: Equatable {
 
     init(preview: Bool = false, isolatedStorage: Bool? = nil) {
         let defaults = UserDefaults.standard
-        let defaultModel = ModelFacts.defaultDirectory(home: FileManager.default.homeDirectoryForCurrentUser)
-        modelDirectory = defaults.string(forKey: "modelDirectory") ?? defaultModel.path
-        if let pins = Bundle.main.url(forResource: "artifact-pins", withExtension: "json"), let manifest = try? ModelManifest(contentsOf: pins) {
-            downloader = ModelDownloader(manifest: manifest, target: defaultModel)
-        } else { downloader = nil }
-        if let pins = Bundle.main.url(forResource: "artifact-pins", withExtension: "json"),
-           let manifest = try? ModelManifest(contentsOf: pins, repository: dictionaryModelRepository) {
-            dictionaryDownloader = ModelDownloader(manifest: manifest, target: dictionaryModelDirectory)
-        } else { dictionaryDownloader = nil }
-        if let pins = Bundle.main.url(forResource: "artifact-pins", withExtension: "json"),
-           let manifest = try? ModelManifest(contentsOf: pins, list: liveWordsFileList) {
-            liveWordsDownloader = ModelDownloader(manifest: manifest, target: LiveWordsFacts.directory(home: FileManager.default.homeDirectoryForCurrentUser))
-        } else { liveWordsDownloader = nil }
-        if let pins = Bundle.main.url(forResource: "artifact-pins", withExtension: "json"),
-           let manifest = try? ModelManifest(contentsOf: pins, repository: LocalCleanupFacts.repository) {
-            let local = ModelDownloader(manifest: manifest, target: LocalCleanupFacts.directory(home: FileManager.default.homeDirectoryForCurrentUser))
-            localCleanupDownloader = local
+        let home = FileManager.default.homeDirectoryForCurrentUser, pins = BundledModels.pins
+        modelSlot = ModelSlot(.batch, pins: pins, home: home)
+        dictionarySlot = ModelSlot(.dictionary, pins: pins, home: home)
+        liveWordsSlot = ModelSlot(.liveWords, pins: pins, home: home)
+        let local = ModelSlot(.localCleanup, pins: pins, home: home)
+        localSlot = local
+        modelDirectory = defaults.string(forKey: "modelDirectory") ?? ModelFacts.batch.directory(home).path
+        if let downloader = local.downloader {
             // The first launch of the helper in a session checks every file's size and checksum against the pins.
-            LocalCleanupRunner.verifier = { local.verifyInstalled() == .ready }
-        } else { localCleanupDownloader = nil }
+            LocalCleanupRunner.verifier = { downloader.verifyInstalled() == .ready }
+        }
         shortcut = defaults.string(forKey: "shortcut") ?? ShortcutBinding.defaultID
         showMenuBar = defaults.object(forKey: "showMenuBar") as? Bool ?? true
         showInDock = defaults.bool(forKey: "showInDock")
@@ -420,10 +387,7 @@ enum ScreenRequest: Equatable {
             configureMeetings(base: base)
             historySaved(); refreshRecoveryAudio(); refreshDictionary()
         } catch { store = nil; records = nil; retry = nil; processing = nil; phase = .error; message = "Private storage is unavailable. Murmur cannot start." }
-        modelStatus = downloader?.status() ?? .notDownloaded
-        dictionaryModelStatus = dictionaryDownloader?.status() ?? .notDownloaded
-        liveWordsStatus = liveWordsDownloader?.status() ?? .notDownloaded
-        localModelStatus = localCleanupDownloader?.status() ?? .notDownloaded
+        for slot in modelSlots { self[keyPath: slot].status = self[keyPath: slot].downloader?.status() ?? .notDownloaded }
         warm.onDictionaryStatus = { [weak self] failed in DispatchQueue.main.async { self?.dictionarySupportFailed = failed } }
         if !preview {
             do { try RouteSettings.migrateCustomAPI(in: defaults, credentials: credentials) }
@@ -475,10 +439,9 @@ enum ScreenRequest: Equatable {
                 // A canceled or empty recording's audio is gone; drop its chunk transcripts.
                 for (audio, job) in self.chunkJobs where !FileManager.default.fileExists(atPath: audio.path) { job.discard(); self.chunkJobs[audio] = nil }
                 // Download progress and the verifying phase are sampled here, on the main thread.
-                if self.modelDownloadInFlight, let status = self.downloader?.status(), status != self.modelStatus { self.modelStatus = status }
-                if self.dictionaryDownloadInFlight, let status = self.dictionaryDownloader?.status(), status != self.dictionaryModelStatus { self.dictionaryModelStatus = status }
-                if self.localDownloadInFlight, let status = self.localCleanupDownloader?.status(), status != self.localModelStatus { self.localModelStatus = status }
-                if self.liveWordsDownloadInFlight, let status = self.liveWordsDownloader?.status(), status != self.liveWordsStatus { self.liveWordsStatus = status }
+                for slot in self.modelSlots where self[keyPath: slot].inFlight {
+                    if let status = self[keyPath: slot].downloader?.status(), status != self[keyPath: slot].status { self[keyPath: slot].status = status }
+                }
                 if self.sessionAvailable && self.session.state == .listening, let capture = self.capture,
                    // A device change stops the engine; it restarts on the current device (gap #16) and only
                    // an engine that cannot restart counts as an interruption.
@@ -718,7 +681,7 @@ enum ScreenRequest: Equatable {
             if let refusal = plan.refusal {
                 session.resetShortcut?(); setPhase(.error, refusal); done(); return
             }
-            if plan.usesLocalModel, let refusal = ModelGate.startRefusal(modelAvailable: modelFilesAvailable(), runtimeAvailable: Bundle.main.url(forAuxiliaryExecutable: "ModelBench") != nil, downloadingActiveModel: modelDownloadInFlight && !usesCustomModelFolder) {
+            if plan.usesLocalModel, let refusal = ModelGate.startRefusal(modelAvailable: modelFilesAvailable(), runtimeAvailable: BundledModels.helper != nil, downloadingActiveModel: modelSlot.inFlight && !usesCustomModelFolder) {
                 session.resetShortcut?(); setPhase(.error, refusal); done(); return
             }
             sessionTranscriber = plan.transcriber; processing?.cloudCleaner = plan.cleaner
@@ -797,12 +760,11 @@ enum ScreenRequest: Equatable {
     /// Local route: transcribe this recording's chunks on the warm helper while it records.
     private func attachChunks(_ capture: Capture, audio: URL) {
         let models = URL(fileURLWithPath: activeModelDirectory)
-        guard let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"), let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json") else { return }
+        guard let helper = BundledModels.helper, let manifest = BundledModels.pins else { return }
         let warm = warm, vocabulary = vocabularyFile, dictionaryModel = dictionaryModelDirectory
         let job = ChunkJob { url, boundary, done in
             DispatchQueue.global(qos: .userInitiated).async {
-                guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
-                      let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
+                guard let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
                 // Without dictionary support there is nothing to repair at a cut.
                 if boundary && launch.dictionaryArguments.isEmpty { done(nil); return }
                 warm.transcribe(url, helper: helper, launch: launch, boundary: boundary, completion: done)
@@ -811,17 +773,9 @@ enum ScreenRequest: Equatable {
         if capture.attachChunks({ job.receive($0) }) { chunkJobs[audio] = job }
     }
     private func modelFilesAvailable() -> Bool {
-        guard let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json"),
-              let data = try? Data(contentsOf: manifest),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let models = object["models"] as? [String: Any],
-              let model = models["FluidInference/parakeet-unified-en-0.6b-coreml"] as? [String: Any],
-              let files = model["files"] as? [[String: Any]], let names = model["batch_files"] as? [String] else { return false }
-        return names.allSatisfy { name in
-            guard let size = files.first(where: { $0["rfilename"] as? String == name })?["size"] as? Int,
-                  let attrs = try? FileManager.default.attributesOfItem(atPath: URL(fileURLWithPath: modelDirectory).appendingPathComponent(name).path) else { return false }
-            return (attrs[.size] as? NSNumber)?.intValue == size
-        }
+        guard let files = modelSlot.downloader?.manifest.files else { return false }
+        let folder = URL(fileURLWithPath: modelDirectory)
+        return files.allSatisfy { ((try? FileManager.default.attributesOfItem(atPath: folder.appendingPathComponent($0.rfilename).path))?[.size] as? NSNumber)?.int64Value == $0.size }
     }
     private func screenForDestination(_ destination: FocusSnapshot?) -> NSScreen? {
         if let destination {
@@ -970,14 +924,13 @@ enum ScreenRequest: Equatable {
         if let provider = sessionTranscriber { transcribeInCloud(audio, held: held, with: provider, done: done); return }
         setPhase(.processing, "Transcribing on this Mac…")
         let token = generation; let models = URL(fileURLWithPath: activeModelDirectory)
-        guard let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"), let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json"), let store = records else { setPhase(.error, "The model runtime is unavailable. Audio is saved for retry."); done(); return }
+        guard let helper = BundledModels.helper, let manifest = BundledModels.pins, let store = records else { setPhase(.error, "The model runtime is unavailable. Audio is saved for retry."); done(); return }
         let timestamp = listeningStarted
         let began = ProcessInfo.processInfo.systemUptime
         let vocabulary = vocabularyFile, dictionaryModel = dictionaryModelDirectory
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             defer { timingLog.notice("model-verify took=\(ProcessInfo.processInfo.systemUptime - began, format: .fixed(precision: 3))") }
-            guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
-                  let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel)
+            guard let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel)
             else { DispatchQueue.main.async { guard let self, self.generation == token else { return }; self.setPhase(.error, "Model verification failed. Choose the pinned model folder. \(audio == nil ? Self.heldDiscarded : "Audio is saved for retry.")"); done() }; return }
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.generation == token else { return }
@@ -1138,7 +1091,7 @@ enum ScreenRequest: Equatable {
         let mode = trigger?.mode ?? sessionMode, info = Bundle.main.infoDictionary
         savedEntry.cleanupOptions = style?.options; savedEntry.writingModeID = mode?.id.uuidString; savedEntry.writingModeName = mode?.name
         savedEntry.transcriptionProvider = sessionTranscriber?.id.rawValue ?? "local"
-        savedEntry.transcriptionModel = sessionTranscriber == nil ? unifiedRepository : sessionTranscriber?.modelID
+        savedEntry.transcriptionModel = sessionTranscriber == nil ? ModelFacts.batch.repository : sessionTranscriber?.modelID
         savedEntry.appVersion = (info?["CFBundleShortVersionString"] as? String).map { v in (info?["CFBundleVersion"] as? String).map { "\(v) (\($0))" } ?? v }
         // Counts and the app only, never the screen text; `complete` keeps them only when the result says the context was sent.
         var detail = CleanupDetail(contextUsed: false)
@@ -1347,12 +1300,10 @@ enum ScreenRequest: Equatable {
     /// Starts (or restarts, when what it loads changed) the warm helper in the background, so the
     /// next dictation does not wait for a model load.
     func prewarm() {
-        guard !preview, let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"),
-              let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json") else { return }
+        guard !preview, let helper = BundledModels.helper, let manifest = BundledModels.pins else { return }
         let models = URL(fileURLWithPath: modelDirectory), vocabulary = vocabularyFile, dictionaryModel = dictionaryModelDirectory, warm = warm
         DispatchQueue.global(qos: .utility).async {
-            guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
-                  let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { return }
+            guard let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { return }
             warm.prepare(helper: helper, launch: launch)
         }
     }
@@ -1385,12 +1336,12 @@ enum ScreenRequest: Equatable {
     }
 
     func shutdown() {
-        undo.discard(); stopLiveWords(); liveWordsDownloader?.cancel()
+        undo.discard(); stopLiveWords(); liveWordsSlot.downloader?.cancel()
         generation = UUID(); cloudRequest.cancel(); monitor?.invalidate(); expiry?.invalidate(); removeShortcut()
         watchTick(ending: true)
         flushClipboardRestore()
-        downloader?.cancel()  // Verified and partial files stay staged; Retry resumes them.
-        dictionaryDownloader?.cancel(); localCleanupDownloader?.cancel()
+        modelSlot.downloader?.cancel()  // Verified and partial files stay staged; Retry resumes them.
+        dictionarySlot.downloader?.cancel(); localSlot.downloader?.cancel()
         Task { await LocalCleanupRunner.shared.shutdown() }
         if sessionAvailable { session.shutdown() }
         meetingRecorder.shutdown()

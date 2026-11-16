@@ -57,7 +57,7 @@ extension SettingsView {
             toggleRow("Start and stop sounds", "A short sound when recording starts and when it stops or is canceled. No sound when text is inserted.", isOn: $controller.recordingSounds)
             softRule.padding(.top, 12)
             eyebrow("Live preview").padding(.top, 24)
-            toggleRow(LiveWordsFacts.displayName, LiveWordsFacts.explanation, isOn: $controller.liveWords).id("live-words")
+            toggleRow(ModelFacts.liveWords.displayName, ModelFacts.liveWords.explanation, isOn: $controller.liveWords).id("live-words")
             if controller.liveWords {
                 DisclosureGroup("Live preview model", isExpanded: $showLiveModel) {
                     liveWordsModel.padding(.vertical, 10)
@@ -100,28 +100,7 @@ extension SettingsView {
 
     var transcription: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .center, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(spacing: 4) {
-                            Text(ModelFacts.displayName).font(Font.system(size: 18, weight: .semibold))
-                            ModelInfoIcons(license: controller.modelLicense.map(ModelFacts.licenseText), details: controller.modelSummary)
-                        }
-                        Group {
-                            if controller.modelRow.isReady { mono("Model ready ✓", color: EditorialPalette.accentInk) }
-                            else { Text(controller.modelRow.statusText).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
-                        }
-                        .padding(.top, 5)
-                    }
-                    Spacer()
-                    if controller.modelRow.actions.contains(.download) { Button("Download…", action: controller.downloadModel).buttonStyle(InkButtonStyle()) }
-                    if controller.modelRow.actions.contains(.retry) { Button("Retry…", action: controller.downloadModel).buttonStyle(InkButtonStyle()) }
-                    if controller.modelRow.actions.contains(.cancel) { Button("Cancel", action: controller.cancelModelDownload).buttonStyle(InkButtonStyle(kind: .outline)) }
-                    if controller.modelRow.actions.contains(.remove) { Button("Remove…", role: .destructive, action: controller.removeModel).buttonStyle(InkButtonStyle(kind: .outline)) }
-                }
-                if let progress = controller.modelRow.progress { progressBar(progress) }
-                if !controller.modelMessage.isEmpty { help(controller.modelMessage) }
-            }
+            modelRow(controller.modelSlot, readyText: "Model ready ✓", download: controller.downloadModel, cancel: controller.cancelModelDownload, remove: controller.removeModel)
             .padding(.vertical, 18).padding(.top, 20)
 
             transcriptionRoutes
@@ -251,36 +230,12 @@ extension SettingsView {
 
     /// Download row and capabilities of the managed local cleanup model, shown in both the Settings and the setup flows.
     var localModelSection: some View {
-        let row = controller.localModelRow
-        let info = VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 4) {
-                Text(LocalCleanupFacts.modelName).font(Font.system(size: 18, weight: .semibold)).fixedSize()
-                ModelInfoIcons(license: controller.localModelLicense.map(ModelFacts.licenseText), details: controller.localModelSummary)
-            }
-            Group {
-                if row.isReady { mono("Ready ✓", color: EditorialPalette.accentInk) }
-                else { Text(row.statusText).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
-            }.padding(.top, 5)
-        }
-        let actions = HStack(spacing: 10) {
-            if row.actions.contains(.download) { Button("Download…", action: controller.downloadLocalModel).buttonStyle(InkButtonStyle()).fixedSize() }
-            if row.actions.contains(.retry) { Button("Retry…", action: controller.downloadLocalModel).buttonStyle(InkButtonStyle()).fixedSize() }
-            if row.actions.contains(.cancel) { Button("Cancel", action: controller.cancelLocalModelDownload).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
-            if row.actions.contains(.remove) { Button("Remove…", role: .destructive, action: controller.removeLocalModel).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
-        }
-        return VStack(alignment: .leading, spacing: 12) {
-            // Narrow (compact setup) windows stack the buttons under the name and status instead of squeezing them.
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: 16) { info; Spacer(minLength: 8); actions }
-                VStack(alignment: .leading, spacing: 12) { info; actions }
-            }
-            if let progress = controller.localModelRow.progress { progressBar(progress) }
-            if !controller.localModelRow.isReady && controller.localModelRow.progress == nil && controller.localModelRow.actions.contains(.download) {
-                help("Until it is downloaded, dictations are cleaned with Local rules.")
-            }
-            if !controller.localModelMessage.isEmpty { help(controller.localModelMessage) }
-        }
-        .padding(.top, 16)
+        let slot = controller.localSlot, row = slot.row
+        // Narrow (compact setup) windows stack the buttons under the name and status instead of squeezing them.
+        let hint = !row.isReady && row.progress == nil && row.actions.contains(.download)
+        return modelRow(slot, narrow: true, download: controller.downloadLocalModel, cancel: controller.cancelLocalModelDownload, remove: controller.removeLocalModel,
+                        extras: hint ? [AnyView(help("Until it is downloaded, dictations are cleaned with Local rules."))] : [])
+            .padding(.top, 16)
     }
 
     var cleanup: some View {
@@ -470,56 +425,35 @@ extension SettingsView {
 
     /// Download row for live words (gap #13), shown while the setting is on.
     private var liveWordsModel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 16) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 4) {
-                        Text("Parakeet Unified streaming").font(Font.system(size: 14, weight: .medium)).fixedSize(horizontal: false, vertical: true)
-                        ModelInfoIcons(license: controller.liveWordsLicense.map(ModelFacts.licenseText), details: controller.liveWordsSummary)
-                    }
-                    if controller.liveWordsRow.isReady { mono("Ready ✓", color: EditorialPalette.accentInk) }
-                    else { Text(controller.liveWordsRow.statusText).font(Font.system(size: 13)).foregroundStyle(EditorialPalette.ink70).fixedSize(horizontal: false, vertical: true) }
-                }
-                Spacer()
-                let row = controller.liveWordsRow
-                if row.actions.contains(.download) { Button("Download…", action: controller.downloadLiveWords).buttonStyle(InkButtonStyle()).fixedSize() }
-                if row.actions.contains(.retry) { Button("Retry…", action: controller.downloadLiveWords).buttonStyle(InkButtonStyle()).fixedSize() }
-                if row.actions.contains(.cancel) { Button("Cancel", action: controller.cancelLiveWordsDownload).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
-                if row.actions.contains(.remove) { Button("Remove…", role: .destructive, action: controller.removeLiveWords).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
-            }
-            if let progress = controller.liveWordsRow.progress { progressBar(progress) }
-            if !controller.liveWordsMessage.isEmpty { help(controller.liveWordsMessage) }
-        }
+        modelRow(controller.liveWordsSlot, quiet: true, download: controller.downloadLiveWords, cancel: controller.cancelLiveWordsDownload, remove: controller.removeLiveWords)
     }
 
     /// Download row for dictionary support in on-device transcription (the CTC model).
     var dictionaryModel: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 16) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 4) {
-                        Text(DictionaryModelFacts.displayName).font(Font.system(size: 18, weight: .semibold))
-                        ModelInfoIcons(license: controller.dictionaryModelLicense.map(ModelFacts.licenseText), details: controller.dictionaryModelSummary)
-                    }
-                    Group {
-                        if controller.dictionaryModelRow.isReady && !controller.dictionarySupportFailed { mono("Ready ✓", color: EditorialPalette.accentInk) }
-                        else if !controller.dictionaryModelRow.isReady { Text(controller.dictionaryModelRow.statusText).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
-                    }
-                    .padding(.top, 5)
-                }
-                Spacer()
-                let row = controller.dictionaryModelRow
-                if row.actions.contains(.download) { Button("Download…", action: controller.downloadDictionaryModel).buttonStyle(InkButtonStyle()).fixedSize() }
-                if row.actions.contains(.retry) { Button("Retry…", action: controller.downloadDictionaryModel).buttonStyle(InkButtonStyle()).fixedSize() }
-                if row.actions.contains(.cancel) { Button("Cancel", action: controller.cancelDictionaryModelDownload).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
-                if row.actions.contains(.remove) { Button("Remove…", role: .destructive, action: controller.removeDictionaryModel).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
-            }
-            help(DictionaryModelFacts.explanation)
-            if let progress = controller.dictionaryModelRow.progress { progressBar(progress) }
-            if controller.dictionarySupportFailed { Text(DictionaryModelFacts.unavailableMessage).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
-            if !controller.dictionaryModelMessage.isEmpty { help(controller.dictionaryModelMessage) }
-        }
-        .padding(.vertical, 18).padding(.top, 20)
+        let failed = controller.dictionarySupportFailed
+        return modelRow(controller.dictionarySlot, showReady: !failed, download: controller.downloadDictionaryModel, cancel: controller.cancelDictionaryModelDownload, remove: controller.removeDictionaryModel,
+                        extras: [AnyView(help(ModelFacts.dictionary.explanation))]
+                            + (failed ? [AnyView(Text(ModelFacts.dictionary.unavailableMessage).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true))] : []))
+            .padding(.vertical, 18).padding(.top, 20)
+    }
+
+    /// A Settings model row: the large row, or the quiet one beside the optional live-words switch.
+    func modelRow(_ slot: ModelSlot, readyText: String = "Ready ✓", showReady: Bool = true, quiet: Bool = false, narrow: Bool = false,
+                  download: @escaping () -> Void, cancel: @escaping () -> Void, remove: @escaping () -> Void, extras: [AnyView] = []) -> some View {
+        let name = Text(slot.facts.title)
+        return ModelRowView(
+            slot: slot,
+            title: quiet ? AnyView(name.font(Font.system(size: 14, weight: .medium)).fixedSize(horizontal: false, vertical: true))
+                : narrow ? AnyView(name.font(Font.system(size: 18, weight: .semibold)).fixedSize()) : AnyView(name.font(Font.system(size: 18, weight: .semibold))),
+            license: slot.license.map(ModelFacts.licenseText),
+            ready: showReady ? AnyView(mono(readyText, color: EditorialPalette.accentInk)) : nil,
+            status: { text in
+                quiet ? AnyView(Text(text).font(Font.system(size: 13)).foregroundStyle(EditorialPalette.ink70).fixedSize(horizontal: false, vertical: true))
+                    : AnyView(Text(text).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true))
+            },
+            progress: { AnyView(progressBar($0)) },
+            message: { AnyView(help($0)) },
+            statusTop: quiet ? 0 : 5, spacing: quiet ? 8 : 12, narrow: narrow, extras: extras, download: download, cancel: cancel, remove: remove)
     }
 
     var dictionary: some View {

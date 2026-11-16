@@ -875,26 +875,15 @@ struct SpeakerSettingsSection: View {
                 Toggle("Separate speakers in microphone-only recordings", isOn: $settings.separateRoom)
                     .toggleStyle(MurmurToggleStyle())
                 lede("For microphone-only recordings, microphone audio is kept on this Mac until speaker separation finishes, up to \(RetryWindow.text), then deleted.")
-                HStack(alignment: .center, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(spacing: 4) {
-                            Text("pyannote community-1").font(WindowType.body(14, weight: .medium)).fixedSize(horizontal: false, vertical: true)
-                            ModelInfoIcons(license: SpeakerFacts.credits, details: settings.summary)
-                        }
-                        if settings.row.isReady { mono("Ready ✓", color: Palette.accentInk) }
-                        else { lede(settings.row.statusText) }
-                    }
-                    Spacer()
-                    let row = settings.row
-                    if row.actions.contains(.download) { Button("Download…", action: settings.download).buttonStyle(InkButtonStyle()).fixedSize() }
-                    if row.actions.contains(.retry) { Button("Retry…", action: settings.download).buttonStyle(InkButtonStyle()).fixedSize() }
-                    if row.actions.contains(.cancel) { Button("Cancel", action: settings.cancelDownload).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
-                    if row.actions.contains(.remove) { Button("Remove…", role: .destructive, action: settings.remove).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
-                }
-                if let progress = settings.row.progress {
-                    ProgressView(value: progress).accessibilityLabel("Download progress")
-                }
-                if !settings.message.isEmpty { lede(settings.message, color: Palette.ink) }
+                ModelRowView(
+                    slot: settings.slot,
+                    title: AnyView(Text(settings.slot.facts.title).font(WindowType.body(14, weight: .medium)).fixedSize(horizontal: false, vertical: true)),
+                    license: SpeakerFacts.credits,
+                    ready: AnyView(mono("Ready ✓", color: Palette.accentInk)),
+                    status: { AnyView(lede($0)) },
+                    progress: { AnyView(ProgressView(value: $0).accessibilityLabel("Download progress")) },
+                    message: { AnyView(lede($0, color: Palette.ink)) },
+                    statusTop: 0, spacing: 10, download: settings.download, cancel: settings.cancelDownload, remove: settings.remove)
             }
         }
     }

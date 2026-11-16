@@ -17,8 +17,8 @@ extension SettingsView {
             ("Input Monitoring", "So the shortcut works in every app. Murmur listens only for the shortcut, Escape and its two ⌃⌘ chords.", controller.inputMonitoringAuthorized, "Open Settings…", { controller.openPermissionSettings("input-monitoring") }),
             ("Transcription", "Choose where dictation audio is transcribed. Cloud routes send audio to the provider shown below.", WelcomeGuide.isConfirmed(.transcription, .standard), "", {}),
             ("Cleanup", "Choose where cleanup runs and how much it changes your words. Faithful keeps cleanup off.", WelcomeGuide.isConfirmed(.cleanup, .standard), "", {}),
-            ("Speech model", controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud && !controller.modelRow.isReady ? "Not needed while dictation and meeting transcription both run in the cloud." : ModelFacts.displayName, controller.modelRow.isReady || (controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud),
-             controller.modelRow.actions.contains(.retry) ? "Retry…" : "Download…", controller.downloadModel),
+            ("Speech model", controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud && !controller.modelSlot.row.isReady ? "Not needed while dictation and meeting transcription both run in the cloud." : ModelFacts.batch.displayName, controller.modelSlot.row.isReady || (controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud),
+             controller.modelSlot.row.actions.contains(.retry) ? "Retry…" : "Download…", controller.downloadModel),
             ("Find your words.", "Press \(controller.shortcutName) and say a sentence. With this window in front, your words land in the field below instead of another app.", !controller.setupTestTranscript.isEmpty, "", {})
         ]
     }
@@ -142,7 +142,7 @@ extension SettingsView {
                             HStack(alignment: .top, spacing: 4) {
                                 help(step.detail)
                                 if guideStep == .model {
-                                    ModelInfoIcons(license: controller.modelLicense.map(ModelFacts.licenseText), details: controller.modelSummary)
+                                    ModelInfoIcons(license: controller.modelSlot.license.map(ModelFacts.licenseText), details: controller.modelSlot.summary)
                                 }
                             }.padding(.top, 10)
                             Group {
@@ -156,7 +156,7 @@ extension SettingsView {
                                 else if guideStep == .welcome { welcome }
                                 else if last { tryIt }
                                 else {
-                                    let working = guideStep == .model && controller.modelRow.isWorking
+                                    let working = guideStep == .model && controller.modelSlot.row.isWorking
                                     VStack(alignment: .leading, spacing: 10) {
                                         HStack(spacing: 14) {
                                             if step.done { HStack(spacing: 6) { Image(systemName: "checkmark").foregroundStyle(SetupPalette.blue); Text("Ready").foregroundStyle(SetupPalette.ink) }.font(WindowType.body(14, weight: .semibold)).accessibilityElement(children: .combine) }
@@ -165,10 +165,10 @@ extension SettingsView {
                                             Spacer()
                                         }
                                         if working {
-                                            help(controller.modelRow.statusText)
-                                            if let progress = controller.modelRow.progress { progressBar(progress) }
+                                            help(controller.modelSlot.row.statusText)
+                                            if let progress = controller.modelSlot.row.progress { progressBar(progress) }
                                         }
-                                        if guideStep == .model && !controller.modelMessage.isEmpty { help(controller.modelMessage) }
+                                        if guideStep == .model && !controller.modelSlot.message.isEmpty { help(controller.modelSlot.message) }
                                         if guideStep == .inputMonitoring || guideStep == .accessibility {
                                             help("After you allow Murmur in System Settings, come back here; this page updates on its own.", color: SetupPalette.muted)
                                         }

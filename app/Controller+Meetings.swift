@@ -10,15 +10,14 @@ extension AppController {
         let recorder = meetingRecorder
         // Without the helper and manifest (the UI fixture, or a build without them) the recorder cannot transcribe.
         var local: MeetingRecorder.LocalTranscription?
-        if !preview, let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"), let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json") {
+        if !preview, let helper = BundledModels.helper, let manifest = BundledModels.pins {
             let warm = warm
             local = .init(
                 transcribe: { [weak self] url, done in
                     guard let self else { done(nil); return }
                     let models = URL(fileURLWithPath: self.modelDirectory), vocabulary = self.vocabularyFile, dictionaryModel = self.dictionaryModelDirectory
                     DispatchQueue.global(qos: .utility).async {
-                        guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
-                              let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
+                        guard let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
                         warm.transcribe(url, helper: helper, launch: launch) { line in
                             let answer = line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
                             done(answer?["text"] as? String)
@@ -29,8 +28,7 @@ extension AppController {
                     guard let self else { done(nil); return }
                     let models = URL(fileURLWithPath: self.modelDirectory), vocabulary = self.vocabularyFile, dictionaryModel = self.dictionaryModelDirectory
                     DispatchQueue.global(qos: .utility).async {
-                        guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
-                              let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
+                        guard let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
                         warm.transcribeTimed(url, helper: helper, launch: launch) { line in
                             let answer = line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
                             guard let text = answer?["text"] as? String else { done(nil); return }
@@ -143,7 +141,7 @@ extension AppController {
                     }
                 }
             }
-        } else if !modelRow.isReady {
+        } else if !modelSlot.row.isReady {
             meetingRecorder.message = "Meeting notes transcribe on this Mac. Download the speech model in Settings → Transcription first."
             screenRequest = .meetings; openSettings?(); return
         }
