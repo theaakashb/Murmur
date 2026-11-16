@@ -21,10 +21,10 @@ Gemini cleanup starts with `gemini-3.5-flash-lite` and can switch to `gemma-4-26
 
 ## Implementation
 
-- `Providers.swift` implements Gemini and custom OpenAI-compatible requests and response validation.
+- `Gemini.swift`, `OpenAICompatible.swift` and `ProviderHTTP.swift` implement Gemini and custom OpenAI-compatible requests, transport and response validation; `ProviderTypes.swift` holds the shared contracts.
 - `Credentials.swift` stores API keys in the macOS Keychain.
-- `Routes.swift` resolves configured routes and their disclosures.
-- `Processing.swift` applies dictionary correction and cleanup guards. [Vocabulary routing](VOCABULARY.md) explains provider-specific dictionary behavior.
+- `Routes.swift` resolves configured routes and their disclosures; `CloudAudio.swift` prepares upload audio and `KeyCheck.swift` validates keys.
+- `Processing.swift` applies dictionary correction and cleanup guards (`CleanupGuard.swift`). [Vocabulary routing](VOCABULARY.md) explains provider-specific dictionary behavior.
 
 Cloud transcription sends audio. Cloud cleanup sends transcript text, relevant dictionary spellings and any enabled screen context or custom instructions. Cloud meeting notes send transcript content and personal notes. The app treats non-loopback destinations, including LAN hosts, as off-Mac processing.
 

@@ -4,30 +4,32 @@
 # Foundation-only (those checks also build on Linux). "app" means every app source (macOS only).
 set -u
 . "$(dirname "$0")/sources.sh"
-text="Cleanup Dictionary Learning Retention"
-cloud="$text Providers Credentials Processing"
-meetings="Retention Cleanup Meetings MeetingNotes MeetingSpeakers MeetingStore MeetingExport CallApps"
+text="CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention"
+providers="CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials"
+cloud="$text Cleanup CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials Processing WritingModes"
+meetings="Retention CleanupText Meetings MeetingNotes MeetingSpeakers"
 deps() {
   case "$1" in
     launch) echo "LaunchOptions" ;;
-    history) echo "Shortcut Capture Session Cleanup Retention History" ;;
+    history) echo "Capture CleanupTypes CleanupText Retention History" ;;
     controller) echo "app ../spike/InsertionChecks" ;;
     meeting_start) echo "app" ;;
     recording) echo "Shortcut Capture Session" ;;
-    speaker_flow) echo "Shortcut Capture Session History ModelDownload Digests ModelManifest AppServices $meetings MeetingCapture MeetingRecorder SpeakerModelSettings" ;;
+    speaker_flow) echo "Capture CleanupTypes History ModelDownload AppServices $meetings MeetingCapture MeetingRecorder" ;;
     delivery) echo "Delivery" ;;
     dictionary) echo "$text" ;;
-    processing|modes) echo "$cloud Observation" ;;
-    apple_cleanup) echo "$cloud Routes AppleCleanup Observation" ;;
-    routes) echo "$cloud Routes AppleCleanup" ;;
-    providers) echo "Cleanup Providers Credentials" ;;
+    processing) echo "$cloud Observation" ;;
+    modes) echo "$cloud" ;;
+    apple_cleanup) echo "$cloud Routes CloudAudio AppleCleanup" ;;
+    routes) echo "$cloud Routes CloudAudio KeyCheck AppleCleanup" ;;
+    providers) echo "$providers" ;;
     insights) echo "Insights" ;;
     meetings|speakers) echo "$meetings" ;;
-    call_detection) echo "CallApps CallDetection" ;;
-    model_download) echo "ModelDownload Digests ModelManifest" ;;
-    app_services) echo "Retention ModelDownload Digests ModelManifest AppServices" ;;
+    call_detection) echo "$meetings CallDetection" ;;
+    model_download) echo "ModelDownload" ;;
+    app_services) echo "Retention ModelDownload AppServices" ;;
     boost_filter) echo "../module-one/models/Runner/Sources/ModelBench/BoostFilter" ;;
-    cleanup) echo "Cleanup" ;;
+    cleanup) echo "Cleanup CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner" ;;
     *) return 1 ;;
   esac
 }

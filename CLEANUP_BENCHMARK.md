@@ -145,7 +145,7 @@ Following the recommendation above, Polish and Professional now understand expli
 Build once, approve the Keychain prompt for that binary, then run one provider at a time. Each command takes about 4–8 minutes.
 
 ```sh
-SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk swiftc -swift-version 5 -parse-as-library app/Cleanup.swift app/Providers.swift app/Credentials.swift app/Routes.swift app/AppleCleanup.swift app/Processing.swift app/Dictionary.swift app/Learning.swift app/Retention.swift app/Observation.swift app/tools/check_professional_live.swift -o /tmp/pl
+SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk swiftc -swift-version 5 -parse-as-library app/Cleanup*.swift app/RuleCleaner.swift app/Provider*.swift app/OpenAICompatible.swift app/Gemini.swift app/Credentials.swift app/Routes.swift app/CloudAudio.swift app/KeyCheck.swift app/AppleCleanup.swift app/Processing.swift app/WritingModes.swift app/Dictionary.swift app/PrivateFiles.swift app/Learning.swift app/Retention.swift app/Observation.swift app/tools/check_professional_live.swift -o /tmp/pl
 # Cerebras (configured): levels, prompt variant, context on/off, new cases
 /tmp/pl --runs 1 --mode polish --context on --trust on --delay 8 --retries 1 --json /tmp/cer-polish.json
 /tmp/pl --runs 1 --mode strict --context on --trust off --delay 8 --retries 1 --json /tmp/cer-strict.json

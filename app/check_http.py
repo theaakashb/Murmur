@@ -45,7 +45,7 @@ Thread(target=server.serve_forever, daemon=True).start()
 try:
     with tempfile.TemporaryDirectory(prefix='murmur-http-check-') as temp:
         executable = str(Path(temp) / 'check')
-        subprocess.run(['swiftc', 'app/Cleanup.swift', 'app/Providers.swift', 'app/Credentials.swift', 'app/check_http.swift', '-o', executable], check=True)
+        subprocess.run(['swiftc', *['app/' + f + '.swift' for f in 'CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials'.split()], 'app/check_http.swift', '-o', executable], check=True)
         subprocess.run([executable, f'http://127.0.0.1:{server.server_port}'], check=True, timeout=20)
         assert received == [], 'Redirect destination received a request'
 finally:
