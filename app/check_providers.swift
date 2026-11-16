@@ -722,7 +722,14 @@ extension ProviderChecks {
         check(ProviderErrorClassifier.classify(provider: .localServer, transportError: URLError(.cannotConnectToHost), url: chat) == .serverNotRunning(.localServer, address: "localhost:11434"), "connection refused → serverNotRunning")
         check(ProviderErrorClassifier.classify(provider: .localServer, transportError: URLError(.cannotConnectToHost), url: URL(string: "http://[::1]:1234/v1/models")!) == .serverNotRunning(.localServer, address: "[::1]:1234"), "refused IPv6 address")
         check(ProviderErrorClassifier.classify(provider: .localServer, transportError: URLError(.cannotConnectToHost)) == .serverNotRunning(.localServer, address: "the configured address"), "refused without URL")
-        check(ProviderErrorClassifier.classify(provider: .gemini, transportError: URLError(.cannotConnectToHost), url: chat) == .network(.gemini), "cloud refused stays network")
+        let cloud = URL(string: "https://generativelanguage.googleapis.com/v1/models")!
+        check(ProviderErrorClassifier.classify(provider: .gemini, transportError: URLError(.cannotConnectToHost), url: cloud) == .network(.gemini), "cloud refused stays network")
+        for custom in [ProviderID.customAPI, .customCleanup, .customTranscription] {
+            check(ProviderErrorClassifier.classify(provider: custom, transportError: URLError(.cannotConnectToHost), url: chat) == .serverNotRunning(custom, address: "localhost:11434"), "\(custom.rawValue) on loopback refused → serverNotRunning")
+            check(ProviderErrorClassifier.classify(provider: custom, transportError: URLError(.cannotConnectToHost), url: URL(string: "http://[::1]:1234/v1/models")!) == .serverNotRunning(custom, address: "[::1]:1234"), "\(custom.rawValue) on IPv6 loopback refused")
+            check(ProviderErrorClassifier.classify(provider: custom, transportError: URLError(.cannotConnectToHost), url: URL(string: "https://llm.example.com/v1/models")!) == .network(custom), "\(custom.rawValue) remote refused stays network")
+            check(ProviderErrorClassifier.classify(provider: custom, transportError: URLError(.cannotConnectToHost), url: URL(string: "http://192.168.1.20:8000/v1/models")!) == .network(custom), "\(custom.rawValue) LAN refused stays network")
+        }
         check(ProviderErrorClassifier.classify(provider: .localServer, transportError: URLError(.cannotFindHost), url: chat) == .network(.localServer), "local DNS failure → network")
         check(ProviderErrorClassifier.classify(provider: .localServer, transportError: URLError(.timedOut), url: chat) == .timeout(.localServer), "local timeout")
         let refused = ProviderError.serverNotRunning(.localServer, address: "localhost:11434")
@@ -1166,6 +1173,13 @@ func checkCustomTranscription() async {
         check(text == "Synthetic custom provider transcript." && transport.requests.count == 1, "custom speech transcribes with one configured request")
         try? await provider.validate()
         check(transport.requests.last?.url == provider.server.modelsURL, "custom speech validation targets the configured server")
+    }
+    let refusing = MockTransport(.failure(URLError(.cannotConnectToHost)))
+    for (address, expected) in [("http://localhost:8000", "No local model server is running at localhost:8000. Start it, or check the address in Settings."), ("https://speech.example/v1", ProviderError.network(.customAPI).userMessage)] {
+        var provider = try! OpenAICompatibleTranscriptionProvider(baseURL: address, model: "whisper-1")
+        provider.transport = refusing
+        do { _ = try await provider.transcribe(audio); check(false, "refused custom speech should throw") }
+        catch { check((error as? ProviderError)?.userMessage == expected, "custom speech refused at \(address) reports the right error") }
     }
     for model in ["whisper-1", "whisper-large-v3", "whisper-large-v3-turbo", "private-model-alias", "gpt-4o-transcribe"] {
         let provider = try! OpenAICompatibleTranscriptionProvider(baseURL: "https://speech.example/v1", model: model, apiKey: key)

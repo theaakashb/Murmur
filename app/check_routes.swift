@@ -18,6 +18,11 @@ private func checkA(_ condition: @autoclosure () async -> Bool, _ label: String,
 private let secret = "test-key"
 private let testKey = APIKey(secret)!
 
+/// A server that refuses every connection.
+private struct RefusingTransport: HTTPTransport {
+    func send(_ request: URLRequest) async throws -> HTTPResult { throw URLError(.cannotConnectToHost) }
+}
+
 /// Counts requests and answers each with a fixed result. Never touches the network.
 private final class MockTransport: HTTPTransport, @unchecked Sendable {
     private let lock = NSLock()
@@ -505,6 +510,11 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         await checkA(await KeyCheck.run(.customAPI, key: testKey, apiBaseURL: "https://api.example.com/v1", transport: ok) == KeyText.validated(.customAPI), "custom API validates its configured endpoint")
         await checkA(await KeyCheck.run(.customAPI, key: nil, apiBaseURL: "https://api.example.com/v1", transport: ok) == KeyText.validated(.customAPI), "custom API validates without a key when the endpoint permits it")
         await checkA(await KeyCheck.run(.localServer, key: nil, apiBaseURL: "http://localhost:11434", transport: ok) == KeyText.validated(.localServer), "local server validates without a key")
+        let refused = RefusingTransport()
+        for provider in [ProviderID.customAPI, .customTranscription, .customCleanup] {
+            await checkA(await KeyCheck.run(provider, key: nil, apiBaseURL: "http://localhost:11434", transport: refused) == "No local model server is running at localhost:11434. Start it, or check the address in Settings.", "\(provider.rawValue) validation on a refused loopback address says the server is not running")
+            await checkA(await KeyCheck.run(provider, key: nil, apiBaseURL: "https://api.example.com/v1", transport: refused) == ProviderError.network(.customAPI).userMessage, "\(provider.rawValue) validation on a refused remote address stays the network error")
+        }
         let found = await KeyCheck.discoverModels(serverURL: "http://localhost:11434", key: nil, transport: ok)
         check((try? found.get()) == ["llama3.2"] && KeyCheck.discoveryMessage(found) == "Found 1 model.", "Find Models")
         let badURL = await KeyCheck.discoverModels(serverURL: "file:///etc", key: testKey)

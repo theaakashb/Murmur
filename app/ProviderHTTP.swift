@@ -156,7 +156,8 @@ struct ProviderHTTP: Sendable {
 
 
 enum ProviderErrorClassifier {
-    /// `url` is only used to name the address of a local server that refused the connection.
+    /// `url` names the address of a local server that refused the connection; any provider aimed at a
+    /// loopback address (Ollama, LM Studio) gets that error, not only the legacy local-server id.
     static func classify(provider: ProviderID, transportError error: Error, url: URL? = nil) -> ProviderError {
         if error is CancellationError { return .cancelled }
         if let urlError = error as? URLError {
@@ -164,7 +165,7 @@ enum ProviderErrorClassifier {
             case .cancelled: return .cancelled
             case .timedOut: return .timeout(provider)
             case .dataLengthExceedsMaximum: return .malformedResponse(provider)
-            case .cannotConnectToHost where provider == .localServer:
+            case .cannotConnectToHost where provider == .localServer || url.map(LocalEndpoint.locality(of:)) == .onDevice:
                 return .serverNotRunning(provider, address: url.map(LocalEndpoint.address(of:)) ?? "the configured address")
             default: return .network(provider)
             }
