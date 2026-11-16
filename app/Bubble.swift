@@ -149,18 +149,7 @@ private struct UndoCancelCard: View {
             Image(systemName: "xmark.circle").font(.system(size: 12)).foregroundStyle(.secondary).accessibilityHidden(true)
             Text("Recording canceled").font(.system(size: 12, weight: .medium)).lineLimit(1)
             Spacer(minLength: 4)
-            if inNotch {
-                Rectangle().fill(Color.white.opacity(0.3)).frame(width: 1, height: 16)
-                Spacer(minLength: 4)
-                Button { controller.undoCancel() } label: {
-                    Text("Undo").font(.system(size: 12, weight: .medium))
-                        .frame(height: 24).contentShape(Rectangle())
-                }.buttonStyle(.plain)
-                    .accessibilityHint("Transcribes and inserts the canceled recording.")
-            } else {
-                Button("Undo") { controller.undoCancel() }.buttonStyle(.borderedProminent).controlSize(.small)
-                    .accessibilityHint("Transcribes and inserts the canceled recording.")
-            }
+            CardAction(title: "Undo", hint: "Transcribes and inserts the canceled recording.", inNotch: inNotch) { controller.undoCancel() }
         }
         .padding(inNotch ? 4 : 8).padding(.trailing, inNotch ? 8 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -201,18 +190,7 @@ private struct ModeRecoveryCard: View {
                 case .offer:
                     Text("Mode used: \(recovery.modeName)").font(.system(size: 12, weight: .medium)).lineLimit(1)
                     Spacer(minLength: 4)
-                    if inNotch {
-                        Rectangle().fill(Color.white.opacity(0.3)).frame(width: 1, height: 16)
-                        Spacer(minLength: 4)
-                        Button { controller.useWithoutMode() } label: {
-                            Text("Use without mode").font(.system(size: 12, weight: .medium))
-                                .frame(height: 24).contentShape(Rectangle())
-                        }.buttonStyle(.plain)
-                            .accessibilityHint("Processes the original transcript with ordinary Cleanup and replaces the inserted text if it is unchanged.")
-                    } else {
-                        Button("Use without mode") { controller.useWithoutMode() }.buttonStyle(.borderedProminent).controlSize(.small)
-                            .accessibilityHint("Processes the original transcript with ordinary Cleanup and replaces the inserted text if it is unchanged.")
-                    }
+                    CardAction(title: "Use without mode", hint: "Processes the original transcript with ordinary Cleanup and replaces the inserted text if it is unchanged.", inNotch: inNotch) { controller.useWithoutMode() }
                 case .working:
                     Text("Reprocessing…").font(.system(size: 12, weight: .medium)).lineLimit(1)
                     Spacer(minLength: 4)
@@ -237,6 +215,26 @@ private struct ModeRecoveryCard: View {
     }
 }
 
+/// The card's action button: a prominent button on glass, or a divider and plain text inside the notch.
+private struct CardAction: View {
+    let title: String
+    let hint: String
+    let inNotch: Bool
+    let action: () -> Void
+    var body: some View {
+        if inNotch {
+            Rectangle().fill(Color.white.opacity(0.3)).frame(width: 1, height: 16)
+            Spacer(minLength: 4)
+            Button(action: action) {
+                Text(title).font(.system(size: 12, weight: .medium))
+                    .frame(height: 24).contentShape(Rectangle())
+            }.buttonStyle(.plain).accessibilityHint(hint)
+        } else {
+            Button(title, action: action).buttonStyle(.borderedProminent).controlSize(.small).accessibilityHint(hint)
+        }
+    }
+}
+
 private struct RecoveryBackground: ViewModifier {
     let inNotch: Bool
     @ViewBuilder func body(content: Content) -> some View {
@@ -248,6 +246,24 @@ private struct RecoveryBackground: ViewModifier {
 private final class DictationPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+}
+
+/// Where the bubble goes on one screen: its visible frame and the notch, if any.
+private struct BubbleGeometry {
+    let screen: NSScreen?
+    let frame: NSRect
+    let left: NSRect?
+    let right: NSRect?
+    var hasNotch: Bool { left != nil && right != nil }
+    var notchWidth: CGFloat { (right?.minX ?? 0) - (left?.maxX ?? 0) }
+    var notchHeight: CGFloat { screen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32 }
+    init(screen: NSScreen?) {
+        let target = screen ?? NSScreen.main ?? NSScreen.screens.first
+        self.screen = target
+        frame = target?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        left = target?.auxiliaryTopLeftArea
+        right = target?.auxiliaryTopRightArea
+    }
 }
 
 @MainActor
@@ -274,21 +290,17 @@ final class BubblePresenter {
         // A card holding text not pasted shows in any phase (Saved included).
         guard showsFloatingIndicator(phase: phase) || controller.pasteFailure != nil else { if notice == nil { hide() }; return }
         notice = nil
-        let targetScreen = screen ?? NSScreen.main ?? NSScreen.screens.first
-        let frame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let geo = BubbleGeometry(screen: screen)
+        let frame = geo.frame, notchWidth = geo.notchWidth, notchHeight = geo.notchHeight
         let minimal = phase != .error && controller.pasteFailure == nil
         panel.hasShadow = !minimal
         let card = controller.pasteFailure
         let live = phase == .listening && controller.liveWordsActive
-        let left = targetScreen?.auxiliaryTopLeftArea
-        let right = targetScreen?.auxiliaryTopRightArea
-        let notch = minimal && !live && left != nil && right != nil
+        let notch = minimal && !live && geo.hasNotch
         let entering = notch && (!panel.isVisible || !atNotch)
         transition = UUID()
         atNotch = notch
         panel.alphaValue = 1
-        let notchWidth = (right?.minX ?? 0) - (left?.maxX ?? 0)
-        let notchHeight = targetScreen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32
         let width = notch ? 72 + notchWidth / 2 + 10 : live ? min(420, max(240, frame.width - 32)) : minimal ? 80 : card != nil ? min(320, max(200, frame.width - 32)) : min(240, max(180, frame.width - 32))
         let content = notch ? AnyView(HStack(spacing: 0) {
             VoiceBubbles(controller: controller, phase: phase, ink: Palette.accent).scaleEffect(0.75).frame(width: 72, height: notchHeight)
@@ -301,12 +313,17 @@ final class BubblePresenter {
         panel.contentView = host
         let height = host.fittingSize.height
         panel.level = notch ? .statusBar : .floating
-        let x = notch ? left!.maxX - 72 : frame.midX - width / 2
-        let y = notch ? targetScreen!.frame.maxY - height : frame.minY + 24
-        let destination = NSRect(x: x, y: y, width: width, height: height)
-        place(entering && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? destination.offsetBy(dx: 72, dy: 0) : destination)
+        let x = notch ? geo.left!.maxX - 72 : frame.midX - width / 2
+        let y = notch ? geo.screen!.frame.maxY - height : frame.minY + 24
+        present(NSRect(x: x, y: y, width: width, height: height), slideFrom: entering ? 72 : nil)
+    }
+
+    /// Shows the panel at `destination`; with `slideFrom` it slides in from that far to the right (not under Reduce Motion).
+    private func present(_ destination: NSRect, slideFrom: CGFloat?) {
+        let slide = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? nil : slideFrom
+        place(slide.map { destination.offsetBy(dx: $0, dy: 0) } ?? destination)
         panel.orderFrontRegardless()
-        if entering && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+        if slide != nil {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.2
                 panel.animator().setFrame(destination, display: true)
@@ -349,14 +366,9 @@ final class BubblePresenter {
     /// The Undo card; it leaves with the "Recording canceled" status (5 s) or when anything else is shown.
     func showUndo(screen: NSScreen?) {
         transition = UUID(); atNotch = false; panel.alphaValue = 1
-        let targetScreen = screen ?? NSScreen.main ?? NSScreen.screens.first
-        let frame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let left = targetScreen?.auxiliaryTopLeftArea
-        let right = targetScreen?.auxiliaryTopRightArea
-        let hasNotch = left != nil && right != nil
+        let geo = BubbleGeometry(screen: screen)
+        let frame = geo.frame, left = geo.left, hasNotch = geo.hasNotch, notchWidth = geo.notchWidth, notchHeight = geo.notchHeight
         let width = hasNotch ? min(225, left!.width) : min(260, max(200, frame.width - 32))
-        let notchWidth = (right?.minX ?? 0) - (left?.maxX ?? 0)
-        let notchHeight = targetScreen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32
         let content = hasNotch ? AnyView(HStack(spacing: 0) {
             UndoCancelCard(controller: controller, inNotch: true).frame(width: width, height: notchHeight)
             Color.clear.frame(width: notchWidth / 2 + 10, height: notchHeight)
@@ -367,33 +379,19 @@ final class BubblePresenter {
         panel.hasShadow = !hasNotch
         panel.level = hasNotch ? .statusBar : .floating
         let height = host.fittingSize.height
-        let destination = NSRect(x: hasNotch ? left!.maxX - width : frame.midX - width / 2,
-                                 y: hasNotch ? targetScreen!.frame.maxY - height : frame.minY + 24,
-                                 width: hasNotch ? width + notchWidth / 2 + 10 : width, height: height)
-        let animate = hasNotch && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        place(animate ? destination.offsetBy(dx: width, dy: 0) : destination)
-        panel.orderFrontRegardless()
-        if animate {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.2
-                panel.animator().setFrame(destination, display: true)
-            }
-        }
+        present(NSRect(x: hasNotch ? left!.maxX - width : frame.midX - width / 2,
+                       y: hasNotch ? geo.screen!.frame.maxY - height : frame.minY + 24,
+                       width: hasNotch ? width + notchWidth / 2 + 10 : width, height: height), slideFrom: hasNotch ? width : nil)
         notice = UUID()
     }
     private var recoveryNotice: UUID?
     /// The mode recovery pill; leaves after 12 s unless something else took the panel first.
     func showRecovery(screen: NSScreen?) {
         transition = UUID(); atNotch = false; panel.alphaValue = 1
-        let targetScreen = screen ?? NSScreen.main ?? NSScreen.screens.first
-        let frame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let left = targetScreen?.auxiliaryTopLeftArea
-        let right = targetScreen?.auxiliaryTopRightArea
-        let hasNotch = left != nil && right != nil
+        let geo = BubbleGeometry(screen: screen)
+        let frame = geo.frame, left = geo.left, hasNotch = geo.hasNotch, notchWidth = geo.notchWidth, notchHeight = geo.notchHeight
         let width = hasNotch ? min(320, left!.width) : min(380, max(260, frame.width - 32))
         let shown = UUID()
-        let notchWidth = (right?.minX ?? 0) - (left?.maxX ?? 0)
-        let notchHeight = targetScreen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 32
         let content = hasNotch ? AnyView(HStack(spacing: 0) {
             ModeRecoveryCard(controller: controller, inNotch: true).frame(width: width, height: notchHeight)
             Color.clear.frame(width: notchWidth / 2 + 10, height: notchHeight)
@@ -404,18 +402,9 @@ final class BubblePresenter {
         panel.hasShadow = !hasNotch
         panel.level = hasNotch ? .statusBar : .floating
         let height = host.fittingSize.height
-        let destination = NSRect(x: hasNotch ? left!.maxX - width : frame.midX - width / 2,
-                                 y: hasNotch ? targetScreen!.frame.maxY - height : frame.minY + 24,
-                                 width: hasNotch ? width + notchWidth / 2 + 10 : width, height: height)
-        let animate = hasNotch && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        place(animate ? destination.offsetBy(dx: width, dy: 0) : destination)
-        panel.orderFrontRegardless()
-        if animate {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.2
-                panel.animator().setFrame(destination, display: true)
-            }
-        }
+        present(NSRect(x: hasNotch ? left!.maxX - width : frame.midX - width / 2,
+                       y: hasNotch ? geo.screen!.frame.maxY - height : frame.minY + 24,
+                       width: hasNotch ? width + notchWidth / 2 + 10 : width, height: height), slideFrom: hasNotch ? width : nil)
         notice = shown; recoveryNotice = shown
         DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
             guard let self, self.recoveryNotice == shown else { return }
@@ -433,7 +422,7 @@ final class BubblePresenter {
     func showLearned(_ word: String, entryID: UUID, screen: NSScreen?) {
         transition = UUID(); atNotch = false; panel.alphaValue = 1
         panel.level = .floating
-        let frame = (screen ?? NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let frame = BubbleGeometry(screen: screen).frame
         let width = min(320, max(200, frame.width - 32))
         let shown = UUID()
         let host = NSHostingView(rootView: LearnedNotice(controller: controller, word: word, entryID: entryID).frame(width: width))
