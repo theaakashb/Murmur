@@ -194,6 +194,35 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         check(preservation.notesProblem[saved.id]?.contains("Synthetic failure") == true, "lecture failure is reported")
         check(preservation.meetings.first?.notes == saved.notes && preservation.meetings.first?.lectureNotes == saved.lectureNotes, "failed lecture generation preserves both note sets")
 
+        // A save that fails is shown and kept in memory, then written by the next tick once the folder allows it.
+        let fullStore = try MeetingStore(directory: base.appendingPathComponent("full/meetings"))
+        let unsavedCheck = MeetingRecorder()
+        unsavedCheck.wire(wiring(store: fullStore))
+        var lost = Meeting(id: UUID().uuidString, recordedAt: Date(), source: .microphoneOnly)
+        lost.insert(stream: .me, start: 0, end: 3, text: "Words that must survive a full disk.")
+        unsavedCheck.showFixture([], live: lost)
+        try fm.setAttributes([.posixPermissions: 0o500], ofItemAtPath: fullStore.directory.path)
+        unsavedCheck.stop()
+        check(unsavedCheck.unsaved == [lost.id] && unsavedCheck.meetings.map(\.id) == [lost.id], "a finished meeting that cannot be saved stays listed and is marked unsaved")
+        check(MeetingRecorder.unsavedWarning == "A meeting could not be saved to disk. Keep Murmur open and free up space; Murmur will keep trying. Copy the notes or transcript now if you need them.", "the unsaved warning wording")
+        unsavedCheck.tick()
+        check(unsavedCheck.unsaved == [lost.id], "a retry that still fails keeps the warning")
+        try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: fullStore.directory.path)
+        unsavedCheck.shutdown()
+        check(try unsavedCheck.unsaved.isEmpty && fullStore.meetings().first?.id == lost.id, "the last save at quit writes an unsaved meeting and clears the warning")
+        try fm.setAttributes([.posixPermissions: 0o500], ofItemAtPath: fullStore.directory.path)
+        unsavedCheck.setNotes("Edited while the disk is full", for: lost.id)
+        check(unsavedCheck.unsaved == [lost.id] && unsavedCheck.meetings.first?.myNotes == "Edited while the disk is full", "a failed edit is kept in memory and marked unsaved")
+        unsavedCheck.reload()
+        check(unsavedCheck.meetings.first?.myNotes == "Edited while the disk is full", "a reload does not drop the unsaved text")
+        try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: fullStore.directory.path)
+        Thread.sleep(forTimeInterval: 2.1) // Retries run at most every 2 s.
+        unsavedCheck.tick()
+        check(try unsavedCheck.unsaved.isEmpty && fullStore.meetings().first?.myNotes == "Edited while the disk is full", "the next tick saves the edit and clears the warning")
+        unsavedCheck.persists = false
+        unsavedCheck.setNotes("History off", for: lost.id)
+        check(unsavedCheck.unsaved.isEmpty, "History off is not a save failure")
+
         print(failures == 0 ? "All speaker flow checks passed." : "\(failures) speaker flow check(s) failed.")
         exit(failures == 0 ? 0 : 1)
     }

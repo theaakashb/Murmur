@@ -286,7 +286,7 @@ extension AppController {
                 let recorder = controller.meetingRecorder
                 let panel = MeetingPanelPresenter(recorder: recorder)
                 recorder.onLiveChange = { panel.update() }
-                recorder.showFixture([call, solo], live: args.contains("--meeting-live") ? live : nil, leftovers: [solo.id: 2], separating: args.contains("--separating") ? [call.id] : [])
+                recorder.showFixture([call, solo], live: args.contains("--meeting-live") ? live : nil, leftovers: [solo.id: 2], separating: args.contains("--separating") ? [call.id] : [], unsaved: args.contains("--unsaved") ? [solo.id] : [])
                 if args.contains("--consent") { recorder.consentPending = .everything }
                 if args.contains("--notes-choice") { recorder.notesChoicePending = call.id }
                 if args.contains("--transcript") { MeetingsPage.initialTab = .transcript }

@@ -25,6 +25,10 @@ import os
     /// Why the call's audio could not be recorded; the view offers "Record only my microphone".
     @Published var systemAudioProblem: String?
     @Published var message: String?
+    /// Meetings whose last write failed. Their newest text is kept in memory and written again by the
+    /// next tick and at quit. Always empty with History off, which is not a failure.
+    @Published private(set) var unsaved: Set<String> = []
+    static let unsavedWarning = "A meeting could not be saved to disk. Keep Murmur open and free up space; Murmur will keep trying. Copy the notes or transcript now if you need them."
     @Published private(set) var notesWriting: Set<String> = []
     /// Why notes could not be written, per meeting; the transcript is kept either way.
     @Published var notesProblem: [String: String] = [:]
@@ -83,6 +87,7 @@ import os
     private var started: TimeInterval = 0
     private var lastVoice: TimeInterval = 0
     private var lastSave: TimeInterval = 0
+    private var lastRetry: TimeInterval = 0
     private var lastTapRefresh: TimeInterval = 0
     private var callApp: String?
     private var callWasUsingMic = false
@@ -121,14 +126,20 @@ import os
         self.store = store; self.audioRoot = audioRoot; self.persists = wiring.persists
         if let audioRoot { try? FileManager.default.createDirectory(at: audioRoot, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
         if let store, let open = try? store.meetings().filter({ !$0.finished }) {
-            for var meeting in open where meeting.id != live?.id { meeting.finished = true; try? store.save(meeting) }
+            for var meeting in open where meeting.id != live?.id { meeting.finished = true
+                do { try store.save(meeting) } catch { meetingLog.notice("meeting-recovery-save-failed") }
+            }
         }
         reload()
     }
 
     func reload() {
         // With History off, finished meetings live only in memory, until Murmur quits.
-        if persists { meetings = ((try? store?.meetings()) ?? nil)?.filter { $0.id != live?.id } ?? [] }
+        if persists {
+            let waiting = meetings.filter { unsaved.contains($0.id) }
+            let onDisk = (((try? store?.meetings()) ?? nil) ?? []).filter { $0.id != live?.id && !unsaved.contains($0.id) }
+            meetings = (waiting + onDisk).sorted { $0.recordedAt > $1.recordedAt }
+        } else { unsaved = [] }
         purgeAudio()
     }
 
@@ -223,7 +234,7 @@ import os
         meeting.finished = true
         live = nil
         meetings.insert(meeting, at: 0)
-        if persists { try? store?.save(meeting) }
+        write(meeting)
         if manual { askOnDone.insert(meeting.id) }
         if pumps[meeting.id]?.isIdle == false { finishing.insert(meeting.id) } else { pumps[meeting.id] = nil; separate(meeting.id) }
         askEnded = false; warning = nil; meLevel = 0; themLevel = 0
@@ -238,7 +249,7 @@ import os
         pumps.removeValue(forKey: meeting.id)?.stop()
         if let audioRoot { try? FileManager.default.removeItem(at: MeetingAudio.folder(audioRoot, meeting: meeting.id)) }
         deleteKeptAudio(meeting.id)
-        try? store?.delete(meeting.id)
+        unsaved.remove(meeting.id); erase(meeting.id)
         live = nil; askEnded = false; warning = nil; systemAudioProblem = nil
         onLiveChange?()
     }
@@ -248,7 +259,7 @@ import os
         cancel()
         pumps.values.forEach { $0.stop() }; pumps = [:]
         speakerRunner.cancelAll(); separating = []
-        meetings = []; finishing = []; leftovers = [:]; store = nil; audioRoot = nil
+        meetings = []; finishing = []; leftovers = [:]; unsaved = []; store = nil; audioRoot = nil
         notesProblem = [:]; notesChoicePending = nil; askOnDone = []
     }
 
@@ -375,7 +386,7 @@ import os
         if var meeting = live, meeting.id == id {
             change(&meeting); live = meeting; save(force: false)
         } else if let index = meetings.firstIndex(where: { $0.id == id }) {
-            change(&meetings[index]); if persists { try? store?.save(meetings[index]) }
+            change(&meetings[index]); write(meetings[index])
         }
     }
 
@@ -385,7 +396,24 @@ import os
         let now = ProcessInfo.processInfo.systemUptime
         guard force || now - lastSave >= 2 else { return }
         lastSave = now
-        try? store?.save(meeting)
+        write(meeting)
+    }
+
+    /// Every meeting write goes through here: a failure is remembered (content-free in the log) and shown, never dropped.
+    private func write(_ meeting: Meeting) {
+        guard persists, let store else { return }
+        do { try store.save(meeting); if unsaved.contains(meeting.id) { unsaved.remove(meeting.id) } }
+        catch { if unsaved.insert(meeting.id).inserted { meetingLog.notice("meeting-save-failed") } }
+    }
+
+    private func retryUnsaved() {
+        for id in unsaved { if let meeting = anyMeeting(id) { write(meeting) } else { unsaved.remove(id) } }
+    }
+
+    /// A meeting that is being thrown away: a file that stays is logged, not shown (see `delete(_:)` for the user's own deletes).
+    private func erase(_ id: String) {
+        guard let store, store.exists(id) else { return }
+        do { try store.delete(id) } catch { meetingLog.notice("meeting-delete-failed") }
     }
 
     /// The user's own notes. Changing them marks written notes out of date.
@@ -436,8 +464,9 @@ import os
     }
 
     func tick() {
-        guard let meeting = live else { return }
         let now = ProcessInfo.processInfo.systemUptime
+        if !unsaved.isEmpty, now - lastRetry >= 2 { lastRetry = now; retryUnsaved() }
+        guard let meeting = live else { return }
         elapsed = now - started
         let meRaw = capture.map { c in c.queue.sync { c.level } } ?? 0
         let themRaw = tap.map { t in t.queue.sync { t.level } } ?? 0
@@ -510,6 +539,7 @@ import os
         if persists, let store, store.exists(id) {
             do { try store.delete(id) } catch { message = "Could not delete this meeting."; return }
         }
+        unsaved.remove(id)
         pumps.removeValue(forKey: id)?.stop(); finishing.remove(id); notesProblem[id] = nil
         if notesChoicePending == id { notesChoicePending = nil }
         speakerRunner.cancel(id); separating.remove(id); deleteKeptAudio(id)
@@ -531,6 +561,7 @@ import os
     /// Meetings the History cap already deleted from disk.
     func forget(_ ids: Set<String>) {
         for id in ids { pumps.removeValue(forKey: id)?.stop(); finishing.remove(id); speakerRunner.cancel(id); separating.remove(id) }
+        unsaved.subtract(ids)
         meetings.removeAll { ids.contains($0.id) }; purgeAudio()
     }
 
@@ -540,10 +571,11 @@ import os
             for meeting in meetings where meeting.recordedAt <= cutoff {
                 pumps.removeValue(forKey: meeting.id)?.stop(); finishing.remove(meeting.id)
                 speakerRunner.cancel(meeting.id); separating.remove(meeting.id)
-                if persists { try? store?.delete(meeting.id) }
+                unsaved.remove(meeting.id)
+                if persists { erase(meeting.id) }
             }
             meetings.removeAll { $0.recordedAt <= cutoff }
-            try? store?.purgeUnreadable(cutoff: cutoff)
+            do { try store?.purgeUnreadable(cutoff: cutoff) } catch { meetingLog.notice("meeting-purge-failed") }
         }
         purgeAudio()
     }
@@ -565,14 +597,15 @@ import os
     /// Murmur is quitting: never keep recording. Untranscribed chunks stay for `RetryWindow.text`.
     func shutdown() {
         if live != nil { finish(manual: false) }
+        retryUnsaved() // One last attempt: nothing asks the user to confirm quitting, so this is all that protects an unsaved meeting.
         pumps.values.forEach { $0.stop() }
         // A separation still pending runs again at the next launch while its audio is under `RetryWindow.text` old.
         speakerRunner.cancelAll()
     }
 
     /// UI fixture only (check_ui.swift): synthetic meetings, and optionally a synthetic live one; no capture.
-    func showFixture(_ finished: [Meeting], live: Meeting?, leftovers: [String: Int] = [:], separating: Set<String> = []) {
-        meetings = finished; self.live = live; self.leftovers = leftovers; self.separating = separating
+    func showFixture(_ finished: [Meeting], live: Meeting?, leftovers: [String: Int] = [:], separating: Set<String> = [], unsaved: Set<String> = []) {
+        meetings = finished; self.unsaved = unsaved; self.live = live; self.leftovers = leftovers; self.separating = separating
         meLevel = 0.55; themLevel = 0.35; elapsed = live?.seconds ?? 0
         onLiveChange?()
     }

@@ -118,6 +118,10 @@ struct MeetingsPage: View {
                 }
                 .foregroundStyle(Color.white).padding(.horizontal, 24).padding(.vertical, 10).background(Palette.accent)
             }
+            if !recorder.unsaved.isEmpty {
+                Text(MeetingRecorder.unsavedWarning).font(WindowType.body(14)).fixedSize(horizontal: false, vertical: true)
+                    .foregroundStyle(Color.white).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 24).padding(.vertical, 10).background(Palette.accent)
+            }
             if controller.historyMode == .off {
                 lede("History is off, so meetings are kept only until Murmur quits. Export one to keep it.", color: Palette.accentInk).padding(.horizontal, 24).padding(.bottom, 8)
             }
