@@ -639,7 +639,8 @@ struct MeetingLiveView: View {
     @ObservedObject var recorder: MeetingRecorder
     @Binding var collapsed: Bool
     /// The menu-bar band's height when the pill sits beside the notch.
-    var dock: CGFloat? = nil
+    /// The docked pill's frame size: wider than `liveDockWidth` by the part hidden under the notch.
+    var dock: CGSize? = nil
     @State private var notes = ""
     @State private var confirmCancel = false
 
@@ -653,13 +654,13 @@ struct MeetingLiveView: View {
     private var dot: some View { Circle().fill(Color.red).frame(width: 10, height: 10).accessibilityHidden(true) }
 
     @ViewBuilder private var pill: some View {
-        if let dock { dockedPill(height: dock) } else { floatingPill }
+        if let dock { dockedPill(dock) } else { floatingPill }
     }
 
-    private func dockedPill(height: CGFloat) -> some View {
+    private func dockedPill(_ size: CGSize) -> some View {
         Button { collapsed = false } label: {
             HStack(spacing: 8) { dot; monoLabel(MeetingExport.clock(recorder.elapsed), size: 12, color: .white) }
-                .frame(width: liveDockWidth, height: height).contentShape(Rectangle())
+                .frame(width: liveDockWidth, height: size.height).padding(.leading, size.width - liveDockWidth).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .background(Color.black, in: UnevenRoundedRectangle(bottomTrailingRadius: 12))
@@ -828,7 +829,7 @@ let liveDockWidth: CGFloat = 96
         panel?.orderFrontRegardless()
     }
 
-    private func root(dock: CGFloat?) -> LivePanelRoot { LivePanelRoot(recorder: recorder, dock: dock) { [weak self] _ in self?.place() } }
+    private func root(dock: CGSize?) -> LivePanelRoot { LivePanelRoot(recorder: recorder, dock: dock) { [weak self] _ in self?.place() } }
 
     /// Docks the pill right of the notch when collapsed on a notched screen. Otherwise keeps the panel's
     /// top-right corner where it was (or where it was last left) and resizes around it.
@@ -837,7 +838,7 @@ let liveDockWidth: CGFloat = 96
         let geo = geometry()
         if collapsed, let dock = geo.rightDockFrame(width: liveDockWidth) {
             docked = true
-            host.rootView = root(dock: geo.notchHeight)
+            host.rootView = root(dock: dock.size)
             panel.level = .statusBar; panel.hasShadow = false; panel.isMovableByWindowBackground = false
             panel.setFrame(dock, display: true)
             return
@@ -858,7 +859,7 @@ let liveDockWidth: CGFloat = 96
 
 private struct LivePanelRoot: View {
     @ObservedObject var recorder: MeetingRecorder
-    let dock: CGFloat?
+    let dock: CGSize?
     let changed: (Bool) -> Void
     @AppStorage(Prefs.meetingPanelCollapsed.key) private var collapsed = Prefs.meetingPanelCollapsed.fallback
     var body: some View {

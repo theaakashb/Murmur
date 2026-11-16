@@ -263,10 +263,11 @@ struct BubbleGeometry {
         guard hasNotch, let left else { return nil }
         return NSRect(x: left.maxX - visible, y: screenFrame.maxY - height, width: visible + notchInset, height: height)
     }
-    /// The meeting indicator, its mirror: `width` points starting at the notch's right edge, so it never reaches the left indicator.
+    /// The meeting indicator, its mirror: `width` points right of the notch, extended under it up to where the dictation indicator ends, so both read as part of the notch.
     func rightDockFrame(width: CGFloat) -> NSRect? {
         guard hasNotch, let right else { return nil }
-        return NSRect(x: right.minX, y: screenFrame.maxY - notchHeight, width: width, height: notchHeight)
+        let under = notchWidth - notchInset
+        return NSRect(x: right.minX - under, y: screenFrame.maxY - notchHeight, width: width + under, height: notchHeight)
     }
 }
 

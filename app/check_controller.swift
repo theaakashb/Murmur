@@ -11,9 +11,9 @@ import AVFoundation
         let notched = BubbleGeometry(screenFrame: NSRect(x: 0, y: 0, width: 1512, height: 982), visibleFrame: NSRect(x: 0, y: 0, width: 1512, height: 950),
                                      left: NSRect(x: 0, y: 950, width: 656, height: 32), right: NSRect(x: 856, y: 950, width: 656, height: 32), notchHeight: 32)
         let leftDock = notched.leftDockFrame(visible: 72, height: 32)!, rightDock = notched.rightDockFrame(width: liveDockWidth)!
-        precondition(rightDock.minX == 856 && rightDock.maxX <= 1512, "the meeting indicator starts at the notch's right edge")
+        precondition(rightDock.minX == leftDock.maxX && rightDock.maxX == 856 + liveDockWidth, "the meeting indicator runs under the notch from where the dictation indicator ends")
         precondition(rightDock.maxY == 982 && rightDock.height == 32 && leftDock.maxY == rightDock.maxY && leftDock.height == rightDock.height, "both indicators fill the menu-bar band")
-        precondition(!leftDock.intersects(rightDock) && leftDock.maxX < rightDock.minX, "the meeting indicator does not overlap the dictation indicator")
+        precondition(!leftDock.intersects(rightDock), "the meeting indicator does not overlap the dictation indicator")
         precondition(leftDock.minX == 584, "the dictation indicator docks 72 pt left of the notch")
         let flat = BubbleGeometry(screenFrame: NSRect(x: 0, y: 0, width: 1920, height: 1080), visibleFrame: NSRect(x: 0, y: 0, width: 1920, height: 1055), left: nil, right: nil, notchHeight: 25)
         precondition(flat.rightDockFrame(width: liveDockWidth) == nil && flat.leftDockFrame(visible: 72, height: 25) == nil, "no notch means not docked")
