@@ -54,7 +54,7 @@ rm -rf "$app_path/Contents/Frameworks/Cmlx.framework"
 ditto "$cleanup_bin/Cmlx.framework" "$app_path/Contents/Frameworks/Cmlx.framework"
 cleanup_helper="$app_path/Contents/MacOS/LocalCleanupRunner"
 install_name_tool -add_rpath @executable_path/../Frameworks "$cleanup_helper"
-for stale in $(otool -l "$cleanup_helper" | awk '/LC_RPATH/{f=1} f&&/path /{print $2; f=0}' | grep -v '^@\|^/usr/lib/swift$'); do install_name_tool -delete_rpath "$stale" "$cleanup_helper"; done
+otool -l "$cleanup_helper" | sed -n 's/^ *path \(.*\) (offset [0-9]*)$/\1/p' | grep -v '^@\|^/usr/lib/swift$' | while IFS= read -r stale; do install_name_tool -delete_rpath "$stale" "$cleanup_helper"; done
 
 cp "$project_root/app/AppIcon.icns" "$app_path/Contents/Resources/AppIcon.icns"
 cp "$project_root/module-one/models/artifact-pins.json" "$app_path/Contents/Resources/artifact-pins.json"

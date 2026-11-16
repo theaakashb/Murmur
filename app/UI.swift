@@ -955,24 +955,28 @@ struct SettingsView: View {
 
     /// Download row and capabilities of the managed local cleanup model, shown in both the Settings and the setup flows.
     private var localModelSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 16) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 4) {
-                        Text(LocalCleanupFacts.modelName).font(Font.system(size: 18, weight: .semibold))
-                        ModelInfoIcons(license: controller.localModelLicense.map(ModelFacts.licenseText), details: controller.localModelSummary)
-                    }
-                    Group {
-                        if controller.localModelRow.isReady { mono("Ready ✓", color: EditorialPalette.accentInk) }
-                        else { Text(controller.localModelRow.statusText).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
-                    }.padding(.top, 5)
-                }
-                Spacer()
-                let row = controller.localModelRow
-                if row.actions.contains(.download) { Button("Download…", action: controller.downloadLocalModel).buttonStyle(InkButtonStyle()).fixedSize() }
-                if row.actions.contains(.retry) { Button("Retry…", action: controller.downloadLocalModel).buttonStyle(InkButtonStyle()).fixedSize() }
-                if row.actions.contains(.cancel) { Button("Cancel", action: controller.cancelLocalModelDownload).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
-                if row.actions.contains(.remove) { Button("Remove…", role: .destructive, action: controller.removeLocalModel).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
+        let row = controller.localModelRow
+        let info = VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) {
+                Text(LocalCleanupFacts.modelName).font(Font.system(size: 18, weight: .semibold)).fixedSize()
+                ModelInfoIcons(license: controller.localModelLicense.map(ModelFacts.licenseText), details: controller.localModelSummary)
+            }
+            Group {
+                if row.isReady { mono("Ready ✓", color: EditorialPalette.accentInk) }
+                else { Text(row.statusText).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true) }
+            }.padding(.top, 5)
+        }
+        let actions = HStack(spacing: 10) {
+            if row.actions.contains(.download) { Button("Download…", action: controller.downloadLocalModel).buttonStyle(InkButtonStyle()).fixedSize() }
+            if row.actions.contains(.retry) { Button("Retry…", action: controller.downloadLocalModel).buttonStyle(InkButtonStyle()).fixedSize() }
+            if row.actions.contains(.cancel) { Button("Cancel", action: controller.cancelLocalModelDownload).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
+            if row.actions.contains(.remove) { Button("Remove…", role: .destructive, action: controller.removeLocalModel).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
+        }
+        return VStack(alignment: .leading, spacing: 12) {
+            // Narrow (compact setup) windows stack the buttons under the name and status instead of squeezing them.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 16) { info; Spacer(minLength: 8); actions }
+                VStack(alignment: .leading, spacing: 12) { info; actions }
             }
             help(LocalCleanupFacts.explanation)
             if let progress = controller.localModelRow.progress { progressBar(progress) }
@@ -1834,7 +1838,7 @@ struct SettingsView: View {
                                     cleanupChoices
                                     if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .customAPI { customCleanupSettings }
                                     if cleanupStyle.wrappedValue >= 1, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() { help(reason.userMessage).padding(.top, 12) }
-                                                    disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
+                                    disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
                                 }
                                 else if guideStep == .welcome { welcome }
                                 else if last { tryIt }

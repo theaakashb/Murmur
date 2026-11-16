@@ -144,8 +144,6 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         let dropped = await p.processAsync(deadlineRaw)
         if case .insert(let text) = dropped.outcome { check(text.contains("5"), "a model output that drops the deadline is not inserted: \(text)") } else { check(false, "inserts") }
         check(dropped.fallback != nil && dropped.cleanupPath != .modelAccepted, "dropped deadline is recorded as a rejection")
-        let kept = await p.processAsync(deadlineRaw)
-        _ = kept
         p.cloudCleaner = provider(rec) { _ in "Can you send me the report by 5, the quarterly one, not the monthly one?" }
         let ok = await p.processAsync(deadlineRaw)
         check(ok.fallback == nil && ok.promptHash == "local-fixed", "a faithful output is accepted and the fixed prompt is recorded")
@@ -164,6 +162,13 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         p.cloudCleaner = provider(rec) { _ in "Thanks, Shreya Raman. Send 42.50 dollars." }
         let names = await p.processAsync("thanks shreya raman send 42.50 dollars")
         check(names.fallback == nil, "names and numbers kept pass")
+        // A rewrite preset cannot run on the fixed-prompt model: it is never sent, ordinary cleanup runs instead.
+        var preset = WritingMode(); preset.transform = .email
+        let presetRec = Recorder()
+        p.cloudCleaner = provider(presetRec) { _ in "Dear team, ship Monday." }
+        let presetResult = await p.processAsync("ship friday no monday", style: DictationStyle(mode: preset, settings: p.settings))
+        check(presetResult.fallback == .cleanerFailed || presetRec.requests.count == 1, "a rewrite preset never reaches the local model as a rewrite")
+        check(presetRec.requests.allSatisfy { $0.text == "ship friday no monday" || !$0.text.contains("email") }, "no preset instructions are sent")
         // Providers that are not the managed model keep the global trust behaviour: only the local route is forced strict.
         check(ProviderID.localModel.displayName == "Local model", "display name")
 

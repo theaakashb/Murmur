@@ -825,6 +825,7 @@ final class PreStart: @unchecked Sendable {
         }
         let routes = routeSettings
         if routes.cleanup == .appleIntelligence && appliedRoutes.cleanup != .appleIntelligence { AppleCleanupProvider().prewarm() }
+        if routes.cleanup == .localModel && appliedRoutes.cleanup != .localModel { LocalModelCleanupProvider().prewarm() }
         appliedRoutes = routes; routes.save(to: .standard)
         appliedRetention = retention
         appliedHistoryMode = historyMode; records?.persistsTranscripts = historyMode.persistsTranscripts
@@ -987,7 +988,7 @@ final class PreStart: @unchecked Sendable {
                 session.resetShortcut?(); setPhase("Error", refusal); done(); return
             }
             sessionTranscriber = plan.transcriber; processing?.cloudCleaner = plan.cleaner
-            (plan.cleaner as? AppleCleanupProvider)?.prewarm()
+            (plan.cleaner as? AppleCleanupProvider)?.prewarm(); (plan.cleaner as? LocalModelCleanupProvider)?.prewarm()
             destination = try? captureFocus()
             if destination?.secure == true { session.resetShortcut?(); setPhase("Error", "Password fields cannot receive dictation."); done(); return }
             if destination?.pid == getpid() { destination = nil }

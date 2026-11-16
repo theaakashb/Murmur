@@ -32,7 +32,7 @@ PY
   touch "$deps/.verified"
 fi
 cd "$package"
-swift package edit mlx-swift --path "$deps/mlx-swift" >/dev/null 2>&1 || true
+[[ -e Packages/mlx-swift ]] || swift package edit mlx-swift --path "$deps/mlx-swift" >&2
 # The native build system avoids the default one's attempt to compile Metal sources.
 swift build --build-system native -c release >&2
 print -r -- "$(swift build --build-system native -c release --show-bin-path)"

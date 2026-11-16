@@ -45,6 +45,9 @@ struct LocalModelCleanupProvider: CleanupProvider {
     }
 
     func validate() async throws { if let reason = status() { throw ProviderError.modelUnavailable(id, reason) } }
+
+    /// Loads the model ahead of the first request.
+    func prewarm() { if status() == nil { Task { await LocalCleanupRunner.shared.warm() } } }
 }
 
 /// One helper process, one request at a time, a fresh chat per request inside it. Cancelling or timing out ends only this
@@ -99,6 +102,7 @@ actor LocalCleanupRunner {
             let ok = await Task.detached { check?() ?? true }.value
             guard ok else { throw ProviderError.modelUnavailable(id, .modelDamaged) }
             verified = true
+            if Task.isCancelled { throw ProviderError.cancelled }
         }
         let reply = await withTaskCancellationHandler { await roundTrip(request) } onCancel: { Task { await self.cancel(ticket) } }
         scheduleIdle()
@@ -109,6 +113,21 @@ actor LocalCleanupRunner {
         case .timeout: throw ProviderError.timeout(id)
         case .failed: throw ProviderError.malformedResponse(id)
         }
+    }
+
+    /// Verifies the files and loads the model ahead of the first request (route selected, dictation started), so that
+    /// cost is not inside a dictation. Does nothing while a request runs or when the model is not installed.
+    func warm() async {
+        guard !busy, Self.installedStatus() == nil, await acquire(UUID()) else { return }
+        defer { release() }
+        idleTask?.cancel()
+        if !verified {
+            let check = Self.verifier
+            guard await Task.detached(operation: { check?() ?? true }).value else { return }
+            verified = true
+        }
+        if process == nil, launch() { if await nextLine(timeout: startupSeconds) == nil { terminate() } }
+        scheduleIdle()
     }
 
     /// Ends the helper (idle, memory pressure, quit). Safe at any time; an in-flight request fails and falls back.
