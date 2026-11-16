@@ -19,6 +19,19 @@ func readHelperOutput(_ handle: FileHandle) throws -> Data {
     return result
 }
 
+/// The helper and what launching it needs, read on the main thread (the vocabulary file as it is now)
+/// so a background queue can verify the models and build the launch. `AppController.helperRuntime` makes it.
+struct HelperRuntime: Sendable {
+    let helper: URL, manifest: URL, vocabulary: URL?, dictionaryModel: URL
+    /// Verifies on a background queue (it hashes the models), then calls `body` there with the launch, or nil when verification fails.
+    func launch(models: URL, qos: DispatchQoS.QoSClass, _ body: @escaping @Sendable (HelperLaunch?) -> Void) {
+        DispatchQueue.global(qos: qos).async { body(HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel)) }
+    }
+}
+
+/// The JSON object on one line of helper output.
+func helperAnswer(_ line: Data?) -> [String: Any]? { line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } }
+
 /// What the transcription helper loads: the model folder plus, when dictionary support is
 /// installed and verified and the dictionary has enabled entries, `--ctc DIR --vocabulary FILE`.
 /// `key` changes whenever any of those change, which restarts the warm helper. Built only by
@@ -168,7 +181,7 @@ final class ChunkJob: @unchecked Sendable {
         guard let next else { return }
         transcribe(next.url, next.boundary) { [self] line in
             try? FileManager.default.removeItem(at: next.url)
-            let answer = line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            let answer = helperAnswer(line)
             if next.boundary {
                 // A boundary that fails only skips its repair.
                 let found = (answer?["replacements"] as? [[String: String]] ?? []).compactMap { r in r["from"].flatMap { f in r["to"].map { (f, $0) } } }
@@ -287,7 +300,7 @@ final class PreStart: @unchecked Sendable {
     private var pending: (capture: Capture, url: URL, id: UUID)?
     func begin(store: RetryAudio) {
         queue.async { [self] in
-            guard pending == nil, !IsSecureEventInputEnabled(), permission() == "authorized", let url = try? store.create() else { return }
+            guard pending == nil, !IsSecureEventInputEnabled(), permission() == .authorized, let url = try? store.create() else { return }
             let capture = Capture()
             do { try capture.start(url: url) } catch { try? store.delete(url); return }
             let id = UUID(); pending = (capture, url, id)

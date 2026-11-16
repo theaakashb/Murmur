@@ -97,7 +97,7 @@ extension SettingsView {
     }
 
     private var keptFor: String {
-        switch HistoryRetention(stored: controller.retention) {
+        switch controller.retention {
         case .sixMonths: return "six months"
         case .forever: return "until you delete them"
         case .thirtyDays: return "30 days"
@@ -153,7 +153,7 @@ extension SettingsView {
                         }
                     }
                     StreakCalendar(days: s.days, weeks: 5,
-                                   cutoff: HistoryRetention(stored: controller.retention).cutoff())
+                                   cutoff: controller.retention.cutoff())
                 }.frame(maxWidth: .infinity, alignment: .leading).frame(height: 300, alignment: .top)
                 hourlyActivity(s).frame(height: 300, alignment: .top)
                 VStack(alignment: .leading, spacing: 12) {

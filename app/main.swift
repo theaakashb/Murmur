@@ -6,7 +6,7 @@ import SwiftUI
     let controller: AppController
     init(options: LaunchOptions) {
         self.options = options
-        controller = AppController(preview: options.preview || options.testAudio != nil, isolatedStorage: options.preview || options.testAudio != nil)
+        controller = AppController(preview: options.preview || options.testAudio != nil)
         super.init()
     }
     var window: NSWindow?
@@ -21,8 +21,8 @@ import SwiftUI
         // The live meeting panel shows whether or not the menu bar icon is visible (R6, PRD 11.3).
         controller.meetingPanelChanged = { [weak self] in self?.meetingPanel.update() }
         // Open at login is on by default once; after that the Settings toggle decides.
-        if !options.preview && options.testAudio == nil && !UserDefaults.standard.bool(forKey: "openAtLoginDefaulted") {
-            controller.setOpenAtLogin(true); UserDefaults.standard.set(true, forKey: "openAtLoginDefaulted")
+        if !options.preview && options.testAudio == nil && !UserDefaults.standard[Prefs.openAtLoginDefaulted] {
+            controller.setOpenAtLogin(true); UserDefaults.standard[Prefs.openAtLoginDefaulted] = true
         }
         // A login-item launch starts quietly; any launch the user makes opens Settings.
         let event = NSAppleEventManager.shared().currentAppleEvent
@@ -144,8 +144,8 @@ import SwiftUI
         showWindow()
     }
     @objc func openHistory() { controller.screenRequest = .history; showWindow() }
-    /// Replays the welcome guide from its first step (gap #21).
     @objc func openReportIssue() { reportIssue.show(controller.diagnostics()) }
+    /// Replays the welcome guide from its first step (gap #21).
     @objc func openGuide() { controller.screenRequest = .guide; showWindow() }
     /// Keep configuration/recording errors visible even when Sparkle cannot open its dialog.
     @objc func checkForUpdates() { showWindow(); controller.checkForUpdates() }

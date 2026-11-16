@@ -6,41 +6,36 @@ extension AppController {
 
     /// Meetings are stored in `history/meetings` and their chunk audio in `retry-audio/meetings`, so
     /// History's retention and Delete All Data cover them. They transcribe on this Mac only (Q2).
-    func configureMeetings(base: URL) {
+    func configureMeetings(_ locations: MurmurDataLocations) {
         let recorder = meetingRecorder
         // Without the helper and manifest (the UI fixture, or a build without them) the recorder cannot transcribe.
         var local: MeetingRecorder.LocalTranscription?
-        if !preview, let helper = BundledModels.helper, let manifest = BundledModels.pins {
+        if !preview, let runtime = helperRuntime {
             let warm = warm
             local = .init(
                 transcribe: { [weak self] url, done in
                     guard let self else { done(nil); return }
-                    let models = URL(fileURLWithPath: self.modelDirectory), vocabulary = self.vocabularyFile, dictionaryModel = self.dictionaryModelDirectory
-                    DispatchQueue.global(qos: .utility).async {
-                        guard let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
-                        warm.transcribe(url, helper: helper, launch: launch) { line in
-                            let answer = line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-                            done(answer?["text"] as? String)
-                        }
+                    runtime.launch(models: URL(fileURLWithPath: self.modelDirectory), qos: .utility) { launch in
+                        guard let launch else { done(nil); return }
+                        warm.transcribe(url, helper: runtime.helper, launch: launch) { done(helperAnswer($0)?["text"] as? String) }
                     }
                 },
                 transcribeTimed: { [weak self] url, done in
                     guard let self else { done(nil); return }
-                    let models = URL(fileURLWithPath: self.modelDirectory), vocabulary = self.vocabularyFile, dictionaryModel = self.dictionaryModelDirectory
-                    DispatchQueue.global(qos: .utility).async {
-                        guard let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
-                        warm.transcribeTimed(url, helper: helper, launch: launch) { line in
-                            let answer = line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+                    runtime.launch(models: URL(fileURLWithPath: self.modelDirectory), qos: .utility) { launch in
+                        guard let launch else { done(nil); return }
+                        warm.transcribeTimed(url, helper: runtime.helper, launch: launch) { line in
+                            let answer = helperAnswer(line)
                             guard let text = answer?["text"] as? String else { done(nil); return }
                             done(ChunkText(text: text, words: answer?["words"] as? [[Double]]))
                         }
                     }
                 },
-                helper: helper)
+                helper: runtime.helper)
         }
         recorder.wire(.init(
-            store: try? MeetingStore(directory: base.appendingPathComponent("history").appendingPathComponent("meetings")),
-            audioRoot: base.appendingPathComponent("retry-audio").appendingPathComponent("meetings"),
+            store: try? MeetingStore(directory: locations.meetings),
+            audioRoot: locations.meetingAudio,
             persists: appliedHistoryMode.persistsTranscripts,
             applyDictionary: { [weak self] text in self?.processing?.dictionary.apply(to: text) ?? text },
             notesRoute: { [weak self] in self?.meetingNotesRoute },
@@ -62,6 +57,14 @@ extension AppController {
         return (disclosure.summary, MeetingRoute.cloudNote(provider: disclosure.provider.displayName, host: disclosure.destinationHost, storesAudio: routes.cloudTranscriber == .gemini))
     }
 
+    /// The applied routes with transcription on this Mac and cleanup on a notes route's provider, for meeting notes.
+    private func notesRoutes(_ choice: CleanupChoice) -> RouteSettings {
+        var routes = appliedRoutes; routes.transcription = .local; routes.cleanup = choice
+        return routes
+    }
+    /// Stands in for a key where only the disclosure is built (Settings must not read the Keychain).
+    private static let disclosureOnlyKey = APIKey("disclosure-only")
+
     /// The notes route's provider, built from the applied settings and the Keychain like cleanup's,
     /// or why it cannot run. Never falls back to another route.
     func meetingNotesProvider(_ route: MeetingNotesRoute) -> (provider: CleanupProvider?, refusal: String?) {
@@ -74,8 +77,7 @@ extension AppController {
         case .gemini: choice = .gemini
         case .customAPI: choice = .customAPI
         }
-        var routes = appliedRoutes; routes.transcription = .local; routes.cleanup = choice
-        let plan = routePlan(routes, cleanupSendsText: true)
+        let plan = routePlan(notesRoutes(choice), cleanupSendsText: true)
         guard let cleaner = plan.cleaner else { return (nil, (plan.refusal ?? "\(route.label) is not set up.") + " Set it up in Settings → Cleanup and API Keys.") }
         // A whole meeting takes longer than a dictation: allow the longest wait each route permits.
         return (cleaner.forMeetingNotes(), nil)
@@ -88,8 +90,7 @@ extension AppController {
         case .none: return nil
         case .appleIntelligence: return AppleCleanupProvider().status()?.userMessage
         case .gemini, .customAPI:
-            var routes = appliedRoutes; routes.transcription = .local; routes.cleanup = route == .gemini ? .gemini : .customAPI
-            let plan = RoutePlan.make(routes, cleanupSendsText: true) { self.credentials.exists($0) ? APIKey("disclosure-only") : nil }
+            let plan = RoutePlan.make(notesRoutes(route == .gemini ? .gemini : .customAPI), cleanupSendsText: true) { self.credentials.exists($0) ? Self.disclosureOnlyKey : nil }
             return plan.cleaner == nil ? (plan.refusal ?? "\(route.label) is not set up.") + " Set it up in Settings → Cleanup and API Keys." : nil
         }
     }
@@ -97,8 +98,7 @@ extension AppController {
     /// Who receives the transcript on a notes route, for Settings and the first-Stop question.
     func meetingNotesDisclosure(_ route: MeetingNotesRoute) -> String {
         guard route == .gemini || route == .customAPI else { return MeetingNotesRoute.disclosure(route, host: nil, local: true, retention: nil) }
-        var routes = appliedRoutes; routes.transcription = .local; routes.cleanup = route == .gemini ? .gemini : .customAPI
-        let disclosure = RoutePlan.make(routes, cleanupSendsText: true) { _ in APIKey("disclosure-only") }.stages.first
+        let disclosure = RoutePlan.make(notesRoutes(route == .gemini ? .gemini : .customAPI), cleanupSendsText: true) { _ in Self.disclosureOnlyKey }.stages.first
         let local = disclosure?.staysOnThisMac ?? false
         let warning = disclosure?.warning.map { " " + $0 } ?? ""
         return MeetingNotesRoute.disclosure(route, host: disclosure?.destinationHost, local: local, retention: (disclosure?.retentionNote ?? "") + warning)

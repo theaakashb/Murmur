@@ -25,7 +25,7 @@ extension AppController {
         var settledEarly = false
         var entryID = "", route = ""
     }
-    static let stableSettleDelay: TimeInterval = 2
+    private static let stableSettleDelay: TimeInterval = 2
     /// Gap #9: an accepted reading unchanged for `stableSettleDelay` settles before the window closes.
     static func settlesEarly(pending: Bool, changedAt: TimeInterval, now: TimeInterval) -> Bool {
         pending && now - changedAt >= stableSettleDelay
@@ -183,10 +183,10 @@ extension AppController {
         if flags.contains(.maskCommand) || flags.contains(.maskControl) { return .other }
         let word = flags.contains(.maskAlternate), extend = flags.contains(.maskShift)
         switch event.getIntegerValueField(.keyboardEventKeycode) {
-        case 51: return .backspace(word: word)
-        case 117: return .forwardDelete
-        case 123: return .left(word: word, extend: extend)
-        case 124: return .right(word: word, extend: extend)
+        case Int64(kVK_Delete): return .backspace(word: word)
+        case Int64(kVK_ForwardDelete): return .forwardDelete
+        case Int64(kVK_LeftArrow): return .left(word: word, extend: extend)
+        case Int64(kVK_RightArrow): return .right(word: word, extend: extend)
         default:
             var length = 0
             var units = [UniChar](repeating: 0, count: 8)

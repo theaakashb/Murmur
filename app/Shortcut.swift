@@ -222,9 +222,9 @@ final class ShortcutListener {
     /// Called on the main thread for a fresh ⌃⌘V press, also swallowed.
     var onPasteChord: (() -> Void)?
     /// ⌃⌘C exactly: Control and Command, no Option or Shift.
-    static func isCopyChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(8, keyCode, flags) }
+    static func isCopyChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(Int64(kVK_ANSI_C), keyCode, flags) }
     /// ⌃⌘V exactly.
-    static func isPasteChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(9, keyCode, flags) }
+    static func isPasteChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(Int64(kVK_ANSI_V), keyCode, flags) }
     private static func isControlCommand(_ key: Int64, _ keyCode: Int64, _ flags: CGEventFlags) -> Bool {
         keyCode == key && flags.intersection([.maskControl, .maskCommand, .maskAlternate, .maskShift]) == [.maskControl, .maskCommand]
     }
@@ -336,7 +336,7 @@ final class ShortcutListener {
         if type == .keyDown || type == .keyUp, Self.isCopyChord(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags)
             || Self.isPasteChord(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags) { return true }
         guard type == .keyDown || type == .keyUp,
-              event.getIntegerValueField(.keyboardEventKeycode) == 53 else { return false }
+              event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Escape) else { return false }
         if type == .keyDown && event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
             let m = mirrored
             swallowingEscape = m.state == .listening || m.queued
@@ -399,7 +399,7 @@ final class ShortcutListener {
         if type == .keyDown, Self.isPasteChord(keyCode: key, flags: event.flags), event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
             onPasteChord?(); return
         }
-        if type == .keyDown && key == 53 {
+        if type == .keyDown && key == Int64(kVK_Escape) {
             if !queued.isEmpty { cancelQueued(); return } // Cancels only the queued recording.
             if machine.state == .processing && event.getIntegerValueField(.keyboardEventAutorepeat) == 0 { onEscapeWhileProcessing?() }
             cancelByUser(); return

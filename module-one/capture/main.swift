@@ -45,7 +45,7 @@ func run() throws {
     let args = Array(CommandLine.arguments.dropFirst())
     if args.isEmpty || args == ["--check"] { try selfCheck(); return }
     if args == ["--probe"] {
-        print("microphone-permission=\(permission()); no request or capture performed")
+        print("microphone-permission=\(permission().rawValue); no request or capture performed")
         return
     }
     if args == ["--purge"] {
@@ -62,8 +62,8 @@ func run() throws {
         if args.count == 4 && args[2] == "--cancel-after", let delay = Double(args[3]), delay.isFinite, delay > 0, delay < seconds { cancelAfter = delay }
         else { throw CaptureError("Invalid recording options") }
     }
-    guard permission() == "authorized" else {
-        throw CaptureError("Microphone permission is \(permission()); this harness never requests it")
+    guard permission() == .authorized else {
+        throw CaptureError("Microphone permission is \(permission().rawValue); this harness never requests it")
     }
     let store = try RetryAudio(directory: recoveryDirectory())
     let url = try store.create()

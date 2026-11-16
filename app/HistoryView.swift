@@ -85,7 +85,7 @@ extension SettingsView {
     }
 
     private var retentionText: String {
-        switch HistoryRetention(stored: controller.retention) {
+        switch controller.retention {
         case .sixMonths: return "Kept for six months."
         case .forever: return "Kept forever."
         case .thirtyDays: return "Kept for 30 days."

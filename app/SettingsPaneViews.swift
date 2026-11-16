@@ -190,26 +190,7 @@ extension SettingsView {
 
     /// The one view-side mapping between the cleanup style and the controller's switches; every view reads and writes it here.
     var cleanupStyle: Binding<CleanupStyle> {
-        // CONNECT: replace the next line with `Binding(get: { controller.cleanupStyle }, set: { controller.cleanupStyle = $0 })` once AppController has it.
-        Binding(get: currentCleanupStyle, set: applyCleanupStyle)
-    }
-
-    private func currentCleanupStyle() -> CleanupStyle {
-        let flags = CleanupOptions(fillers: controller.cleanupFillers, corrections: controller.cleanupCorrections, lists: controller.cleanupLists,
-                                   punctuation: controller.cleanupPunctuation, polish: controller.cleanupPolish, professional: controller.cleanupProfessional, spoken: controller.cleanupSpoken)
-        return controller.cleanupChoice == .localRules && flags.anyEnabled ? .strict : CleanupStyle(flags)
-    }
-
-    /// Faithful disables the edit toggles; choosing another style restores the standard edits.
-    private func applyCleanupStyle(_ style: CleanupStyle) {
-        if style == .faithful { controller.useFaithfulTranscription(); return }
-        if currentCleanupStyle() == .faithful {
-            controller.cleanupFillers = true; controller.cleanupCorrections = true; controller.cleanupLists = true
-            controller.cleanupPunctuation = true; controller.cleanupSpoken = true
-        }
-        controller.cleanupPolish = style.needsModel; controller.cleanupProfessional = style == .professional
-        // Polish and Professional need a model; Strict keeps the stored one for next time.
-        if style.needsModel, controller.cleanupChoice == .localRules, let first = Self.aiCleanupChoices.first { controller.cleanupChoice = first }
+        Binding(get: { controller.cleanupStyle }, set: { controller.cleanupStyle = $0 })
     }
 
     static let aiCleanupChoices = CleanupChoice.selectable.filter { $0 != .localRules }
@@ -621,7 +602,7 @@ extension SettingsView {
                  ? "Completed transcripts are saved before insertion, so you can copy them if typing fails. No cloud sync."
                  : HistoryMode.offDisclosure).padding(.top, 12)
             eyebrow("Keep transcripts for").padding(.top, 28)
-            segmented(HistoryRetention.allCases.map { ($0.rawValue, $0.label) }, $controller.retention).padding(.top, 8)
+            segmented(HistoryRetention.allCases.map { ($0, $0.label) }, $controller.retention).padding(.top, 8)
             toggleRow("Keep recordings for diagnostics (7 days)", "Keeps the audio of each dictation on this Mac, beside its History entry, so a developer can replay what Murmur heard. Off by default. Recordings are deleted after 7 days, and are kept only while History is saved. Delete All Data removes them.", isOn: $controller.keepRecordings).padding(.top, 20)
             if let notice = controller.historyNotice {
                 Text(notice).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true).padding(.top, 12)

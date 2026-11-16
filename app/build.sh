@@ -20,7 +20,7 @@ mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
 # -O: the model downloader verifies ~1.8 GB with pure-Swift SHA-256/SHA-1 (about 4x faster optimized).
 # No assert() runs in the app (spike/ test helpers are not compiled in), so -O drops no checks;
 # precondition, overflow traps and exclusivity checks stay on. check_ui.sh and the checks stay unoptimized.
-swiftc -O -swift-version 5 -target arm64-apple-macos26.0 \
+swiftc -O -swift-version 5 -target "$swift_target" \
   "${app_sources[@]}" "$project_root/app/main.swift" \
   -F "$sparkle_path" -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
   -o "$app_path/Contents/MacOS/Murmur"

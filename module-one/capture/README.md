@@ -7,7 +7,7 @@ This standalone Swift harness uses AVAudioEngine and AVAudioFile; it has no app 
 Build and run non-recording checks from the repository root:
 
 ```sh
-swiftc app/AudioFormat.swift app/Capture.swift module-one/capture/main.swift -o /tmp/dictation-capture-spike
+swiftc app/AudioFormat.swift app/Retention.swift app/Capture.swift module-one/capture/main.swift -o /tmp/dictation-capture-spike
 /tmp/dictation-capture-spike --check
 /tmp/dictation-capture-spike --probe
 ```

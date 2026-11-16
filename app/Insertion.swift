@@ -41,6 +41,12 @@ func axAttribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
     return value
 }
 
+/// An attribute that is itself an element (the focused field, a window).
+func axElement(_ element: AXUIElement, _ name: String) -> AXUIElement? {
+    guard let raw = axAttribute(element, name), CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
+    return unsafeBitCast(raw, to: AXUIElement.self)
+}
+
 func axString(_ element: AXUIElement, _ name: String) -> String? {
     axAttribute(element, name) as? String
 }
@@ -59,13 +65,9 @@ struct LearningFocusIdentity {
 
     static func capture(pid: pid_t) -> LearningFocusIdentity {
         let app = AXUIElementCreateApplication(pid)
-        func element(_ name: String) -> AXUIElement? {
-            guard let raw = axAttribute(app, name), CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
-            return unsafeBitCast(raw, to: AXUIElement.self)
-        }
-        let field = element(kAXFocusedUIElementAttribute)
+        let field = axElement(app, kAXFocusedUIElementAttribute)
         let secure = field.map(axSecure) ?? false
-        return LearningFocusIdentity(field: field, window: element(kAXFocusedWindowAttribute), secure: secure)
+        return LearningFocusIdentity(field: field, window: axElement(app, kAXFocusedWindowAttribute), secure: secure)
     }
 
     func matches(_ other: LearningFocusIdentity) -> Bool {
@@ -208,7 +210,7 @@ func insertText(_ text: String, into destination: FocusSnapshot) -> InsertionRes
     guard let expected = expectedInsertedValue(current.value, selection: current.selection, text: text) else {
         return result(.failed, "Invalid UTF16 selection; no insertion attempted")
     }
-    let pasted = pasteThroughClipboard(text, restore: true, lease: clipboardLease, stillTarget: {
+    let pasted = pasteThroughClipboard(text, lease: clipboardLease, stillTarget: {
         (try? captureFocus()).map { sameDestination(current, $0) } ?? false
     })
     if let failure = pasted.failure { return result(.failed, failure) }
@@ -236,12 +238,12 @@ func flushClipboardRestore() {
     pendingRestoreLock.withLock { defer { pendingRestore = nil }; return pendingRestore }?.run()
 }
 
-/// Stages `text` on the clipboard and posts ⌘V, then returns without waiting. `restore` puts the
-/// previous clipboard back `lease` seconds after the post, on a background timer, only if the clipboard
+/// Stages `text` on the clipboard and posts ⌘V, then returns without waiting. the
+/// previous clipboard goes back `lease` seconds after the post, on a background timer, only if the clipboard
 /// still holds this paste's staged item; otherwise the text stays there for a manual paste.
 /// `stillTarget` is checked once more after staging. Returns why nothing was pasted (nil if it was)
 /// and the uptime at which ⌘V was posted.
-func pasteThroughClipboard(_ text: String, restore: Bool, lease: TimeInterval, stillTarget: () -> Bool) -> (failure: String?, postedAt: TimeInterval) {
+func pasteThroughClipboard(_ text: String, lease: TimeInterval, stillTarget: () -> Bool) -> (failure: String?, postedAt: TimeInterval) {
     flushClipboardRestore()
     func refused(_ why: String) -> (failure: String?, postedAt: TimeInterval) { (why, 0) }
     let clipboard = NSPasteboard.general
@@ -256,8 +258,8 @@ func pasteThroughClipboard(_ text: String, restore: Bool, lease: TimeInterval, s
         saved.append(copy)
     }
     guard clipboard.changeCount == oldCount else { return refused("Clipboard changed during preservation; no paste attempted") }
-    guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 9, keyDown: true),
-          let up = CGEvent(keyboardEventSource: nil, virtualKey: 9, keyDown: false) else {
+    guard let down = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: true),
+          let up = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: false) else {
         return refused("Cannot create paste events")
     }
     let stagedItem = NSPasteboardItem()
@@ -294,7 +296,7 @@ func pasteThroughClipboard(_ text: String, restore: Bool, lease: TimeInterval, s
     // NSPasteboard has no atomic compare-and-restore; another writer can race this bounded check.
     let stagedCount = clipboard.changeCount
     let restoreNow = {
-        if restore, ownsClipboard(stagedCount) {
+        if ownsClipboard(stagedCount) {
             clipboard.clearContents()
             if !saved.isEmpty { clipboard.writeObjects(saved) }
         }
@@ -332,7 +334,7 @@ func pasteIntoFrontmostApp(_ text: String) -> InsertionResult {
     guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier, pid != getpid() else { return failed("No other app is frontmost") }
     let focus = LearningFocusIdentity.capture(pid: pid)
     guard !focus.secure else { return failed("Secure field rejected") }
-    let pasted = pasteThroughClipboard(text, restore: true, lease: clipboardLease, stillTarget: {
+    let pasted = pasteThroughClipboard(text, lease: clipboardLease, stillTarget: {
         RunLoop.current.run(until: Date())
         return NSWorkspace.shared.frontmostApplication?.processIdentifier == pid && !IsSecureEventInputEnabled()
             && focus.matches(LearningFocusIdentity.capture(pid: pid))

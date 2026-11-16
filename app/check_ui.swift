@@ -8,6 +8,16 @@ import Combine
 /// Keeps the fixture's Report an Issue window alive.
 @MainActor let fixtureReportIssue = ReportIssuePresenter()
 
+/// Fixture-only setters: they show a state with no download, insertion or preview, and are not part of the app.
+extension AppController {
+    func showLocalModelFixture(_ status: ModelStatus, message: String = "") { localSlot.status = status; localSlot.message = message }
+    /// The pill without a real insertion.
+    func showModeRecoveryFixture(stage: ModeRecovery.Stage) {
+        modeRecovery = ModeRecovery(entryID: "fixture", modeName: "AI Prompt", raw: "", inserted: "", anchor: nil, stage: stage)
+        bubble.showRecovery(screen: nil)
+    }
+}
+
 @MainActor final class FixtureDelegate: NSObject, NSApplicationDelegate {
     var controller: AppController?
     @objc func quit() { NSApp.terminate(nil) }
@@ -175,7 +185,7 @@ import Combine
             if args.contains("--quiet") { controller.dismissStatus() }
             if CommandLine.arguments.contains("--recovery") { controller.hasRecoveryAudio = true }
             if CommandLine.arguments.contains("--live-words") {
-                controller.showLiveWordsFixture("Synthetic live words keep the newest tail of a long dictation on two lines, with only the last word dimm")
+                controller.liveWordsFixture = true; controller.liveText = ("Synthetic live words keep the newest tail of a long dictation on two lines, with only the last word dimm")
             }
             controller.bubble.show(phase: controller.phase, message: controller.message)
             if args.contains("--loop-bubble") {
@@ -199,6 +209,7 @@ import Combine
             if let i = args.firstIndex(of: "--mode-recovery") {
                 let name = args.indices.contains(i + 1) ? args[i + 1] : ""
                 controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : .offer)
+                if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
             }
             if CommandLine.arguments.contains("--undo") {
                 controller.bubble.showUndo(screen: nil)

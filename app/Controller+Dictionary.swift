@@ -33,10 +33,9 @@ extension AppController {
         do { try processing.updateEntry(id: entry.id, preferred: preferred, variants: variants, enabled: enabled); dictionaryMessage = ""; return true }
         catch { dictionaryMessage = (error as? StoreError)?.description ?? "Could not save the dictionary."; return false }
     }
-    private static let dismissedSuggestionsKey = "dictionarySuggestionsDismissed"
     /// Recomputed when the Dictionary page opens and after each answer; spell checks are cached for the launch.
     func refreshDictionarySuggestions() {
-        let dismissed = Set(UserDefaults.standard.stringArray(forKey: Self.dismissedSuggestionsKey) ?? [])
+        let dismissed = Set(UserDefaults.standard[Prefs.dismissedSuggestions])
         dictionarySuggestions = DictionarySuggestions.find(history.map { (raw: $0.rawText, final: $0.finalText) }, entries: dictionaryEntries,
                                                            dismissed: dismissed, isCommonWord: { [self] word in
             if let known = spellingCache[word] { return known }
@@ -56,8 +55,7 @@ extension AppController {
         refreshDictionarySuggestions()
     }
     func dismissDictionarySuggestion(_ suggestion: DictionarySuggestion) {
-        let dismissed = (UserDefaults.standard.stringArray(forKey: Self.dismissedSuggestionsKey) ?? []) + suggestion.heard.map(TermText.fold)
-        UserDefaults.standard.set(dismissed, forKey: Self.dismissedSuggestionsKey)
+        UserDefaults.standard[Prefs.dismissedSuggestions] += suggestion.heard.map(TermText.fold)
         refreshDictionarySuggestions()
     }
     func deleteDictionaryEntry(_ entry: DictionaryEntry) {

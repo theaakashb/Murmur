@@ -2,10 +2,6 @@
 import AppKit
 import ApplicationServices
 
-private func axElement(_ element: AXUIElement, _ name: String) -> AXUIElement? {
-    guard let raw = axAttribute(element, name), CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
-    return unsafeBitCast(raw, to: AXUIElement.self)
-}
 private func axChildren(_ element: AXUIElement) -> [AXUIElement] {
     guard let raw = axAttribute(element, kAXChildrenAttribute), CFGetTypeID(raw) == CFArrayGetTypeID() else { return [] }
     return (raw as? [AnyObject] ?? []).compactMap { CFGetTypeID($0) == AXUIElementGetTypeID() ? unsafeBitCast($0, to: AXUIElement.self) : nil }

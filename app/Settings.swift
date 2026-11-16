@@ -38,7 +38,7 @@ enum Prefs {
     static let screenContext = Setting("cleanupScreenContext", false)
     static let historyMode = Setting("historyMode", HistoryMode.on)
     static let updateChecks = Setting("updateChecksEnabled", true)
-    static let retention = Setting("retention", HistoryRetention.thirtyDays.rawValue)
+    static let retention = Setting("retention", HistoryRetention.thirtyDays)
     static let showMenuBar = Setting("showMenuBar", true)
     /// A Dock icon (gap #20); off by default, as in PRD R6.
     static let showInDock = Setting("showInDock", false)
@@ -57,4 +57,8 @@ enum Prefs {
     static let meetingPanelCollapsed = Setting("meetingPanelCollapsed", false)
     /// The live meeting panel's top-right corner, x then y.
     static let meetingPanelTopRight = Setting("meetingPanelTopRight", [Double]())
+    /// Open at login is switched on once, at the first launch.
+    static let openAtLoginDefaulted = Setting("openAtLoginDefaulted", false)
+    /// Folded "heard" words of dismissed dictionary suggestions. Derived from dictations, so Delete All Data removes it.
+    static let dismissedSuggestions = Setting("dictionarySuggestionsDismissed", [String]())
 }

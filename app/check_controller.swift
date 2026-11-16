@@ -131,15 +131,14 @@ import AVFoundation
         defer { controller.shutdown() }
         controller.useFaithfulTranscription()
         controller.cleanupChoice = .localRules
-        let settingsView = SettingsView(controller: controller)
-        settingsView.cleanupStyle.wrappedValue = .polish
+        controller.cleanupStyle = .polish
         precondition(controller.cleanupChoice == .appleIntelligence && controller.cleanupPolish && !controller.cleanupProfessional,
                      "Polish without a model selects Apple Intelligence")
         controller.cleanupChoice = .customAPI
-        settingsView.cleanupStyle.wrappedValue = .strict
+        controller.cleanupStyle = .strict
         precondition(controller.cleanupChoice == .customAPI && !controller.cleanupPolish && !controller.cleanupProfessional,
                      "Strict remembers the AI provider without using it")
-        settingsView.cleanupStyle.wrappedValue = .professional
+        controller.cleanupStyle = .professional
         precondition(controller.cleanupChoice == .customAPI && controller.cleanupProfessional,
                      "Professional restores the chosen provider")
 
@@ -201,12 +200,12 @@ import AVFoundation
         UserDefaults.standard.removeObject(forKey: "modelDirectory")
         // "No speech" clears itself after 2 s; a status that replaced it in the meantime stays.
         controller.phase = .ready
-        controller.setPhase(.error, "No speech was detected. Check your microphone and try again.")
+        controller.setPhase(.error, "No speech was detected. Check your microphone and try again.", quick: true)
         RunLoop.main.run(until: Date().addingTimeInterval(2.3))
         precondition(controller.phase == .ready, "no-speech popup dismisses itself")
-        controller.setPhase(.error, "No speech was detected. Check your microphone and try again.")
+        controller.setPhase(.error, "No speech was detected. Check your microphone and try again.", quick: true)
         RunLoop.main.run(until: Date().addingTimeInterval(1))
-        controller.setPhase(.error, "Transcription failed. Audio is saved for retry for up to 24 hours.")
+        controller.setPhase(.error, "Transcription failed. Audio is saved for retry for up to \(RetryWindow.text).")
         RunLoop.main.run(until: Date().addingTimeInterval(1.5))
         precondition(controller.phase == .error && controller.message.hasPrefix("Transcription failed"), "a newer error is not dismissed")
         controller.history = [entry]; controller.recoveryEntryID = entry.id
@@ -224,7 +223,7 @@ import AVFoundation
         controller.setPhase(.saved, "Inserted.")
         RunLoop.main.run(until: Date().addingTimeInterval(5.3))
         precondition(!controller.hasStatusToShow, "inserted notice dismisses after five seconds")
-        controller.setPhase(.error, "Transcription failed. Audio is saved for retry for up to 24 hours.")
+        controller.setPhase(.error, "Transcription failed. Audio is saved for retry for up to \(RetryWindow.text).")
         RunLoop.main.run(until: Date().addingTimeInterval(5.3))
         precondition(controller.phase == .error, "an error stays readable past five seconds")
         RunLoop.main.run(until: Date().addingTimeInterval(3))
@@ -272,12 +271,20 @@ import AVFoundation
         controller.lastDictationText = "held synthetic text"; controller.setupTestTranscript = "setup synthetic text"
         let chunk = temp.appendingPathComponent(name).appendingPathComponent("chunks/abandoned.wav")
         try Data([4, 5, 6]).write(to: chunk)
+        let dismissedKey = Prefs.dismissedSuggestions.key, keptDismissed = UserDefaults.standard.object(forKey: dismissedKey)
+        UserDefaults.standard[Prefs.dismissedSuggestions] = ["synthetic"]
         controller.phase = .processing
         controller.deleteConfirmedData()
+        precondition(UserDefaults.standard[Prefs.dismissedSuggestions] == ["synthetic"], "busy wipe keeps dismissed suggestions")
         precondition(controller.lastDictationText != nil && !controller.setupTestTranscript.isEmpty && manager.fileExists(atPath: recovery.path), "busy wipe refuses")
         controller.phase = .ready
         controller.deleteConfirmedData()
         precondition(controller.lastDictationText == nil && controller.setupTestTranscript.isEmpty, "wipe clears paste and setup buffers")
+        precondition(UserDefaults.standard.object(forKey: dismissedKey) == nil, "wipe removes the words of dismissed dictionary suggestions")
+        if let keptDismissed { UserDefaults.standard.set(keptDismissed, forKey: dismissedKey) }
+        let invalidRetention = UserDefaults(suiteName: "murmur-check-retention-\(UUID())")!
+        invalidRetention.set("invalid", forKey: Prefs.retention.key)
+        precondition(invalidRetention[Prefs.retention] == .thirtyDays, "an unknown stored retention reads as 30 days")
         precondition(controller.history.isEmpty && !controller.hasRecoveryAudio && !manager.fileExists(atPath: recovery.path), "wipe refreshes empty storage")
         precondition(!manager.fileExists(atPath: chunk.path), "wipe removes abandoned chunk audio")
         controller.pasteLastDictation()

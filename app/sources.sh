@@ -6,6 +6,8 @@ if command -v xcrun >/dev/null 2>&1; then
   sdk26="$(dirname "$(xcrun --show-sdk-path)")/MacOSX26.sdk"
   if [ -z "${SDKROOT:-}" ] && [ -d "$sdk26" ]; then export SDKROOT="$sdk26"; fi
 fi
+# The deployment target for build.sh and check_ui.sh (Info.plist's LSMinimumSystemVersion states it too).
+swift_target="arm64-apple-macos26.0"
 # The app is every Swift file in app/ except entry points: main.swift and the standalone check_*.swift.
 app_sources=()
 for f in "$project_root"/app/*.swift; do

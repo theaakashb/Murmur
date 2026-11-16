@@ -75,10 +75,8 @@ import Darwin
         precondition(finished.wait(timeout: .now() + 2) == .success && !FileManager.default.fileExists(atPath: abandoned.path))
         let permissions = try FileManager.default.attributesOfItem(atPath: path.path)[.posixPermissions] as! NSNumber
         precondition(permissions.intValue == 0o600)
-        let thirty = try store.expired(retention: "30-days", now: now); precondition(thirty.count == 1)
-        let forever = try store.expired(retention: "forever", now: now); precondition(forever.isEmpty)
-        do { try store.purge(retention: "invalid"); fatalError("Unknown retention policy accepted") } catch {}
-        let afterInvalidPolicy = try store.entries(); precondition(afterInvalidPolicy.count == 1)
+        let thirty = try store.expired(retention: .thirtyDays, now: now); precondition(thirty.count == 1)
+        let forever = try store.expired(retention: .forever, now: now); precondition(forever.isEmpty)
         let mismatched = root.appendingPathComponent(UUID().uuidString + ".json")
         try JSONEncoder().encode(entry).write(to: mismatched)
         do { _ = try store.entries(); fatalError("Mismatched history identity accepted") } catch {}
@@ -91,16 +89,16 @@ import Darwin
         precondition(movedCount == 1 && remaining == 1)
         let moved = try FileManager.default.contentsOfDirectory(at: store.unreadableDirectory, includingPropertiesForKeys: nil)
         precondition(moved.count == 1 && !FileManager.default.fileExists(atPath: corrupt.path))
-        try store.purge(retention: "six-months", now: now); precondition(FileManager.default.fileExists(atPath: moved[0].path))
+        try store.purge(retention: .sixMonths, now: now); precondition(FileManager.default.fileExists(atPath: moved[0].path))
         try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-200 * 86400)], ofItemAtPath: moved[0].path)
-        try store.purge(retention: "forever", now: now); precondition(FileManager.default.fileExists(atPath: moved[0].path))
-        try store.purge(retention: "six-months", now: now); precondition(!FileManager.default.fileExists(atPath: moved[0].path))
+        try store.purge(retention: .forever, now: now); precondition(FileManager.default.fileExists(atPath: moved[0].path))
+        try store.purge(retention: .sixMonths, now: now); precondition(!FileManager.default.fileExists(atPath: moved[0].path))
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let sixMonths = calendar.date(from: DateComponents(year: 2026, month: 8, day: 31))!
         let cutoff = calendar.date(byAdding: .month, value: -6, to: sixMonths)!
         let boundary = HistoryEntry(id: UUID().uuidString, recordedAt: cutoff, rawText: "Calendar boundary", finalText: "Calendar boundary", insertionStatus: "pending")
         try store.save(boundary)
-        let six = try store.expired(retention: "six-months", now: sixMonths, calendar: calendar); precondition(six.contains { $0.id == boundary.id })
+        let six = try store.expired(retention: .sixMonths, now: sixMonths, calendar: calendar); precondition(six.contains { $0.id == boundary.id })
         try store.delete(entry); try store.delete(boundary)
         let empty = try store.entries(); precondition(empty.isEmpty)
         // Native manifest verifier must fail closed on absent and corrupted artifacts.

@@ -1,27 +1,20 @@
 import Foundation
 
 // History features beyond time-based expiry (which stays in History.swift's HistoryStore):
-// a size cap, a history-off mode, and a "Delete all data" plan. Foundation only; it does not
-// depend on History.swift, so it builds in Linux checks. To use the cap with the app's store:
-//
-//     extension HistoryEntry: RetainedHistoryItem {}
-//     try HistoryCap.enforce(entries: store.entries(), directory: store.directory,
-//                            retention: HistoryRetention(stored: retention),
-//                            delete: store.delete)
+// a size cap, a history-off mode, diagnostic recordings, the retry window and a "Delete all data" plan.
+// Foundation only; it does not depend on History.swift (which declares `HistoryEntry: RetainedHistoryItem`),
+// so it builds in Linux checks.
 
 struct RetentionError: Error, CustomStringConvertible {
     let description: String
     init(_ description: String) { self.description = description }
 }
 
-/// The retention strings HistoryStore already accepts, and the one date rule for them.
+/// The stored retention values and the one date rule for them; an unknown stored value reads as 30 days (`Prefs.retention`).
 enum HistoryRetention: String, CaseIterable, Codable {
     case thirtyDays = "30-days"
     case sixMonths = "six-months"
     case forever
-
-    /// An unknown stored value counts as 30 days.
-    init(stored: String) { self = Self(rawValue: stored) ?? .thirtyDays }
 
     var label: String {
         switch self {
@@ -217,8 +210,14 @@ struct MurmurDataLocations {
     var dictionary: URL
     var retryAudio: URL
     var chunks: URL
+    /// Meetings live inside the history and retry-audio folders, so retention and Delete All Data cover them.
+    var meetings: URL { history.appendingPathComponent("meetings") }
+    var meetingAudio: URL { retryAudio.appendingPathComponent("meetings") }
 
-    /// Matches Controller's layout under Application Support/Dictation.
+    /// Application Support/Dictation, the base of every location below.
+    static var applicationSupport: URL { FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Dictation") }
+
+    /// The layout under `base`; the controller and Delete All Data both use it.
     static func standard(base: URL) -> MurmurDataLocations {
         MurmurDataLocations(history: base.appendingPathComponent("history"), dictionary: base.appendingPathComponent("dictionary"),
                             retryAudio: base.appendingPathComponent("retry-audio"), chunks: base.appendingPathComponent("chunks"))

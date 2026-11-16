@@ -60,6 +60,11 @@ extension AppController {
 
     // MARK: History cap and Delete All Data (R9, §6)
 
+    /// The owner-only folder for chunk files; chunking is on only once it exists.
+    func makeChunkFolder(_ chunks: URL) throws {
+        try FileManager.default.createDirectory(at: chunks, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        Chunker.directory = chunks
+    }
     func historyDisk(_ store: HistoryStore) -> HistoryDisk<HistoryEntry> {
         HistoryDisk(save: store.save, entries: store.entries, delete: store.delete)
     }
@@ -73,15 +78,15 @@ extension AppController {
         let result: HistoryCapResult<CappedHistoryItem>
         if let meetingStore = meetingRecorder.store {
             result = try MeetingCap.enforce(entries: entries.map { ($0.id, $0.recordedAt) }, meetings: meetings, historyDirectory: store.directory, meetingStore: meetingStore,
-                                            retention: HistoryRetention(stored: appliedRetention)) { id in
+                                            retention: appliedRetention) { id in
                 if let entry = entries.first(where: { $0.id == id }) { try store.delete(entry) }
             }
             if result.dropped.contains(where: \.isMeeting) { meetingRecorder.forget(Set(result.dropped.filter(\.isMeeting).map(\.id))) }
         } else {
-            let plain = try HistoryCap.enforce(entries: entries, directory: store.directory, retention: HistoryRetention(stored: appliedRetention), delete: store.delete)
+            let plain = try HistoryCap.enforce(entries: entries, directory: store.directory, retention: appliedRetention, delete: store.delete)
             result = HistoryCapResult(status: plain.status, dropped: [])
         }
-        historyCapWarning = appliedRetention == HistoryRetention.forever.rawValue ? result.status.warning : nil
+        historyCapWarning = appliedRetention == .forever ? result.status.warning : nil
     }
     /// Called once a dictation's last history save is done.
     func historySaved() {
@@ -110,7 +115,7 @@ extension AppController {
         let locations = MurmurDataLocations.standard(base: base)
         // Preview and the developer probe never touch the login Keychain.
         let removeKeys: () throws -> [String] = preview ? { [] } : {
-            try KeychainCredentialStore(service: "Murmur").deleteAll()
+            try KeychainCredentialStore().deleteAll()
             return ProviderID.allCases.map(\.rawValue)
         }
         let report = DataWipe.deleteAllData(locations, removeKeychainItems: removeKeys)
@@ -119,15 +124,16 @@ extension AppController {
             switch step {
             case .discardInMemoryState:
                 records?.clearSessionOnly(); records = nil; store = nil; retry = nil; processing = nil; stopWatching()
+                // Words from dismissed suggestions come from dictations, so they go too.
+                UserDefaults.standard.removeObject(forKey: Prefs.dismissedSuggestions.key); dictionarySuggestions = []
                 recoveryEntryID = nil; recoveryAudio = nil; historyCapWarning = nil; historyNotice = nil
             case .recreateHistory:
                 let next = try HistoryStore(directory: locations.history)
                 store = next; records = HistoryRouter(disk: historyDisk(next), persists: appliedHistoryMode.persistsTranscripts)
-                configureMeetings(base: base)
+                configureMeetings(locations)
             case .recreateRetryAudio:
                 retry = try RetryAudio(directory: locations.retryAudio)
-                try FileManager.default.createDirectory(at: locations.chunks, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-                Chunker.directory = locations.chunks
+                try makeChunkFolder(locations.chunks)
             case .reloadDictionary:
                 do { processing = try ProcessingCoordinator.inApp(directory: locations.dictionary); dictionaryMessage = "" }
                 catch { dictionaryMessage = "The dictionary could not be read. Dictations are held in History until it is repaired."; throw error }

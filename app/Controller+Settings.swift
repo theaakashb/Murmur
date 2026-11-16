@@ -52,6 +52,21 @@ extension AppController {
     }
     func saveSettings(to defaults: UserDefaults) { for setting in Self.persisted { setting.save(defaults, self) } }
 
+    /// Faithful disables the edit toggles; choosing another style restores the standard edits. The one place the style maps to the cleanup flags and route.
+    var cleanupStyle: CleanupStyle {
+        get {
+            guard cleanupFillers || cleanupCorrections || cleanupLists || cleanupPunctuation || cleanupSpoken else { return .faithful }
+            return cleanupChoice == .localRules ? .strict : cleanupProfessional ? .professional : cleanupPolish ? .polish : .strict
+        }
+        set {
+            if newValue == .faithful { useFaithfulTranscription(); return }
+            if cleanupStyle == .faithful { cleanupFillers = true; cleanupCorrections = true; cleanupLists = true; cleanupPunctuation = true; cleanupSpoken = true }
+            cleanupPolish = newValue.needsModel; cleanupProfessional = newValue == .professional
+            // Polish and Professional need a model; Strict keeps the stored one for next time.
+            if newValue.needsModel, cleanupChoice == .localRules, let first = CleanupChoice.selectable.first(where: { $0 != .localRules }) { cleanupChoice = first }
+        }
+    }
+
     /// Changes whenever a setting that applies immediately changes; the settings window calls `settingsChanged` on it.
     var immediateSettings: [AnyHashable] { Self.persisted.map { $0.value(self) } + [installUpdatesAutomatically] }
 }

@@ -15,7 +15,7 @@ deps() {
     history) echo "CleanupTypes CleanupText Retention History ModelFiles ModelText $models" ;;
     controller) echo "app ../spike/InsertionChecks" ;;
     meeting_start) echo "app" ;;
-    recording) echo "AudioFormat Shortcut Capture Session" ;;
+    recording) echo "AudioFormat Retention Shortcut Capture Session" ;;
     speaker_flow) echo "Capture CleanupTypes History ModelFiles ModelText ModelFlow $models $meetings MeetingCapture MeetingRecorder SpeakerModelSettings" ;;
     delivery) echo "Delivery" ;;
     diagnostics) echo "Diagnostics" ;;

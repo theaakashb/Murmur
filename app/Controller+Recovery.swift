@@ -20,12 +20,6 @@ extension AppController {
         let ns = value as NSString
         return range.location >= 0 && NSMaxRange(range) <= ns.length && ns.substring(with: range) == inserted
     }
-    /// Synthetic UI fixture only (check_ui.swift): shows the pill without a real insertion.
-    func showModeRecoveryFixture(stage: ModeRecovery.Stage) {
-        modeRecovery = ModeRecovery(entryID: "fixture", modeName: "AI Prompt", raw: "", inserted: "", anchor: nil, stage: stage)
-        bubble.showRecovery(screen: nil)
-        if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
-    }
     func clearModeRecovery() {
         recoveryRequest.cancel(); modeRecovery = nil
         bubble.hideRecovery()
@@ -124,18 +118,4 @@ extension AppController {
         }
         setPhase(.ready, "Copied. Press ⌘V to paste it.", announcement: "Dictation copied.")
     }
-}
-
-// Probe inputs belong to the caller; only the private copy follows retry cleanup.
-func copyProbeAudio(_ audio: URL, into retry: RetryAudio) throws -> URL {
-    let ownedAudio = try retry.create()
-    do {
-        let input = try FileHandle(forReadingFrom: audio)
-        defer { try? input.close() }
-        let output = try FileHandle(forWritingTo: ownedAudio)
-        defer { try? output.close() }
-        while let data = try input.read(upToCount: 1024 * 1024), !data.isEmpty { try output.write(contentsOf: data) }
-        try output.synchronize()
-        return ownedAudio
-    } catch { try? retry.delete(ownedAudio); throw error }
 }

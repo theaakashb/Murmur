@@ -23,6 +23,9 @@ final class Capture {
     var firstBuffer: TimeInterval?
     var started: TimeInterval = 0
     var stopped = false
+    /// The meter and the write status, read under the capture queue for the main thread's timers.
+    var currentLevel: Double { queue.sync { level } }
+    var failed: Bool { queue.sync { writeError != nil } }
     /// Queue-owned; nil when chunking is off.
     private var chunker: Chunker?
     /// Uptime after which buffers are dropped (queue-owned). Set from the shortcut thread at a hold's
@@ -426,7 +429,7 @@ final class Chunker {
 }
 
 struct RetryAudio {
-    static let lifetime: TimeInterval = 24 * 60 * 60
+    static let lifetime = RetryWindow.lifetime
     let directory: URL
 
     init(directory: URL) throws {
@@ -470,12 +473,15 @@ struct RetryAudio {
     func delete(_ url: URL) throws { try FileManager.default.removeItem(at: url) }
 }
 
-func permission() -> String {
+/// The microphone grant; the raw value is what Report an Issue and the probe print.
+enum MicrophonePermission: String { case authorized, denied, restricted, notDetermined = "not-determined", unknown }
+
+func permission() -> MicrophonePermission {
     switch AVCaptureDevice.authorizationStatus(for: .audio) {
-    case .authorized: return "authorized"
-    case .denied: return "denied"
-    case .restricted: return "restricted"
-    case .notDetermined: return "not-determined"
-    @unknown default: return "unknown"
+    case .authorized: return .authorized
+    case .denied: return .denied
+    case .restricted: return .restricted
+    case .notDetermined: return .notDetermined
+    @unknown default: return .unknown
     }
 }
