@@ -211,7 +211,7 @@ enum HistoryMode: String, Codable {
     static let offDisclosure = "With history off, Murmur does not save transcript history to disk. If insertion fails and Murmur quits or stops unexpectedly, that text cannot be recovered. Retry audio can still remain for up to \(RetryWindow.text), and learning can still save spellings in your dictionary. Turning history off does not delete existing history; delete it separately."
 }
 
-/// Where Murmur keeps user data. The dictionary and ledger share the `dictionary` directory.
+/// Where Murmur keeps user data. The dictionary, ledger and snippets share the `dictionary` directory.
 struct MurmurDataLocations {
     var history: URL
     var dictionary: URL
@@ -235,7 +235,7 @@ struct DeleteAllReport {
 }
 
 enum DataWipe {
-    /// Removes history, dictionary, ledger, retry audio and chunk directories, then calls
+    /// Removes history, dictionary, ledger, snippets, retry audio and chunk directories, then calls
     /// `removeKeychainItems` (which returns the item names it removed). Continues past failures
     /// and reports them. In-memory stores must be reloaded or discarded afterwards
     /// (`DictionaryStore.reload()`, `CorrectionLedger.reload()`, a new `HistoryStore`).
@@ -260,8 +260,8 @@ enum DataWipe {
 
 enum DeleteAllDataText {
     static let title = "Delete all Murmur data?"
-    static let body = "This permanently deletes transcript history and meeting notes, your dictionary and learned entries, retry audio, and API keys Murmur saved in the Keychain. A meeting being recorded is stopped and discarded. Settings and the downloaded model are kept. Backups or snapshots may still hold copies. This cannot be undone."
-    static let explanation = "Deletes history and meetings, dictionary, learned entries, retry audio and saved API keys. Settings and the downloaded model stay."
+    static let body = "This permanently deletes transcript history and meeting notes, your dictionary, learned entries and snippets, retry audio, and API keys Murmur saved in the Keychain. A meeting being recorded is stopped and discarded. Settings and the downloaded model are kept. Backups or snapshots may still hold copies. This cannot be undone."
+    static let explanation = "Deletes history and meetings, dictionary, learned entries, snippets, retry audio and saved API keys. Settings and the downloaded model stay."
 }
 
 /// What happens after DataWipe: every in-memory store pointing at a deleted directory is discarded
@@ -271,7 +271,7 @@ enum PostWipeStep: String, CaseIterable, Equatable {
     case discardInMemoryState
     case recreateHistory
     case recreateRetryAudio
-    /// A new ProcessingCoordinator re-reads the (now absent) dictionary and ledger as empty.
+    /// A new ProcessingCoordinator re-reads the (now absent) dictionary, ledger and snippets as empty.
     case reloadDictionary
     case refreshViews
 

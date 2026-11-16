@@ -22,9 +22,10 @@ private final class SpyCleaner: Cleaner {
     enum Mode { case echo, fixed(String), fail }
     let mode: Mode
     var calls = 0
+    var inputs: [String] = []
     init(_ mode: Mode) { self.mode = mode }
     func clean(_ raw: String, options: CleanupOptions) throws -> String {
-        calls += 1
+        calls += 1; inputs.append(raw)
         switch mode {
         case .echo: return raw
         case .fixed(let text): return text
@@ -82,6 +83,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         try learningChecks(root.appendingPathComponent("learn"), defaults)
         try await sectionChecks(ProcessingCoordinator(directory: root.appendingPathComponent("sections"), defaults: defaults))
         try editorChecks(ProcessingCoordinator(directory: root.appendingPathComponent("editor"), defaults: defaults))
+        try await snippetChecks(ProcessingCoordinator(directory: root.appendingPathComponent("snippets"), defaults: defaults))
         try recordingChecks(root.appendingPathComponent("recordings"))
         print("\(passes) checks passed, \(failures) failed")
         if failures > 0 { exit(1) }
@@ -746,5 +748,69 @@ extension ProcessingChecks {
         let sectioned = (await p.processAsync(long)).outcome
         check(sectioned == .insert(expected), "fallback: sections rejoin in order")
         check(echo.models.count == 4 && echo.models.dropFirst().allSatisfy { $0.hasPrefix(GeminiCleanupProvider.fallbackModel) }, "fallback sent 3 sections to Gemma: \(echo.models)")
+    }
+}
+
+extension ProcessingChecks {
+    /// Snippet text reaches the destination as stored: no cleaner, provider, guard, tone or dictionary sees it.
+    static func snippetChecks(_ p: ProcessingCoordinator) async throws {
+        let text = "SNIPPET-SENTINEL um, acme: Monday, no wait, Thursday new paragraph 3 reports\nSecond line."
+        try p.addEntry(preferred: "Akme", variants: "acme")
+        try p.snippets.add(cue: "my profile", text: text)
+        let local = SpyCleaner(.echo); p.localCleaner = local
+        var settings = p.settings; settings.route = .local; try p.update(settings, persist: false)
+        let styles: [(String, DictationStyle)] = [("Faithful", DictationStyle(options: .faithful)), ("Strict", DictationStyle(options: .standard)),
+                                                  ("Strict with excited tone", DictationStyle(options: .standard, tone: .excited))]
+        for (name, style) in styles {
+            local.inputs = []; local.calls = 0
+            let whole = p.process("My profile.", style: style)
+            check(whole.outcome == .insert(text) && whole.snippets == 1 && local.calls == 0, "\(name): whole cue is the text alone, no cleaner call")
+            let inline = p.process("call acme insert my profile here um thanks", style: style)
+            guard case .insert(let out) = inline.outcome else { check(false, "\(name): inserted"); continue }
+            check(out.contains(text) && inline.snippets == 1, "\(name): inline expansion is byte for byte")
+            check(out.hasPrefix("call Akme") || out.hasPrefix("Call Akme"), "\(name): the dictionary still applies to the spoken words: \(out.prefix(12))")
+            check(!local.inputs.contains { $0.contains("SENTINEL") }, "\(name): the cleaner never saw the snippet")
+            let async = await p.processAsync("insert my profile here", style: style)
+            check(async.outcome == .insert(text), "\(name): async whole command")
+        }
+        local.inputs = []; local.calls = 0
+        _ = p.process("Reach me at insert my profile here", style: DictationStyle(options: .standard))
+        check(local.inputs == ["Reach me at"], "only the spoken words reach the local cleaner: \(local.inputs)")
+
+        // Cloud Polish: the provider sees only the spoken segments.
+        settings.route = .cloud; settings.options = .standard; settings.options.polish = true
+        try p.update(settings, persist: false)
+        let provider = MockCloudCleaner(.success("Call Akme."))
+        p.cloudCleaner = provider
+        let polish = DictationStyle(options: settings.options)
+        let whole = await p.processAsync("my profile", style: polish)
+        check(whole.outcome == .insert(text) && provider.messages.isEmpty && whole.cleanupPath == .off, "Polish: a whole cue makes no provider request")
+        let inline = await p.processAsync("call acme insert my profile here", style: polish)
+        check(inline.outcome == .insert("Call Akme " + text) && provider.messages.count == 1, "Polish: one request for the spoken words, no period before the expansion")
+        check(provider.messages.allSatisfy { !$0.system.contains("SENTINEL") && !$0.user.contains("SENTINEL") && !$0.user.contains("Monday") }, "Polish: the provider never receives snippet text")
+        check(inline.cleanupPath == .modelAccepted && inline.snippets == 1, "Polish: path of the spoken words, one snippet counted")
+        let two = await p.processAsync("call acme insert my profile here and again insert my profile here", style: polish)
+        check(provider.messages.count == 3 && two.snippets == 2, "Polish: each stretch of words is its own request")
+        // A rejected rewrite of the spoken words falls back locally; the expansion is untouched.
+        let wrong = MockCloudCleaner(.success("Entirely different words appear now."))
+        p.cloudCleaner = wrong
+        let rejected = await p.processAsync("call acme insert my profile here", style: polish)
+        check(rejected.outcome == .insert("Call Akme " + text) && rejected.fallback != nil, "Polish: the guard judges only the spoken words: \(rejected.outcome) \(String(describing: rejected.fallback))")
+        check(wrong.messages.allSatisfy { !$0.user.contains("SENTINEL") }, "Polish: rejected path sent no snippet text")
+        let failing = MockCloudCleaner(.failure(.network(.gemini)))
+        p.cloudCleaner = failing
+        let failed = await p.processAsync("call acme insert my profile here", style: polish)
+        check(failed.outcome == .insert("call Akme " + text) && failed.providerError != nil, "Polish: a provider error leaves the expansion untouched")
+
+        // A writing mode: a preset rewrite is applied to each stretch of spoken words, never to the expansion.
+        let email = WritingMode.presets.first { $0.transform == .email } ?? WritingMode.presets[0]
+        let rewrite = MockCloudCleaner(.success("Hi,\n\nCall Akme."))
+        p.cloudCleaner = rewrite
+        let mode = DictationStyle(mode: email, settings: settings)
+        let moded = await p.processAsync("call acme insert my profile here", style: mode)
+        guard case .insert(let modeOut) = moded.outcome else { check(false, "mode: inserted"); return }
+        check(modeOut.contains(text) && rewrite.messages.allSatisfy { !$0.user.contains("SENTINEL") && !$0.system.contains("SENTINEL") }, "writing mode: expansion verbatim and never sent")
+        let modeWhole = await p.processAsync("my profile", style: mode)
+        check(modeWhole.outcome == .insert(text) && rewrite.messages.count == 1, "writing mode: a whole cue makes no request")
     }
 }

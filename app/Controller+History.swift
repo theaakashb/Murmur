@@ -7,7 +7,7 @@ extension AppController {
         catch { message = "Could not read saved history." }
         // Once per change, not per render: Settings re-renders with every voice-level tick.
         insights = Insights.compute(history.filter { !sessionOnlyIDs.contains($0.id) }.map {
-            InsightsItem(recordedAt: $0.recordedAt, rawText: $0.rawText, finalText: $0.finalText, seconds: $0.seconds, app: $0.app)
+            InsightsItem(recordedAt: $0.recordedAt, rawText: $0.rawText, finalText: $0.finalText, seconds: $0.seconds, app: $0.app, expanded: $0.snippets != nil)
         }, historyOn: appliedHistoryMode == .on, now: Date(), calendar: .current)
     }
     func copyEntry(_ entry: HistoryEntry) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(entry.finalText, forType: .string) }
@@ -40,7 +40,7 @@ extension AppController {
         do { try records?.update(edited) } catch { message = "Could not save this transcript."; return false }
         if lastDictationText == entry.finalText { lastDictationText = text }
         refreshHistory()
-        if let processing {
+        if let processing, entry.snippets == nil {
             let learned = (try? processing.ledger.learnFromEdit(original: entry.finalText, edited: text)) ?? []
             refreshDictionary()
             if let learned = learned.last { announceLearned(learned) }
@@ -132,7 +132,7 @@ extension AppController {
                 do { processing = try ProcessingCoordinator.inApp(directory: locations.dictionary); dictionaryMessage = "" }
                 catch { dictionaryMessage = "The dictionary could not be read. Dictations are held in History until it is repaired."; throw error }
             case .refreshViews:
-                refreshHistory(); refreshRecoveryAudio(); refreshDictionary(); refreshKeys()
+                refreshHistory(); refreshRecoveryAudio(); refreshDictionary(); refreshSnippets(); refreshKeys()
             }
         }
         let outcome = PostWipeStep.message(report: report, failedSteps: failed)

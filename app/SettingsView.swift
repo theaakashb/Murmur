@@ -94,6 +94,12 @@ struct SettingsView: View {
     @State var editingEntryID: UUID?
     @State var suggestionSpellings: [String: String] = [:]
     @State var editPreferred = ""
+    /// The Snippets page's add draft, and the snippet being edited with its draft.
+    @State var newCue = ""
+    @State var newSnippetText = ""
+    @State var editingSnippetID: UUID?
+    @State var editSnippetCue = ""
+    @State var editSnippetText = ""
     @State var editVariants = ""
     @State var openKey: ProviderID?
     @State var keyDraft = ""
@@ -515,6 +521,7 @@ struct SettingsView: View {
         case .cleanup: cleanup
         case .modes: modes
         case .dictionary: dictionary
+        case .snippets: snippetsPane
         case .privacy: privacy
         case .apiKeys: apiKeys
         case .recording: recordingSettings

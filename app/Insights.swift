@@ -12,6 +12,8 @@ struct InsightsItem: Equatable {
     let seconds: Double?
     /// Bundle ID of the app the text was pasted into; nil when unknown or not pasted.
     let app: String?
+    /// A voice snippet was expanded into the final text, which is not an edit of what was said.
+    var expanded = false
 }
 
 enum Insights: Equatable {
@@ -71,7 +73,7 @@ enum Insights: Equatable {
             stats.words += count
             stats.dailyWords[calendar.startOfDay(for: item.recordedAt), default: 0] += count
             stats.hourlyDictations[calendar.component(.hour, from: item.recordedAt)] += 1
-            stats.wordsChanged += wordsChanged(raw: item.rawText, final: final)
+            if !item.expanded { stats.wordsChanged += wordsChanged(raw: item.rawText, final: final) }
             if let length = item.seconds, length.isFinite, length > 0 {
                 stats.timedDictations += 1
                 spoken += standardWords(item.rawText); seconds += length

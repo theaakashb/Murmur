@@ -179,6 +179,7 @@ func checkWipe() throws {
     let bad = PostWipeStep.message(report: partial, failedSteps: [.recreateHistory])
     check(!bad.succeeded && bad.text.contains("Keychain") && bad.text.contains("history"), "failure message lists problems")
     check(DeleteAllDataText.body.contains("Keychain") && DeleteAllDataText.body.contains("cannot be undone") && DeleteAllDataText.body.contains("Backups"), "wipe confirmation is explicit")
+    check(DeleteAllDataText.body.contains("snippets") && DeleteAllDataText.explanation.contains("snippets"), "wipe confirmation names snippets")
 
     // End to end with the real DataWipe on a temporary tree, then the reload plan recreates empty directories.
     let base = FileManager.default.temporaryDirectory.appendingPathComponent("murmur-wipe-" + UUID().uuidString)
@@ -188,9 +189,11 @@ func checkWipe() throws {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try Data("x".utf8).write(to: dir.appendingPathComponent("f.json"))
     }
+    try Data("x".utf8).write(to: locations.dictionary.appendingPathComponent("snippets.json"))
     var keychainCalls = 0
     let report = DataWipe.deleteAllData(locations) { keychainCalls += 1; return ["openrouter"] }
     check(report.succeeded && keychainCalls == 1, "wipe succeeds and removes Keychain items once")
+    check(!FileManager.default.fileExists(atPath: locations.dictionary.appendingPathComponent("snippets.json").path), "wipe removes snippets.json with the dictionary folder")
     let fake = FakeDisk()
     var router: HistoryRouter<Item>? = HistoryRouter(disk: fake.disk, persists: false)
     try router?.save(item(1))
@@ -283,9 +286,10 @@ func checkWelcomeGuide() {
 func checkSettingsSearch() {
     check(SettingsPane.groups.count == 7, "settings has seven top-level destinations")
     check(Set(SettingsPane.groups.map(\.group)).count == 7 && SettingsPane.groups.allSatisfy { $0.group == $0 }, "destinations select distinct sidebar groups")
-    check(SettingsPane.allCases.map(\.rawValue) == Array(0...10) && SettingsPane.allCases.allSatisfy { SettingsPane.groups.contains($0.group) }, "stored pane numbers are stable and every pane has a sidebar group")
+    check(SettingsPane.allCases.map(\.rawValue) == Array(0...11) && SettingsPane.allCases.allSatisfy { SettingsPane.groups.contains($0.group) }, "stored pane numbers are stable and every pane has a sidebar group")
     check(SettingsPane.transcription.tabs == [.recording, .transcription, .insertion], "dictation tabs preserve legacy transcription destination")
-    check(SettingsPane.dictionary.tabs == [.cleanup, .modes, .dictionary], "writing tabs preserve cleanup, modes and dictionary destinations")
+    check(SettingsPane.dictionary.tabs == [.cleanup, .modes, .dictionary, .snippets] && SettingsPane.snippets.rawValue == 11, "writing tabs keep their order and Snippets is appended")
+    check(SettingsSearch.matches("signature").first?.section == .snippets, "snippet search opens Snippets")
     check(SettingsSearch.matches("hotkey").first?.section == .recording, "shortcut search opens Recording")
     check(SettingsSearch.matches("automatic paste").first?.section == .insertion, "insertion search opens Insertion")
     check(SettingsSearch.matches("  \n").isEmpty, "empty search has no results")

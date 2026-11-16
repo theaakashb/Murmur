@@ -42,6 +42,8 @@ struct HistoryEntry: Codable, Identifiable {
     var cleanupOutcome: CleanupPath? = nil
     /// True once the user edits `finalText` in History.
     var edited: Bool? = nil
+    /// How many voice snippets were expanded into `finalText`; never which ones. Nil when none, and before snippets existed.
+    var snippets: Int? = nil
     // Diagnostics (October 22, 2026): what a developer needs to see why a dictation came out as it did.
     // Dictation text lives only here, with the entry's permissions and retention, never in the unified log. Nil before then.
     var transcription: TranscriptionDetail? = nil

@@ -6,7 +6,7 @@ set -u
 . "$(dirname "$0")/sources.sh"
 text="CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention"
 providers="AudioFormat CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials"
-cloud="AudioFormat $text Cleanup Settings CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials Processing WritingModes"
+cloud="AudioFormat $text Cleanup Settings CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials Snippets Processing WritingModes"
 meetings="AudioFormat Retention CleanupText CallApps Meetings MeetingStore MeetingExport MeetingNotes MeetingSpeakers"
 models="Digests ModelManifest ModelDownload"
 deps() {
@@ -20,6 +20,7 @@ deps() {
     delivery) echo "Delivery" ;;
     diagnostics) echo "Diagnostics" ;;
     dictionary) echo "$text" ;;
+    snippets) echo "CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Snippets" ;;
     processing) echo "$cloud Observation" ;;
     modes) echo "$cloud" ;;
     apple_cleanup) echo "$cloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
@@ -36,7 +37,7 @@ deps() {
     *) return 1 ;;
   esac
 }
-swift_checks="launch history controller meeting_start recording speaker_flow delivery diagnostics dictionary processing modes apple_cleanup routes local_cleanup providers insights meetings speakers call_detection model_download app_services boost_filter cleanup"
+swift_checks="launch history controller meeting_start recording speaker_flow delivery diagnostics dictionary snippets processing modes apple_cleanup routes local_cleanup providers insights meetings speakers call_detection model_download app_services boost_filter cleanup"
 script_checks="http update_config"
 if [ "${1:-}" = "--list" ]; then echo $swift_checks $script_checks; exit 0; fi
 out="${TMPDIR:-/tmp}/murmur-checks"; mkdir -p "$out"; cd "$project_root" || exit 1
