@@ -2,7 +2,7 @@
 
 Murmur is pre-release software with access to microphone audio, meeting audio, focused fields, and local transcript history. Review the requested macOS permissions before enabling capture or correction learning.
 
-Please report suspected vulnerabilities privately through GitHub's **Report a vulnerability** control when available. If it is unavailable, contact the repository owner through an existing private channel to arrange disclosure. Do not put credentials, recordings, transcripts, or reproduction data from real users into public issues. No private reporting channel is guaranteed to be configured yet.
+Please report suspected vulnerabilities privately through GitHub's **Report a vulnerability** control when available. If it is unavailable, contact the repository owner through an existing private channel to arrange disclosure. Do not put credentials, recordings, transcripts, or reproduction data from real users into public issues. Help → Report an Issue prefills an issue with content-free diagnostics only; vulnerabilities still go through the private route above. No private reporting channel is guaranteed to be configured yet.
 
 ## Local checks
 

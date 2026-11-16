@@ -5,6 +5,8 @@ import Combine
 
 /// Keeps the fixture's live meeting panel alive.
 @MainActor var fixtureMeetingPanel: MeetingPanelPresenter?
+/// Keeps the fixture's Report an Issue window alive.
+@MainActor let fixtureReportIssue = ReportIssuePresenter()
 
 @MainActor final class FixtureDelegate: NSObject, NSApplicationDelegate {
     var controller: AppController?
@@ -217,6 +219,17 @@ import Combine
                     MainActor.assumeIsolated { controller.bubble.showLearned("Aakash", entryID: UUID(), screen: nil) }
                 }
             }
+            // --report-issue opens the Report an Issue window with synthetic values; quit it from the menu, since --snapshot does not close it.
+            if args.contains("--report-issue") {
+                let synthetic = Diagnostics(
+                    appVersion: "0.3.0", build: "12", macOS: "Version 26.1 (Build 25B1)", macModel: "Mac15,6", microphone: "authorized",
+                    accessibilityAllowed: true, inputMonitoringAllowed: false, transcription: .thisMac(model: "FluidInference/parakeet-unified-en-0.6b-coreml"),
+                    cleanup: .service(name: "Local model (this Mac)", model: "heyvedu/vedu-scribe-0.8b@7dced58"), cleanupStyle: "Polish", historyOn: true, retention: "30 days",
+                    models: [("Parakeet Unified English 0.6B", true), ("Local cleanup", false)],
+                    lastResult: .init(insertionStatus: "verified", cleanupFailure: "lengthRatio", cleanupPath: "modelAccepted", totalSeconds: 2.3))
+                print("Report text:\n\(synthetic.text)\nReport URL length: \(IssueReport.url(body: synthetic.text).absoluteString.count)")
+                fixtureReportIssue.show(synthetic)
+            }
             // Meeting notes (PRD 11.9): --meetings shows the page, --meeting-live the live panel, --consent the sheet.
             // The fixture's defaults persist: set the panel's minimized state every time (--collapsed).
             UserDefaults.standard.set(args.contains("--collapsed"), forKey: MeetingPanelPresenter.collapsedKey)
@@ -276,7 +289,7 @@ import Combine
             // --snapshot PATH renders the window offscreen to a PNG and quits; works with the screen locked.
             if let flag = args.firstIndex(of: "--snapshot"), args.indices.contains(flag + 1) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    if let view = args.contains("--meeting-live") ? fixtureMeetingPanel?.view : window.contentView, let image = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    if let view = args.contains("--report-issue") ? fixtureReportIssue.window?.contentView : args.contains("--meeting-live") ? fixtureMeetingPanel?.view : window.contentView, let image = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                         view.cacheDisplay(in: view.bounds, to: image)
                         try? image.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[flag + 1]))
                     }

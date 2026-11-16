@@ -11,6 +11,7 @@ import SwiftUI
     }
     var window: NSWindow?
     var statusItem: NSStatusItem?
+    let reportIssue = ReportIssuePresenter()
     lazy var meetingPanel = MeetingPanelPresenter(recorder: controller.meetingRecorder)
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(controller.showInDock ? .regular : .accessory)
@@ -71,6 +72,7 @@ import SwiftUI
         NSApp.windowsMenu = window
         let help = NSMenu(title: "Help")
         add(help, "Welcome Guide…", #selector(openGuide), target: self)
+        add(help, "Report an Issue…", #selector(openReportIssue), target: self)
         let helpItem = NSMenuItem(title: "Help", action: nil, keyEquivalent: ""); helpItem.submenu = help; mainMenu.addItem(helpItem)
         NSApp.helpMenu = help
         return mainMenu
@@ -125,6 +127,7 @@ import SwiftUI
             start.submenu = sources; menu.addItem(start)
         }
         menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Report an Issue…", action: #selector(openReportIssue), keyEquivalent: "").target = self
         if controller.phase == .listening {
             menu.addItem(withTitle: "Finish Dictation", action: #selector(finish), keyEquivalent: "").target = self
             menu.addItem(withTitle: "Cancel Recording", action: #selector(cancel), keyEquivalent: "").target = self
@@ -142,6 +145,7 @@ import SwiftUI
     }
     @objc func openHistory() { controller.screenRequest = .history; showWindow() }
     /// Replays the welcome guide from its first step (gap #21).
+    @objc func openReportIssue() { reportIssue.show(controller.diagnostics()) }
     @objc func openGuide() { controller.screenRequest = .guide; showWindow() }
     /// Keep configuration/recording errors visible even when Sparkle cannot open its dialog.
     @objc func checkForUpdates() { showWindow(); controller.checkForUpdates() }

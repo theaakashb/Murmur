@@ -18,6 +18,7 @@ deps() {
     recording) echo "AudioFormat Shortcut Capture Session" ;;
     speaker_flow) echo "Capture CleanupTypes History ModelFiles ModelText ModelFlow $models $meetings MeetingCapture MeetingRecorder SpeakerModelSettings" ;;
     delivery) echo "Delivery" ;;
+    diagnostics) echo "Diagnostics" ;;
     dictionary) echo "$text" ;;
     processing) echo "$cloud Observation" ;;
     modes) echo "$cloud" ;;
@@ -35,7 +36,7 @@ deps() {
     *) return 1 ;;
   esac
 }
-swift_checks="launch history controller meeting_start recording speaker_flow delivery dictionary processing modes apple_cleanup routes local_cleanup providers insights meetings speakers call_detection model_download app_services boost_filter cleanup"
+swift_checks="launch history controller meeting_start recording speaker_flow delivery diagnostics dictionary processing modes apple_cleanup routes local_cleanup providers insights meetings speakers call_detection model_download app_services boost_filter cleanup"
 script_checks="http update_config"
 if [ "${1:-}" = "--list" ]; then echo $swift_checks $script_checks; exit 0; fi
 out="${TMPDIR:-/tmp}/murmur-checks"; mkdir -p "$out"; cd "$project_root" || exit 1

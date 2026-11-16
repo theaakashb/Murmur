@@ -6,10 +6,10 @@ See the [main README](../README.md) for requirements, setup, privacy and data re
 
 One file per concern; the app is every `app/*.swift` except `main.swift` and `check_*.swift`.
 
-- **Dictation flow:** `Controller.swift` holds app state and the record → transcribe → deliver flow; `Controller+*.swift` hold one feature each (models, learning, meetings, keys, history, dictionary, recovery). `Shortcut.swift`, `Capture.swift`, `AudioFormat.swift` (shared sample rate and silence level), `Session.swift`, `Insertion.swift`, `Observation.swift` and `ScreenReading.swift` are the shortcut, microphone, capture session, paste, correction watch and screen-context layers. `ModelHelper.swift` runs the ModelBench transcription helper process.
+- **Dictation flow:** `Controller.swift` holds app state and the record → transcribe → deliver flow; `Controller+*.swift` hold one feature each (models, learning, meetings, keys, history, dictionary, recovery, report). `Shortcut.swift`, `Capture.swift`, `AudioFormat.swift` (shared sample rate and silence level), `Session.swift`, `Insertion.swift`, `Observation.swift` and `ScreenReading.swift` are the shortcut, microphone, capture session, paste, correction watch and screen-context layers. `ModelHelper.swift` runs the ModelBench transcription helper process.
 - **Text:** `Processing.swift` (settings and coordinator), `WritingModes.swift`, `Cleanup.swift` (pipeline), `CleanupTypes.swift`, `CleanupText.swift`, `CleanupGuard.swift`, `CleanupPrompt.swift`, `RuleCleaner.swift`, `Dictionary.swift`, `Learning.swift` and `PrivateFiles.swift`. [Vocabulary routing](VOCABULARY.md) describes the transcription safeguards.
 - **Cloud:** `ProviderTypes.swift`, `ProviderHTTP.swift`, `OpenAICompatible.swift`, `Gemini.swift`, `AppleCleanup.swift`, `LocalCleanup.swift` (managed local cleanup model and its helper client), `LocalCleanupFacts.swift`, `Credentials.swift`, `Routes.swift`, `CloudAudio.swift` and `KeyCheck.swift`. See [provider integration](PROVIDERS.md).
-- **Storage:** `History.swift`, `HistoryRouter.swift`, `Retention.swift` (retention, caps, data removal), `Delivery.swift` and `Insights.swift`.
+- **Storage:** `History.swift`, `HistoryRouter.swift`, `Retention.swift` (retention, caps, data removal), `Delivery.swift` and `Insights.swift`. `Diagnostics.swift` (Foundation only) holds the content-free facts and prefilled GitHub URL of Help → Report an Issue; `ReportIssueView.swift` is its window.
 - **Models and updates:** `ModelManifest.swift`, `Digests.swift`, `ModelDownload.swift`, `ModelFiles.swift` (verification, and where the bundled pins and helper live), `ModelText.swift` (one `ModelFacts` descriptor per downloadable model, plus its row state) and `ModelFlow.swift` (the shared download, cancel and remove flow) verify, install and describe pinned model artifacts. `AppUpdater.swift` integrates Sparkle updates; [update packaging](UPDATES.md) covers release configuration and signing.
 - **Meetings:** `Meetings.swift`, `MeetingStore.swift`, `MeetingExport.swift`, `MeetingRecorder.swift`, `MeetingCapture.swift`, `MeetingNotes.swift`, `MeetingSpeakers.swift`, `SpeakerModelSettings.swift`, `CallApps.swift` and `CallDetection.swift`.
 - **Interface:** `DesignSystem.swift`, `SettingsView.swift`, `SettingsPaneViews.swift`, `SettingsPanes.swift`, `HomeView.swift`, `HistoryView.swift`, `WelcomeGuide.swift`, `WelcomeGuideView.swift`, `Bubble.swift`, `MeetingsUI.swift` and `CallOfferUI.swift`.
@@ -86,9 +86,12 @@ app/check_ui.sh --meetings --meeting-notes --outdated --tall
 app/check_ui.sh --meetings --transcript --compact --light
 app/check_ui.sh --meetings --notes-choice
 app/check_ui.sh --meeting-settings --tall
+app/check_ui.sh --report-issue --light
 ```
 
 `--meetings` seeds two synthetic meetings (one with hidden echo, one with leftover parts) and opens Meetings. `--meeting-live` also shows the live panel with a synthetic recording; with `--snapshot` it renders the panel, whose glass draws transparent offscreen. `--call-offer` shows Zoom's detection offer and `--call-offer-browser` Arc's; `--never` seeds the Never list shown with `--meeting-settings`. `--consent` opens the one-time consent sheet; quit it from the menu, since `--snapshot` does not close a sheet. `--meeting-notes` gives the first meeting synthetic notes and opens its Notes tab; `--outdated` marks them out of date. `--transcript` opens the Transcript tab instead. `--notes-choice` opens the first-Stop notes route question; like `--consent`, quit it from the menu. `--meeting-settings` opens Settings → Meetings with the meeting transcription and notes routes.
+
+`--report-issue` opens the Report an Issue window with synthetic values; quit it from the menu, since `--snapshot` renders only that window.
 
 `--section 3 --mode-editor` seeds the three presets and opens the Prompt Mode instruction editor.
 
