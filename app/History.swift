@@ -260,3 +260,51 @@ struct HistoryStore {
         }
     }
 }
+
+/// History's wording for an entry, kept beside the status type so Foundation-only checks cover it.
+extension HistoryEntry {
+    var needsAttention: Bool { [.insertionPending, .failed, .heldCleanup, .heldTranscript].contains(status) }
+
+    /// The entry History opens expanded: the last dictation's, while it still needs attention.
+    static func recoveryEntryToOpen(_ id: String?, in history: [HistoryEntry]) -> String? {
+        history.first { $0.id == id && $0.needsAttention }?.id
+    }
+
+    var statusLabel: String? {
+        switch status {
+        case .verified, .unverified: return nil
+        case .insertionPending: return "Saved"
+        case .failed: return "Not inserted"
+        case .copied: return "Copied"
+        case .heldCleanup: return "Cleanup held"
+        case .heldTranscript: return "Held for review"
+        default: return "Saved"
+        }
+    }
+
+    var statusNote: String? {
+        switch status {
+        case .insertionPending: return "Murmur stopped before saving the delivery result. Check the destination before copying this text to avoid a duplicate."
+        case .failed: return "Murmur could not paste this text. It is saved here so you can copy it."
+        case .heldCleanup: return "Cleanup changed too much, so only the raw transcript was saved and nothing was inserted."
+        case .heldTranscript: return "The transcript was held for review, so nothing was inserted."
+        default: return nil
+        }
+    }
+
+    /// Which path wrote the final text, in one line; nil for entries saved before it was recorded.
+    var outcomeNote: String? {
+        guard let outcome = cleanupOutcome else { return nil }
+        let kind = cleanupOptions?.professional == true ? "Professional rewrite" : cleanupOptions?.polish == true ? "Polish" : "AI cleanup"
+        let failed = cleanupFallback == nil || cleanupFallback == CleanupFailureReason.cleanerFailed.rawValue
+        let why = failed ? "" : " (" + (cleanupFallback ?? "").map { $0.isUppercase ? " " + $0.lowercased() : String($0) }.joined() + ")"
+        let edited = self.edited == true ? " Edited since." : ""
+        switch outcome {
+        case .off: return "Cleanup off; dictionary only." + edited
+        case .modelAccepted: return "\(kind) applied." + edited
+        case .modelPunctuationOnLocal: return "\(kind) rejected\(why); AI punctuation applied to local cleanup." + edited
+        case .localRules: return "\(kind) \(failed ? "failed" : "rejected")\(why); local cleanup used." + edited
+        case .localRoute: return "Local cleanup on this Mac." + edited
+        }
+    }
+}

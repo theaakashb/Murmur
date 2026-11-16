@@ -100,8 +100,8 @@ extension SettingsView {
     }
 
     private func historyRow(_ entry: HistoryEntry) -> some View {
-        let open = selectedID == entry.id, attention = Self.needsAttention(entry.status)
-        let note = controller.sessionOnlyIDs.contains(entry.id) ? HistoryText.sessionOnlyNote : Self.statusNote(entry.status)
+        let open = selectedID == entry.id, attention = entry.needsAttention
+        let note = controller.sessionOnlyIDs.contains(entry.id) ? HistoryText.sessionOnlyNote : entry.statusNote
         return VStack(alignment: .leading, spacing: 0) {
             Button { selectedID = open ? nil : entry.id } label: {
                 HStack(alignment: .top, spacing: 16) {
@@ -112,7 +112,7 @@ extension SettingsView {
                         .font(.system(size: 13, design: .monospaced)).foregroundStyle(Palette.ink70).lineLimit(1).fixedSize().frame(width: 72, alignment: .leading).padding(.top, 2)
                     Text((entry.finalText.isEmpty ? entry.rawText : entry.finalText).replacingOccurrences(of: "\n", with: " "))
                         .font(WindowType.body(16)).lineSpacing(2).lineLimit(open ? 1 : 2).frame(maxWidth: .infinity, alignment: .leading)
-                    if let label = Self.statusLabel(entry.status) {
+                    if let label = entry.statusLabel {
                         mono(label, size: 11, color: attention ? Palette.paper : Palette.accentInk)
                             .lineLimit(1).fixedSize().padding(.horizontal, 8).padding(.vertical, 3)
                             .background(attention ? Palette.ink : Palette.accent16)
@@ -148,7 +148,7 @@ extension SettingsView {
                         Text(entry.finalText.isEmpty ? "No final text saved." : entry.finalText).font(WindowType.body(16)).lineSpacing(3)
                             .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
                     }
-                    if let line = Self.outcomeNote(entry) {
+                    if let line = entry.outcomeNote {
                         Text(line).font(WindowType.body(13)).foregroundStyle(Palette.ink64).padding(.top, 6)
                     }
                     if entry.rawText != entry.finalText {
@@ -188,52 +188,5 @@ extension SettingsView {
     private func flashCopied(_ id: String) {
         copiedID = id
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { if copiedID == id { copiedID = nil } }
-    }
-
-    static func needsAttention(_ status: InsertionStatus?) -> Bool {
-        [.insertionPending, .failed, .heldCleanup, .heldTranscript].contains(status)
-    }
-
-    /// The entry History opens expanded: the last dictation's, while it still needs attention.
-    static func recoveryEntryToOpen(_ id: String?, in history: [HistoryEntry]) -> String? {
-        history.first { $0.id == id && needsAttention($0.status) }?.id
-    }
-
-    static func statusLabel(_ status: InsertionStatus?) -> String? {
-        switch status {
-        case .verified, .unverified: return nil
-        case .insertionPending: return "Saved"
-        case .failed: return "Not inserted"
-        case .copied: return "Copied"
-        case .heldCleanup: return "Cleanup held"
-        case .heldTranscript: return "Held for review"
-        default: return "Saved"
-        }
-    }
-
-    static func statusNote(_ status: InsertionStatus?) -> String? {
-        switch status {
-        case .insertionPending: return "Murmur stopped before saving the delivery result. Check the destination before copying this text to avoid a duplicate."
-        case .failed: return "Murmur could not paste this text. It is saved here so you can copy it."
-        case .heldCleanup: return "Cleanup changed too much, so only the raw transcript was saved and nothing was inserted."
-        case .heldTranscript: return "The transcript was held for review, so nothing was inserted."
-        default: return nil
-        }
-    }
-
-    /// Which path wrote the final text, in one line; nil for entries saved before it was recorded.
-    static func outcomeNote(_ entry: HistoryEntry) -> String? {
-        guard let outcome = entry.cleanupOutcome else { return nil }
-        let kind = entry.cleanupOptions?.professional == true ? "Professional rewrite" : entry.cleanupOptions?.polish == true ? "Polish" : "AI cleanup"
-        let failed = entry.cleanupFallback == nil || entry.cleanupFallback == CleanupFailureReason.cleanerFailed.rawValue
-        let why = failed ? "" : " (" + (entry.cleanupFallback ?? "").map { $0.isUppercase ? " " + $0.lowercased() : String($0) }.joined() + ")"
-        let edited = entry.edited == true ? " Edited since." : ""
-        switch outcome {
-        case .off: return "Cleanup off; dictionary only." + edited
-        case .modelAccepted: return "\(kind) applied." + edited
-        case .modelPunctuationOnLocal: return "\(kind) rejected\(why); AI punctuation applied to local cleanup." + edited
-        case .localRules: return "\(kind) \(failed ? "failed" : "rejected")\(why); local cleanup used." + edited
-        case .localRoute: return "Local cleanup on this Mac." + edited
-        }
     }
 }

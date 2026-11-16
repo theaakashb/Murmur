@@ -19,6 +19,22 @@ import Darwin
         let older = #"{"id":"\#(UUID().uuidString)","recordedAt":0,"rawText":"a","finalText":"a","insertionStatus":"unverified"}"#
         let olderEntry = try JSONDecoder().decode(HistoryEntry.self, from: Data(older.utf8))
         precondition(olderEntry.cleanupFallback == nil, "older history decodes without a fallback reason")
+        // History's wording for each status, and which entry it opens on.
+        func with(_ status: InsertionStatus) -> HistoryEntry { entry.with(finalText: "ok", status: status) }
+        precondition([.verified, .unverified].allSatisfy { with($0).statusLabel == nil && with($0).statusNote == nil && !with($0).needsAttention }, "delivered text carries no label or note")
+        precondition(with(.failed).needsAttention && with(.failed).statusLabel == "Not inserted")
+        precondition(with(.insertionPending).needsAttention && with(.insertionPending).statusLabel == "Saved")
+        precondition(with(.insertionPending).statusNote?.contains("avoid a duplicate") == true)
+        precondition(!entry.needsAttention && entry.statusLabel == "Saved" && with(.copied).statusLabel == "Copied")
+        var unknown = entry; unknown.insertionStatus = "from-a-newer-version"
+        precondition(unknown.statusLabel == "Saved" && unknown.statusNote == nil && !unknown.needsAttention, "a status this version does not know reads as saved")
+        precondition(HistoryEntry.recoveryEntryToOpen(entry.id, in: [with(.failed)]) == entry.id, "History opens on the entry that still needs attention")
+        precondition(HistoryEntry.recoveryEntryToOpen(entry.id, in: [with(.verified)]) == nil && HistoryEntry.recoveryEntryToOpen(nil, in: [with(.failed)]) == nil && HistoryEntry.recoveryEntryToOpen(entry.id, in: []) == nil, "no entry opens once delivered, without a recovery entry or when it is gone")
+        precondition(fellBack.outcomeNote == nil, "no outcome line before the outcome was recorded")
+        var noted = fellBack; noted.cleanupOutcome = .localRules; noted.cleanupOptions = CleanupOptions(polish: true); noted.edited = true
+        precondition(noted.outcomeNote == "Polish rejected (unexplained deletion); local cleanup used. Edited since.", "the outcome line names the cleanup, the reason and the edit")
+        noted.cleanupFallback = CleanupFailureReason.cleanerFailed.rawValue; noted.edited = nil
+        precondition(noted.outcomeNote == "Polish failed; local cleanup used.")
         // Provenance round-trips, older files decode without it, and new text keeps it.
         var traced = fellBack
         traced.cleanupOptions = CleanupOptions(professional: true); traced.writingModeID = UUID().uuidString; traced.writingModeName = "Email"

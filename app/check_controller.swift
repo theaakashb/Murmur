@@ -166,8 +166,8 @@ import AVFoundation
             precondition(controller.pasteFailure == nil, "a posted paste shows no card")
             precondition(controller.phase == .ready && !controller.hasStatusToShow, "posted pastes finish quietly regardless of read-back")
             precondition(controller.lastDictationText == entry.finalText, "paste-last remains available after delivery")
-            precondition(SettingsView.statusLabel(InsertionStatus(status)) == nil && SettingsView.statusNote(InsertionStatus(status)) == nil)
-            precondition(!SettingsView.needsAttention(InsertionStatus(status)), "unreadable fields do not trigger the attention filter")
+            let posted = entry.with(finalText: entry.finalText, status: InsertionStatus(status))
+            precondition(posted.statusLabel == nil && posted.statusNote == nil && !posted.needsAttention, "unreadable fields do not trigger the attention filter")
         }
         controller.showInsertionResult(InsertionResult(status: .failed, detail: "synthetic", snapshot: nil), entryID: entry.id, text: entry.finalText)
         precondition(controller.phase == .error && controller.message.contains("⌃⌘V") && controller.lastDictationText == entry.finalText)
@@ -182,12 +182,6 @@ import AVFoundation
         precondition(controller.phase == .error && controller.pasteFailure?.text == entry.finalText && controller.message.contains("nothing was pasted"), "text that could not be saved first: not pasted, with the card")
         controller.showInsertionResult(InsertionResult(status: .unverified, detail: "clipboard paste into an unreadable field", snapshot: nil), entryID: entry.id, text: entry.finalText)
         precondition(controller.pasteFailure == nil && controller.phase == .ready, "an unconfirmed paste (Electron, no readable field) stays quiet")
-        let failed = entry.with(finalText: "ok", status: .failed), delivered = entry.with(finalText: "ok", status: .verified)
-        precondition(SettingsView.recoveryEntryToOpen(entry.id, in: [failed]) == entry.id, "History opens on the entry that still needs attention")
-        precondition(SettingsView.recoveryEntryToOpen(entry.id, in: [delivered]) == nil && SettingsView.recoveryEntryToOpen(nil, in: [failed]) == nil && SettingsView.recoveryEntryToOpen(entry.id, in: []) == nil, "no entry opens once delivered, without a recovery entry or when it is gone")
-        precondition(SettingsView.needsAttention(.failed) && SettingsView.statusLabel(.failed) == "Not inserted")
-        precondition(SettingsView.needsAttention(.insertionPending) && SettingsView.statusLabel(.insertionPending) == "Saved")
-        precondition(SettingsView.statusNote(.insertionPending)?.contains("avoid a duplicate") == true)
         controller.setupTestTranscript = entry.finalText
         controller.deleteEntry(entry)
         precondition(controller.lastDictationText == entry.finalText && controller.recoveryEntryID == entry.id, "failed deletion preserves recovery")

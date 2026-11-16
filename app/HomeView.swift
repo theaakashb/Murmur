@@ -83,7 +83,7 @@ extension SettingsView {
                                 .font(.system(size: 13, design: .monospaced)).foregroundStyle(Palette.ink70).lineLimit(1).frame(width: 120, alignment: .leading)
                             Text((entry.finalText.isEmpty ? entry.rawText : entry.finalText).replacingOccurrences(of: "\n", with: " "))
                                 .font(WindowType.body(15)).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                            if let label = Self.statusLabel(entry.status) { mono(label, size: 11, color: Palette.accentInk) }
+                            if let label = entry.statusLabel { mono(label, size: 11, color: Palette.accentInk) }
                         }
                         .padding(.vertical, 12).contentShape(Rectangle())
                     }

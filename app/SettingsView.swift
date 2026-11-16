@@ -182,7 +182,7 @@ struct SettingsView: View {
         case .settingsPane(let pane): settingsTarget = "top"; section = pane; screen = .settings
         case .history:
             screen = .history
-            if let id = Self.recoveryEntryToOpen(controller.recoveryEntryID, in: controller.history) { searchText = ""; selectedID = id; scrollTarget = id }
+            if let id = HistoryEntry.recoveryEntryToOpen(controller.recoveryEntryID, in: controller.history) { searchText = ""; selectedID = id; scrollTarget = id }
         case .home: screen = .home
         }
     }
