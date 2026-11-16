@@ -30,11 +30,7 @@ enum KeyCheck {
                 guard let key else { return KeyText.missing }
                 var p = GeminiCleanupProvider(apiKey: key); if let transport { p.transport = transport }
                 try await p.validate()
-            case .customAPI:
-                var p = try OpenAICompatibleCleanupProvider(baseURL: apiBaseURL, model: "validation", apiKey: key, provider: .customAPI)
-                if let transport { p.transport = transport }
-                try await p.validate()
-            case .customTranscription, .customCleanup:
+            case .customAPI, .customTranscription, .customCleanup:
                 var p = try OpenAICompatibleCleanupProvider(baseURL: apiBaseURL, model: "validation", apiKey: key, provider: .customAPI)
                 if let transport { p.transport = transport }
                 try await p.validate()

@@ -178,6 +178,7 @@ struct OpenAICompatibleTranscriptionProvider: DetailedTranscriber {
     }
 
     var endpoint: URL { URL(string: server.baseURL.absoluteString + "/v1/audio/transcriptions")! }
+    var modelID: String? { server.model }
     var disclosure: DataDisclosure {
         switch server.locality {
         case .onDevice:
@@ -204,7 +205,7 @@ struct OpenAICompatibleTranscriptionProvider: DetailedTranscriber {
         return try OpenAITranscriptionFormat.parseDetailed(provider: id, result: result, levels: audio.levels)
     }
     func validate() async throws {
-        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: 15).execute(server.makeGetRequest(server.modelsURL))
+        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: ProviderLimits.validationDeadline).execute(server.makeGetRequest(server.modelsURL))
         try validationResult(provider: id, result)
     }
 }
@@ -368,7 +369,7 @@ struct OpenAICompatibleCleanupProvider: CleanupProvider {
     var apiKey: APIKey?
     /// Clamped to 1...`maximumTimeout` when used.
     var timeout: TimeInterval = OpenAICompatibleCleanupProvider.defaultTimeout
-    var maxTokens: Int? = 8192
+    var maxTokens: Int? = ProviderLimits.maxOutputTokens
     var transport: HTTPTransport = URLSessionTransport()
 
     /// Throws `invalidConfiguration(.localServer)` for a URL `LocalEndpoint.normalize` rejects.
@@ -390,6 +391,8 @@ struct OpenAICompatibleCleanupProvider: CleanupProvider {
     var modelsURL: URL { URL(string: baseURL.absoluteString + "/v1/models")! }
     /// Ollama's native model list, used only when `/v1/models` is missing (404).
     var ollamaTagsURL: URL { URL(string: baseURL.absoluteString + "/api/tags")! }
+    var modelID: String? { model }
+    func forMeetingNotes() -> CleanupProvider { var notes = self; notes.timeout = Self.maximumTimeout; return notes }
     var effectiveTimeout: TimeInterval { min(max(timeout, 1), Self.maximumTimeout) }
 
     var disclosure: DataDisclosure {
@@ -408,7 +411,7 @@ struct OpenAICompatibleCleanupProvider: CleanupProvider {
         }
     }
 
-    static func makeRequest(messages: CleanupMessages, endpoint: URL, model: String, apiKey: APIKey?, maxTokens: Int? = 8192, provider: ProviderID = .localServer) throws -> URLRequest {
+    static func makeRequest(messages: CleanupMessages, endpoint: URL, model: String, apiKey: APIKey?, maxTokens: Int? = ProviderLimits.maxOutputTokens, provider: ProviderID = .localServer) throws -> URLRequest {
         try requireLocalModel(model, provider: provider)
         return try OpenAIChatFormat.makeRequest(endpoint: endpoint, bearer: apiKey, model: model, messages: messages, maxTokens: maxTokens)
     }
@@ -459,7 +462,7 @@ struct OpenAICompatibleCleanupProvider: CleanupProvider {
     /// Lists model ids. Tries `GET {base}/v1/models`; only if that returns 404, tries Ollama's
     /// `GET {base}/api/tags` on the same server. Sends no transcript.
     func discoverModels() async throws -> [String] {
-        let http = ProviderHTTP(provider: id, transport: transport, deadline: 15)
+        let http = ProviderHTTP(provider: id, transport: transport, deadline: ProviderLimits.validationDeadline)
         let first = try await http.execute(makeGetRequest(modelsURL))
         if first.status == 404 {
             return try Self.parseOllamaTags(try await http.execute(makeGetRequest(ollamaTagsURL)))
@@ -469,7 +472,7 @@ struct OpenAICompatibleCleanupProvider: CleanupProvider {
 
     /// Confirms a server answers `GET /v1/models` (and accepts the key, if one is set).
     func validate() async throws {
-        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: 15).execute(makeGetRequest(modelsURL))
+        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: ProviderLimits.validationDeadline).execute(makeGetRequest(modelsURL))
         try validationResult(provider: id, result)
     }
 }

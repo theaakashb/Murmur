@@ -14,24 +14,31 @@ private func requireModel(_ model: String, provider: ProviderID) throws {
           !model.contains("..") else { throw ProviderError.invalidConfiguration(provider) }
 }
 
+/// Facts about the Gemini API shared by its three providers.
+enum GeminiAPI {
+    static let host = "generativelanguage.googleapis.com"
+    static let baseURL = URL(string: "https://\(host)/v1beta")!
+    /// Documented: "Maximum request size is 20 MB total (including prompts and all files)".
+    static let requestLimitBytes = 20_000_000
+    /// Raw audio that still fits once base64-encoded (4/3) with room for the prompt.
+    static let maxInlineAudioBytes = (requestLimitBytes - 64_000) / 4 * 3
+}
+
 // MARK: - Gemini cleanup
 
 struct GeminiCleanupProvider: CleanupProvider {
-    static let defaultBaseURL = URL(string: "https://generativelanguage.googleapis.com/v1beta")!
     /// Fastest on this task (about 0.8 s round trip), but a smaller free-tier daily quota.
     static let defaultModel = "gemini-3.5-flash-lite"
     /// Used once the primary model is rate limited: same API, key, host and data, with far higher
     /// free-tier limits. The MoE variant (about 4B active parameters) is the faster Gemma 4.
     static let fallbackModel = "gemma-4-26b-a4b-it"
-    /// Documented total request size for inline data.
-    static let requestLimitBytes = 20_000_000
 
     let id = ProviderID.gemini
     let apiKey: APIKey
-    var baseURL: URL = GeminiCleanupProvider.defaultBaseURL
+    var baseURL: URL = GeminiAPI.baseURL
     var model: String = GeminiCleanupProvider.defaultModel
     var timeout: TimeInterval = 30
-    var maxOutputTokens: Int? = 8192
+    var maxOutputTokens: Int? = ProviderLimits.maxOutputTokens
     var transport: HTTPTransport = URLSessionTransport()
     /// nil disables failover (one request, as for other providers).
     var fallback: String? = GeminiCleanupProvider.fallbackModel
@@ -42,8 +49,14 @@ struct GeminiCleanupProvider: CleanupProvider {
     /// The next request goes to the slower fallback model because the primary is rate limited.
     var onFallback: Bool { fallback != nil && fallback != model && limits.isLimited(model) }
 
+    /// Read after the call: a rate limit during a dictation moves Gemini to its fallback model.
+    var modelID: String? { onFallback ? fallback : model }
+    /// On the slow Gemma fallback, long text is cleaned in parallel sections.
+    var shape: CleanupShape { onFallback ? CleanupShape(sectionTarget: CleanupSectioning.defaultTarget) : CleanupShape() }
+    func forMeetingNotes() -> CleanupProvider { var notes = self; notes.timeout = 120; return notes }
+
     var disclosure: DataDisclosure {
-        DataDisclosure(provider: id, stage: .cleanup, destinationHost: baseURL.host ?? "generativelanguage.googleapis.com",
+        DataDisclosure(provider: id, stage: .cleanup, destinationHost: baseURL.host ?? GeminiAPI.host,
                        leavesDevice: ["the transcript text", "relevant dictionary terms"],
                        staysOnDevice: ["audio", "history", "the rest of the dictionary"],
                        retentionNote: "Paid tier: Google logs prompts for a limited time for abuse detection only. Free tier: content may be used to improve Google products and read by human reviewers.")
@@ -55,7 +68,7 @@ struct GeminiCleanupProvider: CleanupProvider {
     private struct GenerationConfig: Encodable { let temperature: Double; let candidateCount: Int; let maxOutputTokens: Int?; let thinkingConfig: ThinkingConfig? }
     private struct Body: Encodable { let systemInstruction: Content; let contents: [Content]; let generationConfig: GenerationConfig }
 
-    static func makeRequest(messages: CleanupMessages, apiKey: APIKey, model: String = defaultModel, baseURL: URL = defaultBaseURL, maxOutputTokens: Int? = 8192) throws -> URLRequest {
+    static func makeRequest(messages: CleanupMessages, apiKey: APIKey, model: String = defaultModel, baseURL: URL = GeminiAPI.baseURL, maxOutputTokens: Int? = ProviderLimits.maxOutputTokens) throws -> URLRequest {
         let url = try GeminiResponse.generateContentURL(baseURL: baseURL, model: model)
         let body = Body(systemInstruction: Content(role: nil, parts: [Part(text: messages.system)]),
                         contents: [Content(role: "user", parts: [Part(text: messages.user)])],
@@ -75,7 +88,7 @@ struct GeminiCleanupProvider: CleanupProvider {
 
     static func parse(_ result: HTTPResult) throws -> String { try GeminiResponse.candidateText(result) }
 
-    static func makeValidationRequest(apiKey: APIKey, baseURL: URL = defaultBaseURL) -> URLRequest {
+    static func makeValidationRequest(apiKey: APIKey, baseURL: URL = GeminiAPI.baseURL) -> URLRequest {
         var components = URLComponents(url: baseURL.appendingPathComponent("models"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "pageSize", value: "1")]
         var request = URLRequest(url: components.url!)
@@ -98,12 +111,12 @@ struct GeminiCleanupProvider: CleanupProvider {
 
     private func cleanup(_ messages: CleanupMessages, using model: String) async throws -> String {
         let request = try Self.makeRequest(messages: messages, apiKey: apiKey, model: model, baseURL: baseURL, maxOutputTokens: maxOutputTokens)
-        guard (request.httpBody?.count ?? 0) <= Self.requestLimitBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: Self.requestLimitBytes) }
+        guard (request.httpBody?.count ?? 0) <= GeminiAPI.requestLimitBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: GeminiAPI.requestLimitBytes) }
         return try Self.parse(try await ProviderHTTP(provider: id, transport: transport, deadline: timeout).execute(request))
     }
 
     func validate() async throws {
-        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: 15).execute(Self.makeValidationRequest(apiKey: apiKey, baseURL: baseURL))
+        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: ProviderLimits.validationDeadline).execute(Self.makeValidationRequest(apiKey: apiKey, baseURL: baseURL))
         try validationResult(provider: id, result)
     }
 }
@@ -188,12 +201,9 @@ enum GeminiResponse {
 /// Google's dedicated ASR model, `gemini-3.5-transcribe`, is only documented through the Beta
 /// Interactions API; it is implemented separately as `GeminiTranscribeProvider`.
 struct GeminiTranscriptionProvider: TranscriptionProvider {
-    static let defaultBaseURL = GeminiCleanupProvider.defaultBaseURL
     static let defaultModel = "gemini-3.5-flash-lite"
-    /// Documented: "Maximum request size is 20 MB total (including prompts and all files)".
-    static let requestLimitBytes = 20_000_000
-    /// Raw audio that still fits once base64-encoded (4/3) with room for the prompt.
-    static let maxInlineAudioBytes = (requestLimitBytes - 64_000) / 4 * 3
+    /// The instruction carries at most this many characters of spelling hints.
+    static let maxHintCharacters = 1_000
     /// Documented audio MIME types for Gemini audio understanding.
     static let supportedMIMETypes: Set<String> = [
         "audio/wav", "audio/mp3", "audio/aiff", "audio/aac", "audio/ogg", "audio/flac", "audio/mpeg",
@@ -214,17 +224,19 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
 
     let id = ProviderID.gemini
     let apiKey: APIKey
-    var baseURL: URL = GeminiTranscriptionProvider.defaultBaseURL
+    var baseURL: URL = GeminiAPI.baseURL
     var model: String = GeminiTranscriptionProvider.defaultModel
     var timeout: TimeInterval = 60
-    /// Bounds runaway output (a hallucinating model); five minutes of speech is about 1,500 tokens.
-    var maxOutputTokens: Int? = 8192
+    var maxOutputTokens: Int? = ProviderLimits.maxOutputTokens
     var transport: HTTPTransport = URLSessionTransport()
 
     init(apiKey: APIKey) { self.apiKey = apiKey }
 
+    var modelID: String? { model }
+    var acceptsVocabulary: Bool { true }
+
     var disclosure: DataDisclosure {
-        DataDisclosure(provider: id, stage: .transcription, destinationHost: baseURL.host ?? "generativelanguage.googleapis.com",
+        DataDisclosure(provider: id, stage: .transcription, destinationHost: baseURL.host ?? GeminiAPI.host,
                        leavesDevice: ["the recorded audio (it leaves this Mac to Google)", "your dictionary's spellings as spelling hints"],
                        staysOnDevice: ["history", "the rest of the dictionary", "other apps' text"],
                        retentionNote: "Paid tier: Google logs prompts for a limited time for abuse detection only. Free tier: Google may use the audio and transcript to improve its products, and human reviewers may read, annotate and process them; do not use a free-tier key for sensitive dictation.",
@@ -282,16 +294,15 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
         if let language = audio.language, !language.isEmpty, language.count <= 16, language.allSatisfy({ $0.isASCII && ($0.isLetter || $0 == "-") }) {
             text += "\nThe expected language code is \(language)."
         }
-        if let hint = audio.vocabularyHint {
-            let flat = String(String(hint.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) && !CharacterSet.newlines.contains($0) }.map(Character.init)).prefix(1000))
-            if !flat.trimmingCharacters(in: .whitespaces).isEmpty {
-                text += "\nSpelling hints, to use only when these words are actually spoken: \(flat)"
-            }
+        let hint = audio.vocabulary.joined(separator: ", ")
+        let flat = String(String(hint.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) && !CharacterSet.newlines.contains($0) }.map(Character.init)).prefix(maxHintCharacters))
+        if !flat.trimmingCharacters(in: .whitespaces).isEmpty {
+            text += "\nSpelling hints, to use only when these words are actually spoken: \(flat)"
         }
         return text
     }
 
-    static func makeRequest(audio: AudioPayload, apiKey: APIKey, model: String = defaultModel, baseURL: URL = defaultBaseURL, maxOutputTokens: Int? = 8192) throws -> URLRequest {
+    static func makeRequest(audio: AudioPayload, apiKey: APIKey, model: String = defaultModel, baseURL: URL = GeminiAPI.baseURL, maxOutputTokens: Int? = ProviderLimits.maxOutputTokens) throws -> URLRequest {
         let url = try GeminiResponse.generateContentURL(baseURL: baseURL, model: model)
         let mime = audio.mimeType.lowercased()
         guard supportedMIMETypes.contains(mime) else { throw ProviderError.invalidConfiguration(.gemini) }
@@ -333,14 +344,14 @@ struct GeminiTranscriptionProvider: TranscriptionProvider {
     }
 
     func transcribe(_ audio: AudioPayload) async throws -> String {
-        guard audio.data.count <= Self.maxInlineAudioBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: Self.maxInlineAudioBytes) }
+        guard audio.data.count <= GeminiAPI.maxInlineAudioBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: GeminiAPI.maxInlineAudioBytes) }
         let request = try Self.makeRequest(audio: audio, apiKey: apiKey, model: model, baseURL: baseURL, maxOutputTokens: maxOutputTokens)
-        guard (request.httpBody?.count ?? 0) <= Self.requestLimitBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: Self.maxInlineAudioBytes) }
+        guard (request.httpBody?.count ?? 0) <= GeminiAPI.requestLimitBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: GeminiAPI.maxInlineAudioBytes) }
         return try Self.parse(try await ProviderHTTP(provider: id, transport: transport, deadline: timeout).execute(request))
     }
 
     func validate() async throws {
-        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: 15)
+        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: ProviderLimits.validationDeadline)
             .execute(GeminiCleanupProvider.makeValidationRequest(apiKey: apiKey, baseURL: baseURL))
         try validationResult(provider: id, result)
     }
@@ -425,19 +436,14 @@ struct GeminiTranscribeResult: Equatable, Sendable {
 ///
 /// - Verbatim mode by default (keeps fillers and false starts; cleanup is Murmur's job).
 /// - `language_codes` from `AudioPayload.language` (or `languageCodes`), `custom_vocabulary` from
-///   `AudioPayload.vocabularyHint` (the caller passes the dictionary's enabled spellings).
+///   `AudioPayload.vocabulary` (the caller passes the dictionary's enabled spellings).
 /// - `store` is true by default, per the user's decision of 2026-10-03: Google keeps the
 ///   interaction (audio, terms, transcript) for 55 days on a paid key or 1 day on a free key, and it
 ///   can be deleted earlier with `deleteStored(interactionID:)`.
 /// - Requests are synchronous unless the server answers `in_progress`/`queued`; then the stored
 ///   interaction is polled with `GET` (never a second `POST`) under one overall deadline.
 struct GeminiTranscribeProvider: TranscriptionProvider {
-    static let defaultBaseURL = URL(string: "https://generativelanguage.googleapis.com/v1beta")!
     static let defaultModel = "gemini-3.5-transcribe"
-    /// "Maximum request size is 20 MB total (including prompts and all files)" for inline audio.
-    static let requestLimitBytes = 20_000_000
-    /// Raw audio that still fits once base64-encoded, with room for the JSON around it.
-    static let maxInlineAudioBytes = (requestLimitBytes - 64_000) / 4 * 3
     /// Documented `custom_vocabulary` cap.
     static let maxVocabularyTerms = 1_000
     /// Documented retention of stored interactions.
@@ -460,7 +466,7 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
 
     let id = ProviderID.gemini
     let apiKey: APIKey
-    var baseURL: URL = GeminiTranscribeProvider.defaultBaseURL
+    var baseURL: URL = GeminiAPI.baseURL
     var model: String = GeminiTranscribeProvider.defaultModel
     var mode: Mode = .verbatim
     /// Sent as `store`. True per the user's decision (Google stores the interaction). False asks
@@ -482,8 +488,11 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
 
     init(apiKey: APIKey) { self.apiKey = apiKey }
 
+    var modelID: String? { model }
+    var acceptsVocabulary: Bool { true }
+
     var disclosure: DataDisclosure {
-        let host = baseURL.host ?? "generativelanguage.googleapis.com"
+        let host = baseURL.host ?? GeminiAPI.host
         let freeTier = "Free tier: Google may use them to improve its products and human reviewers may read them; avoid it for sensitive dictation."
         let retention = store
             ? "Google keeps them and the transcript for \(Self.paidTierRetentionDays) days on a paid key or \(Self.freeTierRetentionDays) day on a free key; it can be deleted earlier. " + freeTier
@@ -526,13 +535,12 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
         return valid.isEmpty ? nil : valid
     }
 
-    /// Splits the caller's hint into terms: one per line or comma-separated. Control characters
-    /// are dropped, duplicates removed (first kept), and at most `maxVocabularyTerms` are sent.
-    static func vocabularyTerms(from hint: String?) -> [String] {
-        guard let hint = hint else { return [] }
+    /// The caller's terms as sent: control characters dropped, surrounding spaces trimmed, duplicates
+    /// removed (first kept), and at most `maxVocabularyTerms`.
+    static func vocabularyTerms(from vocabulary: [String]) -> [String] {
         var seen = Set<String>()
         var terms: [String] = []
-        for piece in hint.components(separatedBy: CharacterSet(charactersIn: ",\n\r")) {
+        for piece in vocabulary {
             let cleaned = String(String.UnicodeScalarView(piece.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }))
                 .trimmingCharacters(in: .whitespaces)
             guard !cleaned.isEmpty, seen.insert(cleaned).inserted else { continue }
@@ -558,12 +566,12 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
         return URL(string: interactionsURL(baseURL: baseURL).absoluteString + "/" + raw)
     }
 
-    static func makeRequest(audio: AudioPayload, apiKey: APIKey, model: String = defaultModel, baseURL: URL = defaultBaseURL,
+    static func makeRequest(audio: AudioPayload, apiKey: APIKey, model: String = defaultModel, baseURL: URL = GeminiAPI.baseURL,
                             mode: Mode = .verbatim, store: Bool = true, languageCodes: [String]? = nil) throws -> URLRequest {
         try requireModel(model, provider: .gemini)
         let mime = audio.mimeType.lowercased()
         guard supportedMIMETypes.contains(mime) else { throw ProviderError.invalidConfiguration(.gemini) }
-        let vocabulary = vocabularyTerms(from: audio.vocabularyHint)
+        let vocabulary = vocabularyTerms(from: audio.vocabulary)
         let body = Body(model: model,
                         input: [AudioInput(data: audio.data.base64EncodedString(), mime_type: mime)],
                         generation_config: GenerationConfig(transcription_config: TranscriptionConfig(
@@ -582,7 +590,7 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
         return request
     }
 
-    static func makeGetRequest(interactionID: String, apiKey: APIKey, baseURL: URL = defaultBaseURL) throws -> URLRequest {
+    static func makeGetRequest(interactionID: String, apiKey: APIKey, baseURL: URL = GeminiAPI.baseURL) throws -> URLRequest {
         guard let url = interactionURL(baseURL: baseURL, interactionID: interactionID) else { throw ProviderError.malformedResponse(.gemini) }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -591,7 +599,7 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
         return request
     }
 
-    static func makeDeleteRequest(interactionID: String, apiKey: APIKey, baseURL: URL = defaultBaseURL) throws -> URLRequest {
+    static func makeDeleteRequest(interactionID: String, apiKey: APIKey, baseURL: URL = GeminiAPI.baseURL) throws -> URLRequest {
         guard let url = interactionURL(baseURL: baseURL, interactionID: interactionID) else { throw ProviderError.invalidConfiguration(.gemini) }
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
@@ -629,7 +637,7 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
             }
             return .completed(text: run.joined(), interactionID: interactionID)
         case "in_progress", "queued":
-            guard let pendingID = interactionID, interactionURL(baseURL: defaultBaseURL, interactionID: pendingID) != nil else { throw ProviderError.malformedResponse(.gemini) }
+            guard let pendingID = interactionID, interactionURL(baseURL: GeminiAPI.baseURL, interactionID: pendingID) != nil else { throw ProviderError.malformedResponse(.gemini) }
             return .pending(interactionID: pendingID)
         case "failed":
             // `errors[].code` is documented as "a URI that identifies the error type"; the last path
@@ -659,9 +667,9 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
     /// called once with the id as soon as it is known, so the caller can delete the record even
     /// if polling later fails; the provider keeps no copy of it.
     func transcribeDetailed(_ audio: AudioPayload, onInteractionCreated: (@Sendable (String) -> Void)? = nil) async throws -> GeminiTranscribeResult {
-        guard audio.data.count <= Self.maxInlineAudioBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: Self.maxInlineAudioBytes) }
+        guard audio.data.count <= GeminiAPI.maxInlineAudioBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: GeminiAPI.maxInlineAudioBytes) }
         let request = try Self.makeRequest(audio: audio, apiKey: apiKey, model: model, baseURL: baseURL, mode: mode, store: store, languageCodes: languageCodes)
-        guard (request.httpBody?.count ?? 0) <= Self.requestLimitBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: Self.maxInlineAudioBytes) }
+        guard (request.httpBody?.count ?? 0) <= GeminiAPI.requestLimitBytes else { throw ProviderError.payloadTooLarge(id, limitBytes: GeminiAPI.maxInlineAudioBytes) }
         let end = clock.now() + max(overallDeadline, 0.001)
         let first = try await send(request, until: end)
         switch try Self.parse(first) {
@@ -725,7 +733,7 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
     /// already deleted (for example, after the retention period). Sends no audio or text.
     func deleteStored(interactionID: String) async throws {
         let request = try Self.makeDeleteRequest(interactionID: interactionID, apiKey: apiKey, baseURL: baseURL)
-        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: 15).execute(request)
+        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: ProviderLimits.validationDeadline).execute(request)
         if result.status == 404 { return }
         try validationResult(provider: id, result)
     }
@@ -733,7 +741,7 @@ struct GeminiTranscribeProvider: TranscriptionProvider {
     /// `GET {base}/models?pageSize=1` (models.list): proves the key, costs no tokens. It does not
     /// prove that this key may use `gemini-3.5-transcribe`.
     func validate() async throws {
-        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: 15)
+        let result = try await ProviderHTTP(provider: id, transport: transport, deadline: ProviderLimits.validationDeadline)
             .execute(GeminiCleanupProvider.makeValidationRequest(apiKey: apiKey, baseURL: baseURL))
         try validationResult(provider: id, result)
     }

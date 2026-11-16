@@ -80,9 +80,7 @@ extension AppController {
         let plan = routePlan(routes, cleanupSendsText: true)
         guard let cleaner = plan.cleaner else { return (nil, (plan.refusal ?? "\(route.label) is not set up.") + " Set it up in Settings → Cleanup and API Keys.") }
         // A whole meeting takes longer than a dictation: allow the longest wait each route permits.
-        if var gemini = cleaner as? GeminiCleanupProvider { gemini.timeout = 120; return (gemini, nil) }
-        if var custom = cleaner as? OpenAICompatibleCleanupProvider { custom.timeout = OpenAICompatibleCleanupProvider.maximumTimeout; return (custom, nil) }
-        return (cleaner, nil)
+        return (cleaner.forMeetingNotes(), nil)
     }
 
     /// Why a notes route cannot run, for Settings. Checks only that a key exists, so rendering never

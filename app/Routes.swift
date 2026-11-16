@@ -140,6 +140,16 @@ struct RouteSettings: Equatable, Sendable {
     var customTranscriptionAPIBaseURL: String = RouteSettings.defaultCustomAPIURL
     var customAPIModel: String = RouteSettings.defaultCustomAPIModel
     var customTranscriptionModel: String = "whisper-1"
+
+    /// The endpoint setting a custom provider's key is bound to (customTranscription follows its own address, customCleanup the
+    /// cleanup one); nil for providers whose key has no destination. Changing it requires saving the key again (`CustomAPIKeyBinding`).
+    func apiBaseURL(for provider: ProviderID) -> String? {
+        switch provider {
+        case .customTranscription: return customTranscriptionAPIBaseURL
+        case .customCleanup: return customAPIBaseURL
+        default: return nil
+        }
+    }
     var geminiTranscriptionModel: String = GeminiTranscribeProvider.defaultModel
 
     enum Key {
@@ -185,11 +195,11 @@ struct RouteSettings: Equatable, Sendable {
             try credentials.save(legacyKey, for: .customTranscription)
             try credentials.save(legacyKey, for: .customCleanup)
             if let bound = defaults.string(forKey: CustomAPIKeyBinding.preference),
-               let normalized = try? CustomAPIKeyBinding.endpoint(settings.customAPIBaseURL), bound == normalized {
+               let normalized = settings.apiBaseURL(for: .customCleanup).flatMap({ try? CustomAPIKeyBinding.endpoint($0) }), bound == normalized {
                 defaults.set(bound, forKey: CustomAPIKeyBinding.preference(.customCleanup))
             }
             if let bound = defaults.string(forKey: CustomAPIKeyBinding.preference),
-               let normalized = try? CustomAPIKeyBinding.endpoint(settings.customTranscriptionAPIBaseURL), bound == normalized {
+               let normalized = settings.apiBaseURL(for: .customTranscription).flatMap({ try? CustomAPIKeyBinding.endpoint($0) }), bound == normalized {
                 defaults.set(bound, forKey: CustomAPIKeyBinding.preference(.customTranscription))
             }
             try credentials.delete(.customAPI)
@@ -406,11 +416,11 @@ enum CloudTranscription {
     }
 
     /// One provider call at most: silence pre-check, then one request, no retry, no fallback.
-    /// `vocabulary` (dictionary spellings) goes as the hint; providers that ignore hints drop it.
+    /// `vocabulary` (dictionary spellings) reaches only a provider that `acceptsVocabulary`; the payload of any other carries none.
     /// The detail (clip loudness, pre-check, segments) is for History; it never changes the outcome.
     static func runDetailed(provider: TranscriptionProvider, audioData: Data, vocabulary: [String] = []) async -> (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail) {
         var prepared = CloudAudio.prepare(audioData)
-        if !vocabulary.isEmpty { prepared.payload.vocabularyHint = vocabulary.joined(separator: ", ") }
+        if provider.acceptsVocabulary { prepared.payload.vocabulary = vocabulary }
         var detail = CloudTranscriptionDetail(clipSeconds: prepared.duration, silencePeak: prepared.peak)
         if let peaks = prepared.payload.levels.flatMap(OpenAITranscriptionFormat.peakPercentiles) { detail.peakP50 = peaks.p50; detail.peakP90 = peaks.p90 }
         if let checker = provider as? SilencePrecheckedTranscriber, let peak = prepared.peak {

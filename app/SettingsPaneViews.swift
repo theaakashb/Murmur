@@ -733,8 +733,7 @@ extension SettingsView {
                         .buttonStyle(InkButtonStyle(kind: .accent)).disabled(keyDraft.isEmpty)
                 }
             }
-            if provider == .customTranscription || provider == .customCleanup {
-                let address = provider == .customTranscription ? controller.customTranscriptionAPIBaseURL : controller.customAPIBaseURL
+            if let address = controller.routeSettings.apiBaseURL(for: provider) {
                 help("Server address: \(address)")
                 if controller.customAPIKeyNeedsConfirmation(provider) {
                     help("Save the API key again to confirm this server address. The existing key stays in Keychain and will not be sent until confirmed.", color: EditorialPalette.accentInk)

@@ -108,6 +108,11 @@ enum ModeTransform: String, Codable, Sendable {
     case aiPrompt, email, notes
 }
 
+/// Words per section when `CleanupSections` splits long text for parallel cleanup (the default; a provider may ask for another).
+enum CleanupSectioning {
+    static let defaultTarget = 100
+}
+
 enum WritingModeLimits {
     /// A writing mode's custom instructions are capped at this many characters.
     static let instructions = 2_000

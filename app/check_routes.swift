@@ -35,18 +35,23 @@ private final class SpyTranscriber: TranscriptionProvider, @unchecked Sendable {
     let id: ProviderID
     private let lock = NSLock()
     private var _calls = 0
+    private var _vocabulary: [String]?
     let response: Result<String, ProviderError>
     let delaySeconds: Double
-    init(_ response: Result<String, ProviderError>, id: ProviderID = .customAPI, delaySeconds: Double = 0) {
-        self.id = id; self.response = response; self.delaySeconds = delaySeconds
+    let acceptsVocabulary: Bool
+    init(_ response: Result<String, ProviderError>, id: ProviderID = .customAPI, delaySeconds: Double = 0, acceptsVocabulary: Bool = false) {
+        self.id = id; self.response = response; self.delaySeconds = delaySeconds; self.acceptsVocabulary = acceptsVocabulary
     }
     var calls: Int { lock.lock(); defer { lock.unlock() }; return _calls }
+    /// The vocabulary on the last payload this provider was given.
+    var vocabulary: [String]? { lock.lock(); defer { lock.unlock() }; return _vocabulary }
     private func bump() { lock.lock(); _calls += 1; lock.unlock() }
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .transcription, destinationHost: "example.invalid", leavesDevice: ["the recorded audio"], staysOnDevice: ["history"], retentionNote: "test")
     }
     func transcribe(_ audio: AudioPayload) async throws -> String {
         bump()
+        lock.lock(); _vocabulary = audio.vocabulary; lock.unlock()
         if delaySeconds > 0 { try await Task.sleep(nanoseconds: UInt64(delaySeconds * 1_000_000_000)) }
         return try response.get()
     }
@@ -136,6 +141,9 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         try await lexiconChecks(root.appendingPathComponent("lexicon"), defaults)
         try await cleanupChecks(root.appendingPathComponent("cleanup"), defaults)
         await cancelChecks()
+        await vocabularyChecks()
+        endpointChecks()
+        shapeChecks()
 
         let stored = defaults.dictionaryRepresentation().values.map { "\($0)" }.joined()
         check(!stored.contains(secret), "no key in UserDefaults")
@@ -581,6 +589,43 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         await checkA(await CloudTranscription.run(provider: VerboseJSONStub(verboseJSON([
             (" Send the report.", 0, 1, -0.8)])), audioData: speech) == .transcript(" Send the report."),
             "moderately confident speech is kept")
+    }
+
+    /// Dictionary spellings reach only a transcriber that declares it accepts them (never custom OpenAI-compatible transcription).
+    @MainActor static func vocabularyChecks() async {
+        let speech = WAVAudio.encodePCM16(tone(seconds: 1, amplitude: 0.3), sampleRate: 16_000)
+        let declined = SpyTranscriber(.success("ok")), accepted = SpyTranscriber(.success("ok"), id: .gemini, acceptsVocabulary: true)
+        _ = await CloudTranscription.run(provider: declined, audioData: speech, vocabulary: ["Akme", "Penguin"])
+        _ = await CloudTranscription.run(provider: accepted, audioData: speech, vocabulary: ["Akme", "Penguin"])
+        check(declined.vocabulary == [] && accepted.vocabulary == ["Akme", "Penguin"], "vocabulary is attached only for a provider that accepts it")
+        let key = APIKey("vocab-key")!
+        check((try? OpenAICompatibleTranscriptionProvider(baseURL: "https://speech.example/v1", model: "whisper-1", apiKey: key))?.acceptsVocabulary == false, "custom OpenAI-compatible transcription declares no vocabulary")
+        check(GeminiTranscriptionProvider(apiKey: key).acceptsVocabulary && GeminiTranscribeProvider(apiKey: key).acceptsVocabulary, "the Gemini transcribers declare vocabulary")
+    }
+
+    /// Providers declare how shared code shapes their requests (no type tests): context caps, sections, model id, notes timeout.
+    static func shapeChecks() {
+        let key = APIKey("shape-key")!
+        let apple: CleanupProvider = AppleCleanupProvider(), local: CleanupProvider = LocalModelCleanupProvider()
+        check(apple.shape == CleanupShape(contextCaps: .init(selected: 400, clipboard: 400, window: 1_000), sectionTarget: 400) && apple.modelID == nil, "Apple: capped context, 400-word sections, no model id")
+        check(local.shape == CleanupShape(takesContext: false, sectionTarget: 150, keepsCorrectionsAttached: true) && local.modelID == LocalCleanupIdentity.modelID, "local model: no context, 150-word sections kept with corrections")
+        var gemini = GeminiCleanupProvider(apiKey: key)
+        gemini.limits = GeminiModelLimits()
+        check(gemini.shape == CleanupShape() && gemini.modelID == GeminiCleanupProvider.defaultModel, "Gemini: whole text on its primary model")
+        gemini.limits.markLimited(gemini.model, until: Date().addingTimeInterval(60))
+        check(gemini.shape == CleanupShape(sectionTarget: 100) && gemini.modelID == GeminiCleanupProvider.fallbackModel, "Gemini on its fallback: 100-word sections and the fallback id")
+        check((gemini.forMeetingNotes() as? GeminiCleanupProvider)?.timeout == 120, "Gemini notes wait 120 s")
+        let custom = try? OpenAICompatibleCleanupProvider(baseURL: "https://api.example.com/v1", model: "m", apiKey: key, provider: .customAPI)
+        check(custom?.shape == CleanupShape() && custom?.modelID == "m" && (custom?.forMeetingNotes() as? OpenAICompatibleCleanupProvider)?.timeout == OpenAICompatibleCleanupProvider.maximumTimeout, "custom cleanup: its model id, the longest notes wait")
+        check(apple.forMeetingNotes() is AppleCleanupProvider, "providers without a longer wait are unchanged for notes")
+    }
+
+    /// The custom providers' key follows its own endpoint setting; others have none.
+    static func endpointChecks() {
+        var settings = RouteSettings()
+        settings.customAPIBaseURL = "https://cleanup.example/v1"; settings.customTranscriptionAPIBaseURL = "https://speech.example/v1"
+        check(settings.apiBaseURL(for: .customCleanup) == "https://cleanup.example/v1" && settings.apiBaseURL(for: .customTranscription) == "https://speech.example/v1", "custom keys map to their own endpoint settings")
+        check(settings.apiBaseURL(for: .gemini) == nil && settings.apiBaseURL(for: .localServer) == nil, "other providers have no endpoint binding")
     }
 
     @MainActor static func cancelChecks() async {

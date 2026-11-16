@@ -42,6 +42,8 @@ struct ProcessingResult: Sendable {
     var promptHash: String?
     var terms: [String] = []
     var cleanupInput: String?
+    /// Screen context went to the cleanup provider with this dictation.
+    var contextUsed = false
 }
 
 /// Settings owned by processing, persisted in UserDefaults.
@@ -206,12 +208,13 @@ final class ProcessingCoordinator {
         let options = style.options, terms = prepared.terms
         evidence.terms = terms; evidence.cleanupInput = prepared.text == raw ? nil : prepared.text
         var context = style.context, instructions = style.instructions
-        // ponytail: fixed caps keep prompt + a 400-word section inside Apple's ~4K-token window; size by token count if it still overflows.
-        // The managed local model has one fixed prompt: it never receives screen context or style notes, and rewrite presets fall back below.
-        if cloudCleaner?.id == .localModel { context = nil; instructions = "" }
-        if cloudCleaner?.id == .appleIntelligence, var c = context {
-            c.selected = String(c.selected.prefix(400)); c.clipboard = String(c.clipboard.prefix(400)); c.window = String(c.window.prefix(1_000))
-            context = c
+        // The provider declares what it takes (CleanupShape): a fixed prompt gets no context or style notes (rewrite presets fall back below), a small window gets capped context.
+        if let shape = cloudCleaner?.shape {
+            if !shape.takesContext { context = nil; instructions = "" }
+            if let caps = shape.contextCaps, var c = context {
+                c.selected = String(c.selected.prefix(caps.selected)); c.clipboard = String(c.clipboard.prefix(caps.clipboard)); c.window = String(c.window.prefix(caps.window))
+                context = c
+            }
         }
         if let kind = style.transform, let provider = cloudCleaner, !prepared.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             if let attempt = await Self.transformClean(prepared.text, kind: kind, provider: provider, terms: terms, instructions: instructions) {
@@ -223,11 +226,10 @@ final class ProcessingCoordinator {
         if !options.anyEnabled { evidence.cleanupPath = .off }
         if !options.anyEnabled || prepared.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { evidence.outcome = .insert(toned(prepared.text, input: prepared.text, style: style)); return evidence }
         guard let provider = cloudCleaner else { evidence.fallback = .cleanerFailed; evidence.cleanupPath = .localRules; evidence.outcome = .insert(toned(localClean(prepared.text, terms: terms, options: options, evidence: &evidence), input: prepared.text, style: style)); return evidence }
-        // On the slow Gemma fallback, long text is cleaned in parallel sections, each guarded on its own.
-        // Apple's on-device model splits longer text, to stay inside its context window (AppleCleanup.swift).
-        let sections = (provider as? GeminiCleanupProvider)?.onFallback == true ? CleanupSections.split(prepared.text)
-            : provider.id == .appleIntelligence ? CleanupSections.split(prepared.text, target: 400)
-            : provider.id == .localModel ? CleanupSections.split(prepared.text, target: 150, keepingCorrectionsAttached: true) : [prepared.text]
+        // Providers with a slow model or a small window clean long text in parallel sections, each guarded on its own (CleanupShape).
+        let shape = provider.shape
+        let sections = shape.sectionTarget.map { CleanupSections.split(prepared.text, target: $0, keepingCorrectionsAttached: shape.keepsCorrectionsAttached) } ?? [prepared.text]
+        evidence.contextUsed = context != nil
         let results = await withTaskGroup(of: (Int, CloudAttempt).self) { group in
             for (index, section) in sections.enumerated() {
                 group.addTask { (index, await Self.cloudClean(section, provider: provider, options: options, terms: terms, context: context, instructions: instructions)) }

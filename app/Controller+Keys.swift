@@ -7,17 +7,10 @@ extension AppController {
     /// Publishes which providers have a key. The key itself never leaves the Keychain store.
     func refreshKeys() { savedKeys = Set(KeyText.providers.filter { credentials.exists($0) }) }
     func customAPIKeyNeedsConfirmation(_ provider: ProviderID) -> Bool {
-        let address = provider == .customTranscription ? customTranscriptionAPIBaseURL : customAPIBaseURL
-        guard savedKeys.contains(provider), let destination = try? CustomAPIKeyBinding.endpoint(address) else { return false }
+        guard savedKeys.contains(provider), let address = customAPIAddress(provider), let destination = try? CustomAPIKeyBinding.endpoint(address) else { return false }
         return UserDefaults.standard.string(forKey: CustomAPIKeyBinding.preference(provider)) != destination
     }
-    private func customAPIAddress(_ provider: ProviderID) -> String? {
-        switch provider {
-        case .customTranscription: return customTranscriptionAPIBaseURL
-        case .customCleanup: return customAPIBaseURL
-        default: return nil
-        }
-    }
+    private func customAPIAddress(_ provider: ProviderID) -> String? { routeSettings.apiBaseURL(for: provider) }
     @discardableResult
     func saveKey(_ provider: ProviderID, _ raw: String) -> Bool {
         guard let key = APIKey(raw) else { keyMessages[provider] = KeyText.invalid; return false }

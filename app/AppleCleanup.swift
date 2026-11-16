@@ -18,6 +18,8 @@ struct AppleCleanupProvider: CleanupProvider {
     var status: @Sendable () -> OnDeviceModelUnavailable? = AppleSystemModel.status
     /// One generation, no retry. Checks inject a fake model.
     var generate: @Sendable (CleanupMessages) async throws -> String = AppleSystemModel.respond
+    /// ponytail: fixed caps keep prompt + a 400-word section inside Apple's ~4K-token window; size by token count if it still overflows.
+    var shape: CleanupShape { CleanupShape(contextCaps: .init(selected: 400, clipboard: 400, window: 1_000), sectionTarget: 400) }
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .cleanup, destinationHost: "Apple's on-device model", leavesDevice: [],
                        staysOnDevice: ["the transcript"], retentionNote: "")

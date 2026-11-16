@@ -623,13 +623,8 @@ enum ScreenRequest: Equatable {
         var refusal: String?
         let plan = RoutePlan.make(routes, cleanupSendsText: cleanupSendsText) { provider in
             do {
-                switch provider {
-                case .customTranscription:
-                    return try CustomAPIKeyBinding.read(at: routes.customTranscriptionAPIBaseURL, defaults: .standard, credentials: self.credentials, provider: provider)
-                case .customCleanup:
-                    return try CustomAPIKeyBinding.read(at: routes.customAPIBaseURL, defaults: .standard, credentials: self.credentials, provider: provider)
-                default: return try self.credentials.read(provider)
-                }
+                if let address = routes.apiBaseURL(for: provider) { return try CustomAPIKeyBinding.read(at: address, defaults: .standard, credentials: self.credentials, provider: provider) }
+                return try self.credentials.read(provider)
             } catch {
                 refusal = (error as? CredentialError)?.description ?? KeyText.unreadable
                 return nil
@@ -1107,7 +1102,7 @@ enum ScreenRequest: Equatable {
             }
             // An answer-shaped LLM transcript is held like a failed cleanup: raw text only, never inserted.
             var entry = HistoryEntry(id: UUID().uuidString, recordedAt: timestamp, rawText: text, finalText: held ? "" : text, insertionStatus: (held ? InsertionStatus.heldTranscript : .savedNotInserted).rawValue)
-            entry.transcriptionProvider = provider.id.rawValue; entry.transcriptionModel = Self.modelID(provider)
+            entry.transcriptionProvider = provider.id.rawValue; entry.transcriptionModel = provider.modelID
             entry.transcription = Self.transcriptionDetail(result.detail)
             if let audio { entry.recordingFile = self.recordings.keep(audio, entryID: entry.id) }
             do { try store.save(entry) } catch { self.setPhase(.error, "Could not save the transcript. \(audio == nil ? Self.heldDiscarded : "Audio is saved for retry for up to 24 hours.")"); done(); return }
@@ -1143,12 +1138,11 @@ enum ScreenRequest: Equatable {
         let mode = trigger?.mode ?? sessionMode, info = Bundle.main.infoDictionary
         savedEntry.cleanupOptions = style?.options; savedEntry.writingModeID = mode?.id.uuidString; savedEntry.writingModeName = mode?.name
         savedEntry.transcriptionProvider = sessionTranscriber?.id.rawValue ?? "local"
-        savedEntry.transcriptionModel = sessionTranscriber == nil ? unifiedRepository : Self.modelID(sessionTranscriber)
+        savedEntry.transcriptionModel = sessionTranscriber == nil ? unifiedRepository : sessionTranscriber?.modelID
         savedEntry.appVersion = (info?["CFBundleShortVersionString"] as? String).map { v in (info?["CFBundleVersion"] as? String).map { "\(v) (\($0))" } ?? v }
-        savedEntry.contextUsed = style?.context != nil && style?.options.anyEnabled == true && processing?.settings.route == .cloud && processing?.cloudCleaner != nil
-        // Counts and the app only, never the screen text.
-        var detail = CleanupDetail(contextUsed: savedEntry.contextUsed)
-        if savedEntry.contextUsed == true, let context = style?.context {
+        // Counts and the app only, never the screen text; `complete` keeps them only when the result says the context was sent.
+        var detail = CleanupDetail(contextUsed: false)
+        if let context = style?.context {
             detail.contextApp = destination?.bundleID
             detail.contextChars = ["selected": context.selected.count, "clipboard": context.clipboard.count, "window": context.window.count]
         }
@@ -1183,16 +1177,6 @@ enum ScreenRequest: Equatable {
         case .cancelled: return "cancelled"
         }
     }
-    /// Model identifiers for History; nil where the provider has none (Apple's on-device model).
-    private static func modelID(_ provider: Any?) -> String? {
-        // Read after the call: a rate limit during this dictation moves Gemini to its fallback model.
-        if let p = provider as? GeminiCleanupProvider { return p.onFallback ? p.fallback : p.model }
-        if let p = provider as? OpenAICompatibleCleanupProvider { return p.model }
-        if provider is LocalModelCleanupProvider { return LocalCleanupIdentity.modelID }
-        if let p = provider as? GeminiTranscriptionProvider { return p.model }
-        if let p = provider as? GeminiTranscribeProvider { return p.model }
-        return (provider as? OpenAICompatibleTranscriptionProvider)?.server.model
-    }
     private func complete(_ result: ProcessingResult, entry savedEntry: HistoryEntry, store: HistoryRouter<HistoryEntry>, done: @escaping () -> Void) {
         let outcome = result.outcome
         var entry = savedEntry
@@ -1202,6 +1186,8 @@ enum ScreenRequest: Equatable {
         entry.timing?.cleanup = ProcessInfo.processInfo.systemUptime - cleanupStartedAt
         if processing != nil {
             var detail = entry.cleanup ?? CleanupDetail()
+            detail.contextUsed = result.contextUsed
+            if !result.contextUsed { detail.contextApp = nil; detail.contextChars = nil }
             detail.modelOutput = result.modelOutput; detail.guardVerdict = result.guardVerdict; detail.promptHash = result.promptHash
             detail.dictionaryTerms = result.terms.isEmpty ? nil : result.terms; detail.input = result.cleanupInput
             detail.providerError = result.providerError.map { Mirror(reflecting: $0).children.first?.label ?? "\($0)" }
@@ -1209,7 +1195,8 @@ enum ScreenRequest: Equatable {
         }
         timingLog.notice("cleanup took=\(ProcessInfo.processInfo.systemUptime - self.cleanupStartedAt, format: .fixed(precision: 3)) path=\(result.cleanupPath?.rawValue ?? "none", privacy: .public)")
         entry.cleanupProvider = processing?.settings.route == .local ? "local-rules" : processing?.cloudCleaner?.id.rawValue
-        entry.cleanupModel = Self.modelID(processing?.cloudCleaner)
+        entry.cleanupModel = processing?.cloudCleaner?.modelID
+        entry.contextUsed = result.contextUsed
         let text = entry.rawText
         let saved = HistoryText.saved(persists: !store.sessionOnlyIDs.contains(entry.id))
         recordCleanup(outcome: result.cleanupPath, fallback: result.fallback, error: result.providerError)

@@ -19,16 +19,16 @@ struct AudioPayload: Sendable {
     var mimeType: String
     /// ISO-639-1, e.g. "en". Nil lets the provider detect it.
     var language: String?
-    /// Optional vocabulary hint (the dictionary's enabled spellings). Sent only where the provider uses it,
-    /// and listed in that provider's disclosure.
-    var vocabularyHint: String?
+    /// The dictionary's enabled spellings, one per term. Set only for a provider that `acceptsVocabulary`
+    /// (see `CloudTranscription`), and listed in that provider's disclosure; each provider encodes it itself.
+    var vocabulary: [String]
     /// Peak level of each 100 ms window of the audio sent, so a transcript segment can be checked
     /// against the sound under it. Nil when the audio was not decoded. Never sent.
     var levels: [Float]? = nil
 
-    init(data: Data, filename: String = "audio.wav", mimeType: String = "audio/wav", language: String? = "en", vocabularyHint: String? = nil) {
+    init(data: Data, filename: String = "audio.wav", mimeType: String = "audio/wav", language: String? = "en", vocabulary: [String] = []) {
         self.data = data; self.filename = filename; self.mimeType = mimeType
-        self.language = language; self.vocabularyHint = vocabularyHint
+        self.language = language; self.vocabulary = vocabulary
     }
 }
 
@@ -205,19 +205,62 @@ enum OnDeviceModelUnavailable: String, Equatable, Sendable {
     }
 }
 
+/// Limits and deadlines shared by the provider adapters.
+enum ProviderLimits {
+    /// Bounds runaway output (a hallucinating model); five minutes of speech is about 1,500 tokens.
+    static let maxOutputTokens = 8192
+    /// The deadline for key validation and model-list requests.
+    static let validationDeadline: TimeInterval = 15
+}
+
+/// How shared cleanup code must shape a request for one provider. A provider declares it; callers never test for a concrete type.
+struct CleanupShape: Sendable, Equatable {
+    /// False: a fixed prompt that takes no screen context or style notes (the managed local model).
+    var takesContext = true
+    /// Character caps on screen context, for a small context window; nil sends it whole.
+    var contextCaps: ContextCaps? = nil
+    /// Words per section when long text is cleaned in parallel, each guarded on its own; nil sends the text whole.
+    var sectionTarget: Int? = nil
+    /// With sections: a sentence opening with a correction cue stays with the one it repairs.
+    var keepsCorrectionsAttached = false
+
+    struct ContextCaps: Sendable, Equatable { var selected: Int, clipboard: Int, window: Int }
+}
+
 protocol TranscriptionProvider: Sendable {
     var id: ProviderID { get }
     var disclosure: DataDisclosure { get }
+    /// The model's identifier for History; nil where there is none.
+    var modelID: String? { get }
+    /// True only where the disclosure lists dictionary spellings as sent (the Gemini providers). Custom OpenAI-compatible
+    /// transcription must stay false: it gets no dictionary-derived prompt (VOCABULARY.md).
+    var acceptsVocabulary: Bool { get }
     /// One request, no retry. Throws `ProviderError`; `.cancelled` if the calling Task is cancelled.
     func transcribe(_ audio: AudioPayload) async throws -> String
     /// Minimal authenticated call that consumes no tokens. Throws `ProviderError`.
     func validate() async throws
 }
 
+extension TranscriptionProvider {
+    var modelID: String? { nil }
+    var acceptsVocabulary: Bool { false }
+}
+
 protocol CleanupProvider: Sendable {
     var id: ProviderID { get }
     var disclosure: DataDisclosure { get }
+    /// The model's identifier for History, read after the call (a rate limit can move Gemini to its fallback); nil where there is none.
+    var modelID: String? { get }
+    var shape: CleanupShape { get }
+    /// This provider with the longest wait it permits, for a whole meeting's notes.
+    func forMeetingNotes() -> CleanupProvider
     /// One request, no retry. Returns the model text unchanged; the caller runs the bound/guard check.
     func cleanup(_ messages: CleanupMessages) async throws -> String
     func validate() async throws
+}
+
+extension CleanupProvider {
+    var modelID: String? { nil }
+    var shape: CleanupShape { CleanupShape() }
+    func forMeetingNotes() -> CleanupProvider { self }
 }

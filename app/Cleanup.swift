@@ -12,7 +12,7 @@ import Foundation
 /// spoken lists ("first … second …", which must be formatted as one) stay whole.
 enum CleanupSections {
     /// `keepingCorrectionsAttached`: a sentence that opens with a correction cue ("No, actually Monday") is never cut off from the one it repairs.
-    static func split(_ text: String, target: Int = 100, keepingCorrectionsAttached: Bool = false) -> [String] {
+    static func split(_ text: String, target: Int = CleanupSectioning.defaultTarget, keepingCorrectionsAttached: Bool = false) -> [String] {
         let words = text.split(whereSeparator: \.isWhitespace).count
         // An email frame stays whole too, so its greeting and sign-off are laid out together.
         guard words >= target * 3 / 2, RuleCleaner.emailLayout(text) == nil,
