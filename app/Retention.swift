@@ -195,13 +195,20 @@ final class DiagnosticRecordings: @unchecked Sendable {
     }
 }
 
+/// The PRD's 24-hour retry-audio window (section 6): how long audio left for retry or speaker separation
+/// stays. User text that names the window is built from `text`.
+enum RetryWindow {
+    static let lifetime: TimeInterval = 24 * 60 * 60
+    static let text = "\(Int(lifetime / 3600)) hours"
+}
+
 /// History-off keeps results only in memory for the running session.
 enum HistoryMode: String, Codable {
     case on, off
 
     var persistsTranscripts: Bool { self == .on }
 
-    static let offDisclosure = "With history off, Murmur does not save transcript history to disk. If insertion fails and Murmur quits or stops unexpectedly, that text cannot be recovered. Retry audio can still remain for up to 24 hours, and learning can still save spellings in your dictionary. Turning history off does not delete existing history; delete it separately."
+    static let offDisclosure = "With history off, Murmur does not save transcript history to disk. If insertion fails and Murmur quits or stops unexpectedly, that text cannot be recovered. Retry audio can still remain for up to \(RetryWindow.text), and learning can still save spellings in your dictionary. Turning history off does not delete existing history; delete it separately."
 }
 
 /// Where Murmur keeps user data. The dictionary and ledger share the `dictionary` directory.

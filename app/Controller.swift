@@ -465,7 +465,7 @@ enum ScreenRequest: Equatable {
                 if !self.preview && self.listener == nil && CGPreflightListenEventAccess() { self.configureShortcut(); if self.listener != nil { self.message = "Input Monitoring allowed. The shortcut is ready." } }
             }
         }
-        monitor = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+        monitor = Timer.scheduledTimer(withTimeInterval: MeetingLimits.tickInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.voiceLevel = self.capture?.queue.sync { self.capture?.level ?? 0 } ?? 0

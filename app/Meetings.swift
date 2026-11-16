@@ -46,7 +46,7 @@ struct Meeting: Codable, Identifiable, Equatable {
     var transcribedBy: String? = nil
     /// Written after Stop by the notes route (W7b, PRD 11.6). Optional, so W7a records still decode.
     var notes: MeetingNotes? = nil
-    // Reuses the cited-item schema: keyPoints = concepts, decisions = examples, actions = perspectives.
+    /// Reuses the cited-item schema under other section names (`NoteSections.titles(lecture:)`).
     var lectureNotes: MeetingNotes? = nil
     /// Speaker separation (W7d): nil when it was off for this meeting.
     var speakers: SpeakerSeparation? = nil
@@ -77,6 +77,14 @@ struct Meeting: Codable, Identifiable, Equatable {
         if let through, let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: through)), recordedAt >= end { return false }
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return query.isEmpty || ([title, source.name] + searchDetails).contains { $0.localizedStandardContains(query) }
+    }
+
+    /// The one place that says an edit made written notes out of date: late lines, my notes, speaker
+    /// separation and reassigning a line. A rename or merge passes `meetingNotes: false`: it relabels
+    /// the meeting notes in place (`relabelNotes`) and only the lecture notes go out of date.
+    mutating func markNotesOutdated(meetingNotes: Bool = true) {
+        lectureNotes?.outdated = true
+        if meetingNotes { notes?.outdated = true }
     }
 
     /// Inserts a transcribed line in capture-time order and re-runs echo suppression near it.
@@ -285,7 +293,8 @@ struct StreamWatch {
 /// square root lifts quiet speech, as the dictation bubble does.
 struct MeterScale {
     static let floor = 0.05
-    /// Per update (about 6–7 a second): the reference falls by about two thirds in 5 s.
+    /// Per update, one every `MeetingLimits.tickInterval` (0.15 s, 6–7 a second): the reference falls
+    /// by about two thirds in 5 s. Retune it if the interval changes.
     static let decay = 0.97
     private var reference = floor
     mutating func display(_ level: Double) -> Double {
@@ -298,12 +307,18 @@ struct MeterScale {
 
 /// The 3-hour cap and the silence rules (PRD 11.3 and 11.4, Q7).
 enum MeetingLimits {
+    /// How often the controller's timer calls `MeetingRecorder.tick()` (and the call-offer tick). `MeterScale.decay`
+    /// is tuned to it; the 1 s and 2 s throttles in `tick()` count real seconds, so they are not.
+    static let tickInterval: TimeInterval = 0.15
     static let cap: TimeInterval = 3 * 60 * 60
     static let warning: TimeInterval = cap - 10 * 60
     static let askEnded: TimeInterval = 5 * 60
     static let stopSilent: TimeInterval = 10 * 60
-    /// Above this much queued audio, the live view says the transcript is behind.
+    /// Above this much queued audio (2 minutes), the live view says the transcript is behind.
     static let behind: TimeInterval = 2 * 60
+    /// The numbers the user sees in "stopped at the 3-hour limit" and "after 10 minutes of silence".
+    static let capHours = Int(cap / 3600)
+    static let stopSilentMinutes = Int(stopSilent / 60)
     /// A level under this counts as silence (the meters' 0–1 scale).
     static let silenceLevel = 0.02
 

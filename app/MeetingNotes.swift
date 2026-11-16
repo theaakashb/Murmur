@@ -32,6 +32,14 @@ struct MeetingNotes: Codable, Equatable {
     var isEmpty: Bool { summary == nil && keyPoints.isEmpty && decisions.isEmpty && actions.isEmpty }
 }
 
+/// Lecture notes reuse the notes schema with other meanings: keyPoints = concepts, decisions =
+/// examples, actions = perspectives (and no checkboxes). The names are defined here for export and the UI.
+enum NoteSections {
+    static func titles(lecture: Bool) -> (keyPoints: String, decisions: String, actions: String) {
+        lecture ? ("Concepts", "Examples", "Perspectives") : ("Key points", "Decisions", "Action items")
+    }
+}
+
 /// Settings → Meetings → Meeting notes (Q3). Nil in preferences means not asked yet: the first
 /// Stop asks, with None preselected.
 enum MeetingNotesRoute: String, CaseIterable, Codable {

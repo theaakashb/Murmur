@@ -51,9 +51,10 @@ enum MeetingExport {
         if !markdown { sections.append(meeting.title) }
         if let summary = notes.summary { sections.append(text(summary)) }
         let heading = markdown ? "### " : ""
-        if !notes.keyPoints.isEmpty { sections.append(heading + (lecture ? "Concepts\n" : "Key points\n") + notes.keyPoints.map { item($0, box: false) }.joined(separator: "\n")) }
-        if !notes.decisions.isEmpty { sections.append(heading + (lecture ? "Examples\n" : "Decisions\n") + notes.decisions.map { item($0, box: false) }.joined(separator: "\n")) }
-        if !notes.actions.isEmpty { sections.append(heading + (lecture ? "Perspectives\n" : "Action items\n") + notes.actions.map { item($0, box: !lecture) }.joined(separator: "\n")) }
+        let titles = NoteSections.titles(lecture: lecture)
+        if !notes.keyPoints.isEmpty { sections.append(heading + titles.keyPoints + "\n" + notes.keyPoints.map { item($0, box: false) }.joined(separator: "\n")) }
+        if !notes.decisions.isEmpty { sections.append(heading + titles.decisions + "\n" + notes.decisions.map { item($0, box: false) }.joined(separator: "\n")) }
+        if !notes.actions.isEmpty { sections.append(heading + titles.actions + "\n" + notes.actions.map { item($0, box: !lecture) }.joined(separator: "\n")) }
         sections.append("Written by \(notes.route) from the transcript\(notes.outdated == true ? "; out of date" : "").")
         return sections.joined(separator: "\n\n")
     }

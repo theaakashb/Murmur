@@ -23,8 +23,8 @@ struct MeetingStartMenu: View {
                 Button(app.name) { controller.startMeeting(MeetingSource(name: app.name, bundleID: app.bundleID)) }
             }
             Divider()
-            Button("All apps (includes music and notifications)") { controller.startMeeting(.everything) }
-            Button("Only my microphone") { controller.startMeeting(.microphoneOnly) }
+            Button(MeetingSource.everythingMenuTitle) { controller.startMeeting(.everything) }
+            Button(MeetingSource.microphoneOnlyMenuTitle) { controller.startMeeting(.microphoneOnly) }
         } label: {
             Text(title).font(WindowType.body(14, weight: .semibold)).padding(.horizontal, 18).frame(height: 36)
                 .foregroundStyle(Palette.paper).background(Palette.ink, in: Capsule())
@@ -86,7 +86,7 @@ struct MeetingsPage: View {
                         .font(WindowType.body(14)).foregroundStyle(Palette.ink70)
                     DisclosureGroup("Audio and privacy") {
                         lede(controller.speakerSettings.enabled
-                         ? (controller.speakerSettings.separateRoom ? "For calls, the call’s audio is kept until speakers are separated. For microphone-only recordings, microphone audio is kept instead. Both are deleted after separation, at most 24 hours." : "Your microphone as Me and the call’s audio as Them, transcribed on this Mac. Your audio is deleted as soon as it is transcribed; the call’s is kept until its speakers are separated, at most 24 hours.")
+                         ? (controller.speakerSettings.separateRoom ? "For calls, the call’s audio is kept until speakers are separated. For microphone-only recordings, microphone audio is kept instead. Both are deleted after separation, at most \(RetryWindow.text)." : "Your microphone as Me and the call’s audio as Them, transcribed on this Mac. Your audio is deleted as soon as it is transcribed; the call’s is kept until its speakers are separated, at most \(RetryWindow.text).")
                          : "Your microphone as Me and the call’s audio as Them, transcribed on this Mac. Audio is deleted as soon as it is transcribed.")
                     }
                     .font(WindowType.body(13))
@@ -298,7 +298,6 @@ struct MeetingsPage: View {
                     deletionIDs = recorder.delete(requested)
                     selecting = !deletionIDs.isEmpty
                     if let selectedID, requested.contains(selectedID) { self.selectedID = nil }
-                    if !deletionIDs.isEmpty { recorder.message = "Could not delete \(deletionIDs.count) meeting(s). They remain selected; try again." }
                     confirmDelete = []
                 }.buttonStyle(InkButtonStyle(kind: .filled))
             }
@@ -324,7 +323,7 @@ struct MeetingsPage: View {
                     if recorder.finishing.contains(meeting.id) { lede("Finishing the transcript…", color: Palette.accentDeep) }
                     else if let left = recorder.leftovers[meeting.id] {
                         HStack {
-                            lede("\(left) \(left == 1 ? "part" : "parts") of this meeting \(left == 1 ? "was" : "were") not transcribed. The audio is kept for up to 24 hours.")
+                            lede("\(left) \(left == 1 ? "part" : "parts") of this meeting \(left == 1 ? "was" : "were") not transcribed. The audio is kept for up to \(RetryWindow.text).")
                             Button("Finish Transcript") { recorder.finishLeftovers(meeting.id) }.buttonStyle(InkButtonStyle(kind: .filled))
                         }
                     }
@@ -380,6 +379,13 @@ struct MeetingsPage: View {
         } message: { Text("The name is kept with this meeting only. Leave it empty to go back to “Speaker \(renaming ?? 0)”.") }
     }
 
+    /// Notes cannot be written now: they are being written, the transcript is still finishing, or speakers are being separated.
+    private func notesBusy(_ meeting: Meeting) -> Bool {
+        recorder.notesWriting.contains(meeting.id) || recorder.finishing.contains(meeting.id) || meeting.speakers?.state == .pending
+    }
+    /// The notes route is unset or None.
+    private var notesRouteOff: Bool { controller.meetingNotesRoute == nil || controller.meetingNotesRoute == MeetingNotesRoute.none }
+
     /// Notes, with each item's cited lines as links into the transcript (PRD 11.6, 11.9).
     @ViewBuilder private func notesTab(_ meeting: Meeting) -> some View {
         let route = controller.meetingNotesRoute
@@ -405,19 +411,20 @@ struct MeetingsPage: View {
             }
             if notes.isEmpty { lede("Nothing in the transcript could be written up as a point, decision or action item.") }
             if let summary = notes.summary { Text(summary).font(WindowType.body(15)).lineSpacing(3).textSelection(.enabled).fixedSize(horizontal: false, vertical: true) }
-            noteSection("Key points", notes.keyPoints, meeting: meeting)
-            noteSection("Decisions", notes.decisions, meeting: meeting)
-            noteSection("Action items", notes.actions, meeting: meeting, actions: true)
+            let titles = NoteSections.titles(lecture: false)
+            noteSection(titles.keyPoints, notes.keyPoints, meeting: meeting)
+            noteSection(titles.decisions, notes.decisions, meeting: meeting)
+            noteSection(titles.actions, notes.actions, meeting: meeting, actions: true)
             HStack(alignment: .firstTextBaseline) {
                 lede("Written by \(notes.route). Items cite the lines they rest on\(notes.dropped > 0 ? "; \(notes.dropped) the transcript did not support \(notes.dropped == 1 ? "was" : "were") left out" : "").", color: Palette.ink64)
                 Spacer()
-                if route != nil && route != MeetingNotesRoute.none {
+                if !notesRouteOff {
                     Button("Update Notes") { recorder.writeNotes(meeting.id) }.buttonStyle(InkButtonStyle(kind: .outline))
-                        .disabled(recorder.notesWriting.contains(meeting.id) || recorder.finishing.contains(meeting.id) || separating)
+                        .disabled(notesBusy(meeting))
                 }
             }
         } else if !recorder.notesWriting.contains(meeting.id) && !separating {
-            if route == nil || route == MeetingNotesRoute.none {
+            if notesRouteOff {
                 HStack(alignment: .firstTextBaseline) {
                     lede(route == nil ? "Choose how notes are written: a title, summary, key points, decisions and action items." : "Notes are off. This meeting keeps its transcript.")
                     Spacer()
@@ -441,9 +448,10 @@ struct MeetingsPage: View {
         if let notes = meeting.lectureNotes {
             if notes.outdated == true { lede("The source changed after these lecture notes were written.") }
             if let summary = notes.summary { Text(summary).textSelection(.enabled) }
-            noteSection("Concepts", notes.keyPoints, meeting: meeting)
-            noteSection("Examples", notes.decisions, meeting: meeting)
-            noteSection("Perspectives", notes.actions, meeting: meeting)
+            let titles = NoteSections.titles(lecture: true)
+            noteSection(titles.keyPoints, notes.keyPoints, meeting: meeting)
+            noteSection(titles.decisions, notes.decisions, meeting: meeting)
+            noteSection(titles.actions, notes.actions, meeting: meeting)
             lede("Written by \(notes.route). Unsupported items dropped: \(notes.dropped).")
             Button("Copy Lecture Notes") {
                 NSPasteboard.general.clearContents()
@@ -455,8 +463,8 @@ struct MeetingsPage: View {
         Button(meeting.lectureNotes == nil ? "Generate Lecture Notes" : "Update Lecture Notes") {
             recorder.writeNotes(meeting.id, lecture: true)
         }.buttonStyle(InkButtonStyle(kind: .filled))
-            .disabled(route == .none || !meeting.finished || recorder.notesWriting.contains(meeting.id) || recorder.finishing.contains(meeting.id) || meeting.speakers?.state == .pending || meeting.lines.allSatisfy(\.isHidden))
-        if route == .none { lede("Choose a notes provider in Settings → Meetings first.") }
+            .disabled(notesRouteOff || !meeting.finished || notesBusy(meeting) || meeting.lines.allSatisfy(\.isHidden))
+        if notesRouteOff { lede("Choose a notes provider in Settings → Meetings first.") }
     }
 
     /// Speaker separation (W7d, PRD 11.8 and 11.9): progress with Skip, then each speaker with
@@ -701,7 +709,7 @@ struct MeetingLiveView: View {
             meter(MeetingStream.me.label, recorder.meLevel)
             if recorder.live?.source.micOnly == false {
                 meter(MeetingStream.them.label, recorder.themLevel)
-                if recorder.live?.source.bundleID == "com.apple.Safari" { Text("Safari plays audio through a shared WebKit process, so Mail and other WebKit apps are recorded too.").font(.system(size: 11)).foregroundStyle(Palette.ink64).fixedSize(horizontal: false, vertical: true) }
+                if recorder.live?.source.bundleID.flatMap(CallApp.app)?.sharesWebKit == true { Text("Safari plays audio through a shared WebKit process, so Mail and other WebKit apps are recorded too.").font(.system(size: 11)).foregroundStyle(Palette.ink64).fixedSize(horizontal: false, vertical: true) }
                 if recorder.live?.source.allApps == true { Text("All apps: music and notification sounds are recorded too.").font(.system(size: 11)).foregroundStyle(Palette.ink64) }
             }
             ScrollViewReader { proxy in
@@ -859,14 +867,14 @@ struct SpeakerSettingsSection: View {
             Toggle(isOn: $settings.enabled) {
                 HStack(spacing: 4) {
                     Text(SpeakerFacts.displayName).font(.system(size: 16, weight: .semibold))
-                    SettingInfoButton(text: SpeakerFacts.explanation.replacingOccurrences(of: "never your microphone", with: settings.separateRoom ? "or your microphone for microphone-only recordings" : "never your microphone") + (settings.row.isReady ? "" : "\n\nUntil it is downloaded, the call’s side is labelled Them and no audio is kept."))
+                    SettingInfoButton(text: SpeakerFacts.explanation(room: settings.separateRoom) + (settings.row.isReady ? "" : "\n\nUntil it is downloaded, the call’s side is labelled Them and no audio is kept."))
                 }
             }
             .toggleStyle(MurmurToggleStyle())
             if settings.enabled {
                 Toggle("Separate speakers in microphone-only recordings", isOn: $settings.separateRoom)
                     .toggleStyle(MurmurToggleStyle())
-                lede("For microphone-only recordings, microphone audio is kept on this Mac until speaker separation finishes, up to 24 hours, then deleted.")
+                lede("For microphone-only recordings, microphone audio is kept on this Mac until speaker separation finishes, up to \(RetryWindow.text), then deleted.")
                 HStack(alignment: .center, spacing: 16) {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 4) {

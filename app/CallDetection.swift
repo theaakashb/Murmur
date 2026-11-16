@@ -40,9 +40,6 @@ struct CallDetector {
     /// How long the offer stays up.
     static let offerLifetime: TimeInterval = 30
 
-    /// Apps that can trigger an offer: the call-app and browser catalog, plus Telegram's non-App-Store client.
-    static let apps = CallApp.catalog + [CallApp(bundleID: "com.tdesktop.Telegram", name: "Telegram", isBrowser: false, helpers: [])]
-
     struct Conditions {
         var enabled = true
         var never: [String] = []
@@ -59,19 +56,17 @@ struct CallDetector {
     /// Per app (canonical bundle ID), the current microphone session.
     private var sessions: [String: Session] = [:]
 
-    /// The catalog app a process belongs to, ignoring case; an own-prefix match beats a shared helper.
+    /// The catalog app (Start menu or not) a process belongs to, ignoring case; an own-prefix match beats a shared helper.
     static func app(for bundleID: String, running: Set<String>? = nil) -> CallApp? {
         let id = bundleID.lowercased()
         guard !id.isEmpty else { return nil }
-        if let own = apps.first(where: { id == $0.bundleID.lowercased() || id.hasPrefix($0.bundleID.lowercased() + ".") }) { return own }
-        let open = running.map { Set($0.map { $0.lowercased() }) }
-        return apps.first { app in app.helpers.contains { $0.lowercased() == id } && open.map { $0.contains(app.bundleID.lowercased()) } != false }
+        if let own = CallApp.catalog.first(where: { CallApp.isBundle(id, of: $0.bundleID) }) { return own }
+        return CallApp.catalog.first { app in app.helpers.contains { CallApp.isBundle(id, of: $0, scope: .exact) } && running.map { $0.contains { CallApp.isBundle($0, of: app.bundleID, scope: .exact) } } != false }
     }
 
     static func isOwn(_ bundleID: String, ownBundleID: String?) -> Bool {
-        guard let own = ownBundleID?.lowercased(), !own.isEmpty else { return false }
-        let id = bundleID.lowercased()
-        return id == own || id.hasPrefix(own + ".")
+        guard let own = ownBundleID, !own.isEmpty else { return false }
+        return CallApp.isBundle(bundleID, of: own)
     }
 
     /// An offer hidden because dictation started is offered again once dictation ends.

@@ -31,12 +31,16 @@ import AppKit
 
     func attach(_ recorder: MeetingRecorder, preview: Bool, isBusy: @escaping () -> Bool) {
         self.recorder = recorder; self.preview = preview; self.isBusy = isBusy
+        refresh()
+    }
+
+    /// Checks the model folder against its pins (cached by fingerprint); wired into the recorder, which runs it off the main thread.
+    var verifyModel: () -> Bool {
         let manifest = manifest, folder = downloader?.target
-        recorder.verifySpeakerModel = {
+        return {
             guard let manifest, let folder else { return false }
             return (try? ModelVerificationCache.shared.verify(folder, manifest: manifest, repository: SpeakerFacts.repository)) != nil
         }
-        refresh()
     }
 
     /// Hashes the folder once (off the main thread), then hands it to the recorder while enabled.

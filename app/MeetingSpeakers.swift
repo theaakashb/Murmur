@@ -149,7 +149,7 @@ extension Meeting {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         speakers?.names[number] = trimmed.isEmpty ? nil : String(trimmed.prefix(60))
         speakers?.editedAt = Date()
-        lectureNotes?.outdated = true
+        markNotesOutdated(meetingNotes: false)
         relabelNotes(old, as: MeetingSpeakers.label(number, in: self), number: number)
     }
 
@@ -160,7 +160,7 @@ extension Meeting {
         for i in lines.indices where lines[i].speaker == from { lines[i].speaker = into }
         speakers?.names[from] = nil
         speakers?.editedAt = Date()
-        lectureNotes?.outdated = true
+        markNotesOutdated(meetingNotes: false)
         relabelNotes(old, as: MeetingSpeakers.label(into, in: self), number: into)
     }
 
@@ -170,16 +170,15 @@ extension Meeting {
         guard speakers != nil, speaker > 0, let i = lines.firstIndex(where: { $0.id == id && $0.stream == source.speakerStream }) else { return }
         lines[i].speaker = speaker
         speakers?.editedAt = Date()
-        lectureNotes?.outdated = true
-        if notes != nil { notes?.outdated = true }
+        markNotesOutdated()
     }
 
     /// Replaces `old` with `new` in written notes (title, summary, item text and owners). When the
     /// new label is another speaker's too, the notes can no longer tell them apart: out of date instead.
     private mutating func relabelNotes(_ old: String, as new: String, number: Int) {
         guard var written = notes, old != new else { return }
-        let others = MeetingSpeakers.numbers(self).filter { $0 != number }.map { MeetingSpeakers.label($0, in: self) } + [MeetingStream.me.label, MeetingStream.them.label]
-        if others.contains(new) { notes?.outdated = true; return }
+        let others = MeetingSpeakers.numbers(self).filter { $0 != number }.map { MeetingSpeakers.label($0, in: self) } + [MeetingStream.me.label, MeetingStream.them.label, MeetingStream.roomLabel]
+        if others.contains(new) { markNotesOutdated(); return }
         func swap(_ text: String) -> String { MeetingSpeakers.replace(old, with: new, in: text) }
         func swap(_ items: [NoteItem]) -> [NoteItem] { items.map { var item = $0; item.text = swap(item.text); item.owner = item.owner.map(swap); return item } }
         written.title = written.title.map(swap); written.summary = written.summary.map(swap)
@@ -193,7 +192,7 @@ extension Meeting {
 /// With speaker separation on, the Them stream is kept as one 16 kHz mono 16-bit WAV per meeting in
 /// `retry-audio/speakers/<meeting id>.wav` (owner-only): each transcribed chunk is written at its
 /// own time, so gaps read as silence. It is deleted once diarization finishes or is skipped, with
-/// its meeting, and in any case 24 hours after it was created. The Me stream is never kept.
+/// its meeting, and in any case `RetryWindow.text` after it was created. The Me stream is never kept.
 enum SpeakerAudio {
     static let sampleRate = 16_000
     static let header = 44
@@ -232,7 +231,7 @@ enum SpeakerAudio {
         return data
     }
 
-    /// Deletes kept audio older than 24 hours (or dated in the future), files of meetings not in
+    /// Deletes kept audio older than `RetryWindow.lifetime` (or dated in the future), files of meetings not in
     /// `keep` (those still waiting for diarization), and anything that is not a kept file. `active`
     /// (the meeting recording now, still transcribing, or being diarized) is never touched.
     static func purge(_ root: URL, keep: Set<String>, active: Set<String> = [], now: Date = Date()) {
@@ -304,13 +303,16 @@ enum SpeakerFacts {
     static let key = "meetingSpeakers"
     static let displayName = "Separate speakers after a meeting"
     static func directory(home: URL) -> URL { home.appendingPathComponent("Library/Caches/Dictation/module-one/speaker-diarization-df2625a") }
-    static let explanation = "After Stop, the call’s audio is split into Speaker 1, Speaker 2… on this Mac. To do that, Murmur keeps the call’s audio (never your microphone) until separation finishes, at most 24 hours, then deletes it. Voice prints are discarded after each meeting, and nobody is recognised across meetings."
+    /// `room`: microphone-only recordings can be separated too (the "Separate speakers in microphone-only recordings" switch).
+    static func explanation(room: Bool) -> String {
+        "After Stop, the call’s audio is split into Speaker 1, Speaker 2… on this Mac. To do that, Murmur keeps the call’s audio (\(room ? "or your microphone for microphone-only recordings" : "never your microphone")) until separation finishes, at most \(RetryWindow.text), then deletes it. Voice prints are discarded after each meeting, and nobody is recognised across meetings."
+    }
     /// Credits required by the repository's NOTICE.md (CC-BY-4.0 attribution).
     static let credits = "Speaker separation uses modified Core ML conversions by Fluid Inference of the pyannote speaker-diarization-community-1 pipeline (pyannote segmentation, WeSpeaker embeddings) with PLDA parameters from BUT Speech@FIT, licensed under CC-BY-4.0: https://creativecommons.org/licenses/by/4.0/"
     /// The meeting page's line while speakers are being separated, or waiting to be.
     static func status(_ separation: SpeakerSeparation?, running: Bool, room: Bool = false) -> String? {
         switch separation?.state {
-        case .pending?: return running ? "Separating speakers…" : "Waiting to separate speakers. \(room ? "Microphone audio" : "The call’s audio") is kept for up to 24 hours."
+        case .pending?: return running ? "Separating speakers…" : "Waiting to separate speakers. \(room ? "Microphone audio" : "The call’s audio") is kept for up to \(RetryWindow.text)."
         case .failed?: return "Speakers could not be separated, so \(room ? "the microphone is labelled Room" : "the call’s side is labelled Them"). Its audio was deleted."
         default: return nil
         }

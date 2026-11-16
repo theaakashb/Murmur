@@ -120,8 +120,8 @@ import SwiftUI
                 addMeetingSource(MeetingSource(name: app.name, bundleID: app.bundleID), title: app.name, to: sources)
             }
             sources.addItem(.separator())
-            addMeetingSource(.everything, title: "All apps (includes music and notifications)", to: sources)
-            addMeetingSource(.microphoneOnly, title: "Only my microphone", to: sources)
+            addMeetingSource(.everything, title: MeetingSource.everythingMenuTitle, to: sources)
+            addMeetingSource(.microphoneOnly, title: MeetingSource.microphoneOnlyMenuTitle, to: sources)
             start.submenu = sources; menu.addItem(start)
         }
         menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "").target = self

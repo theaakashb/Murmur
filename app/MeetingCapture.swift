@@ -54,7 +54,7 @@ enum TapTarget: Equatable {
     func includes(_ bundleID: String) -> Bool {
         switch self {
         case .only(let app): return app.matches(bundleID)
-        case .allExcept(let own): return !own.contains { $0.lowercased() == bundleID.lowercased() }
+        case .allExcept(let own): return !own.contains { CallApp.isBundle(bundleID, of: $0, scope: .exact) }
         }
     }
 }

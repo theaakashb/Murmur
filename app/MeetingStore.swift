@@ -131,6 +131,3 @@ enum MeetingAudio {
         }
     }
 }
-
-/// The PRD's 24-hour retry-audio window (section 6), restated here so this file stays Foundation-only.
-enum RetryWindow { static let lifetime: TimeInterval = 24 * 60 * 60 }

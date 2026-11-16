@@ -8,46 +8,53 @@ extension AppController {
     /// History's retention and Delete All Data cover them. They transcribe on this Mac only (Q2).
     func configureMeetings(base: URL) {
         let recorder = meetingRecorder
-        recorder.configure(store: try? MeetingStore(directory: base.appendingPathComponent("history").appendingPathComponent("meetings")),
-                           audioRoot: base.appendingPathComponent("retry-audio").appendingPathComponent("meetings"),
-                           persists: appliedHistoryMode.persistsTranscripts)
-        recorder.applyDictionary = { [weak self] text in self?.processing?.dictionary.apply(to: text, isCommonWord: isCommonEnglishWord) ?? text }
-        recorder.onLiveChange = { [weak self] in self?.updateMenu?(); self?.meetingPanelChanged?() }
-        recorder.notesRoute = { [weak self] in self?.meetingNotesRoute }
-        recorder.notesWriter = { [weak self] meeting, lecture in
-            guard let self else { throw NotesFailure.failed("Murmur is closing.") }
-            return try await self.writeMeetingNotes(meeting, lecture: lecture)
+        // Without the helper and manifest (the UI fixture, or a build without them) the recorder cannot transcribe.
+        var local: MeetingRecorder.LocalTranscription?
+        if !preview, let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"), let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json") {
+            let warm = warm
+            local = .init(
+                transcribe: { [weak self] url, done in
+                    guard let self else { done(nil); return }
+                    let models = URL(fileURLWithPath: self.modelDirectory), vocabulary = self.vocabularyFile, dictionaryModel = self.dictionaryModelDirectory
+                    DispatchQueue.global(qos: .utility).async {
+                        guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
+                              let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
+                        warm.transcribe(url, helper: helper, launch: launch) { line in
+                            let answer = line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+                            done(answer?["text"] as? String)
+                        }
+                    }
+                },
+                transcribeTimed: { [weak self] url, done in
+                    guard let self else { done(nil); return }
+                    let models = URL(fileURLWithPath: self.modelDirectory), vocabulary = self.vocabularyFile, dictionaryModel = self.dictionaryModelDirectory
+                    DispatchQueue.global(qos: .utility).async {
+                        guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
+                              let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
+                        warm.transcribeTimed(url, helper: helper, launch: launch) { line in
+                            let answer = line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+                            guard let text = answer?["text"] as? String else { done(nil); return }
+                            done(ChunkText(text: text, words: answer?["words"] as? [[Double]]))
+                        }
+                    }
+                },
+                helper: helper)
         }
+        recorder.wire(.init(
+            store: try? MeetingStore(directory: base.appendingPathComponent("history").appendingPathComponent("meetings")),
+            audioRoot: base.appendingPathComponent("retry-audio").appendingPathComponent("meetings"),
+            persists: appliedHistoryMode.persistsTranscripts,
+            applyDictionary: { [weak self] text in self?.processing?.dictionary.apply(to: text, isCommonWord: isCommonEnglishWord) ?? text },
+            notesRoute: { [weak self] in self?.meetingNotesRoute },
+            notesWriter: { [weak self] meeting, lecture in
+                guard let self else { throw NotesFailure.failed("Murmur is closing.") }
+                return try await self.writeMeetingNotes(meeting, lecture: lecture)
+            },
+            verifySpeakerModel: speakerSettings.verifyModel,
+            local: local))
+        recorder.onLiveChange = { [weak self] in self?.updateMenu?(); self?.meetingPanelChanged?() }
         recorder.onNotesChoiceNeeded = { [weak self] in self?.screenRequest = .meetings; self?.openSettings?() }
         speakerSettings.attach(recorder, preview: preview) { [weak self] in self?.isBusy ?? true }
-        guard !preview, let helper = Bundle.main.url(forAuxiliaryExecutable: "ModelBench"), let manifest = Bundle.main.url(forResource: "artifact-pins", withExtension: "json") else { return }
-        let warm = warm
-        recorder.helper = helper
-        recorder.transcribeTimed = { [weak self] url, done in
-            guard let self else { done(nil); return }
-            let models = URL(fileURLWithPath: self.modelDirectory), vocabulary = self.vocabularyFile, dictionaryModel = self.dictionaryModelDirectory
-            DispatchQueue.global(qos: .utility).async {
-                guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
-                      let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
-                warm.transcribeTimed(url, helper: helper, launch: launch) { line in
-                    let answer = line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-                    guard let text = answer?["text"] as? String else { done(nil); return }
-                    done(ChunkText(text: text, words: answer?["words"] as? [[Double]]))
-                }
-            }
-        }
-        recorder.transcribe = { [weak self] url, done in
-            guard let self else { done(nil); return }
-            let models = URL(fileURLWithPath: self.modelDirectory), vocabulary = self.vocabularyFile, dictionaryModel = self.dictionaryModelDirectory
-            DispatchQueue.global(qos: .utility).async {
-                guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
-                      let launch = HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel) else { done(nil); return }
-                warm.transcribe(url, helper: helper, launch: launch) { line in
-                    let answer = line.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-                    done(answer?["text"] as? String)
-                }
-            }
-        }
     }
     /// The disclosure, volume and cost note for Cloud, or nil when no cloud transcriber is configured.
     var meetingCloudNote: (disclosure: String, note: String)? {

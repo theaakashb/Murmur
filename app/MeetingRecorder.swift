@@ -15,11 +15,11 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     @Published private(set) var meLevel = 0.0
     @Published private(set) var themLevel = 0.0
     @Published private(set) var elapsed: TimeInterval = 0
-    /// More than two minutes of audio waits for transcription.
+    /// More than `MeetingLimits.behind` of audio waits for transcription.
     @Published private(set) var behind = false
-    /// The 2 h 50 min warning, or a stream that stopped; shown in the live view.
+    /// The `MeetingLimits.warning` warning, or a stream that stopped; shown in the live view.
     @Published private(set) var warning: String?
-    /// Nothing heard on either stream for five minutes, or the call app stopped using the microphone.
+    /// Nothing heard on either stream for `MeetingLimits.askEnded`, or the call app stopped using the microphone.
     @Published private(set) var askEnded = false
     /// Meetings whose transcription is still running after Stop.
     @Published private(set) var finishing: Set<String> = []
@@ -37,14 +37,42 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     /// A meeting waiting for the first-Stop notes route question (Q3).
     @Published var notesChoicePending: String?
 
-    /// Set by AppController: transcribe a 16 kHz WAV with the warm helper (text or nil).
-    var transcribe: ((URL, @escaping (String?) -> Void) -> Void)?
-    /// Set by AppController: the dictionary's spellings, applied to each line.
-    var applyDictionary: (String) -> String = { $0 }
-    /// Set by AppController: the notes route in Settings, nil until the first Stop asks (Q3).
-    var notesRoute: () -> MeetingNotesRoute? = { nil }
-    /// Set by AppController: writes notes with the route chosen now. Throws `NotesFailure`.
-    var notesWriter: ((Meeting, Bool) async throws -> MeetingNotesWriter.Outcome)?
+    /// What the recorder cannot work without, given once to `wire(_:)`: leaving one out is a compile
+    /// error. Only the hooks (`onLiveChange`, `onNotesChoiceNeeded`) are optional.
+    struct Wiring {
+        /// `history/meetings`, nil when private storage could not be opened.
+        var store: MeetingStore?
+        /// `retry-audio/meetings`.
+        var audioRoot: URL?
+        var persists: Bool
+        /// The dictionary's spellings, applied to each line.
+        var applyDictionary: (String) -> String
+        /// The notes route in Settings, nil until the first Stop asks (Q3).
+        var notesRoute: () -> MeetingNotesRoute?
+        /// Writes notes with the route chosen now. Throws `NotesFailure`.
+        var notesWriter: (Meeting, Bool) async throws -> MeetingNotesWriter.Outcome
+        /// Checks the speaker model folder against its pins (cached by fingerprint); runs off the main thread.
+        var verifySpeakerModel: () -> Bool
+        /// nil when this Mac cannot transcribe (the fixture, or the helper or manifest is missing): `start` refuses.
+        var local: LocalTranscription?
+    }
+
+    /// Transcription on this Mac with the warm helper, which also runs diarization.
+    struct LocalTranscription {
+        /// A 16 kHz WAV to text, or nil.
+        var transcribe: (URL, @escaping (String?) -> Void) -> Void
+        /// A Them chunk with word times (the warm helper's timed request).
+        var transcribeTimed: (URL, @escaping (ChunkText?) -> Void) -> Void
+        /// The ModelBench helper.
+        var helper: URL
+    }
+
+    // Set only by `wire(_:)`; the defaults are the unwired state (the UI fixture).
+    private var applyDictionary: (String) -> String = { $0 }
+    private var notesRoute: () -> MeetingNotesRoute? = { nil }
+    private var notesWriter: ((Meeting, Bool) async throws -> MeetingNotesWriter.Outcome)?
+    private(set) var verifySpeakerModel: () -> Bool = { false }
+    private var local: LocalTranscription?
     /// Called when the notes question waits after a Stop the user clicked, to open the Meetings page.
     var onNotesChoiceNeeded: (() -> Void)?
     /// Meetings stopped by the user, whose notes question may open the Meetings page; automatic stops
@@ -78,19 +106,13 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
 
     // MARK: Speaker separation state (W7d, PRD 11.8)
 
-    /// Set by AppController: the verified diarizer folder while speaker separation is on; nil otherwise.
+    /// Set by SpeakerModelSettings: the verified diarizer folder while speaker separation is on; nil otherwise.
     /// Read when a meeting starts, so a change never affects a meeting in progress.
     var speakerModel: URL?
     var separateRoomSpeakers = false
-    /// Set by AppController: the ModelBench helper, which also runs diarization.
-    var helper: URL?
     /// Set by SpeakerModelSettings: false once the switch is off or the model is removed. Finished
     /// meetings still waiting are then skipped, so their call audio is not kept for nothing.
     var speakersWanted = true
-    /// Set by SpeakerModelSettings: checks the model folder against its pins (cached by fingerprint).
-    var verifySpeakerModel: () -> Bool = { false }
-    /// Set by AppController: transcribe a Them chunk with word times (the warm helper's timed request).
-    var transcribeTimed: ((URL, @escaping (ChunkText?) -> Void) -> Void)?
     /// Meetings whose speakers are being separated now.
     @Published private(set) var separating: Set<String> = []
     private let speakerRunner = SpeakerRunner()
@@ -101,9 +123,13 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
 
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
-    /// Points at `history/meetings` and `retry-audio/meetings`; finishes records a crash left open.
-    func configure(store: MeetingStore?, audioRoot: URL?, persists: Bool) {
-        self.store = store; self.audioRoot = audioRoot; self.persists = persists
+    /// The one place the recorder is wired (AppController at launch). Points at `history/meetings` and
+    /// `retry-audio/meetings`; finishes records a crash left open.
+    func wire(_ wiring: Wiring) {
+        applyDictionary = wiring.applyDictionary; notesRoute = wiring.notesRoute; notesWriter = wiring.notesWriter
+        verifySpeakerModel = wiring.verifySpeakerModel; local = wiring.local
+        let store = wiring.store, audioRoot = wiring.audioRoot
+        self.store = store; self.audioRoot = audioRoot; self.persists = wiring.persists
         if let audioRoot { try? FileManager.default.createDirectory(at: audioRoot, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
         if let store, let open = try? store.meetings().filter({ !$0.finished }) {
             for var meeting in open where meeting.id != live?.id { meeting.finished = true; try? store.save(meeting) }
@@ -125,7 +151,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     func start(_ source: MeetingSource, cloud: MeetingRoute.Cloud? = nil, cloudName: String? = nil) -> Bool {
         guard live == nil else { message = "A meeting is already being recorded."; return false }
         if MeetingConsent.needed(defaults) { consentPending = source; return false }
-        guard let audioRoot, transcribe != nil else { message = "Meeting notes are unavailable: private storage could not be opened."; return false }
+        guard let audioRoot, local != nil else { message = "Meeting notes are unavailable: private storage could not be opened."; return false }
         var meeting = Meeting(id: UUID().uuidString, recordedAt: Date(), source: source)
         meeting.transcribedBy = cloud == nil ? nil : cloudName
         // Fixed when the meeting starts, like the route: keep the Them stream for diarization (Q4).
@@ -246,13 +272,13 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     /// `timed`: Them chunks ask the warm helper for word times too, so a line can be split where the
     /// voice changes (W7d). Only on this Mac; cloud lines are assigned whole.
     private func makePump(_ id: String, cloud: MeetingRoute.Cloud? = nil, timed: Bool = false, timedStream: MeetingStream = .them) -> MeetingPump {
-        let transcribe = transcribe
-        let local: MeetingRoute.Local = { url, done in
+        let transcribe = local?.transcribe
+        let onThisMac: MeetingRoute.Local = { url, done in
             guard let transcribe else { done(nil); return }
             transcribe(url, done)
         }
-        var transcriber = MeetingRoute.transcriber(cloud: cloud, local: local)
-        if timed, let transcribeTimed {
+        var transcriber = MeetingRoute.transcriber(cloud: cloud, local: onThisMac)
+        if timed, let transcribeTimed = local?.transcribeTimed {
             let base = transcriber
             transcriber = { url, done in MeetingAudio.parse(url)?.stream == timedStream ? transcribeTimed(url, done) : base(url, done) }
         }
@@ -274,10 +300,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         update(id) {
             $0.insert(stream: job.stream, start: job.start, end: job.start + job.duration, text: spelled, localFallback: chunk.localFallback, words: chunk.words)
             // A leftover finished after notes were written: they no longer cover the whole transcript.
-            if !spelled.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                $0.lectureNotes?.outdated = true
-                $0.notes?.outdated = true
-            }
+            if !spelled.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { $0.markNotesOutdated() }
         }
         let meeting = live?.id == id ? live : meetings.first { $0.id == id }
         if job.stream == (meeting?.source.speakerStream ?? .them) { keepAudio(id, job) }
@@ -389,8 +412,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         update(id) { meeting in
             guard meeting.myNotes != text else { return }
             meeting.myNotes = text
-            if meeting.notes != nil { meeting.notes?.outdated = true }
-            meeting.lectureNotes?.outdated = true
+            meeting.markNotesOutdated()
         }
     }
 
@@ -434,7 +456,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
 
     // MARK: Ticks
 
-    /// Called about four times a second while Murmur runs.
+    /// Called by the controller's timer every `MeetingLimits.tickInterval`.
     func tick() {
         guard let meeting = live else { return }
         let now = ProcessInfo.processInfo.systemUptime
@@ -474,9 +496,9 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
             }
         }
         switch MeetingLimits.action(elapsed: elapsed, silentFor: now - lastVoice) {
-        case .stopCap: message = "Meeting notes stopped at the 3-hour limit."; finish(manual: false)
-        case .stopSilent: message = "Meeting notes stopped after 10 minutes of silence."; finish(manual: false)
-        case .warnCap: warning = "Meeting notes stop at 3 hours, in \(max(1, Int((MeetingLimits.cap - elapsed) / 60))) min."
+        case .stopCap: message = "Meeting notes stopped at the \(MeetingLimits.capHours)-hour limit."; finish(manual: false)
+        case .stopSilent: message = "Meeting notes stopped after \(MeetingLimits.stopSilentMinutes) minutes of silence."; finish(manual: false)
+        case .warnCap: warning = "Meeting notes stop at \(MeetingLimits.capHours) hours, in \(max(1, Int((MeetingLimits.cap - elapsed) / 60))) min."
         case .askEnded: askEnded = true
         case .none: break
         }
@@ -525,10 +547,12 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         for id in ids { delete(id) }
         var remaining = Set(meetings.map(\.id))
         if let live { remaining.insert(live.id) }
-        return ids.intersection(remaining)
+        let failed = ids.intersection(remaining)
+        if !failed.isEmpty { message = "Could not delete \(failed.count) meeting(s). They remain selected; try again." }
+        return failed
     }
 
-    /// Expires meetings with History's retention, and chunk audio after 24 hours.
+    /// Expires meetings with History's retention, and chunk audio after `RetryWindow.text`.
     /// Meetings the History cap already deleted from disk.
     func forget(_ ids: Set<String>) {
         for id in ids { pumps.removeValue(forKey: id)?.stop(); finishing.remove(id); speakerRunner.cancel(id); separating.remove(id) }
@@ -554,7 +578,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         var active = Set(pumps.keys); if let live { active.insert(live.id) }
         MeetingAudio.purge(audioRoot, keep: Set(meetings.map(\.id)), active: active)
         refreshLeftovers()
-        // Kept Them audio: only for meetings still waiting for diarization, and never past 24 hours.
+        // Kept Them audio: only for meetings still waiting for diarization, and never past `RetryWindow.text`.
         if let speakerRoot {
             let pending = Set((meetings + (live.map { [$0] } ?? [])).filter { $0.speakers?.state == .pending }.map(\.id))
             SpeakerAudio.purge(speakerRoot, keep: pending, active: active.union(separating))
@@ -563,11 +587,11 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         }
     }
 
-    /// Murmur is quitting: never keep recording (PRD 11.3). Untranscribed chunks stay for 24 hours.
+    /// Murmur is quitting: never keep recording (PRD 11.3). Untranscribed chunks stay for `RetryWindow.text`.
     func shutdown() {
         if live != nil { finish(manual: false) }
         pumps.values.forEach { $0.stop() }
-        // A separation still pending runs again at the next launch while its audio is under 24 hours old.
+        // A separation still pending runs again at the next launch while its audio is under `RetryWindow.text` old.
         speakerRunner.cancelAll()
     }
 
@@ -593,7 +617,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     }
 
     /// Runs diarization once a finished meeting has no chunks left to transcribe. Without the model
-    /// (separation turned off or removed since), the audio waits, at most 24 hours.
+    /// (separation turned off or removed since), the audio waits, at most `RetryWindow.text`.
     private func separate(_ id: String) {
         guard live?.id != id, pumps[id] == nil, !separating.contains(id), let speakerRoot,
               let meeting = meetings.first(where: { $0.id == id }), meeting.speakers?.state == .pending else { return }
@@ -601,7 +625,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
         guard FileManager.default.fileExists(atPath: audio.path), (try? SpeakerAudio.finish(audio)) != nil else {
             finishSeparation(id, nil, reason: "no-call-audio"); return
         }
-        guard let helper, let models = speakerModel else { if !speakersWanted { skipSeparation(id) }; return }
+        guard let helper = local?.helper, let models = speakerModel else { if !speakersWanted { skipSeparation(id) }; return }
         separating.insert(id)
         meetingLog.notice("speakers-started")
         speakerRunner.run(id, helper: helper, models: models, audio: audio, check: verifySpeakerModel, threshold: meeting.speakers?.threshold ?? MeetingSpeakers.threshold) { [weak self] segments in
@@ -616,8 +640,7 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
             if let segments {
                 MeetingSpeakers.apply(segments, to: &meeting)
                 // Written before separation (an older version of Murmur): they say Them, not the speakers.
-                if meeting.notes != nil { meeting.notes?.outdated = true }
-                meeting.lectureNotes?.outdated = true
+                meeting.markNotesOutdated()
             }
             else {
                 meeting.speakers?.state = .failed; meeting.speakers?.failure = reason
@@ -674,6 +697,6 @@ private let meetingLog = Logger(subsystem: "cc.clouddev.dictation", category: "m
     /// Running call apps and browsers, for the Start menu (Q1).
     static func runningCallApps() -> [CallApp] {
         let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-        return CallApp.catalog.filter { running.contains($0.bundleID) }
+        return CallApp.catalog.filter { $0.inStartMenu && running.contains($0.bundleID) }
     }
 }

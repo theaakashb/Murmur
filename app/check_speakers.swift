@@ -118,6 +118,18 @@ func segment(_ speaker: String, _ start: Double, _ end: Double) -> SpeakerSegmen
             off.renameSpeaker(1, to: "X"); off.reassignLine(off.lines[0].id, to: 2)
             check(off.speakers == nil && off.lines[0].speaker == nil, "edits need a separated meeting")
 
+            // A speaker renamed to a label the notes already use ("Room" for unassigned microphone lines) cannot be relabelled in place.
+            var room = Meeting(id: UUID().uuidString, recordedAt: Date(), source: .microphoneOnly)
+            room.speakers = SpeakerSeparation(state: .done)
+            room.insert(stream: .me, start: 0, end: 5, text: "First voice.")
+            room.lines[0].speaker = 1
+            room.notes = MeetingNotes(title: nil, summary: "Speaker 1 spoke.", route: "fixture", writtenAt: Date())
+            var plain = room
+            room.renameSpeaker(1, to: "Room")
+            check(room.notes?.outdated == true && room.notes?.summary == "Speaker 1 spoke.", "renaming a speaker to Room marks notes out of date instead of relabelling")
+            plain.renameSpeaker(1, to: "Priya")
+            check(plain.notes?.outdated == nil && plain.notes?.summary == "Priya spoke.", "a plain rename relabels the notes in place")
+
             // Names expire with their meeting: they live only in its record.
             let root = FileManager.default.temporaryDirectory.appendingPathComponent("murmur-speakers-\(UUID().uuidString)")
             defer { try? FileManager.default.removeItem(at: root) }

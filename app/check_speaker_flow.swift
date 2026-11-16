@@ -28,6 +28,15 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         let audioRoot = base.appendingPathComponent("retry-audio/meetings", isDirectory: true)
         let speakerRoot = base.appendingPathComponent("retry-audio/speakers", isDirectory: true)
 
+        /// A recorder's one wiring; each check passes only what it exercises.
+        func wiring(store: MeetingStore? = nil, audioRoot: URL? = nil, transcribe: @escaping (URL, @escaping (String?) -> Void) -> Void = { _, done in done(nil) },
+                    notesRoute: @escaping () -> MeetingNotesRoute? = { nil },
+                    notesWriter: @escaping (Meeting, Bool) async throws -> MeetingNotesWriter.Outcome = { _, _ in throw NotesFailure.failed("unused") },
+                    verify: @escaping () -> Bool = { false }) -> MeetingRecorder.Wiring {
+            .init(store: store, audioRoot: audioRoot, persists: true, applyDictionary: { $0 }, notesRoute: notesRoute, notesWriter: notesWriter, verifySpeakerModel: verify,
+                  local: .init(transcribe: transcribe, transcribeTimed: { _, done in done(nil) }, helper: helper))
+        }
+
         /// A finished meeting waiting for separation, with its kept call audio.
         func pending(days: Double = 0, audio: Bool = true) throws -> Meeting {
             var meeting = Meeting(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-days * 86400), source: MeetingSource(name: "Zoom", bundleID: "us.zoom.xos"))
@@ -49,12 +58,9 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
 
         let recorder = MeetingRecorder(defaults: UserDefaults(suiteName: "murmur-speaker-flow-\(UUID().uuidString)")!)
         check(!recorder.hasPendingUpdateWork, "idle meetings allow application updates")
-        recorder.transcribe = { _, done in done(nil) }
-        recorder.verifySpeakerModel = { true }
         // Notes are written by the real writer; the stand-in model records what it was sent.
         var prompts: [String: String] = [:], states: [String: SpeakerSeparation.State?] = [:]
-        recorder.notesRoute = { .customAPI }
-        recorder.notesWriter = { meeting, _ in
+        let writer: (Meeting, Bool) async throws -> MeetingNotesWriter.Outcome = { meeting, _ in
             states[meeting.id] = meeting.speakers?.state
             return try await MeetingNotesWriter.write(meeting, route: .customAPI, routeName: "Stand-in") { _, user in
                 prompts[meeting.id] = user; return "POINT | L1 | First voice"
@@ -64,7 +70,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
 
         // Without the model yet (still verifying at launch), a pending meeting waits with its audio.
         let waiting = try pending()
-        recorder.configure(store: store, audioRoot: audioRoot, persists: true)
+        recorder.wire(wiring(store: store, audioRoot: audioRoot, notesRoute: { .customAPI }, notesWriter: writer, verify: { true }))
         check(recorder.meetings.first { $0.id == waiting.id }?.speakers?.state == .pending && kept(waiting), "without the model, separation waits and the audio stays")
         recorder.writeNotes(waiting.id)
         spin(until: { false }, seconds: 0.3)
@@ -79,7 +85,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         try SpeakerAudio.write([Int16](repeating: 1, count: 160_000), at: 0, to: SpeakerAudio.file(speakerRoot, meeting: room.id))
 
         // With the model: separation runs, labels apply and saved, the audio is deleted.
-        recorder.helper = helper; recorder.speakerModel = models
+        recorder.speakerModel = models
         recorder.reload()
         check(recorder.hasPendingUpdateWork, "speaker separation postpones application updates after Stop")
         spin { recorder.meetings.first { $0.id == waiting.id }?.speakers?.state != .pending }
@@ -132,6 +138,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         check(try store.meetings().allSatisfy { $0.id != bulkA.id && $0.id != bulkB.id }, "bulk deletion removes selected records from disk")
         check(recorder.delete(Set<String>()).isEmpty, "empty bulk deletion is harmless")
         let liveCheck = MeetingRecorder()
+        liveCheck.wire(wiring())
         liveCheck.showFixture([waiting], live: waiting)
         check(liveCheck.hasPendingUpdateWork, "live recording postpones application updates")
         check(liveCheck.delete(Set([waiting.id])) == [waiting.id] && liveCheck.live?.id == waiting.id && liveCheck.meetings.count == 1, "bulk deletion refuses a live meeting and returns its ID")
@@ -141,9 +148,8 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         try fm.createDirectory(at: recoveryFolder, withIntermediateDirectories: true)
         try Data().write(to: recoveryFolder.appendingPathComponent(MeetingAudio.name(.me, start: 0)))
         let recoveryCheck = MeetingRecorder()
-        recoveryCheck.configure(store: store, audioRoot: audioRoot, persists: true)
         var finishTranscription: ((String?) -> Void)?
-        recoveryCheck.transcribe = { _, done in finishTranscription = done }
+        recoveryCheck.wire(wiring(store: store, audioRoot: audioRoot, transcribe: { _, done in finishTranscription = done }))
         recoveryCheck.finishLeftovers(recovering.id)
         check(recoveryCheck.live == nil && recoveryCheck.hasPendingUpdateWork, "final transcription postpones updates without a live meeting")
         spin { finishTranscription != nil }
@@ -155,7 +161,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         let refused = Meeting(id: "../invalid", recordedAt: Date(), source: .microphoneOnly)
         try Data().write(to: store.directory.deletingLastPathComponent().appendingPathComponent("invalid.json"))
         let failureCheck = MeetingRecorder()
-        failureCheck.configure(store: store, audioRoot: nil, persists: true)
+        failureCheck.wire(wiring(store: store))
         failureCheck.showFixture([refused], live: nil, separating: [refused.id])
         check(failureCheck.delete(Set([refused.id])) == [refused.id] && failureCheck.message != nil, "failed bulk deletion returns the remaining ID and reports an error")
         check(failureCheck.separating.contains(refused.id), "failed record deletion does not discard background state")
@@ -178,11 +184,11 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         saved.notes = MeetingNotes(summary: "Original meeting", route: "fixture", writtenAt: Date())
         saved.lectureNotes = MeetingNotes(summary: "Original lecture", route: "fixture", writtenAt: Date())
         let preservation = MeetingRecorder()
-        preservation.showFixture([saved], live: nil)
-        preservation.notesWriter = { _, lecture in
+        preservation.wire(wiring(notesWriter: { _, lecture in
             check(lecture, "recorder forwards lecture selection")
             throw NotesFailure.failed("Synthetic failure")
-        }
+        }))
+        preservation.showFixture([saved], live: nil)
         preservation.writeNotes(saved.id, lecture: true)
         spin(until: { !preservation.notesWriting.contains(saved.id) })
         check(preservation.notesProblem[saved.id]?.contains("Synthetic failure") == true, "lecture failure is reported")

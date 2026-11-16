@@ -253,6 +253,12 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(loud.display(0.2) < 0.6 && loud.display(0.8) > 0.99, "after loud audio, quieter audio shows lower")
         }
 
+        // The meter's decay is tuned to the controller's tick: about two thirds gone after 5 s.
+        do {
+            let left = pow(MeterScale.decay, 5 / MeetingLimits.tickInterval)
+            check(left > 0.3 && left < 0.4, "meter decay matches the tick interval")
+        }
+
         // Limits (Q7).
         do {
             check(MeetingLimits.action(elapsed: 60, silentFor: 0) == .none, "short meeting: nothing")
@@ -294,6 +300,10 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(CallApp.app("com.apple.Safari")!.tapBundleIDs(running: []).contains("com.apple.WebKit.GPU"), "Safari includes the WebKit audio process")
             check(CallApp.ownBundleIDs(main: "cc.clouddev.dictation", running: ["cc.clouddev.dictation.helper", "us.zoom.xos"]) == ["cc.clouddev.dictation", "cc.clouddev.dictation.helper"], "Murmur and its helpers are excluded")
             check(Set(CallApp.catalog.map(\.bundleID)).count == CallApp.catalog.count, "catalog has no duplicates")
+            check(!CallApp.catalog.filter(\.inStartMenu).contains { $0.bundleID == "com.tdesktop.Telegram" } && CallApp.catalog.contains { $0.bundleID == "com.tdesktop.Telegram" }, "Telegram Desktop is detected but not in the Start menu")
+            check(CallApp.app("US.ZOOM.XOS") == nil && CallApp.app("us.zoom.xos") != nil, "catalog lookup stays case-sensitive")
+            check(CallApp.ownBundleIDs(main: "cc.clouddev.dictation", running: ["CC.CLOUDDEV.DICTATION.helper"]) == ["cc.clouddev.dictation"], "own IDs are matched case-sensitively")
+            check(CallApp.app("com.apple.Safari")!.sharesWebKit && !CallApp.app("us.zoom.xos")!.sharesWebKit, "only Safari carries the shared WebKit note")
             let arc = CallApp.app("company.thebrowser.Browser")!
             check(arc.matches("company.thebrowser.browser.helper") && arc.matches("COMPANY.THEBROWSER.BROWSER"), "bundle IDs match ignoring case (Arc's audio helper)")
             check(arc.tapBundleIDs(running: ["company.thebrowser.browser.helper"]).contains("company.thebrowser.browser.helper"), "a lowercase helper is tapped")
