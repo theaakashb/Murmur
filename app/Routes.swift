@@ -25,8 +25,10 @@ enum TranscriptionRoute: String, CaseIterable, Sendable {
 
 /// The one place a cloud transcriber is constructed: a user-configured OpenAI-compatible audio transcription
 /// endpoint. Custom servers may not require a key.
-func makeTranscriptionProvider(key: APIKey?, apiBaseURL: String = RouteSettings.defaultCustomAPIURL, model: String = RouteSettings.defaultCustomTranscriptionModel) -> TranscriptionProvider? {
-    try? OpenAICompatibleTranscriptionProvider(baseURL: apiBaseURL, model: model, apiKey: key)
+func makeTranscriptionProvider(key: APIKey?, apiBaseURL: String, model: String) -> TranscriptionProvider? {
+    let name = model.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !name.isEmpty else { return nil }
+    return try? OpenAICompatibleTranscriptionProvider(baseURL: apiBaseURL, model: name, apiKey: key)
 }
 
 enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
@@ -79,16 +81,16 @@ func makeCleanupProvider(_ choice: CleanupChoice, key: APIKey?, apiBaseURL: Stri
 
 /// Route settings persisted in UserDefaults. Keys are never stored here (they live in the Keychain).
 struct RouteSettings: Equatable, Sendable {
-    static let defaultCustomAPIURL = "https://api.cerebras.ai/v1"
-    static let defaultCustomAPIModel = "gpt-oss-120b"
-    static let defaultCustomTranscriptionModel = "whisper-1"
+    /// Shown in the empty address and model fields. A custom provider has no default: nothing is sent until the user enters their own.
+    static let placeholderAPIURL = "https://api.example.com/v1"
+    static let placeholderModel = "model-name"
 
     var transcription: TranscriptionRoute = .local
     var cleanup: CleanupChoice = .localRules
-    var customAPIBaseURL: String = RouteSettings.defaultCustomAPIURL
-    var customTranscriptionAPIBaseURL: String = RouteSettings.defaultCustomAPIURL
-    var customAPIModel: String = RouteSettings.defaultCustomAPIModel
-    var customTranscriptionModel: String = RouteSettings.defaultCustomTranscriptionModel
+    var customAPIBaseURL = ""
+    var customTranscriptionAPIBaseURL = ""
+    var customAPIModel = ""
+    var customTranscriptionModel = ""
 
     /// The endpoint setting a custom provider's key is bound to (customTranscription follows its own address, customCleanup the
     /// cleanup one); nil for providers whose key has no destination. Changing it requires saving the key again (`CustomAPIKeyBinding`).
@@ -157,7 +159,7 @@ struct RouteSettings: Equatable, Sendable {
         var settings = RouteSettings()
         settings.transcription = defaults.string(forKey: Key.transcription).flatMap(TranscriptionRoute.init(rawValue:)) ?? .local
         let legacyTranscription = defaults.string(forKey: Key.legacyCloudTranscriber) == "openrouter-whisper"
-        settings.customTranscriptionModel = defaults.string(forKey: Key.customTranscriptionModel) ?? (legacyTranscription ? "openai/whisper-large-v3-turbo" : RouteSettings.defaultCustomTranscriptionModel)
+        settings.customTranscriptionModel = defaults.string(forKey: Key.customTranscriptionModel) ?? (legacyTranscription ? "openai/whisper-large-v3-turbo" : "")
         let oldChoice = defaults.string(forKey: Key.cleanup)
         settings.cleanup = oldChoice.flatMap(CleanupChoice.init(rawValue:)) ?? (legacyCustomAPIKey(from: oldChoice) == nil ? .localRules : .customAPI)
         settings.customAPIBaseURL = defaults.string(forKey: Key.customAPIBaseURL) ?? {
@@ -165,7 +167,7 @@ struct RouteSettings: Equatable, Sendable {
             case "cerebras": return "https://api.cerebras.ai/v1"
             case "openrouter": return "https://openrouter.ai/api/v1"
             case "local-server": return defaults.string(forKey: Key.legacyServerURL) ?? OpenAICompatibleCleanupProvider.ollamaDefault
-            default: return legacyTranscription ? "https://openrouter.ai/api/v1" : defaultCustomAPIURL
+            default: return legacyTranscription ? "https://openrouter.ai/api/v1" : ""
             }
         }()
         settings.customTranscriptionAPIBaseURL = defaults.string(forKey: Key.customTranscriptionAPIBaseURL) ?? settings.customAPIBaseURL
@@ -174,7 +176,7 @@ struct RouteSettings: Equatable, Sendable {
             case "cerebras": return "gpt-oss-120b"
             case "openrouter": return "google/gemini-3.5-flash-lite"
             case "local-server": return defaults.string(forKey: Key.legacyServerModel) ?? ""
-            default: return defaultCustomAPIModel
+            default: return ""
             }
         }()
         return settings

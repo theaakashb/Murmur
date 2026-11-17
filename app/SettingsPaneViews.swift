@@ -150,10 +150,10 @@ extension SettingsView {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Transcription API base URL").font(Font.system(size: 14, weight: .semibold))
-                field("https://api.example.com/v1", text: $controller.customTranscriptionAPIBaseURL)
+                field(RouteSettings.placeholderAPIURL, text: $controller.customTranscriptionAPIBaseURL)
                     .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
                 Text("Transcription model name").font(Font.system(size: 14, weight: .semibold))
-                field(RouteSettings.defaultCustomTranscriptionModel, text: $controller.customTranscriptionModel)
+                field(RouteSettings.placeholderModel, text: $controller.customTranscriptionModel)
                     .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
                 keyRow(.customTranscription)
                 help("Needs an OpenAI-compatible /v1/audio/transcriptions endpoint. Separate from cleanup.")
@@ -228,10 +228,10 @@ extension SettingsView {
     var customCleanupSettings: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Cleanup API base URL").font(Font.system(size: 14, weight: .semibold))
-            field(RouteSettings.defaultCustomAPIURL, text: $controller.customAPIBaseURL)
+            field(RouteSettings.placeholderAPIURL, text: $controller.customAPIBaseURL)
                 .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
             Text("Model name").font(Font.system(size: 14, weight: .semibold)).padding(.top, 4)
-            field(RouteSettings.defaultCustomAPIModel, text: $controller.customAPIModel)
+            field(RouteSettings.placeholderModel, text: $controller.customAPIModel)
                 .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
             keyRow(.customCleanup)
             help("This provider needs OpenAI-compatible POST /v1/chat/completions. Its address and API key are separate from transcription. Enter the provider's exact model ID. A key is sent only over HTTPS; local endpoints can be used without one.")
@@ -605,6 +605,8 @@ extension SettingsView {
 
     func keyRow(_ provider: ProviderID) -> some View {
         let has = controller.savedKeys.contains(provider), open = openKey == provider
+        // A custom provider's key is saved for its server address, so the address comes first.
+        let address = controller.routeSettings.apiBaseURL(for: provider), needsAddress = address?.trimmingCharacters(in: .whitespaces).isEmpty == true
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -617,7 +619,7 @@ extension SettingsView {
                 }
                 if has { Button("Remove", role: .destructive) { controller.removeKey(provider) }.buttonStyle(InkButtonStyle(kind: .outline)) }
                 Button(open ? "Cancel" : has ? "Replace" : "Add Key") { keyDraft = ""; openKey = open ? nil : provider }
-                    .buttonStyle(InkButtonStyle())
+                    .buttonStyle(InkButtonStyle()).disabled(needsAddress && !has)
             }
             if open {
                 HStack(spacing: 8) {
@@ -626,8 +628,8 @@ extension SettingsView {
                         .buttonStyle(InkButtonStyle(kind: .accent)).disabled(keyDraft.isEmpty)
                 }
             }
-            if let address = controller.routeSettings.apiBaseURL(for: provider) {
-                help("Server address: \(address)")
+            if let address {
+                help(needsAddress ? "Enter the server address before adding a key." : "Server address: \(address)")
                 if controller.customAPIKeyNeedsConfirmation(provider) {
                     help("Save the API key again to confirm this server address. The existing key stays in Keychain and will not be sent until confirmed.", color: EditorialPalette.accentInk)
                 }

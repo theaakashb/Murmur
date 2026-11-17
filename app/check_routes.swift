@@ -147,8 +147,12 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
     // MARK: Factory
 
     static func factoryChecks() {
-        check(makeTranscriptionProvider(key: testKey) is OpenAICompatibleTranscriptionProvider && makeTranscriptionProvider(key: nil) != nil, "custom transcription factory; its key is optional")
-        check(makeTranscriptionProvider(key: testKey, apiBaseURL: "ftp://x") == nil, "custom transcription rejects a bad URL")
+        let speechURL = "https://speech.example/v1"
+        check(makeTranscriptionProvider(key: testKey, apiBaseURL: speechURL, model: "m") is OpenAICompatibleTranscriptionProvider && makeTranscriptionProvider(key: nil, apiBaseURL: speechURL, model: "m") != nil, "custom transcription factory; its key is optional")
+        check(makeTranscriptionProvider(key: testKey, apiBaseURL: "ftp://x", model: "m") == nil && makeTranscriptionProvider(key: testKey, apiBaseURL: speechURL, model: " ") == nil, "custom transcription rejects a bad URL or a missing model")
+        let unset = RouteSettings()
+        check(unset.customAPIBaseURL.isEmpty && unset.customTranscriptionAPIBaseURL.isEmpty && unset.customAPIModel.isEmpty && unset.customTranscriptionModel.isEmpty, "a custom provider has no default address or model")
+        check(RoutePlan.make({ var s = unset; s.transcription = .cloud; s.cleanup = .customAPI; return s }(), cleanupSendsText: true) { _ in testKey }.stages.isEmpty, "an unconfigured custom provider has no destination")
         check(makeCleanupProvider(.localRules, key: testKey, apiBaseURL: "", model: "") == nil, "local rules has no provider")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "http://localhost:11434", model: "llama3.2") is OpenAICompatibleCleanupProvider, "local custom API needs no key")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "http://localhost:11434", model: " ") == nil, "custom API needs a model")
@@ -173,18 +177,18 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let local = RoutePlan.make(RouteSettings(), cleanupSendsText: true, key: all)
         check(local.usesLocalModel && local.cleaner == nil && local.stages.isEmpty && local.refusal == nil, "defaults are local/local with no disclosure")
 
-        var cloud = RouteSettings(); cloud.transcription = .cloud; cloud.customTranscriptionAPIBaseURL = "ftp://x"
+        var cloud = RouteSettings(); cloud.transcription = .cloud
         let unconfigured = RoutePlan.make(cloud, cleanupSendsText: true, key: all)
         check(unconfigured.transcriber == nil && !unconfigured.usesLocalModel, "no fallback: an unconfigured cloud route never uses the local model")
         check(unconfigured.refusal == ProviderError.invalidConfiguration(.customAPI).userMessage, "unconfigured cloud route refuses")
-        cloud.customTranscriptionAPIBaseURL = "https://speech.example/v1"
+        cloud.customTranscriptionAPIBaseURL = "https://speech.example/v1"; cloud.customTranscriptionModel = "speech-model"
         let configured = RoutePlan.make(cloud, cleanupSendsText: true, key: none)
         let summary = configured.stages.first?.summary ?? ""
         check(configured.transcriber != nil && configured.refusal == nil && summary.contains("audio") && summary.contains("speech.example"), "the disclosure names the audio and the host before a key is saved")
         check(DisclosureText.summary(configured, stage: .transcription) == summary, "Settings summary")
 
         var separate = RouteSettings()
-        separate.transcription = .cloud
+        separate.transcription = .cloud; separate.customTranscriptionModel = "speech-model"
         separate.customTranscriptionAPIBaseURL = "https://speech.example/v1"
         separate.customAPIBaseURL = "https://cleanup.example/v1"
         separate.cleanup = .customAPI; separate.customAPIModel = "cleanup-model"
@@ -222,11 +226,12 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
     static func disclosureChecks() {
         let all: (ProviderID) -> APIKey? = { _ in testKey }
         var settings = RouteSettings(); settings.transcription = .cloud
+        settings.customTranscriptionAPIBaseURL = "https://speech.example/v1"; settings.customTranscriptionModel = "speech-model"
         let first = RoutePlan.make(settings, cleanupSendsText: true, key: all)
         check(first.stages.count == 1 && first.stages[0].stage == .transcription &&
               first.stages[0].summary.contains("audio"), "cloud transcription shows its disclosure in Settings")
 
-        settings.cleanup = .customAPI; settings.customAPIModel = "m"
+        settings.cleanup = .customAPI; settings.customAPIModel = "m"; settings.customAPIBaseURL = "https://cleanup.example/v1"
         let both = RoutePlan.make(settings, cleanupSendsText: true, key: all)
         check(both.stages.map(\.stage) == [.transcription, .cleanup], "transcription and cleanup disclosures stay visible inline")
 
