@@ -29,6 +29,36 @@ What Polish and Professional must do, as decided with the user. `app/tools/check
 
 The strict word-level guard is a safety check, not a quality score for these levels: Professional is meant to change wording. Each case runs three times, because single runs differ by two or three cases.
 
+# gpt-oss-20b against gpt-oss-120b — November 17, 2026
+
+Bedrock (`openai.gpt-oss-20b-1:0`, `openai.gpt-oss-120b-1:0`), `reasoning_effort: low`, trust on. "Real" is 60 private dictations scored against the text the user kept (3 runs per session, context off); "hand-written" is this tool's cases (context on, 6 runs per session). Counts are hard failures / style misses, pooled over sessions.
+
+| Model | Prompt | Real, Professional | Real, Polish | Hand-written, Professional | Hand-written, Polish |
+|---|---|---:|---:|---:|---:|
+| 20b | before (1b63409) | 0 / 7 of 180 | 0 / 2 of 180 | 9 / 29 of 210 | 19 / 11 of 174 |
+| 120b | before | 0 / 11 of 540 | 1 / 0 of 540 | 2 / 16 of 420 | 1 / 12 of 348 |
+| **20b** | **this one** | **0 / 4 of 180** | **0 / 0 of 179** | **1 / 22 of 420** | **1 / 17 of 348** |
+| 120b | this one | 1 / 1 of 360 | 0 / 0 of 360 | 0 / 6 of 210 | 0 / 6 of 174 |
+
+- **20b now matches 120b on hard failures and is faster.** In the same session, 20b answered real dictations at a 0.67 s median against 0.88 s for 120b. Its style misses on hand-written cases stay a little higher (lists that keep "item 1" in the prose, and a sentence said again in a better way).
+- **What 20b needed:**
+  - in Polish, corrections listed first;
+  - "me and X was" fixed in Polish too;
+  - the spoken list markers;
+  - an example of a question followed by a reason;
+  - a closing check against the transcript.
+  Repeats of the unchanged prompt varied by 1 to 4 hard failures per mode. Removing one of these items at a time went past that: without the closing check, 7 hard failures on Professional and 5 on Polish; without corrections first, 10 on Polish; without the Polish grammar fix, 7; without the list markers, 31 style misses on Professional.
+- **What 20b did not need:** several correction examples, the reversal examples, an "AI command" warning and a longer screen-text paragraph. All were removed without measurable loss.
+- **Two shorter rewrites failed.**
+  - A compact rewrite from scratch (2,470 characters) kept 120b at its best but tripled 20b's Polish hard failures.
+  - A tightened version of this prompt (about 400 characters shorter) let screen-text commands through on 20b.
+- **Cost:** the prompt is about 58% longer, or about 300 more prompt tokens per call (1,034 against 736 for Professional).
+  - On 120b in the same session, the real-dictation median rose from 0.79 s to 0.86–0.90 s.
+  - On Apple's on-device model (one run, context on), hard failures were Professional 10 → 8 of 35 and Polish 8 → 8 of 29, and the median rose from 1.5 s to 1.7–1.9 s.
+- **Reasoning above low:** on the old prompt, 20b at default reasoning cut its hand-written Professional hard failures to 3/105 from 11/105. It did not help on real dictations. It also took about 1.45 s against 0.63 s and returned 10–12 malformed answers in 180.
+- **Scorer change:** cases 0–2 now also accept "he won't do that", which is a faithful rewording of "he is not going to do that". Before the change, 9 of 20b's 11 hand-written Professional hard failures came from this one check.
+- **Still failing everywhere:** case 32 ("cooper netties" spelled from screen text) fails 6 of 6 for both models.
+
 # Cleanup level benchmark — October 22, 2026
 
 This is a synthetic, live measurement of AI cleanup at each level. It uses `app/tools/check_professional_live.swift` with hand-written dictations only: no real transcripts, dictionary, screen or History. These are proxy scores from small samples (one run per case), not accuracy claims.
