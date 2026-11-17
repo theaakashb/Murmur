@@ -99,7 +99,7 @@ enum WritingModes {
             save(modes, to: defaults)
             defaults.set(true, forKey: editableBaselinesKey)
         }
-        if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[0].id && $0.transform == .aiPrompt && [TransformPrompt.previousAIPromptBaseline, TransformPrompt.previousDetailAIPromptBaseline, TransformPrompt.previousConditionalAIPromptBaseline].contains($0.instructions) }) {
+        if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[0].id && $0.transform == .aiPrompt && [TransformPrompt.previousAIPromptBaseline, TransformPrompt.previousDetailAIPromptBaseline, TransformPrompt.previousConditionalAIPromptBaseline, TransformPrompt.previousStructuredAIPromptBaseline].contains($0.instructions) }) {
             modes[i].instructions = TransformPrompt.baseline(.aiPrompt)
             if ["AI Prompt", "Prompt Engineer"].contains(modes[i].name) {
                 modes[i].name = "Prompt Mode"
@@ -107,11 +107,11 @@ enum WritingModes {
             }
             save(modes, to: defaults)
         }
-        if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[1].id && $0.transform == .email && $0.instructions == TransformPrompt.previousEmailBaseline }) {
+        if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[1].id && $0.transform == .email && [TransformPrompt.previousEmailBaseline, TransformPrompt.previousStructuredEmailBaseline].contains($0.instructions) }) {
             modes[i].instructions = TransformPrompt.baseline(.email)
             save(modes, to: defaults)
         }
-        if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[2].id && $0.transform == .notes && $0.instructions == TransformPrompt.previousNotesBaseline }) {
+        if let i = modes.firstIndex(where: { $0.id == WritingMode.presets[2].id && $0.transform == .notes && [TransformPrompt.previousNotesBaseline, TransformPrompt.previousStructuredNotesBaseline].contains($0.instructions) }) {
             modes[i].instructions = TransformPrompt.baseline(.notes)
             save(modes, to: defaults)
         }

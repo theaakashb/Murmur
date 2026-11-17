@@ -314,7 +314,8 @@ final class ProcessingCoordinator {
     private static func transformClean(_ text: String, kind: ModeTransform, provider: CleanupProvider, terms: [String], instructions: String) async -> CloudAttempt? {
         let messages = TransformPrompt.build(kind, transcript: text, dictionaryTerms: terms, instructions: instructions)
         guard let output = try? await provider.cleanup(messages) else { return nil }
-        let out = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Spaces before a line break are markdown hard breaks some models add; pasted text never wants them.
+        let out = output.replacingOccurrences(of: #"[ \t]+\n"#, with: "\n", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
         guard TransformGuard.accepts(input: text, output: out) else { return nil }
         return CloudAttempt(text: out, reason: nil, error: nil, accepted: out, verdict: .transform, promptHash: promptHash(messages.system))
     }

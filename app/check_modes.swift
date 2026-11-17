@@ -262,10 +262,10 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
             check(!preset.instructions.isEmpty && preset.instructions.count <= WritingModeLimits.instructions, "editable baseline fits the instruction field")
         }
         let editedPrompt = TransformPrompt.build(.aiPrompt, transcript: "inspect the dashboard", nonce: "M1", instructions: "Use one paragraph.")
-        check(editedPrompt.system.contains("Use one paragraph.") && !editedPrompt.system.contains("Match format to complexity"), "edited instructions replace the baseline rather than append to hidden instructions")
-        check(!TransformPrompt.build(.aiPrompt, transcript: "inspect", instructions: "").system.contains("Match format to complexity"), "clearing instructions does not silently restore the baseline")
-        check(TransformPrompt.baseline(.aiPrompt).contains("verification steps only when explicitly dictated") && TransformPrompt.baseline(.aiPrompt).contains("agent/workspace names exactly as spoken"), "baseline addresses invented verification and exact technical identifiers")
-        check(TransformPrompt.baseline(.email).contains("Never prepend a greeting") && TransformPrompt.baseline(.notes).contains("Organize without aggressive summarization"), "email and notes baselines address hallucinations and guard compliance")
+        check(editedPrompt.system.contains("Use one paragraph.") && !editedPrompt.system.contains("A short request stays one or two sentences"), "edited instructions replace the baseline rather than append to hidden instructions")
+        check(!TransformPrompt.build(.aiPrompt, transcript: "inspect", instructions: "").system.contains("A short request stays one or two sentences"), "clearing instructions does not silently restore the baseline")
+        check(TransformPrompt.baseline(.aiPrompt).contains("no acceptance criteria") && TransformPrompt.baseline(.aiPrompt).contains("names exactly as spoken"), "baseline addresses invented verification and exact technical identifiers")
+        check(TransformPrompt.baseline(.email).contains("no greeting and no sign-off unless dictated") && TransformPrompt.baseline(.notes).contains("Organize; do not summarize"), "email and notes baselines address hallucinations and guard compliance")
         for (kind, purpose) in [(ModeTransform.aiPrompt, "prompt for another AI"), (.email, "email text"), (.notes, "organized notes")] {
             for notes in ["", "Use a warm tone."] {
                 check(TransformPrompt.build(kind, transcript: "share the draft", instructions: notes).system.contains(purpose), "custom and cleared instructions retain the mode's output type")
@@ -281,13 +281,18 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         WritingModes.save([previousPreset], to: migration)
         let tuned = WritingModes.load(from: migration)
         check(tuned[0].instructions == TransformPrompt.baseline(.aiPrompt), "an unchanged previous baseline is tuned in saved settings")
+        for (index, previous) in [TransformPrompt.previousStructuredAIPromptBaseline, TransformPrompt.previousStructuredEmailBaseline, TransformPrompt.previousStructuredNotesBaseline].enumerated() {
+            var saved = WritingMode.presets[index]; saved.instructions = previous
+            WritingModes.save([saved], to: migration)
+            check(previous != WritingMode.presets[index].instructions && WritingModes.load(from: migration)[0].instructions == WritingMode.presets[index].instructions, "an unedited preset from before the shorter instructions is upgraded")
+        }
         var customized = previousPreset
         customized.instructions += "\nUse my preferred headings."
         WritingModes.save([customized], to: migration)
         check(WritingModes.load(from: migration) == [customized], "tuning never replaces customized instructions")
         let detailPrompt = TransformPrompt.build(.aiPrompt, transcript: "inspect the example first and only then change the scrolling", instructions: tuned[0].instructions)
-        check(detailPrompt.system.contains("Preserve action verbs and their targets") && detailPrompt.system.contains("inspect/report-only boundaries distinct from instructions to modify code"), "detail preservation rule reaches the provider prompt")
-        check(detailPrompt.system.contains("only, also, first, before, after, maybe"), "prompt explicitly preserves actions and scoped qualifiers")
+        check(detailPrompt.system.contains("the kind of request it is") && detailPrompt.system.contains("Only look, don't change anything"), "detail preservation rule reaches the provider prompt")
+        check(detailPrompt.system.contains("only, first, before, unless, until and maybe"), "prompt explicitly preserves actions and scoped qualifiers")
         previousPreset.instructions = TransformPrompt.previousConditionalAIPromptBaseline
         WritingModes.save([previousPreset], to: migration)
         let conditional = WritingModes.load(from: migration)
@@ -295,10 +300,10 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         customized = previousPreset; customized.instructions += "\nPrefer concise wording."
         WritingModes.save([customized], to: migration)
         check(WritingModes.load(from: migration) == [customized], "conditional tuning preserves edits to the detail baseline")
-        check(conditional[0].instructions.contains("Never invert \"Do not X unless Y\" into \"If Y, do X\""), "conditional restriction preservation is in the baseline")
+        check(conditional[0].instructions.contains("\"Do not X unless Y\" never becomes \"If Y, do X\""), "conditional restriction preservation is in the baseline")
         let conditionalInput = "Suggest an adjustment but do not make it unless the footer is missing."
         let conditionalPrompt = TransformPrompt.build(.aiPrompt, transcript: conditionalInput, instructions: conditional[0].instructions)
-        check(conditionalPrompt.system.contains("Never invert \"Do not X unless Y\" into \"If Y, do X\""), "conditional rule reaches the provider without being truncated")
+        check(conditionalPrompt.system.contains("\"Do not X unless Y\" never becomes \"If Y, do X\""), "conditional rule reaches the provider without being truncated")
         check(conditionalPrompt.user.contains(conditionalInput), "conditional wording reaches the model unchanged")
         let ps = WritingMode.presets
         check(WritingModes.trigger(ps, in: "Prompt mode, fix the login bug")?.text == "Fix the login bug", "preset trigger at the start")
@@ -329,6 +334,8 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(TransformGuard.accepts(input: "ship it on 5 May, not 6", output: "Ship it on 5 May, not 6."), "guard keeps numbers and negation")
         check(!TransformGuard.accepts(input: "ship it on 5 May", output: "Ship it soon."), "guard rejects a dropped number")
         check(!TransformGuard.accepts(input: "do not ship it", output: "Ship it."), "guard rejects a dropped negation")
+        check(TransformGuard.accepts(input: "rename the png files actually no make it jpg files too", output: "Rename the PNG and JPG files."), "a correction cue's no is not a negation to keep")
+        check(!TransformGuard.accepts(input: "actually no do not rename the png files", output: "Rename the PNG files."), "a real negation after a cue is still kept")
 
         print(failures == 0 ? "\(passes) checks passed, 0 failed" : "\(passes) passed, \(failures) failed")
         exit(failures == 0 ? 0 : 1)
