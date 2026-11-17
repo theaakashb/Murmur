@@ -173,6 +173,9 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         let sections = CleanupSections.split(longText, target: 150, keepingCorrectionsAttached: true)
         check(sections.count > 1 && sections.allSatisfy { !$0.hasPrefix("Actually no") }, "a correction is never cut from its antecedent")
         check(sections.joined(separator: " ") == longText, "splitting loses no text")
+        func opens(_ sentence: String) -> Bool { sentence.range(of: CleanupSections.correctionOpening, options: [.regularExpression, .caseInsensitive]) != nil }
+        check(RuleCleaner.cuePatterns.allSatisfy { opens($0.0.joined(separator: " ") + " Monday.") } && opens("Or rather Monday.") && opens("Instead, Monday."), "every rule-engine cue keeps its sentence attached")
+        check(!opens("Nobody came.") && !opens("Sorrysome text.") && !opens("We ship on Friday."), "ordinary sentences are still cut freely")
         // Unsplittable oversized input falls back to local rules instead of truncating.
         let huge = Array(repeating: "word", count: 3_000).joined(separator: " ")
         var helperLimit = LocalModelCleanupProvider(); helperLimit.status = { nil }; helperLimit.generate = { _ in throw ProviderError.payloadTooLarge(.localModel, limitBytes: nil) }

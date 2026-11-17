@@ -10,6 +10,8 @@ import Foundation
 /// cleanup model can clean them in parallel. Short text and
 /// spoken lists ("first … second …", which must be formatted as one) stay whole.
 enum CleanupSections {
+    /// The rule engine's cues, plus "wait" and "instead", which also open a sentence that repairs the one before it.
+    static let correctionOpening = "^(" + (RuleCleaner.cuePatterns.map { $0.0.joined(separator: " ") } + ["wait", "instead"]).joined(separator: "|") + #")\b"#
     /// `keepingCorrectionsAttached`: a sentence that opens with a correction cue ("No, actually Monday") is never cut off from the one it repairs.
     static func split(_ text: String, target: Int = CleanupSectioning.defaultTarget, keepingCorrectionsAttached: Bool = false) -> [String] {
         let words = text.split(whereSeparator: \.isWhitespace).count
@@ -23,7 +25,7 @@ enum CleanupSections {
             if let last = word.last, ".?!".contains(last) { parts.append("") }
         }) where !sentence.isEmpty {
             if keepingCorrectionsAttached, current.isEmpty, !sections.isEmpty,
-               sentence.range(of: #"^(no|actually|wait|sorry|instead|scratch that|i mean|i meant)\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
+               sentence.range(of: correctionOpening, options: [.regularExpression, .caseInsensitive]) != nil {
                 current = sections.removeLast(); count = current.split(whereSeparator: \.isWhitespace).count
             }
             current += (current.isEmpty ? "" : " ") + sentence

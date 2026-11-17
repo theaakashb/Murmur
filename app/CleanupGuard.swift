@@ -141,6 +141,8 @@ enum CleanupGuard {
     /// The ordinary words that are corrections only after a comma (or dash).
     static let commaRequiredCues: Set<[String]> = [["sorry"], ["actually"], ["no"]]
     /// "no" before one of these quantifies it ("no one", "no longer") and is not a correction cue.
+    /// After a cue these make it a statement, not a repair: "I meant it", "I mean business", "what I meant was".
+    static let declarativeAfterCue: Set<String> = ["it", "business", "well", "to", "was", "is"]
     static let noQuantified: Set<String> = ["one", "body", "longer", "matter", "way", "doubt", "problem", "idea", "more"]
 
     /// Raw word indices that a spoken correction could legitimately delete: the cue itself plus up
@@ -177,7 +179,9 @@ enum CleanupGuard {
                     let before = wi > 0 ? tokens[tokenOfWord[wi - 1]].lower : ""
                     let after = wi + cue.count < tokenOfWord.count ? tokens[tokenOfWord[wi + cue.count]].lower : ""
                     if ["what", "which", "who", "how", "whatever", "all", "if"].contains(before)
-                        || ["was", "is", "to", "it", "that", "by", "for", "well", "business"].contains(after) { continue }
+                        // A bare comma-free cue is also a statement before "that", "by" or "for" ("I mean that", "I meant by").
+                        // `applyExplicitRepairs` leaves those out on purpose: after "no I mean" they open a real repair ("no I mean by Friday").
+                        || declarativeAfterCue.union(["that", "by", "for"]).contains(after) { continue }
                     // A bare "I meant" repairs only right after a cue word ("wait no I meant", "actually I meant"),
                     // never in a nested clause ("I told him I meant he told me").
                     if cue == ["i", "meant"] && !["wait", "no", "know", "oh", "sorry", "actually", "um", "uh"].contains(before) { continue }
@@ -327,7 +331,7 @@ enum CleanupGuard {
             while end < tokenOfWord.count, CleanupText.hesitations.contains(word(end)), !between(end - 1, end, \.isTerminal) { end += 1 }
             // A declarative or quantifying use is not a cue: "no I mean it", "actually no one came".
             guard end < tokenOfWord.count, !between(end - 1, end, \.isTerminal),
-                  !(noQuantified.union(["it", "business", "well", "to", "was", "is"])).contains(word(end)),
+                  !noQuantified.union(declarativeAfterCue).contains(word(end)),
                   start > (cuts.last?.upperBound ?? -1) + 1,
                   // "No, I mean" may follow a question it corrects ("What time is it? No, I mean, what day is it?"):
                   // a speaker does not answer their own question with "I mean". A bare "No," there stays an answer.
