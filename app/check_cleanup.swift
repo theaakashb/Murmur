@@ -852,10 +852,14 @@ struct ThrowingCleaner: Cleaner {
         expect(CleanupGuard.check(raw: "the budget is two hundred and fifty thousand", cleaned: "The budget is 250000", options: on) == .pass, "ungrouped digits pass")
         expect(CleanupPipeline.judge(raw: "new line", cleaned: "\n", options: on, allowedTerms: []) == .cleaned("\n"), "a lone new line is inserted untrimmed")
         expect(CleanupSections.split(String(repeating: "write an email to Sarah saying ", count: 1) + String(repeating: "the plan is fine and ", count: 40) + "best regards Kartik").count == 1, "an email frame is not split into sections")
-        // Prompt: the operations appear only with the option.
-        let prompt = CleanupPrompt.build(transcript: "x", options: on).system, plain = CleanupPrompt.build(transcript: "x", options: off).system
-        expect(prompt.contains("Spoken commands") && prompt.contains("250,000") && prompt.contains("Hi Sarah,"), "prompt describes spoken commands")
-        expect(!plain.contains("Spoken commands") && !plain.contains("Hi Sarah"), "prompt omits spoken commands when off")
+        // Prompt: the Mac writes spoken commands out before sending, so the model is never told about them.
+        let spokenRaw = "write an email to Sarah saying revenue is up ten percent comma thanks"
+        let sent = CleanupPrompt.build(transcript: spokenRaw, options: on), unsent = CleanupPrompt.build(transcript: spokenRaw, options: off)
+        expect(sent.user.contains("Hi Sarah,") && sent.user.contains("10%") && !sent.user.contains("comma"), "spoken commands are applied to the transcript that is sent")
+        expect(!sent.system.contains("Spoken commands") && !sent.system.contains("Hi Sarah"), "the prompt does not describe spoken commands")
+        expect(unsent.user.contains("ten percent comma"), "the transcript is sent as spoken when the option is off")
+        expect(sent.input?.raw == spokenRaw, "the fixed-prompt model still gets the transcript as spoken")
+        if let layout = RuleCleaner.spokenCommands(spokenRaw) as String? { expect(CleanupGuard.check(raw: spokenRaw, cleaned: layout, options: on) == .pass, "the guard accepts the Mac's own spoken layout") }
 
         // Diagnostic, not gating: the corpus inputs the spoken pass would change with the option on.
         let changed = corpus.filter { RuleCleaner.spokenCommands($0.input) != $0.input }
