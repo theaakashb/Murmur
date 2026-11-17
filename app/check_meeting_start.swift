@@ -48,8 +48,12 @@ import SwiftUI
         precondition(placements == before && !shown(), "an unchanged setting and a recorder update leave the hidden panel alone")
         panel.expand()
         precondition(!panel.inMenuBar && shown() && panel.view?.window?.frame.size == NSSize(width: 340, height: 520) && !UserDefaults.standard[Prefs.meetingPanelCollapsed], "Show Meeting Panel brings the full panel back")
+        UserDefaults.standard[Prefs.meetingPanelCollapsed] = true; UserDefaults.standard[Prefs.meetingIndicator] = MeetingIndicator.menuBar; panel.indicatorChanged()
+        let whileRecording = placements
         recorder.showFixture([], live: nil); panel.update()
-        precondition(!panel.inMenuBar && panel.view == nil, "the indicator goes when the meeting ends")
+        precondition(!panel.inMenuBar && panel.view == nil && placements == whileRecording + 1, "the menu bar timer goes the moment the meeting ends")
+        panel.update()
+        precondition(placements == whileRecording + 1, "with no meeting, updates change nothing")
         print("Meeting start checks passed (standalone consent, cancel, accept, source replacement, minimized indicator in the notch or the menu bar).")
     }
 }

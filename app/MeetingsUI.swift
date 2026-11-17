@@ -767,8 +767,10 @@ let liveDockWidth: CGFloat = 96
     func update() {
         guard recorder.live != nil else {
             observers.forEach { NotificationCenter.default.removeObserver($0) }; observers = []
+            let wasShown = panel != nil
             panel?.orderOut(nil); panel = nil; host = nil; docked = false; inMenuBar = false
-            announce("Meeting notes stopped")
+            // The menu bar item drops its timer now, not at the next menu refresh.
+            if wasShown { announce("Meeting notes stopped"); onPlacement?() }
             return
         }
         if panel == nil {
