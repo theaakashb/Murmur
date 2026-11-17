@@ -8,8 +8,10 @@ extension AppController {
     /// Where verified inserted text sits, so the pill's "Use without mode" can replace exactly it.
     struct ModeRecoveryAnchor { let element: AXUIElement; let pid: pid_t; let value: String; let range: NSRange }
     struct ModeRecovery {
-        enum Stage: Equatable { case offer, working, replaced, copy(String) }
-        let entryID: String, modeName: String, raw: String, inserted: String
+        enum Stage: Equatable { case offer, working, replaced, copy(String), reverted }
+        /// `modeName` is nil when no writing mode was used; `changes` counts the words cleanup changed.
+        let entryID: String, modeName: String?, raw: String, inserted: String
+        var changes = 0, route = ""
         var anchor: ModeRecoveryAnchor?
         var stage = Stage.offer
     }
@@ -24,8 +26,28 @@ extension AppController {
         recoveryRequest.cancel(); modeRecovery = nil
         bubble.hideRecovery()
     }
+    /// Where the audio and the text went: "Local" or the route's name. Cleanup is judged by what happened, not
+    /// by the configured route: a cloud call whose output the guard rejected still sent the text.
+    nonisolated static func routeLabel(transcription: String?, cleanup: String?, outcome: CleanupPath?) -> String? {
+        let onThisMac: Set<String> = ["local", "local-rules", ProviderID.localModel.rawValue, ProviderID.appleIntelligence.rawValue]
+        func name(_ id: String) -> String { onThisMac.contains(id) ? "Local" : ProviderID(rawValue: id)?.displayName ?? id }
+        let heard = transcription.map(name)
+        var cleaned: String?
+        if let cleanup, outcome != .off {
+            let n = name(cleanup)
+            cleaned = n != "Local" && (outcome == .localRules || outcome == .modelPunctuationOnLocal) ? "sent to \(n), local rules used" : n
+        }
+        switch (heard, cleaned) {
+        case (nil, nil): return nil
+        case (let h?, nil): return "Heard: \(h)"
+        case (nil, let c?): return "Cleaned: \(c)"
+        case (let h?, let c?): return h == c ? "Heard and cleaned: \(h)" : "Heard: \(h) · Cleaned: \(c)"
+        }
+    }
+    /// Offered after any insertion that changed the transcript or used a writing mode.
     func offerModeRecovery(entry: HistoryEntry, inserted: String, insertion: InsertionResult, target: FocusSnapshot?) {
-        guard let name = entry.writingModeName else { return }
+        let changes = WordDiff.changeCount(raw: entry.rawText, final: inserted)
+        guard entry.writingModeName != nil || changes > 0 else { return }
         var anchor: ModeRecoveryAnchor?
         if insertion.status == .verified, let after = insertion.snapshot, let value = after.value, let selection = target?.selection {
             let range = NSRange(location: selection.location, length: inserted.utf16.count)
@@ -33,9 +55,25 @@ extension AppController {
                 anchor = ModeRecoveryAnchor(element: after.element, pid: after.pid, value: value, range: range)
             }
         }
-        modeRecovery = ModeRecovery(entryID: entry.id, modeName: name, raw: entry.rawText, inserted: inserted, anchor: anchor)
+        modeRecovery = ModeRecovery(entryID: entry.id, modeName: entry.writingModeName, raw: entry.rawText, inserted: inserted,
+                                   changes: changes, route: Self.routeLabel(transcription: entry.transcriptionProvider, cleanup: entry.cleanupProvider, outcome: entry.cleanupOutcome) ?? "", anchor: anchor)
         bubble.showRecovery(screen: destinationScreen)
     }
+    /// ⌃⌘Z and the card's "Use raw": puts the raw transcript back over exactly the inserted text. Anything
+    /// unreadable or changed since insertion leaves the field alone.
+    func revertToRaw() {
+        guard var recovery = modeRecovery, recovery.stage == .offer, !isBusy else { return }
+        let text = WordDiff.revertText(raw: recovery.raw, inserted: recovery.inserted)
+        if replaceInserted(recovery, with: text) {
+            recovery.stage = .reverted
+            updateRecoveredHistory(entryID: recovery.entryID, text: text)
+            let id = recovery.entryID
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in if self?.modeRecovery?.entryID == id { self?.clearModeRecovery() } }
+        } else { recovery.stage = .copy(text) }
+        modeRecovery = recovery
+    }
+    /// Whether ⌃⌘Z is live: the tap swallows it only while the offer is open.
+    var revertOffered: Bool { modeRecovery?.stage == .offer }
     /// Reprocesses the original transcript (trigger included) through ordinary Cleanup, with no mode matching.
     func useWithoutMode() {
         guard var recovery = modeRecovery, recovery.stage == .offer, !isBusy, let processing else { return }

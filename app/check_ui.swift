@@ -12,8 +12,8 @@ import Combine
 extension AppController {
     func showLocalModelFixture(_ status: ModelStatus, message: String = "") { localSlot.status = status; localSlot.message = message }
     /// The pill without a real insertion.
-    func showModeRecoveryFixture(stage: ModeRecovery.Stage) {
-        modeRecovery = ModeRecovery(entryID: "fixture", modeName: "AI Prompt", raw: "", inserted: "", anchor: nil, stage: stage)
+    func showModeRecoveryFixture(stage: ModeRecovery.Stage, mode: String? = "AI Prompt") {
+        modeRecovery = ModeRecovery(entryID: "fixture", modeName: mode, raw: "", inserted: "", changes: 3, route: "Heard: Local · Cleaned: Murmur Cloud", anchor: nil, stage: stage)
         bubble.showRecovery(screen: nil)
     }
 }
@@ -99,6 +99,8 @@ extension AppController {
         window.center(); window.makeKeyAndOrderFront(nil)
         var entries = [
             HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "Synthetic transcript pasted into an unreadable field. Long text wraps for visual inspection.\nSecond synthetic paragraph keeps this fixture free of real transcript content.", finalText: "Synthetic transcript pasted into an unreadable field. Long text wraps for visual inspection.\nSecond synthetic paragraph keeps this fixture free of real transcript content.", insertionStatus: InsertionStatus.unverified.rawValue),
+            { var e = HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-1800), rawText: "um so the synthetic meeting is at three pm on tuesday we should uh bring the slides", finalText: "So the synthetic meeting is at 3 PM on Tuesday. We should bring the slides.", insertionStatus: (args.contains("--history-diff") ? InsertionStatus.savedNotInserted : InsertionStatus.verified).rawValue)
+              e.transcriptionProvider = "local"; e.cleanupProvider = "murmur-cloud"; e.cleanupOutcome = .modelAccepted; return e }(),
             HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-3600), rawText: "Synthetic verified transcript.", finalText: "Synthetic verified transcript.", insertionStatus: InsertionStatus.verified.rawValue)
         ]
         entries[0].cleanupOptions = CleanupOptions(professional: true); entries[0].cleanupFallback = CleanupFailureReason.unexplainedDeletion.rawValue
@@ -135,7 +137,8 @@ extension AppController {
         } catch { fatalError("Could not seed isolated History fixture.") }
         DispatchQueue.main.async {
             controller.refreshHistory()
-            controller.recoveryEntryID = entries.first?.id
+            controller.recoveryEntryID = args.contains("--history-diff") ? entries.first { $0.cleanupOutcome != nil }?.id : entries.first?.id
+            if args.contains("--history-diff") { DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { controller.screenRequest = .history } }
             controller.sessionOnlyIDs = sessionOnlyID.map { Set([$0]) } ?? []
             if CommandLine.arguments.contains("--dictionary") {
                 controller.addDictionaryEntry(preferred: "Kubernetes", variants: "")
@@ -210,7 +213,7 @@ extension AppController {
             }
             if let i = args.firstIndex(of: "--mode-recovery") {
                 let name = args.indices.contains(i + 1) ? args[i + 1] : ""
-                controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : .offer)
+                controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : name == "reverted" ? .reverted : .offer, mode: name.hasPrefix("plain") ? nil : "AI Prompt")
                 if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
             }
             if CommandLine.arguments.contains("--undo") {
@@ -295,6 +298,13 @@ extension AppController {
                 if args.contains("--lecture-notes") { MeetingsPage.initialTab = .lecture }
                 controller.screenRequest = .meetings
                 fixtureMeetingPanel = panel
+            }
+            if args.contains("--diff-only") {
+                window.contentView = NSHostingView(rootView: VStack(alignment: .leading, spacing: 8) {
+                    Text("WHAT CHANGED").font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.ink70)
+                    WordDiffText(raw: "um so the synthetic meeting is at three pm on tuesday we should uh bring the slides", final: "So the synthetic meeting is at 3 PM on Tuesday. We should bring the slides.")
+                        .font(WindowType.body(15)).lineSpacing(3)
+                }.padding(24).frame(width: 760, height: 180, alignment: .topLeading).background(Palette.paper).preferredColorScheme(.dark))
             }
             if CommandLine.arguments.contains("--bubble-only") { window.orderOut(nil) }
             // --snapshot PATH renders the window offscreen to a PNG and quits; works with the screen locked.

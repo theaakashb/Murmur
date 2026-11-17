@@ -151,7 +151,14 @@ extension SettingsView {
                     if let line = entry.outcomeNote {
                         Text(line).font(WindowType.body(13)).foregroundStyle(Palette.ink64).padding(.top, 6)
                     }
+                    if let route = AppController.routeLabel(transcription: entry.transcriptionProvider, cleanup: entry.cleanupProvider, outcome: entry.cleanupOutcome) {
+                        Text(route).font(WindowType.body(13)).foregroundStyle(Palette.ink64).padding(.top, 2)
+                    }
                     if entry.rawText != entry.finalText {
+                        eyebrow("What changed").padding(.top, 16)
+                        WordDiffText(raw: entry.rawText, final: entry.finalText)
+                            .font(WindowType.body(15)).lineSpacing(3)
+                            .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
                         eyebrow("Raw transcription").padding(.top, 16)
                         Text(entry.rawText).font(WindowType.body(15)).lineSpacing(3).foregroundStyle(Palette.ink70)
                             .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
@@ -188,5 +195,22 @@ extension SettingsView {
     private func flashCopied(_ id: String) {
         copiedID = id
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { if copiedID == id { copiedID = nil } }
+    }
+}
+
+/// The raw transcript against the final text: removed words struck through, added words in the accent color.
+struct WordDiffText: View {
+    let raw: String, final: String
+    var body: some View {
+        Text(WordDiff.runs(raw: raw, final: final).reduce(AttributedString()) { result, run in
+            var piece = AttributedString(run.text + " ")
+            switch run.kind {
+            case .same: piece.foregroundColor = Palette.ink70
+            case .removed: piece.strikethroughStyle = .single; piece.foregroundColor = Palette.ink45
+            case .added: piece.foregroundColor = Palette.accent; piece.underlineStyle = .single
+            }
+            return result + piece
+        })
+        .accessibilityLabel("Changed from the raw transcript: \(WordDiff.changeCount(raw: raw, final: final)) words")
     }
 }
