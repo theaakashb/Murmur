@@ -149,6 +149,12 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(FileManager.default.fileExists(atPath: writing.path), "the chunk being written survives the minute purge")
             MeetingAudio.purge(root, keep: [])
             check(!FileManager.default.fileExists(atPath: liveFolder.path), "once the meeting is gone, its folder goes")
+            // Quit asks only when a meeting is at risk, and says which risk.
+            check(MeetingQuit.warning(recording: false, unsaved: 0) == nil, "nothing at risk: Quit does not ask")
+            check(MeetingQuit.warning(recording: true, unsaved: 0)?.confirm == "Stop and Quit" && MeetingQuit.warning(recording: true, unsaved: 0)?.detail.contains("saved") == true, "a recording meeting: Quit says it stops and what is kept")
+            let lost = MeetingQuit.warning(recording: true, unsaved: 1), lostTwo = MeetingQuit.warning(recording: false, unsaved: 2)
+            check(lost?.title == "A meeting has not been saved" && lost?.detail.contains("loses it") == true && lost?.detail.contains("would also stop") == true && lost?.confirm == "Quit and Lose It", "an unsaved meeting outranks a recording one")
+            check(lostTwo?.title == "2 meetings have not been saved" && lostTwo?.confirm == "Quit and Lose Them" && lostTwo?.detail.contains("would also stop") == false, "several unsaved meetings are counted")
             // Audio that cannot be deleted is counted, so the recorder can say so instead of keeping it silently.
             let stuck = MeetingAudio.folder(root, meeting: UUID().uuidString)
             try FileManager.default.createDirectory(at: stuck, withIntermediateDirectories: true)

@@ -162,6 +162,16 @@ import SwiftUI
     @objc func cancel() { controller.cancelRecording() }
     @objc func quit() { NSApp.terminate(nil) }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showWindow(); return true }
+    /// Quit asks first when it would lose an unsaved meeting or stop one that is recording. Cancel is the default button.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Timed and probe launches quit unattended.
+        guard options.quitAfter == nil, options.testAudio == nil, let warning = controller.meetingRecorder.quitWarning() else { return .terminateNow }
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .warning; alert.messageText = warning.title; alert.informativeText = warning.detail
+        alert.addButton(withTitle: "Cancel"); alert.addButton(withTitle: warning.confirm).hasDestructiveAction = true
+        return alert.runModal() == .alertSecondButtonReturn ? .terminateNow : .terminateCancel
+    }
     func applicationWillTerminate(_ notification: Notification) { controller.shutdown() }
 }
 MainActor.assumeIsolated {

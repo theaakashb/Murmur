@@ -596,10 +596,16 @@ import os
         if undeleted > 0 { message = "Murmur could not delete \(undeleted) expired meeting audio \(undeleted == 1 ? "file" : "files"). It will try again; you can also remove everything with Delete All Data." }
     }
 
+    /// Asked before quitting. Tries the unsaved meetings once more first, so the warning is only for what is still at risk.
+    func quitWarning() -> MeetingQuit.Warning? {
+        retryUnsaved()
+        return MeetingQuit.warning(recording: live != nil, unsaved: unsaved.count)
+    }
+
     /// Murmur is quitting: never keep recording. Untranscribed chunks stay for `RetryWindow.text`.
     func shutdown() {
         if live != nil { finish(manual: false) }
-        retryUnsaved() // One last attempt: nothing asks the user to confirm quitting, so this is all that protects an unsaved meeting.
+        retryUnsaved() // One last attempt; `quitWarning` has already asked the user about anything still unsaved.
         pumps.values.forEach { $0.stop() }
         // A separation still pending runs again at the next launch while its audio is under `RetryWindow.text` old.
         speakerRunner.cancelAll()

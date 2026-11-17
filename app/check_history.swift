@@ -29,6 +29,7 @@ import Darwin
         var unknown = entry; unknown.insertionStatus = "from-a-newer-version"
         precondition(unknown.statusLabel == "Saved" && unknown.statusNote == nil && !unknown.needsAttention, "a status this version does not know reads as saved")
         precondition(HistoryEntry.recoveryEntryToOpen(entry.id, in: [with(.failed)]) == entry.id, "History opens on the entry that still needs attention")
+        precondition(HistoryEntry.recoveryEntryToOpen(entry.id, in: [entry]) == entry.id && !entry.needsAttention, "History opens on text that was saved and not pasted, without flagging it")
         precondition(HistoryEntry.recoveryEntryToOpen(entry.id, in: [with(.verified)]) == nil && HistoryEntry.recoveryEntryToOpen(nil, in: [with(.failed)]) == nil && HistoryEntry.recoveryEntryToOpen(entry.id, in: []) == nil, "no entry opens once delivered, without a recovery entry or when it is gone")
         precondition(fellBack.outcomeNote == nil, "no outcome line before the outcome was recorded")
         var noted = fellBack; noted.cleanupOutcome = .localRules; noted.cleanupOptions = CleanupOptions(polish: true); noted.edited = true

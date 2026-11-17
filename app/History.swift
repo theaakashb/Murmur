@@ -265,9 +265,9 @@ struct HistoryStore {
 extension HistoryEntry {
     var needsAttention: Bool { [.insertionPending, .failed, .heldCleanup, .heldTranscript].contains(status) }
 
-    /// The entry History opens expanded: the last dictation's, while it still needs attention.
+    /// The entry History opens expanded: the last dictation's, while it still needs attention or was saved without being pasted.
     static func recoveryEntryToOpen(_ id: String?, in history: [HistoryEntry]) -> String? {
-        history.first { $0.id == id && $0.needsAttention }?.id
+        history.first { $0.id == id && ($0.needsAttention || $0.status == .savedNotInserted) }?.id
     }
 
     var statusLabel: String? {

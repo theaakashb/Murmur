@@ -139,7 +139,7 @@ struct ProviderHTTP: Sendable {
                     return nil
                 }
                 defer { group.cancelAll() }
-                guard let first = try await group.next(), let result = first else { throw ProviderError.timeout(provider) }
+                guard let first = try await group.next(), let result = first else { throw ProviderError.timeout(ProviderErrorClassifier.reported(provider, at: finalRequest.url)) }
                 return result
             }
             if Task.isCancelled { throw ProviderError.cancelled }
@@ -160,17 +160,24 @@ enum ProviderErrorClassifier {
     /// loopback address (Ollama, LM Studio) gets that error, not only the legacy local-server id.
     static func classify(provider: ProviderID, transportError error: Error, url: URL? = nil) -> ProviderError {
         if error is CancellationError { return .cancelled }
+        let reported = reported(provider, at: url)
         if let urlError = error as? URLError {
             switch urlError.code {
             case .cancelled: return .cancelled
-            case .timedOut: return .timeout(provider)
+            case .timedOut: return .timeout(reported)
             case .dataLengthExceedsMaximum: return .malformedResponse(provider)
             case .cannotConnectToHost where provider == .localServer || url.map(LocalEndpoint.locality(of:)) == .onDevice:
                 return .serverNotRunning(provider, address: url.map(LocalEndpoint.address(of:)) ?? "the configured address")
-            default: return .network(provider)
+            default: return .network(reported)
             }
         }
-        return .network(provider)
+        return .network(reported)
+    }
+
+    /// A server on this Mac that cannot be reached or is slow is not an internet problem: a network or
+    /// timeout error for a loopback address is reported as the local model server's, whichever provider was aimed at it.
+    static func reported(_ provider: ProviderID, at url: URL?) -> ProviderID {
+        url.map(LocalEndpoint.locality(of:)) == .onDevice ? .localServer : provider
     }
 
     /// Classifies a non-success HTTP result, or a 200 that carries an error object (some gateways

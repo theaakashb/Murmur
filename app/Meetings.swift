@@ -324,3 +324,23 @@ enum MeetingConsent {
     /// Copied for the user to paste into the call chat. Murmur never sends it.
     static let notice = "Heads up: I'm taking notes on this call with Murmur, which transcribes the audio on my Mac."
 }
+
+/// What quitting now would cost a meeting, for the confirmation Quit shows; nil when nothing is at risk.
+enum MeetingQuit {
+    struct Warning: Equatable { let title: String, detail: String, confirm: String }
+
+    static func warning(recording: Bool, unsaved: Int) -> Warning? {
+        if unsaved > 0 {
+            let many = unsaved > 1
+            return Warning(title: many ? "\(unsaved) meetings have not been saved" : "A meeting has not been saved",
+                           detail: "Murmur could not write \(many ? "them" : "it") to disk, so quitting now loses \(many ? "them" : "it")."
+                               + " Go back to copy the notes or transcript from Meetings, or free up disk space and let Murmur try again."
+                               + (recording ? " The meeting recording now would also stop." : ""),
+                           confirm: many ? "Quit and Lose Them" : "Quit and Lose It")
+        }
+        guard recording else { return nil }
+        return Warning(title: "A meeting is still recording",
+                       detail: "Quitting stops the recording. What was recorded so far is saved, and any part not yet transcribed is kept for \(RetryWindow.text).",
+                       confirm: "Stop and Quit")
+    }
+}

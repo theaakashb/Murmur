@@ -483,6 +483,9 @@ extension ProviderChecks {
         check(ProviderErrorClassifier.classify(provider: .localServer, transportError: URLError(.cannotConnectToHost)) == .serverNotRunning(.localServer, address: "the configured address"), "refused without URL")
         let cloud = URL(string: "https://api.example.com/v1/models")!
         check(ProviderErrorClassifier.classify(provider: .customAPI, transportError: URLError(.cannotConnectToHost), url: cloud) == .network(.customAPI), "cloud refused stays network")
+        check(ProviderErrorClassifier.classify(provider: .customAPI, transportError: URLError(.networkConnectionLost), url: chat) == .network(.localServer)
+              && ProviderErrorClassifier.classify(provider: .customAPI, transportError: URLError(.timedOut), url: chat) == .timeout(.localServer), "a custom provider on this Mac gets the local server's wording, not the internet one")
+        check(!ProviderError.network(.localServer).userMessage.contains("internet") && ProviderErrorClassifier.classify(provider: .customAPI, transportError: URLError(.timedOut), url: cloud) == .timeout(.customAPI), "a remote custom provider keeps the generic wording")
         for custom in [ProviderID.customAPI, .customCleanup, .customTranscription] {
             check(ProviderErrorClassifier.classify(provider: custom, transportError: URLError(.cannotConnectToHost), url: chat) == .serverNotRunning(custom, address: "localhost:11434"), "\(custom.rawValue) on loopback refused → serverNotRunning")
             check(ProviderErrorClassifier.classify(provider: custom, transportError: URLError(.cannotConnectToHost), url: URL(string: "http://[::1]:1234/v1/models")!) == .serverNotRunning(custom, address: "[::1]:1234"), "\(custom.rawValue) on IPv6 loopback refused")
