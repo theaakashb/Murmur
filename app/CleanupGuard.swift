@@ -360,12 +360,42 @@ enum CleanupGuard {
     /// Trusted output that lost substance: under 60% of the spoken words, a vanished tail of 3+ content words,
     /// or every negation gone. Self-corrections (the correction window) may drop words, and numbers.
     /// shortcut: length and tail floors, not a semantic check; a same-length meaning change passes, upgrade with a verifier.
+    /// Cues that open a sentence correcting the one before it ("…on Tuesday. Actually, I mean Wednesday.").
+    static let sentenceRepairCues: [[String]] = [["actually"], ["no"], ["wait"], ["sorry"], ["i", "mean"], ["i", "meant"], ["scratch", "that"], ["rather"], ["or", "rather"], ["let", "me", "rephrase"], ["let", "me", "start"]]
+
+    /// Words of each sentence that the following sentence replaces, for the trusted path's truncation check only.
+    /// `cued`: the next sentence opens with a repair cue and repeats one of this sentence's content words.
+    /// `restated`: no cue, but the next sentence opens with the same two words or repeats most of its content words,
+    /// which is how a speaker says a sentence again in a better way (decided November 17, 2026: the first one may go).
+    /// ponytail: word overlap, not meaning; a parallel sentence ("The project is late. The project is also over
+    /// budget.") looks the same, and keeping it is left to the model. The full guard (`check`) does not use this.
+    static func replacedSentences(_ r: [Word]) -> (cued: Set<Int>, restated: Set<Int>) {
+        let starts = r.indices.filter { $0 == 0 || r[$0].sentenceStart } + [r.count]
+        func content(_ range: Range<Int>) -> Set<String> {
+            Set(range.map { r[$0].lower }.filter { !grammarWords.contains($0) && !CleanupText.hesitations.contains($0) }.map { String($0.prefix(5)) })
+        }
+        var cued = Set<Int>(), restated = Set<Int>()
+        for k in starts.indices.dropLast(2) {
+            let first = starts[k]..<starts[k + 1], second = starts[k + 1]..<starts[k + 2]
+            var open = second.lowerBound
+            while open < second.upperBound, CleanupText.hesitations.contains(r[open].lower) { open += 1 }
+            let cue = sentenceRepairCues.first { c in open + c.count < second.upperBound && c.indices.allSatisfy { r[open + $0].lower == c[$0] } }
+            let was = content(first), now = content((open + (cue?.count ?? 0))..<second.upperBound), shared = was.intersection(now).count
+            if cue != nil { if shared >= 1 { cued.formUnion(first) }; continue }
+            let sameOpening = first.count >= 2 && second.count >= 2 && r[first.lowerBound].lower == r[second.lowerBound].lower && r[first.lowerBound + 1].lower == r[second.lowerBound + 1].lower
+            if sameOpening || (was.count >= 2 && shared * 5 >= was.count * 3) { restated.formUnion(first) }
+        }
+        return (cued, restated)
+    }
+
     static func truncated(raw: String, cleaned: String) -> Bool {
         // Judge the comma form of a split cue ("Tuesday. No, Wednesday." -> "Tuesday, no, Wednesday").
         let raw = RuleCleaner.mergeSplitCues(raw)
         let r = words(raw), o = words(cleaned)
         let a = r.map(\.lower), b = o.map(\.lower)
-        let window = correctionWindow(raw, loose: true)
+        // A sentence the next one replaces is not substance either. Only a cued replacement frees its negations.
+        let replaced = replacedSentences(r)
+        let cued = correctionWindow(raw, loose: true).union(replaced.cued), window = cued.union(replaced.restated)
         // Words a correction replaces are not substance, so they do not count toward the length floor.
         let spoken = words(RuleCleaner.removeFillers(raw)).count - window.count
         if spoken >= 8 && Double(o.count) < Double(spoken) * 0.6 { return true }
@@ -379,7 +409,7 @@ enum CleanupGuard {
         for i in a.indices where !window.contains(i) {
             if ["unless", "until", "except"].contains(a[i]) && !b.contains(a[i]) { return true }
         }
-        let rawNeg = a.indices.filter { CleanupText.isNegation(a[$0]) && !window.contains($0) }.count
+        let rawNeg = a.indices.filter { CleanupText.isNegation(a[$0]) && !cued.contains($0) }.count
         return rawNeg > 0 && !b.contains(where: { CleanupText.isNegation($0) || $0 == "without" })
     }
 

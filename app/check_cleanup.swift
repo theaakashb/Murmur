@@ -734,6 +734,17 @@ struct ThrowingCleaner: Cleaner {
         // Trusted output may not truncate: the tail of a long sentence is substance.
         let travel = "I am willing to go pretty much anywhere to pick up the perfect jacket."
         let trustedPro = CleanupOptions(polish: true, professional: true, trustModel: true)
+        // A sentence the next one replaces may go whole: after a cue, or said again in a better way.
+        let crossed = "The standup is at 7 and 8 on Tuesday for the whole team. Actually, I mean the standup is at 9 on Wednesday for the whole team."
+        expect(CleanupPipeline.judge(raw: crossed, cleaned: "The standup is at 9 on Wednesday for the whole team.", options: trustedPro, allowedTerms: []) == .cleaned("The standup is at 9 on Wednesday for the whole team."), "trust accepts a correction across a sentence break")
+        let again = "Can you send me the quarterly report today. Could you please send me the quarterly report by the end of the day today."
+        expect(CleanupPipeline.judge(raw: again, cleaned: "Could you please send me the quarterly report by the end of the day today?", options: trustedPro, allowedTerms: []) == .cleaned("Could you please send me the quarterly report by the end of the day today?"), "trust accepts dropping a sentence said again in other words")
+        let unrelated = "The standup moved to Wednesday for the whole team this week. Actually, I mean to book the large room for it."
+        expect(CleanupPipeline.judge(raw: unrelated, cleaned: "I mean to book the large room.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: unrelated, reason: .unexplainedDeletion), "trust still holds a dropped sentence the next one does not restate")
+        let denied = "We should not ship the release on Friday this week. We should ship the release on Friday this week after lunch."
+        expect(CleanupPipeline.judge(raw: denied, cleaned: "Ship it.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: denied, reason: .unexplainedDeletion), "trust still holds a truncated answer when sentences repeat")
+        let twoFacts = "The warehouse in Austin ships orders every weekday morning. Dana has not approved the overtime budget for December yet."
+        expect(CleanupPipeline.judge(raw: twoFacts, cleaned: "Dana has not approved the overtime budget for December yet.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: twoFacts, reason: .unexplainedDeletion), "trust still holds a dropped unrelated sentence")
         expect(CleanupPipeline.judge(raw: travel, cleaned: "I am willing to go.", options: trustedPro, allowedTerms: []) == .heldForRecovery(raw: travel, reason: .unexplainedDeletion), "trust holds a truncated tail")
         expect(CleanupPipeline.judge(raw: travel, cleaned: "I will travel almost anywhere to find the perfect jacket.", options: trustedPro, allowedTerms: []) == .cleaned("I will travel almost anywhere to find the perfect jacket."), "trust accepts a rewrite that keeps the substance")
         expect(CleanupPipeline.judge(raw: "Um, uh, I I think we should, um, ship it on Friday if QA signs off.", cleaned: "I think we should ship it on Friday if QA signs off.", options: trustedPro, allowedTerms: []) == .cleaned("I think we should ship it on Friday if QA signs off."), "trust accepts filler removal")
