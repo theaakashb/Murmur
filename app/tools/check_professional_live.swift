@@ -142,17 +142,28 @@ func candidate(_ baseline: CleanupMessages, options: CleanupOptions) -> CleanupM
     return CleanupMessages(system: lines.joined(separator: "\n"), user: baseline.user)
 }
 // Experimental request option only; the normal provider transport retains its security behavior.
+/// Token counts summed over every answered call, from the provider's `usage` object (zero where it reports none).
+nonisolated(unsafe) var tokenUsage = (prompt: 0, cached: 0, completion: 0, reasoning: 0)
+let tokenUsageLock = NSLock()
 struct ReasoningTransport: HTTPTransport {
-    var effort: String
+    var effort: String?
     let inner = URLSessionTransport()
     func send(_ request: URLRequest) async throws -> HTTPResult {
         var request = request
-        if request.httpMethod == "POST", let data = request.httpBody {
+        if let effort, request.httpMethod == "POST", let data = request.httpBody {
             guard var body = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ProviderError.invalidConfiguration(.customCleanup) }
             body["reasoning_effort"] = effort
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
-        return try await inner.send(request)
+        let result = try await inner.send(request)
+        if let usage = (try? JSONSerialization.jsonObject(with: result.body) as? [String: Any])?["usage"] as? [String: Any] {
+            func count(_ key: String, in object: [String: Any]?) -> Int { object?[key] as? Int ?? 0 }
+            tokenUsageLock.lock(); defer { tokenUsageLock.unlock() }
+            tokenUsage.prompt += count("prompt_tokens", in: usage); tokenUsage.completion += count("completion_tokens", in: usage)
+            tokenUsage.cached += count("cached_tokens", in: usage["prompt_tokens_details"] as? [String: Any])
+            tokenUsage.reasoning += count("reasoning_tokens", in: usage["completion_tokens_details"] as? [String: Any])
+        }
+        return result
     }
 }
 func errorKind(_ error: Error) -> String {
@@ -378,7 +389,7 @@ guard let base = defaults.string(forKey: endpointKey),
 }
 provider = made; model = configured
 if var compatible = provider as? OpenAICompatibleCleanupProvider {
-    if let effort = flags.reasoning { compatible.transport = ReasoningTransport(effort: effort) }
+    compatible.transport = ReasoningTransport(effort: flags.reasoning)
     if flags.listModels { for id in try await compatible.discoverModels() { print(id) }; return }
     provider = compatible
 }
@@ -410,6 +421,7 @@ let times = results.flatMap { r in zip(r.seconds, r.attemptSucceeded).compactMap
 let report = Report(model: model, prompt: flags.prompt, mode: flags.mode, context: flags.context, runs: flags.runs, endpoint: flags.endpoint, trust: flags.trust, reasoning: flags.reasoning, retries: flags.retries, corrections: flags.corrections, total: results.count, modelGood: results.filter { $0.modelQuality?.good == true }.count, guardPassed: results.filter { $0.guardPass == true }.count, finalGood: results.filter { $0.finalQuality.good }.count, providerErrors: results.reduce(0) { $0 + $1.providerErrors }, medianSeconds: percentile(times, 0.5), p95Seconds: percentile(times, 0.95), results: results)
 print("model quality \(report.modelGood)/\(report.total), guard pass \(report.guardPassed)/\(report.total), final quality \(report.finalGood)/\(report.total), provider errors \(report.providerErrors)")
 print("successful model-call latency median=\(report.medianSeconds ?? 0)s p95=\(report.p95Seconds ?? 0)s")
+print("tokens: prompt=\(tokenUsage.prompt) cached=\(tokenUsage.cached) completion=\(tokenUsage.completion) reasoning=\(tokenUsage.reasoning)")
 if let path = flags.json {
     let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     try encoder.encode(report).write(to: URL(fileURLWithPath: path), options: .atomic)
