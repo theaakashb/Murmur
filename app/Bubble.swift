@@ -19,7 +19,7 @@ private struct VoiceBubbles: View {
         // Every display frame: a 0.15 s floor stepped the pulse visibly after release.
         TimelineView(.animation(minimumInterval: nil, paused: phase == .error || reduceMotion)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
-            GlassEffectContainer(spacing: 2) {
+            GlassGroup {
                 HStack(spacing: 0) {
                     ForEach(0..<5) { index in
                         let wobble = reduceMotion ? 1 : 0.65 + 0.35 * sin(t * 9 + Double(index) * 1.7)
@@ -52,8 +52,9 @@ private struct VoiceDotGlass: ViewModifier {
         else if opaque { content.overlay(Capsule().fill(Color.primary.opacity(0.65))) }
         // A royal-blue fill under clear glass: glass tint alone rendered gray and vanished on white.
         else {
-            content.background(Capsule().fill(Palette.accent.opacity(0.55)))
-                .glassEffect(.clear, in: Capsule())
+            let tinted = content.background(Capsule().fill(Palette.accent.opacity(0.55)))
+            if #available(macOS 26.0, *) { tinted.glassEffect(.clear, in: Capsule()) }
+            else { tinted.background(.ultraThinMaterial, in: Capsule()) }
         }
     }
 }
@@ -418,5 +419,13 @@ final class BubblePresenter {
             guard let self, self.notice == shown else { return }
             self.hide()
         }
+    }
+}
+
+/// Liquid Glass groups its children on macOS 26; older systems draw them as they are.
+private struct GlassGroup<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        if #available(macOS 26.0, *) { GlassEffectContainer(spacing: 2) { content } } else { content }
     }
 }

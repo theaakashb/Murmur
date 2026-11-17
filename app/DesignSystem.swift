@@ -23,7 +23,8 @@ struct UtilityGlass: ViewModifier {
         if opaquePreview || reduceTransparency || contrast == .increased {
             content.background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: radius))
         } else {
-            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: radius))
+            if #available(macOS 26.0, *) { content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: radius)) }
+            else { content.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: radius)) }
         }
     }
 }

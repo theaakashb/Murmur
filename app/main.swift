@@ -128,11 +128,13 @@ import Combine
         } else {
             let start = NSMenuItem(title: "Start Meeting Notes", action: nil, keyEquivalent: "")
             let sources = NSMenu()
-            for app in MeetingRecorder.runningCallApps() {
-                addMeetingSource(MeetingSource(name: app.name, bundleID: app.bundleID), title: app.name, to: sources)
+            if SystemAudioTap.isSupported {
+                for app in MeetingRecorder.runningCallApps() {
+                    addMeetingSource(MeetingSource(name: app.name, bundleID: app.bundleID), title: app.name, to: sources)
+                }
+                sources.addItem(.separator())
+                addMeetingSource(.everything, title: MeetingSource.everythingMenuTitle, to: sources)
             }
-            sources.addItem(.separator())
-            addMeetingSource(.everything, title: MeetingSource.everythingMenuTitle, to: sources)
             addMeetingSource(.microphoneOnly, title: MeetingSource.microphoneOnlyMenuTitle, to: sources)
             start.submenu = sources; menu.addItem(start)
         }

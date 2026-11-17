@@ -39,7 +39,47 @@ struct AppleCleanupProvider: CleanupProvider {
 }
 
 enum AppleSystemModel {
+    /// FoundationModels needs macOS 26; on older systems the route is unavailable and hidden.
+    static var isSupported: Bool {
 #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) { return true }
+#endif
+        return false
+    }
+
+    @Sendable static func status() -> OnDeviceModelUnavailable? {
+#if canImport(FoundationModels)
+        if #available(macOS 26.0, *) { return Native.status() }
+#endif
+        return .deviceNotEligible
+    }
+
+    static func prewarm() {
+#if canImport(FoundationModels)
+        if #available(macOS 26.0, *) { Native.prewarm() }
+#endif
+    }
+
+    @Sendable static func respond(_ messages: CleanupMessages) async throws -> String {
+#if canImport(FoundationModels)
+        if #available(macOS 26.0, *) { return try await Native.respond(messages) }
+#endif
+        throw ProviderError.modelUnavailable(.appleIntelligence, .deviceNotEligible)
+    }
+
+    @Sendable static func notes(system: String, user: String, lecture: Bool = false) async throws -> String {
+#if canImport(FoundationModels)
+        if #available(macOS 26.0, *) { return try await Native.notes(system: system, user: user, lecture: lecture) }
+#endif
+        throw ProviderError.modelUnavailable(.appleIntelligence, .deviceNotEligible)
+    }
+
+    static let maximumNotesTokens = 1_200
+}
+
+#if canImport(FoundationModels)
+@available(macOS 26.0, *)
+private enum Native {
     private static let lock = NSLock()
     /// Kept alive so the prewarm is not cancelled with its session.
     nonisolated(unsafe) private static var warm: LanguageModelSession?
@@ -77,7 +117,7 @@ enum AppleSystemModel {
     /// Notes for one chunk are short. Without a cap, a few replies ran on for over 3 minutes
     /// (measured October 15, 2026). With a 5,000-character request (about 1,700 tokens) and the
     /// instructions, 1,200 still fits the 4,096-token context.
-    static let maximumNotesTokens = 1_200
+    static let maximumNotesTokens = AppleSystemModel.maximumNotesTokens
 
     @Sendable static func notes(system: String, user: String, lecture: Bool = false) async throws -> String {
         let int = DynamicGenerationSchema(type: Int.self), text = DynamicGenerationSchema(type: String.self)
@@ -136,14 +176,5 @@ enum AppleSystemModel {
         default: return .malformedResponse(id)
         }
     }
-#else
-    @Sendable static func status() -> OnDeviceModelUnavailable? { .deviceNotEligible }
-    static func prewarm() {}
-    @Sendable static func respond(_ messages: CleanupMessages) async throws -> String {
-        throw ProviderError.modelUnavailable(.appleIntelligence, .deviceNotEligible)
-    }
-    @Sendable static func notes(system: String, user: String, lecture: Bool = false) async throws -> String {
-        throw ProviderError.modelUnavailable(.appleIntelligence, .deviceNotEligible)
-    }
-#endif
 }
+#endif

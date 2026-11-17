@@ -101,7 +101,11 @@ final class SystemAudioTap {
     /// Whether any process this tap records is playing audio now; a tap delivers nothing while none is.
     func isPlaying(_ clients: [AudioProcessList.Client]) -> Bool { clients.contains { $0.output && target.includes($0.bundleID) } }
 
+    /// Process taps need macOS 14.2; on 14.0 and 14.1 meetings record the microphone only.
+    static var isSupported: Bool { if #available(macOS 14.2, *) { return true } else { return false } }
+
     func start(_ target: TapTarget) throws {
+        guard #available(macOS 14.2, *) else { throw MeetingTapError("Creating the tap (needs macOS 14.2)", 0) }
         self.target = target
         queue.sync { nextExpected = ProcessInfo.processInfo.systemUptime }
         let ids = Self.processIDs(target, clients: AudioProcessList.all())
@@ -201,7 +205,7 @@ final class SystemAudioTap {
             if let procID { AudioDeviceStop(aggregateID, procID); AudioDeviceDestroyIOProcID(aggregateID, procID) }
             AudioHardwareDestroyAggregateDevice(aggregateID)
         }
-        if tapID != kAudioObjectUnknown { AudioHardwareDestroyProcessTap(tapID) }
+        if tapID != kAudioObjectUnknown, #available(macOS 14.2, *) { AudioHardwareDestroyProcessTap(tapID) }
         procID = nil; aggregateID = AudioObjectID(kAudioObjectUnknown); tapID = AudioObjectID(kAudioObjectUnknown)
         queue.sync { chunker.finish() }
     }

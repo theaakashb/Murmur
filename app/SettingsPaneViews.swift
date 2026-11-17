@@ -179,7 +179,7 @@ extension SettingsView {
         Binding(get: { controller.cleanupStyle }, set: { controller.cleanupStyle = $0 })
     }
 
-    static let aiCleanupChoices = CleanupChoice.allCases.filter { $0 != .localRules }
+    static let aiCleanupChoices = CleanupChoice.allCases.filter { $0 != .localRules && $0.isOffered }
 
     var cleanupChoices: some View {
         VStack(alignment: .leading, spacing: 0) {
