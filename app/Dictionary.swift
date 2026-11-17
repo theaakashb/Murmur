@@ -142,15 +142,15 @@ final class DictionaryStore {
         let merged = DictionaryEntry(id: stored.id, preferred: entry.preferred, variants: entry.variants,
                                      source: stored.source, createdAt: stored.createdAt, enabled: entry.enabled)
         entries[index] = try validate(merged)
-        try save()
+        do { try save() } catch { entries[index] = stored; throw error }   // memory keeps matching the file
     }
 
     func delete(id: UUID) throws {
         guard let index = entries.firstIndex(where: { $0.id == id }) else {
             throw StoreError("Dictionary entry not found")
         }
-        entries.remove(at: index)
-        try save()
+        let removed = entries.remove(at: index)
+        do { try save() } catch { entries.insert(removed, at: index); throw error }   // memory keeps matching the file
     }
 
     /// Removes every learned entry and keeps manual ones. Returns what was removed.

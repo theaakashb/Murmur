@@ -149,6 +149,14 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(FileManager.default.fileExists(atPath: writing.path), "the chunk being written survives the minute purge")
             MeetingAudio.purge(root, keep: [])
             check(!FileManager.default.fileExists(atPath: liveFolder.path), "once the meeting is gone, its folder goes")
+            // Audio that cannot be deleted is counted, so the recorder can say so instead of keeping it silently.
+            let stuck = MeetingAudio.folder(root, meeting: UUID().uuidString)
+            try FileManager.default.createDirectory(at: stuck, withIntermediateDirectories: true)
+            try Data([1]).write(to: stuck.appendingPathComponent("me-0.wav"))
+            try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: root.path)
+            check(MeetingAudio.purge(root, keep: []) == 1 && FileManager.default.fileExists(atPath: stuck.path), "audio that cannot be deleted is reported")
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: root.path)
+            check(MeetingAudio.purge(root, keep: []) == 0 && !FileManager.default.fileExists(atPath: stuck.path), "the next purge deletes it")
         }
 
         // The pump: one chunk in flight, recording order across streams, retry once, then keep the file.

@@ -583,15 +583,17 @@ import os
     private func purgeAudio() {
         guard let audioRoot else { return }
         var active = Set(pumps.keys); if let live { active.insert(live.id) }
-        MeetingAudio.purge(audioRoot, keep: Set(meetings.map(\.id)), active: active)
+        var undeleted = MeetingAudio.purge(audioRoot, keep: Set(meetings.map(\.id)), active: active)
         refreshLeftovers()
         // Kept Them audio: only for meetings still waiting for diarization, and never past `RetryWindow.text`.
         if let speakerRoot {
             let pending = Set((meetings + (live.map { [$0] } ?? [])).filter { $0.speakers?.state == .pending }.map(\.id))
-            SpeakerAudio.purge(speakerRoot, keep: pending, active: active.union(separating))
+            undeleted += SpeakerAudio.purge(speakerRoot, keep: pending, active: active.union(separating))
             // Resumes a separation that quitting interrupted, and fails one whose audio expired.
             for id in pending where !active.contains(id) { separate(id) }
         }
+        // Audio past its limit that is still on disk is a privacy fact the user should see, not a log line.
+        if undeleted > 0 { message = "Murmur could not delete \(undeleted) expired meeting audio \(undeleted == 1 ? "file" : "files"). It will try again; you can also remove everything with Delete All Data." }
     }
 
     /// Murmur is quitting: never keep recording. Untranscribed chunks stay for `RetryWindow.text`.

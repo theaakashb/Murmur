@@ -346,6 +346,16 @@ private struct Item: RetainedHistoryItem { let id: String; let recordedAt: Date 
             check(learned(dict).isEmpty && ledger.tombstones.contains(.init(source: "akash", target: "aakash")), "Undo of a new entry deletes and tombstones it")
             try ledger.undoLearned(entryID: id)
             check(learned(dict).isEmpty, "a stale Undo does nothing")
+            // A dictionary that cannot be saved keeps the learned word and its record together.
+            let (locked, lockedLedger) = try fresh("undo-unwritable")
+            let s = UUID()
+            try lockedLedger.record(obs(s, "Akash", "Aakash")); try lockedLedger.settle(sessionID: s)
+            let lockedID = learned(locked)[0].id, folder = dir.appendingPathComponent("undo-unwritable").path
+            try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: folder)
+            check((try? lockedLedger.undoLearned(entryID: lockedID)) == nil && learned(locked).map(\.id) == [lockedID], "an Undo that cannot be saved fails and keeps the word")
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder)
+            try lockedLedger.undoLearned(entryID: lockedID)
+            check(learned(locked).isEmpty && lockedLedger.tombstones.contains(.init(source: "akash", target: "aakash")), "the same Undo works once the dictionary can be saved")
         }
 
         // A History edit learns through the same filter and rules, as its own session.

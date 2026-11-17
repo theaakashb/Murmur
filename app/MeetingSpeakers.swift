@@ -224,16 +224,19 @@ enum SpeakerAudio {
     /// Deletes kept audio older than `RetryWindow.lifetime` (or dated in the future), files of meetings not in
     /// `keep` (those still waiting for diarization), and anything that is not a kept file. `active`
     /// (the meeting recording now, still transcribing, or being diarized) is never touched.
-    static func purge(_ root: URL, keep: Set<String>, active: Set<String> = [], now: Date = Date()) {
+    /// Returns how many expired files could not be deleted; the next purge tries them again.
+    @discardableResult static func purge(_ root: URL, keep: Set<String>, active: Set<String> = [], now: Date = Date()) -> Int {
         let fm = FileManager.default
+        var failed = 0
         for url in (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: [.creationDateKey])) ?? [] {
             let id = url.deletingPathExtension().lastPathComponent
             if active.contains(id) { continue }
             let created = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
             if url.pathExtension != "wav" || !keep.contains(id) || now.timeIntervalSince(created) >= RetryWindow.lifetime || created > now {
-                try? fm.removeItem(at: url)
+                do { try fm.removeItem(at: url) } catch { failed += 1 }
             }
         }
+        return failed
     }
 }
 

@@ -15,9 +15,10 @@ extension AppController {
     private func writeHelperVocabulary() {
         guard let vocabularyFile else { return }
         let terms = processing?.dictionary.helperVocabulary ?? []
-        if terms.isEmpty { try? FileManager.default.removeItem(at: vocabularyFile); return }
-        guard let data = try? JSONSerialization.data(withJSONObject: ["terms": terms], options: [.sortedKeys]) else { return }
-        try? PrivateFiles.write(data, to: vocabularyFile)
+        do {
+            if terms.isEmpty { if FileManager.default.fileExists(atPath: vocabularyFile.path) { try FileManager.default.removeItem(at: vocabularyFile) } }
+            else { try PrivateFiles.write(JSONSerialization.data(withJSONObject: ["terms": terms], options: [.sortedKeys]), to: vocabularyFile) }
+        } catch { dictionaryMessage = "The dictionary was saved, but transcription could not be given the new words. It keeps using the previous ones." }
     }
 
     @discardableResult

@@ -114,16 +114,20 @@ enum MeetingAudio {
     /// than 24 hours, and anything that is not a chunk. `keep` holds the meeting ids still on record.
     /// `active` (the meeting recording now, and any still transcribing) is never touched: its folder
     /// holds the chunker's file being written, and deleting it stopped both streams in the first live tests.
-    static func purge(_ root: URL, keep: Set<String>, active: Set<String> = [], now: Date = Date()) {
+    /// Returns how many expired items could not be deleted; the next purge tries them again.
+    @discardableResult static func purge(_ root: URL, keep: Set<String>, active: Set<String> = [], now: Date = Date()) -> Int {
         let fm = FileManager.default
+        var failed = 0
+        func remove(_ url: URL) { do { try fm.removeItem(at: url) } catch { failed += 1 } }
         for folder in (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [] {
             if active.contains(folder.lastPathComponent) { continue }
-            guard keep.contains(folder.lastPathComponent) else { try? fm.removeItem(at: folder); continue }
+            guard keep.contains(folder.lastPathComponent) else { remove(folder); continue }
             for file in (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.creationDateKey])) ?? [] {
                 let created = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
-                if parse(file) == nil || now.timeIntervalSince(created) >= RetryWindow.lifetime || created > now { try? fm.removeItem(at: file) }
+                if parse(file) == nil || now.timeIntervalSince(created) >= RetryWindow.lifetime || created > now { remove(file) }
             }
-            if ((try? fm.contentsOfDirectory(atPath: folder.path)) ?? []).isEmpty { try? fm.removeItem(at: folder) }
+            if ((try? fm.contentsOfDirectory(atPath: folder.path)) ?? []).isEmpty { remove(folder) }
         }
+        return failed
     }
 }

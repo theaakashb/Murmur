@@ -500,7 +500,7 @@ final class CorrectionLedger {
         // ponytail: withdrawing a promotion that several old (two-tier) sessions supported loses the
         // others' consumed evidence (as `revert` always has); keep promotion evidence if that proves common.
         for promotion in state.promotions where promotion.sessions.contains(session) && gone.contains(promotion.pair) {
-            withdraw(promotion, tombstone: false)
+            try withdraw(promotion, tombstone: false)
         }
         state.evidence.removeAll { $0.correction.sessionID == session && (!$0.settled || gone.contains($0.pair)) }
         let added = fresh.filter { !settled.contains(Pair(of: $0.source, $0.target)) }
@@ -566,7 +566,7 @@ final class CorrectionLedger {
         for pair in pairs {
             if let reversed = state.promotions.first(where: { $0.pair != pair && $0.pair.source == pair.folded && $0.pair.folded == pair.source }) {
                 // The user changed a learned replacement back: withdraw it and never re-learn it.
-                withdraw(reversed, tombstone: true)
+                try withdraw(reversed, tombstone: true)
                 state.suppressed.insert(pair.source)
                 state.evidence.removeAll { $0.correction.sessionID == sessionID && $0.pair == pair }
             } else {
@@ -576,7 +576,7 @@ final class CorrectionLedger {
                 if targets.count > 1 {
                     state.suppressed.insert(pair.source)
                     state.evidence.removeAll { $0.pair.source == pair.source }
-                    for promotion in state.promotions where promotion.pair.source == pair.source { withdraw(promotion, tombstone: false) }
+                    for promotion in state.promotions where promotion.pair.source == pair.source { try withdraw(promotion, tombstone: false) }
                 } else if state.promotions.contains(where: { $0.pair == pair && $0.replaces }) {
                     // Already replaced: a repeat fix confirms it and adds nothing.
                     state.evidence.removeAll { $0.pair == pair }
@@ -633,7 +633,7 @@ final class CorrectionLedger {
     func revert(sessionID: UUID) throws {
         try reconcile()
         state.evidence.removeAll { $0.correction.sessionID == sessionID }
-        for promotion in state.promotions where promotion.sessions.contains(sessionID) { withdraw(promotion, tombstone: false) }
+        for promotion in state.promotions where promotion.sessions.contains(sessionID) { try withdraw(promotion, tombstone: false) }
         try save()
     }
 
@@ -642,7 +642,7 @@ final class CorrectionLedger {
     func undoLearned(entryID: UUID) throws {
         try reconcile()
         guard let promotion = state.promotions.last(where: { $0.entryID == entryID }) else { return }
-        withdraw(promotion, tombstone: true)
+        try withdraw(promotion, tombstone: true)
         try save()
     }
 
@@ -684,15 +684,16 @@ final class CorrectionLedger {
     }
 
     /// Undoes what a promotion added: its variant, or its whole entry (and every promotion on it).
-    private func withdraw(_ promotion: Promotion, tombstone: Bool) {
+    /// Throws when the dictionary cannot be saved: the promotion is then kept, so the word is never left applying with no record of why.
+    private func withdraw(_ promotion: Promotion, tombstone: Bool) throws {
         if promotion.kind == .variant {
             if var entry = dictionary.entries.first(where: { $0.id == promotion.entryID }) {
                 entry.variants.removeAll { TermText.fold($0) == promotion.pair.source }
-                try? dictionary.update(entry)
+                try dictionary.update(entry)
             }
             forget(promotion, tombstone: tombstone)
         } else {
-            try? dictionary.delete(id: promotion.entryID)
+            if dictionary.entries.contains(where: { $0.id == promotion.entryID }) { try dictionary.delete(id: promotion.entryID) }
             for other in state.promotions where other.entryID == promotion.entryID { forget(other, tombstone: tombstone) }
         }
     }
