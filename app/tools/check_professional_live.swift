@@ -378,7 +378,7 @@ cases += [
 // Only these fixtures explicitly enumerate distinct list items.
 for index in [0, 1, 2, 3, 14] { cases[index].forbidNumberedList = false }
 for index in 0...2 {
-    cases[index].must.append("he is not going|he isn't going|he won't go|he will not go")
+    cases[index].must.append("he is not going|he isn't going|he won't go|he will not go|he won't do that|he will not do that")
     cases[index].mustNot += ["we will not purchase", "we won't purchase", "we will not buy", "we won't buy"]
 }
 for index in [0, 1, 2, 3, 7, 14] { cases[index].modes = ["professional"] }
