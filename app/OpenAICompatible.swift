@@ -161,6 +161,16 @@ enum OpenAIChatFormat {
         default: throw ProviderError.malformedResponse(provider)
         }
         guard let message = first["message"] as? [String: Any], let content = message["content"] as? String else { throw ProviderError.malformedResponse(provider) }
+        return withoutLeadingReasoning(content)
+    }
+
+    /// Some servers put a reasoning model's thinking at the start of the answer (Amazon Bedrock: `<reasoning>…</reasoning>`;
+    /// Ollama and llama-server: `<think>…</think>`). Only a block that opens the content is removed.
+    static func withoutLeadingReasoning(_ content: String) -> String {
+        let trimmed = content.drop(while: \.isWhitespace)
+        for tag in ["reasoning", "think"] where trimmed.hasPrefix("<\(tag)>") {
+            if let close = trimmed.range(of: "</\(tag)>") { return String(trimmed[close.upperBound...].drop(while: \.isWhitespace)) }
+        }
         return content
     }
 }

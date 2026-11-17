@@ -426,6 +426,10 @@ extension ProviderChecks {
         check(body["model"] as? String == "llama3.2:latest" && body["stream"] as? Bool == false && (body["temperature"] as? Double) == 0 && body["max_tokens"] as? Int == 8192, "local body: model, non-streaming, temperature 0, max_tokens")
         check((body["messages"] as? [[String: Any]])?.map { "\($0["role"]!)" } == ["system", "user"] && body["provider"] == nil, "system+user, no routing field")
         check(body["reasoning_effort"] == nil, "no reasoning field unless one is set")
+        check(OpenAIChatFormat.withoutLeadingReasoning("<reasoning>fix punctuation</reasoning>Send it today.") == "Send it today."
+              && OpenAIChatFormat.withoutLeadingReasoning("\n<think>\nhmm\n</think>\n\nSend it today.") == "Send it today."
+              && OpenAIChatFormat.withoutLeadingReasoning("Send <think>it</think> today.") == "Send <think>it</think> today."
+              && OpenAIChatFormat.withoutLeadingReasoning("<think>never closed") == "<think>never closed", "a leading reasoning block is removed, anything else is kept")
         var effortful = ollama; effortful.reasoningEffort = "low"
         let withEffort = try? OpenAICompatibleCleanupProvider.makeRequest(messages: messages, endpoint: ollama.chatCompletionsURL, model: ollama.model, apiKey: nil, reasoningEffort: effortful.reasoningEffort)
         check(json(withEffort?.httpBody)["reasoning_effort"] as? String == "low", "a set reasoning effort is sent")
