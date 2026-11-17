@@ -156,6 +156,9 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check(makeCleanupProvider(.localRules, key: testKey, apiBaseURL: "", model: "") == nil, "local rules has no provider")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "http://localhost:11434", model: "llama3.2") is OpenAICompatibleCleanupProvider, "local custom API needs no key")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "http://localhost:11434", model: " ") == nil, "custom API needs a model")
+        check((makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "http://localhost:11434", model: "m", reasoningEffort: " low ") as? OpenAICompatibleCleanupProvider)?.reasoningEffort == "low"
+              && (makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "http://localhost:11434", model: "m", reasoningEffort: " ") as? OpenAICompatibleCleanupProvider)?.reasoningEffort == nil
+              && RouteSettings().customAPIReasoningEffort == "low", "reasoning effort defaults to low, is trimmed, and empty sends none")
         check(makeCleanupProvider(.customAPI, key: testKey, apiBaseURL: "ftp://x", model: "m") == nil, "custom API rejects a bad URL")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is OpenAICompatibleCleanupProvider, "custom API key is optional")
         check(CleanupChoice.allCases == [.localRules, .appleIntelligence, .localModel, .customAPI], "cleanup choices: local rules, Apple Intelligence, local model and custom API")

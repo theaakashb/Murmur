@@ -67,7 +67,7 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
 }
 
 /// The one place a cleanup provider is constructed. Nil for local rules or invalid custom settings.
-func makeCleanupProvider(_ choice: CleanupChoice, key: APIKey?, apiBaseURL: String, model: String) -> CleanupProvider? {
+func makeCleanupProvider(_ choice: CleanupChoice, key: APIKey?, apiBaseURL: String, model: String, reasoningEffort: String = "") -> CleanupProvider? {
     switch choice {
     case .localRules: return nil
     case .appleIntelligence: return AppleCleanupProvider()
@@ -75,7 +75,10 @@ func makeCleanupProvider(_ choice: CleanupChoice, key: APIKey?, apiBaseURL: Stri
     case .customAPI:
         let name = model.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
-        return try? OpenAICompatibleCleanupProvider(baseURL: apiBaseURL, model: name, apiKey: key, provider: .customAPI)
+        var provider = try? OpenAICompatibleCleanupProvider(baseURL: apiBaseURL, model: name, apiKey: key, provider: .customAPI)
+        let effort = reasoningEffort.trimmingCharacters(in: .whitespacesAndNewlines)
+        provider?.reasoningEffort = effort.isEmpty ? nil : effort
+        return provider
     }
 }
 
@@ -91,6 +94,9 @@ struct RouteSettings: Equatable, Sendable {
     var customTranscriptionAPIBaseURL = ""
     var customAPIModel = ""
     var customTranscriptionModel = ""
+    /// Sent to the custom cleanup provider as `reasoning_effort`; empty sends none. Low measured about 80% fewer output
+    /// tokens and half the latency on gpt-oss (Groq, November 2026).
+    var customAPIReasoningEffort = "low"
 
     /// The endpoint setting a custom provider's key is bound to (customTranscription follows its own address, customCleanup the
     /// cleanup one); nil for providers whose key has no destination. Changing it requires saving the key again (`CustomAPIKeyBinding`).
@@ -110,6 +116,7 @@ struct RouteSettings: Equatable, Sendable {
         static let customTranscriptionAPIBaseURL = "customTranscriptionAPIBaseURL"
         static let customAPIModel = "customAPIModel"
         static let customTranscriptionModel = "customTranscriptionModel"
+        static let customAPIReasoningEffort = "customAPIReasoningEffort"
         static let legacyServerURL = "localServerURL"
         static let legacyServerModel = "localServerModel"
     }
@@ -179,6 +186,7 @@ struct RouteSettings: Equatable, Sendable {
             default: return ""
             }
         }()
+        settings.customAPIReasoningEffort = defaults.string(forKey: Key.customAPIReasoningEffort) ?? "low"
         return settings
     }
 
@@ -189,6 +197,7 @@ struct RouteSettings: Equatable, Sendable {
         defaults.set(customTranscriptionAPIBaseURL, forKey: Key.customTranscriptionAPIBaseURL)
         defaults.set(customAPIModel, forKey: Key.customAPIModel)
         defaults.set(customTranscriptionModel, forKey: Key.customTranscriptionModel)
+        defaults.set(customAPIReasoningEffort, forKey: Key.customAPIReasoningEffort)
     }
 }
 
@@ -265,7 +274,7 @@ struct RoutePlan {
         var cleaner: CleanupProvider?
         if settings.cleanup != .localRules && cleanupSendsText, let provider = settings.cleanup.providerID {
             let storedKey = settings.cleanup == .appleIntelligence || settings.cleanup == .localModel ? nil : key(settings.cleanup.credentialID ?? provider)
-            cleaner = makeCleanupProvider(settings.cleanup, key: storedKey, apiBaseURL: settings.customAPIBaseURL, model: settings.customAPIModel)
+            cleaner = makeCleanupProvider(settings.cleanup, key: storedKey, apiBaseURL: settings.customAPIBaseURL, model: settings.customAPIModel, reasoningEffort: settings.customAPIReasoningEffort)
             if cleaner == nil, refusal == nil { refusal = ProviderError.invalidConfiguration(provider).userMessage }
             let preview = cleaner ?? makeCleanupProvider(settings.cleanup, key: storedKey ?? placeholderKey,
                                                         apiBaseURL: settings.customAPIBaseURL, model: settings.customAPIModel)

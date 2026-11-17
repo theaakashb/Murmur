@@ -12,7 +12,7 @@ Configure transcription and cleanup independently in Settings. Cloud routes requ
 | Transcription | Multipart audio to `/v1/audio/transcriptions`; the server must implement this interface. | `https://api.example.com/v1` |
 | Cleanup | Chat-completions JSON to `/v1/chat/completions`. | `http://localhost:11434/v1` |
 
-A base URL can include or omit a trailing `/v1`; do not enter the full request path. Use the server's actual model ID. The local cleanup example requires an already running compatible server with a model loaded; it does not provide local speech recognition. Custom transcription sends no dictionary-derived decoder prompt.
+A base URL can include or omit a trailing `/v1`; do not enter the full request path. Cleanup also sends `reasoning_effort`, `low` unless you change the Reasoning effort field; clear the field if your server rejects it. Meeting notes do not send it. Use the server's actual model ID. The local cleanup example requires an already running compatible server with a model loaded; it does not provide local speech recognition. Custom transcription sends no dictionary-derived decoder prompt.
 
 Only loopback destinations count as on this Mac and can work without a key; a local server configured to require authentication still needs its key. LAN and other remote hosts are disclosed as off-Mac. Use HTTPS off-Mac: keys are not sent to unencrypted remote endpoints. Changing an endpoint requires saving its key again for that destination. If nothing is listening at a loopback address, cleanup, transcription and key validation report that no local model server is running there; a remote endpoint that refuses the connection gets the generic network error.
 

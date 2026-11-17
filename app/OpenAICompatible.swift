@@ -127,13 +127,15 @@ enum OpenAIChatFormat {
         let temperature: Double
         let stream: Bool
         let max_tokens: Int?
+        let reasoning_effort: String?
     }
 
     /// `bearer` nil, or any key for a cleartext remote `endpoint`, sends no Authorization header.
-    static func makeRequest(endpoint: URL, bearer: APIKey?, model: String, messages: CleanupMessages, maxTokens: Int?) throws -> URLRequest {
+    /// `reasoningEffort` nil leaves the field out, for servers that reject it.
+    static func makeRequest(endpoint: URL, bearer: APIKey?, model: String, messages: CleanupMessages, maxTokens: Int?, reasoningEffort: String? = nil) throws -> URLRequest {
         let body = Body(model: model,
                         messages: [Message(role: "system", content: messages.system), Message(role: "user", content: messages.user)],
-                        temperature: 0, stream: false, max_tokens: maxTokens)
+                        temperature: 0, stream: false, max_tokens: maxTokens, reasoning_effort: reasoningEffort)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         var request = URLRequest(url: endpoint)
@@ -374,6 +376,8 @@ struct OpenAICompatibleCleanupProvider: CleanupProvider {
     /// Clamped to 1...`maximumTimeout` when used.
     var timeout: TimeInterval = OpenAICompatibleCleanupProvider.defaultTimeout
     var maxTokens: Int? = ProviderLimits.maxOutputTokens
+    /// Sent as `reasoning_effort` with cleanup requests; nil sends none. Meeting notes leave it to the provider's default.
+    var reasoningEffort: String?
     var transport: HTTPTransport = URLSessionTransport()
 
     /// Throws `invalidConfiguration(.localServer)` for a URL `LocalEndpoint.normalize` rejects.
@@ -393,7 +397,7 @@ struct OpenAICompatibleCleanupProvider: CleanupProvider {
     /// Ollama's native model list, used only when `/v1/models` is missing (404).
     var ollamaTagsURL: URL { URL(string: baseURL.absoluteString + "/api/tags")! }
     var modelID: String? { model }
-    func forMeetingNotes() -> CleanupProvider { var notes = self; notes.timeout = Self.maximumTimeout; return notes }
+    func forMeetingNotes() -> CleanupProvider { var notes = self; notes.timeout = Self.maximumTimeout; notes.reasoningEffort = nil; return notes }
     var effectiveTimeout: TimeInterval { min(max(timeout, 1), Self.maximumTimeout) }
 
     var disclosure: DataDisclosure {
@@ -412,9 +416,9 @@ struct OpenAICompatibleCleanupProvider: CleanupProvider {
         }
     }
 
-    static func makeRequest(messages: CleanupMessages, endpoint: URL, model: String, apiKey: APIKey?, maxTokens: Int? = ProviderLimits.maxOutputTokens, provider: ProviderID = .localServer) throws -> URLRequest {
+    static func makeRequest(messages: CleanupMessages, endpoint: URL, model: String, apiKey: APIKey?, maxTokens: Int? = ProviderLimits.maxOutputTokens, reasoningEffort: String? = nil, provider: ProviderID = .localServer) throws -> URLRequest {
         try requireLocalModel(model, provider: provider)
-        return try OpenAIChatFormat.makeRequest(endpoint: endpoint, bearer: apiKey, model: model, messages: messages, maxTokens: maxTokens)
+        return try OpenAIChatFormat.makeRequest(endpoint: endpoint, bearer: apiKey, model: model, messages: messages, maxTokens: maxTokens, reasoningEffort: reasoningEffort)
     }
 
     static func parse(_ result: HTTPResult, provider: ProviderID = .localServer) throws -> String { try OpenAIChatFormat.parse(provider: provider, result: result) }
@@ -456,7 +460,7 @@ struct OpenAICompatibleCleanupProvider: CleanupProvider {
     }
 
     func cleanup(_ messages: CleanupMessages) async throws -> String {
-        let request = try Self.makeRequest(messages: messages, endpoint: chatCompletionsURL, model: model, apiKey: sendableKey, maxTokens: maxTokens, provider: id)
+        let request = try Self.makeRequest(messages: messages, endpoint: chatCompletionsURL, model: model, apiKey: sendableKey, maxTokens: maxTokens, reasoningEffort: reasoningEffort, provider: id)
         return try Self.parse(try await ProviderHTTP(provider: id, transport: transport, deadline: effectiveTimeout).execute(request), provider: id)
     }
 

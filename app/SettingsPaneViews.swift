@@ -238,6 +238,10 @@ extension SettingsView {
             Text("Model name").font(Font.system(size: 14, weight: .semibold)).padding(.top, 4)
             field(RouteSettings.placeholderModel, text: $controller.customAPIModel)
                 .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
+            Text("Reasoning effort").font(Font.system(size: 14, weight: .semibold)).padding(.top, 4)
+            field("none sent", text: $controller.customAPIReasoningEffort)
+                .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
+            help("Sent as reasoning_effort with each cleanup. Low is fastest on reasoning models. Clear it if your provider rejects the request.")
             keyRow(.customCleanup)
             help("This provider needs OpenAI-compatible POST /v1/chat/completions. Its address and API key are separate from transcription. Enter the provider's exact model ID. A key is sent only over HTTPS; local endpoints can be used without one.")
         }

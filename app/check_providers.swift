@@ -425,6 +425,11 @@ extension ProviderChecks {
         let body = json(request.httpBody)
         check(body["model"] as? String == "llama3.2:latest" && body["stream"] as? Bool == false && (body["temperature"] as? Double) == 0 && body["max_tokens"] as? Int == 8192, "local body: model, non-streaming, temperature 0, max_tokens")
         check((body["messages"] as? [[String: Any]])?.map { "\($0["role"]!)" } == ["system", "user"] && body["provider"] == nil, "system+user, no routing field")
+        check(body["reasoning_effort"] == nil, "no reasoning field unless one is set")
+        var effortful = ollama; effortful.reasoningEffort = "low"
+        let withEffort = try? OpenAICompatibleCleanupProvider.makeRequest(messages: messages, endpoint: ollama.chatCompletionsURL, model: ollama.model, apiKey: nil, reasoningEffort: effortful.reasoningEffort)
+        check(json(withEffort?.httpBody)["reasoning_effort"] as? String == "low", "a set reasoning effort is sent")
+        check((effortful.forMeetingNotes() as? OpenAICompatibleCleanupProvider)?.reasoningEffort == nil, "meeting notes send no reasoning effort")
         let keyed = try? OpenAICompatibleCleanupProvider.makeRequest(messages: messages, endpoint: ollama.chatCompletionsURL, model: "m", apiKey: key)
         check(keyed?.value(forHTTPHeaderField: "Authorization") == "Bearer \(fakeSecret)", "optional key sent as bearer")
         expectError(.invalidConfiguration(.localServer), "empty local model") { try OpenAICompatibleCleanupProvider.makeRequest(messages: messages, endpoint: ollama.chatCompletionsURL, model: "", apiKey: nil) }

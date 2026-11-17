@@ -144,9 +144,10 @@ enum ScreenRequest: Equatable {
     @Published var customTranscriptionAPIBaseURL: String
     @Published var customAPIModel: String
     @Published var customTranscriptionModel: String
+    @Published var customAPIReasoningEffort: String
     @Published var savedKeys: Set<ProviderID> = []
     @Published var keyMessages: [ProviderID: String] = [:]
-    var routeSettings: RouteSettings { RouteSettings(transcription: transcriptionRoute, cleanup: cleanupChoice, customAPIBaseURL: customAPIBaseURL, customTranscriptionAPIBaseURL: customTranscriptionAPIBaseURL, customAPIModel: customAPIModel, customTranscriptionModel: customTranscriptionModel) }
+    var routeSettings: RouteSettings { RouteSettings(transcription: transcriptionRoute, cleanup: cleanupChoice, customAPIBaseURL: customAPIBaseURL, customTranscriptionAPIBaseURL: customTranscriptionAPIBaseURL, customAPIModel: customAPIModel, customTranscriptionModel: customTranscriptionModel, customAPIReasoningEffort: customAPIReasoningEffort) }
     var appliedTranscriptionIsLocal: Bool { appliedRoutes.transcription == .local }
     /// What a stage would send off this Mac with the settings as edited, or nil when nothing leaves.
     /// Reads no key (SwiftUI calls it on every render); shows the configured route's disclosure.
@@ -316,7 +317,7 @@ enum ScreenRequest: Equatable {
         writingModes = WritingModes.load(from: defaults)
         let routes = RouteSettings.load(from: defaults)
         transcriptionRoute = routes.transcription; cleanupChoice = routes.cleanup
-        customAPIBaseURL = routes.customAPIBaseURL; customTranscriptionAPIBaseURL = routes.customTranscriptionAPIBaseURL; customAPIModel = routes.customAPIModel; customTranscriptionModel = routes.customTranscriptionModel; appliedRoutes = routes
+        customAPIBaseURL = routes.customAPIBaseURL; customTranscriptionAPIBaseURL = routes.customTranscriptionAPIBaseURL; customAPIModel = routes.customAPIModel; customTranscriptionModel = routes.customTranscriptionModel; customAPIReasoningEffort = routes.customAPIReasoningEffort; appliedRoutes = routes
         self.preview = preview
         loadSettings(from: defaults)
         do {
