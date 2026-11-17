@@ -23,6 +23,15 @@ extension UserDefaults {
     }
 }
 
+/// Where the live meeting indicator sits once the meeting panel is minimized.
+enum MeetingIndicator: String, CaseIterable, Sendable {
+    case notch, menuBar = "menu-bar"
+    /// Beside the notch needs a display that has one; without it the menu bar is used.
+    func resolved(hasNotch: Bool) -> MeetingIndicator { self == .notch && hasNotch ? .notch : .menuBar }
+    /// The menu bar item's text while it is the indicator.
+    static func menuBarTitle(elapsed: String) -> String { " " + elapsed }
+}
+
 enum Prefs {
     static let cleanupFillers = Setting("cleanupFillers", true)
     static let cleanupCorrections = Setting("cleanupCorrections", true)
@@ -55,6 +64,7 @@ enum Prefs {
     static let sidebarCollapsed = Setting("sidebarCollapsed", false)
     static let showDetailedSettingsInfo = Setting("showDetailedSettingsInfo", false)
     static let meetingPanelCollapsed = Setting("meetingPanelCollapsed", false)
+    static let meetingIndicator = Setting("meetingIndicator", MeetingIndicator.notch)
     /// The live meeting panel's top-right corner, x then y.
     static let meetingPanelTopRight = Setting("meetingPanelTopRight", [Double]())
     /// Open at login is switched on once, at the first launch.

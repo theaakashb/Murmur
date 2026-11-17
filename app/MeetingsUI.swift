@@ -633,7 +633,8 @@ struct MeetingConsentSheet: View {
     }
 }
 
-/// The panel shown for the whole recording. It cannot be closed, only collapsed.
+/// The panel shown for the whole recording. It cannot be closed, only minimized: to the pill beside the
+/// notch (drawn here) or to the menu bar item (the panel is hidden then; see `MeetingPanelPresenter`).
 struct MeetingLiveView: View {
     @ObservedObject var recorder: MeetingRecorder
     @Binding var collapsed: Bool
@@ -644,17 +645,13 @@ struct MeetingLiveView: View {
     @State private var confirmCancel = false
 
     var body: some View {
-        Group { if collapsed { pill } else { full } }
+        Group { if !collapsed { full } else if let dock { dockedPill(dock) } }
             .foregroundStyle(Palette.ink)
             .onChange(of: notes) { if let id = recorder.live?.id { recorder.setNotes(notes, for: id) } }
             .onAppear { notes = recorder.live?.myNotes ?? "" }
     }
 
     private var dot: some View { Circle().fill(Color.red).frame(width: 10, height: 10).accessibilityHidden(true) }
-
-    @ViewBuilder private var pill: some View {
-        if let dock { dockedPill(dock) } else { floatingPill }
-    }
 
     private func dockedPill(_ size: CGSize) -> some View {
         Button { collapsed = false } label: {
@@ -667,18 +664,6 @@ struct MeetingLiveView: View {
         .accessibilityLabel("Recording meeting notes, \(MeetingExport.clock(recorder.elapsed)). Show the panel")
     }
 
-    private var floatingPill: some View {
-        Button { collapsed = false } label: {
-            HStack(spacing: 8) { dot; monoLabel(MeetingExport.clock(recorder.elapsed), size: 12) }
-                .frame(width: livePillSize.width, height: livePillSize.height).contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .overlay { MeetingDragHandle { collapsed = false }.accessibilityHidden(true) }
-        .help("Drag to move; click to show the meeting panel")
-        .accessibilityLabel("Recording meeting notes, \(MeetingExport.clock(recorder.elapsed)). Show the panel")
-        .modifier(UtilityGlass(radius: 20))
-    }
-
     private var full: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -687,7 +672,7 @@ struct MeetingLiveView: View {
                 Spacer()
                 if let live = recorder.live { monoLabel((live.source.micOnly ? "Mic only" : live.source.name) + (live.transcribedBy.map { " · " + $0 } ?? ""), size: 11, color: Palette.ink70).lineLimit(1) }
                 Button { collapsed = true } label: { Label("Minimize", systemImage: "arrow.down.right.and.arrow.up.left").labelStyle(.iconOnly).font(.system(size: 13, weight: .semibold)).frame(width: 28, height: 24).contentShape(Rectangle()) }
-                    .buttonStyle(.plain).help("Minimize to a small indicator with the recording timer").accessibilityLabel("Minimize to a small indicator")
+                    .buttonStyle(.plain).help("Minimize to the recording timer beside the notch or in the menu bar (Settings → Meetings)").accessibilityLabel("Minimize to the recording timer")
             }
             HStack(spacing: 8) {
                 Text(MeetingConsent.reminder).font(.system(size: 13, weight: .semibold))
@@ -754,39 +739,14 @@ struct MeetingLiveView: View {
     }
 }
 
-/// Keep the compact indicator's click action while handing drags to AppKit.
-private struct MeetingDragHandle: NSViewRepresentable {
-    let clicked: () -> Void
-    func makeNSView(context: Context) -> MeetingDragView { MeetingDragView(clicked: clicked) }
-    func updateNSView(_ view: MeetingDragView, context: Context) { view.clicked = clicked }
-}
-
-final class MeetingDragView: NSView {
-    var clicked: () -> Void
-    init(clicked: @escaping () -> Void) { self.clicked = clicked; super.init(frame: .zero) }
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    override var acceptsFirstResponder: Bool { true }
-    override func mouseDown(with event: NSEvent) {
-        guard let window else { return }
-        while let next = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
-            if next.type == .leftMouseUp { clicked(); return }
-            if hypot(next.locationInWindow.x - event.locationInWindow.x,
-                     next.locationInWindow.y - event.locationInWindow.y) >= 4 {
-                window.performDrag(with: event)
-                return
-            }
-        }
-    }
-}
-
-private let livePanelSize = NSSize(width: 340, height: 520), livePillSize = NSSize(width: 120, height: 40)
+private let livePanelSize = NSSize(width: 340, height: 520)
 let liveDockWidth: CGFloat = 96
 
 /// Shows the live panel while a meeting records: top right of the main screen at first, then where
 /// the user drags it. Minimized or not, and where, are remembered across meetings. It cannot be
-/// closed while recording. On a screen with a notch the minimized pill docks right of the notch
-/// instead (mirroring the dictation indicator on the left) and is not draggable; the remembered
-/// position is left alone and applies again when the panel expands or the screen has no notch.
+/// closed while recording. Minimized, it becomes the recording timer: a pill right of the notch
+/// (mirroring the dictation indicator on the left), or the menu bar item, by `Prefs.meetingIndicator`;
+/// a display without a notch always uses the menu bar. There is no free-floating indicator.
 @MainActor final class MeetingPanelPresenter {
     private var panel: FloatingPanel?
     private var host: NSHostingView<LivePanelRoot>?
@@ -795,6 +755,11 @@ let liveDockWidth: CGFloat = 96
     private var collapsed: Bool { UserDefaults.standard[Prefs.meetingPanelCollapsed] }
     private var observers: [NSObjectProtocol] = []
     private var docked = false
+    private var placedFor: MeetingIndicator?
+    /// True while the minimized indicator is the menu bar item; the panel is hidden then.
+    private(set) var inMenuBar = false
+    /// Minimizing, expanding or a display change moved the indicator: the menu bar item follows.
+    var onPlacement: (() -> Void)?
 
     init(recorder: MeetingRecorder, geometry: @escaping () -> BubbleGeometry = { BubbleGeometry(screen: nil) }) { self.recorder = recorder; self.geometry = geometry }
     var view: NSView? { panel?.contentView }
@@ -802,7 +767,7 @@ let liveDockWidth: CGFloat = 96
     func update() {
         guard recorder.live != nil else {
             observers.forEach { NotificationCenter.default.removeObserver($0) }; observers = []
-            panel?.orderOut(nil); panel = nil; host = nil; docked = false
+            panel?.orderOut(nil); panel = nil; host = nil; docked = false; inMenuBar = false
             announce("Meeting notes stopped")
             return
         }
@@ -812,10 +777,10 @@ let liveDockWidth: CGFloat = 96
             host = NSHostingView(rootView: root(dock: nil))
             next.contentView = host
             panel = next
-            // Remember where the user drags it (its top-right corner, so minimizing keeps it in place).
+            // Remember where the user drags it (its top-right corner).
             observers.append(NotificationCenter.default.addObserver(forName: NSWindow.didMoveNotification, object: next, queue: .main) { [weak self, weak next] _ in
                 MainActor.assumeIsolated {
-                    guard let self, !self.docked, let frame = next?.frame else { return }
+                    guard let self, !self.docked, !self.inMenuBar, let frame = next?.frame else { return }
                     UserDefaults.standard[Prefs.meetingPanelTopRight] = [frame.maxX, frame.maxY]
                 }
             })
@@ -825,26 +790,38 @@ let liveDockWidth: CGFloat = 96
             place(initial: true)
             announce("Meeting notes recording")
         }
-        panel?.orderFrontRegardless()
+        if !inMenuBar { panel?.orderFrontRegardless() }
     }
+
+    /// The Settings choice changed while a meeting records.
+    func indicatorChanged() { if panel != nil, placedFor != UserDefaults.standard[Prefs.meetingIndicator] { place() } }
+
+    /// The menu bar item's "Show Meeting Panel".
+    func expand() { UserDefaults.standard[Prefs.meetingPanelCollapsed] = false; place() }
 
     private func root(dock: CGSize?) -> LivePanelRoot { LivePanelRoot(recorder: recorder, dock: dock) { [weak self] _ in self?.place() } }
 
-    /// Docks the pill right of the notch when collapsed on a notched screen. Otherwise keeps the panel's
-    /// top-right corner where it was (or where it was last left) and resizes around it.
+    /// Minimized: the pill right of the notch, or hidden behind the menu bar item. Expanded: the panel with its
+    /// top-right corner where it was (or where it was last left).
     private func place(initial: Bool = false) {
         guard let panel, let host else { return }
-        let geo = geometry()
-        if collapsed, let dock = geo.rightDockFrame(width: liveDockWidth) {
-            docked = true
-            host.rootView = root(dock: dock.size)
-            panel.level = .statusBar; panel.hasShadow = false; panel.isMovableByWindowBackground = false
-            panel.setFrame(dock, display: true)
+        defer { onPlacement?() }
+        let geo = geometry(), dock = geo.rightDockFrame(width: liveDockWidth)
+        placedFor = UserDefaults.standard[Prefs.meetingIndicator]
+        if collapsed {
+            if placedFor?.resolved(hasNotch: dock != nil) == .notch, let dock {
+                docked = true; inMenuBar = false
+                host.rootView = root(dock: dock.size)
+                panel.level = .statusBar; panel.hasShadow = false; panel.isMovableByWindowBackground = false
+                panel.setFrame(dock, display: true); panel.orderFrontRegardless()
+            } else { inMenuBar = true; panel.orderOut(nil) }
             return
         }
-        let initial = initial || docked
+        // Leaving the notch or the menu bar puts the panel back at its remembered corner.
+        let initial = initial || docked || inMenuBar
         if docked { docked = false; host.rootView = root(dock: nil); panel.level = .floating; panel.hasShadow = true; panel.isMovableByWindowBackground = true }
-        let size = collapsed ? livePillSize : livePanelSize
+        inMenuBar = false
+        let size = livePanelSize
         let visible = geo.frame
         var corner = NSPoint(x: visible.maxX - 16, y: visible.maxY - 16)
         if !initial { corner = NSPoint(x: panel.frame.maxX, y: panel.frame.maxY) }
@@ -853,6 +830,7 @@ let liveDockWidth: CGFloat = 96
             corner = NSPoint(x: saved[0], y: saved[1])
         }
         panel.setFrame(NSRect(x: corner.x - size.width, y: corner.y - size.height, width: size.width, height: size.height), display: true)
+        panel.orderFrontRegardless()
     }
 }
 

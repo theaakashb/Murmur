@@ -21,6 +21,11 @@ extension SettingsView {
                 SettingInfoButton(text: controller.meetingNotesRoute == nil ? "Not chosen yet: Murmur asks after your first meeting." : "Notes are written after Stop from the transcript and your own notes. Every item cites the lines it rests on; items the transcript does not support are left out.")
             }.padding(.top, 20)
             MeetingNotesRoutePicker(controller: controller, tooltipDetails: true, selection: Binding(get: { controller.meetingNotesRoute ?? .none }, set: controller.chooseNotesRoute))
+            HStack(spacing: 4) {
+                eyebrow("Minimized meeting indicator")
+                SettingInfoButton(text: "Where the recording timer sits when you minimize the meeting panel. Click it to bring the panel back. A display without a notch always uses the menu bar, and the menu bar item appears for the recording even if the menu bar icon is turned off.")
+            }.padding(.top, 20).id("meeting-indicator")
+            segmented([(MeetingIndicator.notch, "Beside the notch"), (MeetingIndicator.menuBar, "Menu bar")], $controller.meetingIndicator)
         }
     }
 

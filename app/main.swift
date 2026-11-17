@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
     let options: LaunchOptions
@@ -13,13 +14,16 @@ import SwiftUI
     var statusItem: NSStatusItem?
     let reportIssue = ReportIssuePresenter()
     lazy var meetingPanel = MeetingPanelPresenter(recorder: controller.meetingRecorder)
+    private var meetingClock: AnyCancellable?
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(controller.showInDock ? .regular : .accessory)
         NSApp.mainMenu = buildMainMenu()
         controller.openSettings = { [weak self] in self?.showWindow() }
-        controller.updateMenu = { [weak self] in self?.refreshMenu() }
-        // The live meeting panel shows whether or not the menu bar icon is visible.
+        controller.updateMenu = { [weak self] in self?.meetingPanel.indicatorChanged(); self?.refreshMenu() }
+        // The meeting indicator shows whether or not the menu bar icon is otherwise visible.
         controller.meetingPanelChanged = { [weak self] in self?.meetingPanel.update() }
+        meetingPanel.onPlacement = { [weak self] in self?.refreshMenu() }
+        meetingClock = controller.meetingRecorder.$elapsed.sink { [weak self] seconds in self?.showMeetingClock(seconds) }
         // Open at login is on by default once; after that the Settings toggle decides.
         if !options.preview && options.testAudio == nil && !UserDefaults.standard[Prefs.openAtLoginDefaulted] {
             controller.setOpenAtLogin(true); UserDefaults.standard[Prefs.openAtLoginDefaulted] = true
@@ -98,9 +102,14 @@ import SwiftUI
             NSApp.setActivationPolicy(policy)
             if window?.isVisible == true { NSApp.activate(ignoringOtherApps: true); window?.makeKeyAndOrderFront(nil) }
         }
-        if !controller.showMenuBar { if let statusItem { NSStatusBar.system.removeStatusItem(statusItem) }; statusItem = nil; return }
-        if statusItem == nil { statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength) }
         let recording = controller.meetingRecorder.live != nil
+        // While the menu bar is the meeting indicator the item shows even if the icon is otherwise hidden: a recording is never invisible.
+        if !controller.showMenuBar && !meetingPanel.inMenuBar { if let statusItem { NSStatusBar.system.removeStatusItem(statusItem) }; statusItem = nil; return }
+        if statusItem == nil { statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength) }
+        statusItem?.length = meetingPanel.inMenuBar ? NSStatusItem.variableLength : NSStatusItem.squareLength
+        statusItem?.button?.imagePosition = meetingPanel.inMenuBar ? .imageLeading : .imageOnly
+        statusItem?.button?.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        showMeetingClock(controller.meetingRecorder.elapsed)
         statusItem?.button?.image = recording ? NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Murmur: recording meeting notes")
             : controller.cleanupWarning ? NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Murmur: AI cleanup unavailable") : Logo.menuBarImage
         let menu = NSMenu()
@@ -114,6 +123,7 @@ import SwiftUI
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: "").target = self
         menu.addItem(withTitle: "History…", action: #selector(openHistory), keyEquivalent: "").target = self
         if recording {
+            if meetingPanel.inMenuBar { menu.addItem(withTitle: "Show Meeting Panel", action: #selector(showMeetingPanel), keyEquivalent: "").target = self }
             menu.addItem(withTitle: "Stop Meeting Notes", action: #selector(stopMeeting), keyEquivalent: "").target = self
         } else {
             let start = NSMenuItem(title: "Start Meeting Notes", action: nil, keyEquivalent: "")
@@ -159,6 +169,14 @@ import SwiftUI
         controller.startMeeting(source)
     }
     @objc func stopMeeting() { controller.meetingRecorder.stop() }
+    @objc func showMeetingPanel() { meetingPanel.expand() }
+    /// The running timer beside the icon while the menu bar is the meeting indicator; only the text changes each second.
+    private func showMeetingClock(_ seconds: TimeInterval) {
+        guard let button = statusItem?.button else { return }
+        let clock = MeetingExport.clock(seconds)
+        button.title = meetingPanel.inMenuBar ? MeetingIndicator.menuBarTitle(elapsed: clock) : ""
+        if meetingPanel.inMenuBar { button.setAccessibilityLabel("Murmur: recording meeting notes, \(clock)") }
+    }
     @objc func cancel() { controller.cancelRecording() }
     @objc func quit() { NSApp.terminate(nil) }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showWindow(); return true }

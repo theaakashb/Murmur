@@ -121,6 +121,7 @@ enum SettingsSearch {
         .init("Updates", .updates, "version release download install", target: "top"),
         .init("Meeting transcription", .meetings, "call audio cloud local on device provider"),
         .init("Meeting notes", .meetings, "summary transcript only none apple intelligence custom provider"),
+        .init("Minimized meeting indicator", .meetings, "recording timer pill notch menu bar minimize panel floating", target: "meeting-indicator"),
         .init("Call detection", .meetings, "automatic meeting prompt offer take notes zoom teams browser", target: "call-detection"),
         .init("Speaker separation", .meetings, "diarization diarizer speakers pyannote model", target: "speaker-separation")
     ]

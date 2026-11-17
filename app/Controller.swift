@@ -42,6 +42,7 @@ enum ScreenRequest: Equatable {
     @Published var showMenuBar = Prefs.showMenuBar.fallback
     /// Off by default; applies as soon as it changes.
     @Published var showInDock = Prefs.showInDock.fallback
+    @Published var meetingIndicator = Prefs.meetingIndicator.fallback
     /// A screen the window should switch to, set from a menu item or the UI fixture. The window clears it once shown.
     @Published var screenRequest: ScreenRequest?
     /// CoreAudio UID of the chosen microphone; empty means the system default.

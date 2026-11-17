@@ -83,7 +83,7 @@ app/check_ui.sh --meetings --compact --light
 app/check_ui.sh --meeting-live
 app/check_ui.sh --call-offer --saved --bubble-only
 app/check_ui.sh --meeting-settings --never --light
-app/check_ui.sh --meeting-live --collapsed
+app/check_ui.sh --meeting-live --collapsed --fake-notch
 app/check_ui.sh --consent
 app/check_ui.sh --meetings --meeting-notes --light
 app/check_ui.sh --meetings --meeting-notes --outdated --tall
