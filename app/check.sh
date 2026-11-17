@@ -5,7 +5,7 @@
 set -u
 . "$(dirname "$0")/sources.sh"
 text="CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention"
-providers="AudioFormat CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Credentials"
+providers="AudioFormat CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Credentials MurmurCloud"
 cloud="AudioFormat $text Cleanup Settings CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Credentials VoiceCues Processing WritingModes"
 meetings="AudioFormat Retention CleanupText CallApps Meetings MeetingStore MeetingExport MeetingNotes MeetingSpeakers"
 models="Digests ModelManifest ModelDownload"
@@ -23,9 +23,9 @@ deps() {
     voice_cues) echo "CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning VoiceCues" ;;
     processing) echo "$cloud Observation" ;;
     modes) echo "$cloud" ;;
-    apple_cleanup) echo "$cloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
-    routes) echo "$cloud Routes CloudAudio KeyCheck AppleCleanup LocalCleanup" ;;
-    local_cleanup) echo "$cloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
+    apple_cleanup) echo "$cloud MurmurCloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
+    routes) echo "$cloud MurmurCloud Routes CloudAudio KeyCheck AppleCleanup LocalCleanup" ;;
+    local_cleanup) echo "$cloud MurmurCloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
     providers) echo "$providers" ;;
     insights) echo "Insights" ;;
     meetings|speakers) echo "$meetings" ;;

@@ -16,10 +16,22 @@ A base URL can include or omit a trailing `/v1`; do not enter the full request p
 
 Only loopback destinations count as on this Mac and can work without a key; a local server configured to require authentication still needs its key. LAN and other remote hosts are disclosed as off-Mac. Use HTTPS off-Mac: keys are not sent to unencrypted remote endpoints. Changing an endpoint requires saving its key again for that destination. If nothing is listening at a loopback address, cleanup, transcription and key validation report that no local model server is running there; a remote endpoint that refuses the connection gets the generic network error.
 
+## Murmur Cloud
+
+Murmur Cloud is Murmur's hosted service at `https://api-murmur.clouddev.cc` (fixed, not a setting). Choose it for cleanup only, or for transcription and cleanup. Paste the Murmur Cloud key in its key field; Validate calls `GET /v1/models` (a 402 means no active plan). With local transcription only `POST /v1/cleanup` runs and no audio leaves the Mac.
+
+| Stage | Request |
+| --- | --- |
+| Transcription | Multipart audio to `/v1/audio/transcriptions`, as for a custom provider, with no dictionary prompt. |
+| Cleanup | Murmur's own JSON to `/v1/cleanup`: the transcript after the Mac's own edits, the level (Polish or Professional), the four cleanup toggles, relevant dictionary terms, style notes and any enabled screen context. The server builds the prompt; the guard stays on this Mac. |
+
+The Prompt, Email and Notes presets are not sent to Murmur Cloud: their dictations get ordinary cleanup without the preset's instructions. Meeting notes have their own route and never use Murmur Cloud.
+
 Custom cleanup makes one provider request per dictation. A provider error or rejected rewrite can use guarded local cleanup; a transcription error does not switch to another transcriber.
 
 ## Implementation
 
+- `MurmurCloud.swift` implements the Murmur Cloud requests.
 - `OpenAICompatible.swift` and `ProviderHTTP.swift` implement custom OpenAI-compatible requests, transport and response validation; `ProviderTypes.swift` holds the shared contracts.
 - `Credentials.swift` stores API keys in the macOS Keychain.
 - `Routes.swift` resolves configured routes and their disclosures; `CloudAudio.swift` prepares upload audio and `KeyCheck.swift` validates keys.

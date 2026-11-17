@@ -88,10 +88,86 @@ func checkKeychainStore() {
         checkLocalErrorsAndRedaction()
         await checkLocalTransportBehaviour()
         checkKeychainStore()
+        await checkMurmurCloud()
         print(failures == 0
               ? "Provider checks passed (\(passes) assertions: credentials, multipart/JSON shape, parsing, classification, redaction, disclosure, deadline, cancellation, no retry, silence heuristics, host classification, local server, Gemini 3.5 Transcribe)."
               : "Provider checks FAILED: \(failures) of \(passes + failures) assertions.")
         exit(failures == 0 ? 0 : 1)
+    }
+
+    /// Murmur Cloud: Murmur's own cleanup JSON (exactly the documented keys), the shared multipart upload, key validation and status codes.
+    static func checkMurmurCloud() async {
+        var pro = CleanupOptions(fillers: true, corrections: true, lists: false, punctuation: true, professional: true, spoken: true)
+        // Professional with corrections drops "comma" by comma-free correction; spoken commands then write out "ten percent".
+        let spoken = "revenue is up ten percent new line send it to clouddev"
+        let context = ScreenContext(selected: "Selected", clipboard: "", window: "Window")
+        let built = CleanupPrompt.build(transcript: spoken, options: pro, dictionaryTerms: ["clouddev", " clouddev ", "Ana\nMaria"], context: context, instructions: "Use British spelling.")
+        guard let input = built.input else { check(false, "cleanup prompt carries typed input"); return }
+        let corrected = CleanupGuard.applyCommaFreeCorrections(spoken)
+        check(input.raw == corrected && input.sent == RuleCleaner.spokenCommands(corrected) && input.sent != input.raw, "typed input: raw is the corrected text, sent has spoken commands written out")
+        check(built.user.contains("\n\(input.sent)\n"), "sent is the text between the transcript tags")
+        let request = try! MurmurCloudCleanupFormat.makeRequest(input, key: key)
+        check(request.url?.absoluteString == "https://api-murmur.clouddev.cc/v1/cleanup" && request.httpMethod == "POST", "cleanup posts to /v1/cleanup on the fixed base URL")
+        check(request.value(forHTTPHeaderField: "Authorization") == "Bearer \(fakeSecret)" && request.value(forHTTPHeaderField: "Content-Type") == "application/json", "bearer key and JSON body")
+        let body = json(request.httpBody)
+        check(Set(body.keys) == ["transcript", "level", "fillers", "corrections", "punctuation", "lists", "terms", "style_notes", "context"], "only the documented keys are sent")
+        check(body["transcript"] as? String == input.sent && body["level"] as? String == "professional", "transcript is the sent text; Professional is professional")
+        check(body["fillers"] as? Bool == true && body["corrections"] as? Bool == true && body["punctuation"] as? Bool == true && body["lists"] as? Bool == false, "the four toggles")
+        check(body["terms"] as? [String] == ["clouddev", "Ana Maria"], "terms trimmed, de-duplicated and single-line, as in the prompt")
+        check(body["style_notes"] as? String == "Use British spelling.", "style notes")
+        check(body["context"] as? [String: String] == ["selected": "Selected", "clipboard": "", "window": "Window"], "context has exactly selected, clipboard and window")
+        pro.professional = false
+        let plain = CleanupPrompt.build(transcript: "um send it", options: pro).input!
+        let minimal = json(try! MurmurCloudCleanupFormat.makeRequest(plain, key: key).httpBody)
+        check(Set(minimal.keys) == ["transcript", "level", "fillers", "corrections", "punctuation", "lists"] && minimal["level"] as? String == "polish", "Polish with no terms, notes or context sends only the required keys")
+        let strict = CleanupPrompt.build(transcript: "um send it", options: CleanupOptions(punctuation: true)).input!
+        check(MurmurCloudCleanupFormat.body(strict) == nil, "Strict has no Murmur Cloud level")
+
+        // The provider: refuses presets and Strict without a request; parses {"text"}; maps the documented statuses.
+        let transport = MockTransport(.success(result(200, #"{"text":"Send it."}"#)))
+        var cloud = MurmurCloudCleanupProvider(apiKey: key); cloud.transport = transport
+        let preset = TransformPrompt.build(.email, transcript: "email sarah saying hi")
+        do { _ = try await cloud.cleanup(preset); check(false, "a preset is refused") } catch { check(error as? ProviderError == .invalidConfiguration(.murmurCloud), "a preset is refused, not approximated") }
+        do { _ = try await cloud.cleanup(CleanupPrompt.build(transcript: "um send it", options: CleanupOptions(punctuation: true))); check(false, "Strict is refused") } catch { check(error as? ProviderError == .invalidConfiguration(.murmurCloud), "Strict is refused") }
+        check(transport.requests.isEmpty, "refusals send nothing")
+        let cleaned = try? await cloud.cleanup(CleanupPrompt.build(transcript: "um send it", options: pro))
+        check(cleaned == "Send it.", "the reply's text is returned unchanged")
+        check(transport.requests.count == 1 && cloud.modelID == "murmur-cleanup" && cloud.shape == CleanupShape(takesPresets: false), "one request; model id; context taken, presets not")
+        let statuses: [(Int, ProviderError)] = [(401, .authentication(.murmurCloud)), (402, .quota(.murmurCloud)), (429, .rateLimited(.murmurCloud, retryAfter: 5)),
+            (413, .payloadTooLarge(.murmurCloud, limitBytes: nil)), (400, .rejected(.murmurCloud, status: 400)), (415, .rejected(.murmurCloud, status: 415)),
+            (502, .server(.murmurCloud, status: 502)), (503, .server(.murmurCloud, status: 503)), (504, .timeout(.murmurCloud))]
+        let errorBody = #"{"error":{"message":"fixed","type":"t","code":"c"}}"#
+        for (status, expected) in statuses {
+            do { _ = try MurmurCloudCleanupFormat.parse(result(status, errorBody, ["Retry-After": "5"])); check(false, "HTTP \(status) throws") }
+            catch { check(error as? ProviderError == expected, "HTTP \(status) maps to \(expected.kind), got \(error)") }
+        }
+        check(ProviderError.rateLimited(.murmurCloud, retryAfter: 5).disposition == .preserveRetryLater && ProviderError.quota(.murmurCloud).disposition == .preserveNeedsChange, "429 can be retried later; 402 needs a change")
+        do { _ = try MurmurCloudCleanupFormat.parse(result(200, #"{"answer":"x"}"#)); check(false, "no text throws") } catch { check(error as? ProviderError == .malformedResponse(.murmurCloud), "a reply without text is malformed") }
+        check(!ProviderError.invalidConfiguration(.murmurCloud).userMessage.contains("model"), "the not-set-up message asks only for the key")
+
+        // Key validation: GET /v1/models with the key.
+        let models = MockTransport(.success(result(200, #"{"data":[{"id":"murmur-cleanup"},{"id":"murmur-transcribe"}]}"#)))
+        do { try await MurmurCloud.validate(key: key, transport: models); check(true, "200 accepts the key") } catch { check(false, "200 accepts the key, got \(error)") }
+        check(models.requests.first?.url?.absoluteString == "https://api-murmur.clouddev.cc/v1/models" && models.requests.first?.httpMethod == "GET"
+              && models.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer \(fakeSecret)", "validation is an authenticated GET /v1/models")
+        for (status, expected) in [(401, ProviderError.authentication(.murmurCloud)), (402, .quota(.murmurCloud))] {
+            do { try await MurmurCloud.validate(key: key, transport: MockTransport(.success(result(status, errorBody)))); check(false, "\(status) fails validation") }
+            catch { check(error as? ProviderError == expected, "validation \(status) → \(expected.kind)") }
+        }
+
+        // Transcription: the shared multipart upload, no prompt, reply {"text"}.
+        let upload = MockTransport(.success(result(200, #"{"text":"Send the report."}"#)))
+        var stt = MurmurCloudTranscriptionProvider(apiKey: key); stt.transport = upload
+        let heard = try? await stt.transcribe(AudioPayload(data: Data("RIFF".utf8)))
+        check(heard == "Send the report.", "transcription returns the text")
+        let sent = upload.requests.first, form = String(decoding: sent?.httpBody ?? Data(), as: UTF8.self)
+        check(sent?.url?.absoluteString == "https://api-murmur.clouddev.cc/v1/audio/transcriptions" && sent?.value(forHTTPHeaderField: "Authorization") == "Bearer \(fakeSecret)", "transcription posts to /v1/audio/transcriptions with the key")
+        check(form.contains(#"name="file""#) && form.contains(#"name="language""#) && !form.contains(#"name="prompt""#), "multipart has the file and language, no prompt")
+        do { _ = try await stt.transcribe(AudioPayload(data: Data(count: OpenAICompatibleTranscriptionProvider.uploadLimitBytes + 1))); check(false, "oversized audio throws") }
+        catch { check(error as? ProviderError == .payloadTooLarge(.murmurCloud, limitBytes: OpenAICompatibleTranscriptionProvider.uploadLimitBytes), "oversized audio is not sent") }
+        check(upload.requests.count == 1, "the oversized upload sent nothing")
+        check(stt.disclosure.destinationHost == "api-murmur.clouddev.cc" && stt.disclosure.leavesDevice == ["audio"] && cloud.disclosure.destinationHost == "api-murmur.clouddev.cc"
+              && !cloud.disclosure.leavesDevice.contains("audio"), "disclosures name the host; cleanup sends no audio")
     }
 
     static func checkAPIKeyAndCredentials() {
@@ -117,7 +193,7 @@ func checkKeychainStore() {
         check((try? store.delete(.customTranscription)) != nil, "deleting missing key succeeds")
         try? store.deleteAll()
         check((try? store.read(.customCleanup)) == .some(nil), "deleteAll removes every key")
-        check(ProviderID.allCases.map(\.rawValue) == ["openrouter", "cerebras", "customAPI", "customTranscription", "customCleanup", "localServer", "appleIntelligence", "local-model"], "Keychain account names are provider ids")
+        check(ProviderID.allCases.map(\.rawValue) == ["openrouter", "cerebras", "customAPI", "customTranscription", "customCleanup", "localServer", "appleIntelligence", "local-model", "murmur-cloud"], "Keychain account names are provider ids")
         check(CredentialError.keychain(status: -25300).description == "Keychain operation failed (status -25300).", "credential error has status only")
     }
 

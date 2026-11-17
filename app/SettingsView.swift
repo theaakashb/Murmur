@@ -283,7 +283,7 @@ struct SettingsView: View {
         controller.microphoneAuthorized && controller.accessibilityAuthorized && controller.inputMonitoringAuthorized && modelSatisfied
     }
 
-    var modelSatisfied: Bool { controller.modelSlot.row.isReady || controller.transcriptionRoute == .cloud }
+    var modelSatisfied: Bool { controller.modelSlot.row.isReady || controller.transcriptionRoute != .local }
 
     @ViewBuilder var sidebar: some View {
         if screen == .settings { settingsSidebar } else { appSidebar }

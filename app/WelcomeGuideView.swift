@@ -12,7 +12,7 @@ extension SettingsView {
         case .inputMonitoring: return (Permission.inputMonitoring.title, "So the shortcut works in every app. Murmur listens only for the shortcut, Escape and its two ⌃⌘ chords.", isAllowed(.inputMonitoring), Permission.inputMonitoring.actionTitle, { grant(.inputMonitoring) })
         case .transcription: return ("Transcription", "Choose where dictation audio is transcribed. Cloud routes send audio to the provider shown below.", WelcomeGuide.isConfirmed(.transcription), "", {})
         case .cleanup: return ("Cleanup", "Choose where cleanup runs and how much it changes your words. Faithful keeps cleanup off.", WelcomeGuide.isConfirmed(.cleanup), "", {})
-        case .model: return ("Speech model", controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud && !controller.modelSlot.row.isReady ? "Not needed while dictation and meeting transcription both run in the cloud." : ModelFacts.batch.displayName, controller.modelSlot.row.isReady || (controller.transcriptionRoute == .cloud && controller.meetingTranscription == .cloud),
+        case .model: return ("Speech model", controller.transcriptionRoute != .local && controller.meetingTranscription == .cloud && !controller.modelSlot.row.isReady ? "Not needed while dictation and meeting transcription both run in the cloud." : ModelFacts.batch.displayName, controller.modelSlot.row.isReady || (controller.transcriptionRoute != .local && controller.meetingTranscription == .cloud),
                              controller.modelSlot.row.actions.contains(.retry) ? "Retry…" : "Download…", controller.downloadModel)
         case .tryIt: return ("Find your words.", "Press \(controller.shortcutName) and say a sentence. With this window in front, your words land in the field below instead of another app.", !controller.setupTestTranscript.isEmpty, "", {})
         }
@@ -146,6 +146,7 @@ extension SettingsView {
                                 else if guideStep == .cleanup {
                                     cleanupChoices
                                     if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .customAPI { customCleanupSettings }
+                                    if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .murmurCloud { keyRow(.murmurCloud).padding(.top, 16) }
                                     if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() { help(reason.userMessage).padding(.top, 12) }
                                     disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
                                 }

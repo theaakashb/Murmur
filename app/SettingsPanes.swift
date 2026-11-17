@@ -117,7 +117,7 @@ enum SettingsSearch {
         .init("Keep transcripts for", .privacy, "retention delete thirty 30 days six months forever"),
         .init("Keep recordings for diagnostics (7 days)", .privacy, "audio wav replay debug developer quality"),
         .init("Delete all data", .privacy, "erase wipe reset history recordings keys", target: "delete-data"),
-        .init("API Keys", .apiKeys, "credentials password keychain custom transcription cleanup", target: "top"),
+        .init("API Keys", .apiKeys, "credentials password keychain custom transcription cleanup murmur cloud", target: "top"),
         .init("Updates", .updates, "version release download install", target: "top"),
         .init("Meeting transcription", .meetings, "call audio cloud local on device provider"),
         .init("Meeting notes", .meetings, "summary transcript only none apple intelligence custom provider"),

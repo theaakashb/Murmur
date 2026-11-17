@@ -231,6 +231,7 @@ final class ProcessingCoordinator {
         // The provider declares what it takes (CleanupShape): a fixed prompt gets no context or style notes (rewrite presets fall back below), a small window gets capped context.
         if let shape = cloudCleaner?.shape {
             if !shape.takesContext { context = nil; instructions = "" }
+            if !shape.takesPresets, style.transform != nil { instructions = "" }
             if let caps = shape.contextCaps, var c = context {
                 c.selected = String(c.selected.prefix(caps.selected)); c.clipboard = String(c.clipboard.prefix(caps.clipboard)); c.window = String(c.window.prefix(caps.window))
                 context = c
@@ -327,8 +328,8 @@ final class ProcessingCoordinator {
                                    context: ScreenContext? = nil, instructions: String = "") async -> CloudAttempt {
         var output: String
         let messages = CleanupPrompt.build(transcript: section, options: options, dictionaryTerms: terms, context: context, instructions: instructions)
-        // The managed model's prompt is fixed inside the helper, so the built prompt's hash would be misleading.
-        let hash = provider.id == .localModel ? "local-fixed" : promptHash(messages.system)
+        // The managed model's prompt is fixed inside the helper and Murmur Cloud's is built by the server, so the built prompt's hash would be misleading.
+        let hash = provider.id == .localModel ? "local-fixed" : provider.id == .murmurCloud ? "murmur-cloud-server" : promptHash(messages.system)
         do { output = try await provider.cleanup(messages) }
         catch { return CloudAttempt(text: nil, reason: .cleanerFailed, error: error as? ProviderError, promptHash: hash) }
         let reason: CleanupFailureReason

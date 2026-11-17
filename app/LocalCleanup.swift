@@ -33,7 +33,7 @@ struct LocalModelCleanupProvider: CleanupProvider {
     var generate: @Sendable (LocalCleanupRequest) async throws -> String = { try await LocalCleanupRunner.shared.clean($0) }
     var modelID: String? { LocalCleanupIdentity.modelID }
     /// One fixed prompt: no screen context or style notes, and rewrite presets fall back to local rules.
-    var shape: CleanupShape { CleanupShape(takesContext: false, sectionTarget: 150, keepsCorrectionsAttached: true) }
+    var shape: CleanupShape { CleanupShape(takesContext: false, sectionTarget: 150, keepsCorrectionsAttached: true, takesPresets: false) }
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .cleanup, destinationHost: "\(LocalCleanupIdentity.modelName), downloaded to this Mac", leavesDevice: [],
                        staysOnDevice: ["the transcript"], retentionNote: "")

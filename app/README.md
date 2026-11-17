@@ -64,6 +64,8 @@ app/check_ui.sh --processing --bubble-only
 app/check_ui.sh --saved --bubble-only
 app/check_ui.sh --saved --learned --keep-notice --bubble-only
 app/check_ui.sh --custom-transcription
+app/check_ui.sh --murmur-cloud --section 1
+app/check_ui.sh --murmur-cloud --cleanup-style 1 --section 2
 app/check_ui.sh --light --dictionary
 app/check_ui.sh --cues --snapshot /tmp/murmur-cues.png
 app/check_ui.sh --cues --light --snapshot /tmp/murmur-cues-light.png

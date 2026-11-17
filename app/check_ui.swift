@@ -55,6 +55,9 @@ extension AppController {
         if CommandLine.arguments.contains("--custom-transcription") {
             controller.transcriptionRoute = .cloud
         }
+        if CommandLine.arguments.contains("--murmur-cloud") {
+            controller.transcriptionRoute = .murmurCloud; controller.cleanupChoice = .murmurCloud
+        }
         // Applying an unrelated switch must not reload History on the main thread.
         controller.applySettings()
         var historyReloads = 0
@@ -157,7 +160,7 @@ extension AppController {
             if args.contains("--cues") { controller.screenRequest = .settingsPane(.cues) }
             // --cleanup-style -1|0|1|2: Faithful, Strict, Polish or Professional, with an AI model stored.
             if let flag = args.firstIndex(of: "--cleanup-style"), args.indices.contains(flag + 1), let style = Int(args[flag + 1]) {
-                controller.cleanupChoice = args.contains("--custom-cleanup") ? .customAPI : .localModel; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
+                controller.cleanupChoice = args.contains("--custom-cleanup") ? .customAPI : args.contains("--murmur-cloud") ? .murmurCloud : .localModel; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
                 if style == -1 { controller.useFaithfulTranscription() }
             }
             // --local-model ready|downloading|failed|notice: the managed local cleanup row in its states (no download runs).

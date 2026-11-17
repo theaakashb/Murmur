@@ -20,7 +20,10 @@ import FoundationNetworking
 enum TranscriptionRoute: String, CaseIterable, Sendable {
     /// Parakeet through the bundled ModelBench helper. The default.
     case local
+    /// A custom OpenAI-compatible endpoint.
     case cloud
+    /// Murmur Cloud (MurmurCloud.swift), with the Murmur Cloud key.
+    case murmurCloud = "murmur-cloud"
 }
 
 /// The one place a cloud transcriber is constructed: a user-configured OpenAI-compatible audio transcription
@@ -39,6 +42,8 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
     /// The managed local model (LocalCleanup.swift): downloaded on request, runs on this Mac.
     case localModel = "local-model"
     case customAPI = "custom-api"
+    /// Murmur Cloud (MurmurCloud.swift): the server builds the prompt; the guard stays here.
+    case murmurCloud = "murmur-cloud"
 
     var id: String { rawValue }
 
@@ -48,6 +53,7 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
         case .appleIntelligence: return "Apple Intelligence (this Mac)"
         case .localModel: return "Local model (this Mac)"
         case .customAPI: return "Custom Provider"
+        case .murmurCloud: return "Murmur Cloud"
         }
     }
 
@@ -60,6 +66,7 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
         case .appleIntelligence: return .appleIntelligence
         case .localModel: return .localModel
         case .customAPI: return .customAPI
+        case .murmurCloud: return .murmurCloud
         }
     }
 
@@ -79,6 +86,7 @@ func makeCleanupProvider(_ choice: CleanupChoice, key: APIKey?, apiBaseURL: Stri
         let effort = reasoningEffort.trimmingCharacters(in: .whitespacesAndNewlines)
         provider?.reasoningEffort = effort.isEmpty ? nil : effort
         return provider
+    case .murmurCloud: return key.map { MurmurCloudCleanupProvider(apiKey: $0) }
     }
 }
 
@@ -266,10 +274,17 @@ struct RoutePlan {
         var stages: [DataDisclosure] = []
         var refusal: String?
         var transcriber: TranscriptionProvider?
-        if settings.transcription == .cloud {
+        switch settings.transcription {
+        case .local: break
+        case .cloud:
             transcriber = makeTranscriptionProvider(key: key(.customTranscription), apiBaseURL: settings.customTranscriptionAPIBaseURL, model: settings.customTranscriptionModel)
             if transcriber == nil { refusal = ProviderError.invalidConfiguration(.customAPI).userMessage }
             if let disclosure = transcriber?.disclosure, !disclosure.staysOnThisMac { stages.append(disclosure) }
+        case .murmurCloud:
+            transcriber = key(.murmurCloud).map { MurmurCloudTranscriptionProvider(apiKey: $0) }
+            if transcriber == nil { refusal = ProviderError.invalidConfiguration(.murmurCloud).userMessage }
+            // Shown before a key is saved too, so Settings discloses the route while it is set up.
+            stages.append(MurmurCloudTranscriptionProvider(apiKey: placeholderKey).disclosure)
         }
         var cleaner: CleanupProvider?
         if settings.cleanup != .localRules && cleanupSendsText, let provider = settings.cleanup.providerID {
@@ -301,6 +316,13 @@ protocol SilencePrecheckedTranscriber: TranscriptionProvider {
 
 /// Whisper-style models invent "Thank you." or "Okay." for silence, so silent clips are not sent.
 extension OpenAICompatibleTranscriptionProvider: SilencePrecheckedTranscriber {
+    func shouldSkip(peakLevel: Float, durationSeconds: Double?) -> Bool {
+        AudioFormat.shouldSkipForSilence(peakLevel: peakLevel, durationSeconds: durationSeconds)
+    }
+}
+
+/// Murmur Cloud transcribes with Whisper too.
+extension MurmurCloudTranscriptionProvider: SilencePrecheckedTranscriber {
     func shouldSkip(peakLevel: Float, durationSeconds: Double?) -> Bool {
         AudioFormat.shouldSkipForSilence(peakLevel: peakLevel, durationSeconds: durationSeconds)
     }

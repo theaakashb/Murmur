@@ -14,7 +14,7 @@ enum KeyText {
     static let unreadable = "The saved key could not be read from the Keychain."
 
     /// Only active provider credentials appear in Settings; legacy accounts remain available for migration.
-    static let providers: [ProviderID] = [.customTranscription, .customCleanup]
+    static let providers: [ProviderID] = [.customTranscription, .customCleanup, .murmurCloud]
 
     static func validated(_ provider: ProviderID) -> String {
         provider == .localServer ? "The local model server answered." : provider == .customTranscription || provider == .customCleanup || provider == .customAPI ? "The custom API endpoint answered." : "\(provider.displayName) accepted the key."
@@ -37,6 +37,9 @@ enum KeyCheck {
                 return AppleCleanupProvider().status()?.userMessage ?? "Apple Intelligence is ready."
             case .localModel:
                 return LocalModelCleanupProvider().status()?.userMessage ?? "The local cleanup model is ready."
+            case .murmurCloud:
+                guard let key else { return ProviderError.invalidConfiguration(provider).userMessage }
+                try await MurmurCloud.validate(key: key, transport: transport ?? URLSessionTransport())
             case .cerebras, .openrouter:
                 // Legacy key accounts only; the migration copies them to the custom endpoint.
                 return ProviderError.invalidConfiguration(provider).userMessage

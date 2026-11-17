@@ -141,11 +141,11 @@ extension SettingsView {
     var transcriptionRoutes: some View {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Where transcription runs").padding(.top, 28)
-            segmented([(TranscriptionRoute.local, "On this Mac (Parakeet)"), (TranscriptionRoute.cloud, "Cloud")], $controller.transcriptionRoute).padding(.top, 8)
+            segmented([(TranscriptionRoute.local, "On this Mac (Parakeet)"), (TranscriptionRoute.cloud, "Cloud"), (TranscriptionRoute.murmurCloud, "Murmur Cloud")], $controller.transcriptionRoute).padding(.top, 8)
             if controller.transcriptionRoute == .local {
                 help("Audio stays on this Mac. Downloading the model uses the network once; dictation does not.").padding(.top, 12)
             } else {
-                cloudTranscriptionSettings
+                if controller.transcriptionRoute == .murmurCloud { keyRow(.murmurCloud).padding(.top, 16) } else { cloudTranscriptionSettings }
                 disclosure(controller.routeDisclosure(.transcription)).padding(.top, 16)
             }
         }
@@ -226,6 +226,10 @@ extension SettingsView {
                 .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel)
             if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .customAPI {
                 customCleanupSettings
+            }
+            if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .murmurCloud {
+                keyRow(.murmurCloud).padding(.top, 16)
+                disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 8)
             }
         }
     }
