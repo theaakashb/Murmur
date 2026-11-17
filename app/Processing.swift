@@ -324,7 +324,7 @@ final class ProcessingCoordinator {
     /// The guard judges against the transcript section only: screen context never widens what it accepts.
     private static func cloudClean(_ section: String, provider: CleanupProvider, options: CleanupOptions, terms: [String],
                                    context: ScreenContext? = nil, instructions: String = "") async -> CloudAttempt {
-        let output: String
+        var output: String
         let messages = CleanupPrompt.build(transcript: section, options: options, dictionaryTerms: terms, context: context, instructions: instructions)
         // The managed model's prompt is fixed inside the helper, so the built prompt's hash would be misleading.
         let hash = provider.id == .localModel ? "local-fixed" : promptHash(messages.system)
@@ -334,7 +334,17 @@ final class ProcessingCoordinator {
         // The managed local model is always held to the full guard (numbers, names, negations), whatever the global trust setting.
         var judged = options
         if provider.id == .localModel { judged.trustModel = false }
-        switch CleanupPipeline.judge(raw: section, cleaned: output, options: judged, allowedTerms: terms, soundsLike: DictionaryStore.soundsLike) {
+        var verdict = CleanupPipeline.judge(raw: section, cleaned: output, options: judged, allowedTerms: terms, soundsLike: DictionaryStore.soundsLike)
+        // The local model's formal tone over-edits: on 139 real dictations the guard refused 36 formal answers and 22 casual
+        // ones. A refused formal answer gets one casual try under the same guard; if that is refused too, the first stands.
+        if provider.id == .localModel, options.professional, case .heldForRecovery = verdict {
+            var casual = messages; casual.input?.options.professional = false
+            if let second = try? await provider.cleanup(casual) {
+                let retried = CleanupPipeline.judge(raw: section, cleaned: second, options: judged, allowedTerms: terms, soundsLike: DictionaryStore.soundsLike)
+                if case .heldForRecovery = retried {} else { output = second; verdict = retried }
+            }
+        }
+        switch verdict {
         case .cleaned(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: .cleaned, promptHash: hash)
         case .unchanged(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: .unchanged, promptHash: hash)
         case .heldForRecovery(_, let why): reason = why

@@ -158,6 +158,16 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         p.cloudCleaner = provider(rec) { _ in "Thanks, Shreya Raman. Send 42.50 dollars." }
         let names = await p.processAsync("thanks shreya raman send 42.50 dollars")
         check(names.fallback == nil, "names and numbers kept pass")
+        // Professional asks for the formal tone first; a refused formal answer gets one casual try.
+        var tones = LocalModelCleanupProvider(); tones.status = { nil }
+        tones.generate = { $0.tone == "formal" ? "Please send the contract today." : "Please do not send the contract today." }
+        p.cloudCleaner = tones
+        let retried = await p.processAsync(notRaw)
+        check(retried.outcome == .insert("Please do not send the contract today.") && retried.fallback == nil && retried.cleanupPath == .modelAccepted, "a refused formal answer is replaced by an accepted casual one")
+        tones.generate = { _ in "Please send the contract today." }
+        p.cloudCleaner = tones
+        let refusedTwice = await p.processAsync(notRaw)
+        check(refusedTwice.fallback == .negationChanged && refusedTwice.cleanupPath != .modelAccepted, "two refused answers still fall back")
         // A rewrite preset cannot run on the fixed-prompt model: it is never sent, ordinary cleanup runs instead.
         var preset = WritingMode(); preset.transform = .email
         let presetRec = Recorder()
