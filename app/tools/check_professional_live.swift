@@ -6,6 +6,8 @@
 //   [--timeout SECONDS]  fails an attempt that takes longer (default 20); a timeout is a provider error, not retried.
 //   [--replay PATH]  replays real dictations instead of the built-in cases: a JSON array of
 //     {"raw", "must", "mustNot", "tags"} kept outside the repository ("list" in tags allows numbered lines).
+//   [--base URL --key-env NAME]  another OpenAI-compatible endpoint, with its key read from that environment variable
+//     (never printed) instead of Murmur's settings and Keychain; needs --model.
 //   [--show-prompt]  prints the first system prompt and exits, with no model call.
 //   [--rescore PATH]  offline: re-run the guard on a saved --json report; prints only verdicts, never text.
 // Phrase checks are transparent proxies, not semantic accuracy labels; `a|b` accepts alternatives.
@@ -18,7 +20,7 @@ struct Flags {
     var endpoint = "cleanup", trust = false, listModels = false
     var reasoning: String? = nil
     var retries = 0, corrections = true
-    var subset: Set<Int>? = nil, json: String? = nil, delay = 4.0, timeout = 20.0, selfCheck = false, rescore: String? = nil, replay: String? = nil, candidatePath: String? = nil, showPrompt = false
+    var subset: Set<Int>? = nil, json: String? = nil, delay = 4.0, timeout = 20.0, selfCheck = false, rescore: String? = nil, replay: String? = nil, candidatePath: String? = nil, showPrompt = false, base: String? = nil, keyEnv: String? = nil
     init(_ args: [String]) throws {
         var i = 0
         func bad() -> NSError { NSError(domain: "benchmark CLI", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid arguments; see usage in source"] ) }
@@ -47,6 +49,8 @@ struct Flags {
                 guard indices.count == parts.count, indices.allSatisfy({ $0 >= 0 }) else { throw bad() }
                 subset = Set(indices)
             case "--json": json = value
+            case "--base": base = value
+            case "--key-env": keyEnv = value
             case "--rescore": rescore = value
             case "--replay": replay = value
             case "--candidate": candidatePath = value; prompt = "candidate"
@@ -382,9 +386,10 @@ if flags.endpoint == "apple" {
 let endpointKey = flags.endpoint == "cleanup" ? "customAPIBaseURL" : "customTranscriptionAPIBaseURL"
 let modelKey = flags.endpoint == "cleanup" ? "customAPIModel" : "customTranscriptionModel"
 let credential: ProviderID = flags.endpoint == "cleanup" ? .customCleanup : .customTranscription
-guard let base = defaults.string(forKey: endpointKey),
-      let configured = flags.model ?? defaults.string(forKey: modelKey),
-      let made = makeCleanupProvider(.customAPI, key: try CustomAPIKeyBinding.read(at: base, defaults: defaults, credentials: KeychainCredentialStore(), provider: credential), apiBaseURL: base, model: configured) else {
+guard let base = flags.base ?? defaults.string(forKey: endpointKey),
+      let configured = flags.model ?? (flags.base == nil ? defaults.string(forKey: modelKey) : nil),
+      let key = try flags.base == nil ? CustomAPIKeyBinding.read(at: base, defaults: defaults, credentials: KeychainCredentialStore(), provider: credential) : flags.keyEnv.flatMap { ProcessInfo.processInfo.environment[$0] }.flatMap(APIKey.init),
+      let made = makeCleanupProvider(.customAPI, key: key, apiBaseURL: base, model: configured) else {
     print("No Custom Provider cleanup configured"); exit(2)
 }
 provider = made; model = configured
