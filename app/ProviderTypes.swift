@@ -16,16 +16,13 @@ struct AudioPayload: Sendable {
     var mimeType: String
     /// ISO-639-1, e.g. "en". Nil lets the provider detect it.
     var language: String?
-    /// The dictionary's enabled spellings, one per term. Set only for a provider that `acceptsVocabulary`
-    /// (see `CloudTranscription`), and listed in that provider's disclosure; each provider encodes it itself.
-    var vocabulary: [String]
     /// Peak level of each 100 ms window of the audio sent, so a transcript segment can be checked
     /// against the sound under it. Nil when the audio was not decoded. Never sent.
     var levels: [Float]? = nil
 
-    init(data: Data, filename: String = "audio.wav", mimeType: String = "audio/wav", language: String? = "en", vocabulary: [String] = []) {
+    init(data: Data, filename: String = "audio.wav", mimeType: String = "audio/wav", language: String? = "en") {
         self.data = data; self.filename = filename; self.mimeType = mimeType
-        self.language = language; self.vocabulary = vocabulary
+        self.language = language
     }
 }
 
@@ -255,9 +252,6 @@ protocol TranscriptionProvider: Sendable {
     var disclosure: DataDisclosure { get }
     /// The model's identifier for History; nil where there is none.
     var modelID: String? { get }
-    /// True only where the disclosure lists dictionary spellings as sent (the Gemini providers). Custom OpenAI-compatible
-    /// transcription must stay false: it gets no dictionary-derived prompt (VOCABULARY.md).
-    var acceptsVocabulary: Bool { get }
     /// One request, no retry. Throws `ProviderError`; `.cancelled` if the calling Task is cancelled.
     func transcribe(_ audio: AudioPayload) async throws -> String
     /// Minimal authenticated call that consumes no tokens. Throws `ProviderError`.
@@ -266,13 +260,12 @@ protocol TranscriptionProvider: Sendable {
 
 extension TranscriptionProvider {
     var modelID: String? { nil }
-    var acceptsVocabulary: Bool { false }
 }
 
 protocol CleanupProvider: Sendable {
     var id: ProviderID { get }
     var disclosure: DataDisclosure { get }
-    /// The model's identifier for History, read after the call (a rate limit can move Gemini to its fallback); nil where there is none.
+    /// The model's identifier for History, read after the call; nil where there is none.
     var modelID: String? { get }
     var shape: CleanupShape { get }
     /// This provider with the longest wait it permits, for a whole meeting's notes.

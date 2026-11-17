@@ -39,7 +39,7 @@ import Darwin
         var traced = fellBack
         traced.cleanupOptions = CleanupOptions(professional: true); traced.writingModeID = UUID().uuidString; traced.writingModeName = "Email"
         traced.transcriptionProvider = "local"; traced.transcriptionModel = ModelFacts.batch.repository
-        traced.cleanupProvider = "gemini"; traced.cleanupModel = "gemma-4-26b-a4b-it"; traced.appVersion = "1.0 (7)"
+        traced.cleanupProvider = "customAPI"; traced.cleanupModel = "gpt-oss-120b"; traced.appVersion = "1.0 (7)"
         traced.contextUsed = true; traced.cleanupOutcome = .modelPunctuationOnLocal; traced.edited = true
         let tracedTrip = try JSONDecoder().decode(HistoryEntry.self, from: JSONEncoder().encode(traced))
         func provenance(_ e: HistoryEntry) -> [String?] {

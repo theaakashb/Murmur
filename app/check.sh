@@ -5,8 +5,8 @@
 set -u
 . "$(dirname "$0")/sources.sh"
 text="CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention"
-providers="AudioFormat CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials"
-cloud="AudioFormat $text Cleanup Settings CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Gemini Credentials VoiceCues Processing WritingModes"
+providers="AudioFormat CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Credentials"
+cloud="AudioFormat $text Cleanup Settings CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Credentials VoiceCues Processing WritingModes"
 meetings="AudioFormat Retention CleanupText CallApps Meetings MeetingStore MeetingExport MeetingNotes MeetingSpeakers"
 models="Digests ModelManifest ModelDownload"
 deps() {

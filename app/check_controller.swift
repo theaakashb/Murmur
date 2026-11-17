@@ -111,7 +111,7 @@ import AVFoundation
         warning.recordCleanup(outcome: .off, fallback: nil)
         precondition(warning.cleanupWarning)
         warning.recordCleanup(outcome: .modelAccepted, fallback: nil)
-        warning.recordCleanup(outcome: .localRules, fallback: .answerPattern, error: .quota(.gemini))
+        warning.recordCleanup(outcome: .localRules, fallback: .answerPattern, error: .quota(.customAPI))
         precondition(warning.cleanupWarning)
         for phase in [Phase.listening, .processing, .error] { precondition(showsFloatingIndicator(phase: phase)) }
         for phase in [Phase.saved, .ready] { precondition(!showsFloatingIndicator(phase: phase)) }
@@ -245,10 +245,10 @@ import AVFoundation
         precondition(!controller.canCancelRequest)
         controller.cancelCloudRequest()
         precondition(controller.phase == .saved)
-        precondition(!controller.saveKey(.gemini, "sk bad 99") && controller.keyMessages[.gemini] == KeyText.invalid && !controller.savedKeys.contains(.gemini))
-        precondition(controller.saveKey(.gemini, "test-key-123") && controller.savedKeys.contains(.gemini) && controller.keyMessages[.gemini] == KeyText.saved)
-        controller.removeKey(.gemini)
-        precondition(!controller.savedKeys.contains(.gemini))
+        precondition(!controller.saveKey(.customCleanup, "sk bad 99") && controller.keyMessages[.customCleanup] == KeyText.invalid && !controller.savedKeys.contains(.customCleanup))
+        precondition(controller.saveKey(.customCleanup, "test-key-123") && controller.savedKeys.contains(.customCleanup) && controller.keyMessages[.customCleanup] == KeyText.saved)
+        controller.removeKey(.customCleanup)
+        precondition(!controller.savedKeys.contains(.customCleanup))
         controller.customTranscriptionAPIBaseURL = "https://first.example/v1"
         precondition(controller.saveKey(.customTranscription, "synthetic-transcription-key") && !controller.customAPIKeyNeedsConfirmation(.customTranscription))
         controller.customTranscriptionAPIBaseURL = "https://second.example/v1"

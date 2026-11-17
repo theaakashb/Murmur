@@ -14,7 +14,7 @@ enum KeyText {
     static let unreadable = "The saved key could not be read from the Keychain."
 
     /// Only active provider credentials appear in Settings; legacy accounts remain available for migration.
-    static let providers: [ProviderID] = [.gemini, .customTranscription, .customCleanup]
+    static let providers: [ProviderID] = [.customTranscription, .customCleanup]
 
     static func validated(_ provider: ProviderID) -> String {
         provider == .localServer ? "The local model server answered." : provider == .customTranscription || provider == .customCleanup || provider == .customAPI ? "The custom API endpoint answered." : "\(provider.displayName) accepted the key."
@@ -26,10 +26,6 @@ enum KeyCheck {
     static func run(_ provider: ProviderID, key: APIKey?, apiBaseURL: String, transport: HTTPTransport? = nil) async -> String {
         do {
             switch provider {
-            case .gemini:
-                guard let key else { return KeyText.missing }
-                var p = GeminiCleanupProvider(apiKey: key); if let transport { p.transport = transport }
-                try await p.validate()
             case .customAPI, .customTranscription, .customCleanup:
                 var p = try OpenAICompatibleCleanupProvider(baseURL: apiBaseURL, model: "validation", apiKey: key, provider: .customAPI)
                 if let transport { p.transport = transport }

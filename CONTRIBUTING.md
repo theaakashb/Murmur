@@ -76,12 +76,12 @@ Additional fixture flags and their side effects are described in [app/README.md]
 These are the patterns in the existing code and docs.
 
 - Native Swift with Apple frameworks (Foundation, AppKit, SwiftUI, AVFoundation, Security). FluidAudio is the pinned Swift package; Sparkle is a separately pinned framework archive. Keep new logic Foundation-only where possible, so its checks run on Linux too.
-- Small concrete types per concern (one file per module, such as `Cleanup.swift` or `Gemini.swift`), not a plugin framework.
+- Small concrete types per concern (one file per module, such as `Cleanup.swift` or `OpenAICompatible.swift`), not a plugin framework.
 - Checks are standalone executables named `check_<module>.swift`, compiled by `app/check.sh` with the files they test. They exit non-zero on failure and need no external network, real keys or microphone; `check_http.py` uses a loopback server with synthetic data.
 - Code must compile under `-swift-version 5`, which `build.sh` uses.
 - Treat dictated text as untrusted data. Never log transcript text, API keys or response bodies; error reasons are content-free enums.
 - Store API keys only in the Keychain. Never send transcripts, audio, dictionary entries or keys in update checks.
-- Keep transcription routes fixed on failure. Preserve the Gemini cleanup failover and guarded local fallback described in [provider integration](app/PROVIDERS.md); do not add model or provider substitutions without an explicit product decision.
+- Keep transcription routes fixed on failure. Preserve the guarded local fallback described in [provider integration](app/PROVIDERS.md); do not add model or provider substitutions without an explicit product decision.
 - Document claims with evidence. In Markdown docs, distinguish measured results from assumptions and keep prose plain and short. Report device results only for the configuration actually measured.
 
 ## Commits

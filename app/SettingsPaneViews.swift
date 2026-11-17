@@ -12,7 +12,7 @@ extension SettingsView {
                     ? "Meeting audio is transcribed on this Mac and never leaves it. This is the default."
                     : controller.meetingCloudNote.map { $0.note + "\n\n" + $0.disclosure } ?? "Choose a cloud transcriber in Settings → Transcription."))
             }.padding(.top, 20)
-            segmented([(MeetingTranscription.local, "On this Mac (Parakeet)"), (MeetingTranscription.cloud, "Cloud (\(controller.cloudTranscriber.displayName))")], $controller.meetingTranscription)
+            segmented([(MeetingTranscription.local, "On this Mac (Parakeet)"), (MeetingTranscription.cloud, "Cloud (Custom Provider)")], $controller.meetingTranscription)
             if controller.meetingTranscription == .cloud && controller.meetingCloudNote == nil {
                 help("No cloud transcriber is set up. Choose one and save its key in Settings → Transcription and API Keys.", color: EditorialPalette.ink)
             }
@@ -148,34 +148,16 @@ extension SettingsView {
 
     var cloudTranscriptionSettings: some View {
         VStack(alignment: .leading, spacing: 0) {
-            segmented(CloudTranscriber.allCases.map { ($0, $0.displayName) }, $controller.cloudTranscriber, size: 14).padding(.top, 16)
-                .help(controller.cloudTranscriber.displayName)
-            if controller.cloudTranscriber == .gemini {
-                let modelHint = controller.geminiTranscriptionModel.trimmingCharacters(in: .whitespacesAndNewlines) == GeminiTranscribeProvider.defaultModel
-                    ? "Recommended: Gemini 3.5 Transcribe, dedicated speech recognition."
-                    : "Other Gemini models may follow spoken instructions, skip words, or invent text."
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 4) {
-                        Text("Gemini transcription model").font(Font.system(size: 14, weight: .semibold))
-                        settingInfo(modelHint)
-                    }
-                    field(GeminiTranscribeProvider.defaultModel, text: $controller.geminiTranscriptionModel)
-                        .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
-                    keyRow(.gemini)
-                }.padding(.top, 16)
-            }
-            if controller.cloudTranscriber == .customAPI {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Transcription API base URL").font(Font.system(size: 14, weight: .semibold))
-                    field("https://api.example.com/v1", text: $controller.customTranscriptionAPIBaseURL)
-                        .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
-                    Text("Transcription model name").font(Font.system(size: 14, weight: .semibold))
-                    field(RouteSettings.defaultCustomTranscriptionModel, text: $controller.customTranscriptionModel)
-                        .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
-                    keyRow(.customTranscription)
-                    help("Needs an OpenAI-compatible /v1/audio/transcriptions endpoint. Separate from cleanup.")
-                }.padding(.top, 16)
-            }
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Transcription API base URL").font(Font.system(size: 14, weight: .semibold))
+                field("https://api.example.com/v1", text: $controller.customTranscriptionAPIBaseURL)
+                    .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
+                Text("Transcription model name").font(Font.system(size: 14, weight: .semibold))
+                field(RouteSettings.defaultCustomTranscriptionModel, text: $controller.customTranscriptionModel)
+                    .focused($apiFieldFocused).onSubmit(controller.settingsChanged)
+                keyRow(.customTranscription)
+                help("Needs an OpenAI-compatible /v1/audio/transcriptions endpoint. Separate from cleanup.")
+            }.padding(.top, 16)
         }
     }
 
@@ -192,7 +174,7 @@ extension SettingsView {
         Binding(get: { controller.cleanupStyle }, set: { controller.cleanupStyle = $0 })
     }
 
-    static let aiCleanupChoices = CleanupChoice.selectable.filter { $0 != .localRules }
+    static let aiCleanupChoices = CleanupChoice.allCases.filter { $0 != .localRules }
 
     var cleanupChoices: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -209,12 +191,6 @@ extension SettingsView {
                 segmented(Self.aiCleanupChoices.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14)
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
                 if controller.cleanupChoice == .localModel { localModelSection }
-            }
-            if controller.geminiCleanupNotice {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    help(LocalCleanupFacts.removedGeminiNotice)
-                    Button("Dismiss", action: controller.dismissGeminiCleanupNotice).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize()
-                }.padding(.top, 12)
             }
         }
     }
@@ -781,7 +757,7 @@ struct AutoApplySettings: ViewModifier {
         content
             .onChange(of: controller.immediateSettings) { controller.settingsChanged() }
             .onChange(of: controller.routeSettings) { old, new in
-                if !apiFieldFocused || old.transcription != new.transcription || old.cloudTranscriber != new.cloudTranscriber || old.cleanup != new.cleanup { controller.settingsChanged() }
+                if !apiFieldFocused || old.transcription != new.transcription || old.cleanup != new.cleanup { controller.settingsChanged() }
             }
             .onChange(of: apiFieldFocused) { _, focused in if !focused { controller.settingsChanged() } }
     }

@@ -54,7 +54,7 @@ extension AppController {
         var routes = routeSettings; routes.transcription = .cloud
         let plan = RoutePlan.make(routes, cleanupSendsText: false) { _ in nil }
         guard let disclosure = plan.stages.first(where: { $0.stage == .transcription }) else { return nil }
-        return (disclosure.summary, MeetingRoute.cloudNote(provider: disclosure.provider.displayName, host: disclosure.destinationHost, storesAudio: routes.cloudTranscriber == .gemini))
+        return (disclosure.summary, MeetingRoute.cloudNote(provider: disclosure.provider.displayName, host: disclosure.destinationHost))
     }
 
     /// The applied routes with transcription on this Mac and cleanup on a notes route's provider, for meeting notes.
@@ -68,16 +68,14 @@ extension AppController {
     /// The notes route's provider, built from the applied settings and the Keychain like cleanup's,
     /// or why it cannot run. Never falls back to another route.
     func meetingNotesProvider(_ route: MeetingNotesRoute) -> (provider: CleanupProvider?, refusal: String?) {
-        let choice: CleanupChoice
         switch route {
         case .none: return (nil, "Meeting notes are off. Choose a notes route in Settings → Meetings.")
         case .appleIntelligence:
             let apple = AppleCleanupProvider()
             return apple.status().map { (nil, $0.userMessage) } ?? (apple, nil)
-        case .gemini: choice = .gemini
-        case .customAPI: choice = .customAPI
+        case .customAPI: break
         }
-        let plan = routePlan(notesRoutes(choice), cleanupSendsText: true)
+        let plan = routePlan(notesRoutes(.customAPI), cleanupSendsText: true)
         guard let cleaner = plan.cleaner else { return (nil, (plan.refusal ?? "\(route.label) is not set up.") + " Set it up in Settings → Cleanup and API Keys.") }
         // A whole meeting takes longer than a dictation: allow the longest wait each route permits.
         return (cleaner.forMeetingNotes(), nil)
@@ -89,16 +87,16 @@ extension AppController {
         switch route {
         case .none: return nil
         case .appleIntelligence: return AppleCleanupProvider().status()?.userMessage
-        case .gemini, .customAPI:
-            let plan = RoutePlan.make(notesRoutes(route == .gemini ? .gemini : .customAPI), cleanupSendsText: true) { self.credentials.exists($0) ? Self.disclosureOnlyKey : nil }
+        case .customAPI:
+            let plan = RoutePlan.make(notesRoutes(.customAPI), cleanupSendsText: true) { self.credentials.exists($0) ? Self.disclosureOnlyKey : nil }
             return plan.cleaner == nil ? (plan.refusal ?? "\(route.label) is not set up.") + " Set it up in Settings → Cleanup and API Keys." : nil
         }
     }
 
     /// Who receives the transcript on a notes route, for Settings and the first-Stop question.
     func meetingNotesDisclosure(_ route: MeetingNotesRoute) -> String {
-        guard route == .gemini || route == .customAPI else { return MeetingNotesRoute.disclosure(route, host: nil, local: true, retention: nil) }
-        let disclosure = RoutePlan.make(notesRoutes(route == .gemini ? .gemini : .customAPI), cleanupSendsText: true) { _ in Self.disclosureOnlyKey }.stages.first
+        guard route == .customAPI else { return MeetingNotesRoute.disclosure(route, host: nil, local: true, retention: nil) }
+        let disclosure = RoutePlan.make(notesRoutes(.customAPI), cleanupSendsText: true) { _ in Self.disclosureOnlyKey }.stages.first
         let local = disclosure?.staysOnThisMac ?? false
         let warning = disclosure?.warning.map { " " + $0 } ?? ""
         return MeetingNotesRoute.disclosure(route, host: disclosure?.destinationHost, local: local, retention: (disclosure?.retentionNote ?? "") + warning)
@@ -130,14 +128,13 @@ extension AppController {
                 meetingRecorder.message = (plan.refusal ?? "The cloud transcriber is not set up.") + " Set it up in Settings → Transcription, or choose On this Mac in Settings → Meetings."
                 screenRequest = .meetings; openSettings?(); return
             }
-            let vocabulary = processing?.dictionary.vocabularyTerms ?? []
             cloudName = provider.id.displayName
             cloud = { url, done in
                 Task {
-                    switch await CloudTranscription.run(provider: provider, audioFile: url, vocabulary: vocabulary) {
+                    switch await CloudTranscription.run(provider: provider, audioFile: url) {
                     case .transcript(let text): done(.text(text))
                     case .noSpeech: done(.noSpeech)
-                    case .heldAnswerSuspected, .failed, .cancelled: done(.failed)
+                    case .failed, .cancelled: done(.failed)
                     }
                 }
             }

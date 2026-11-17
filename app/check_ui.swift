@@ -54,7 +54,6 @@ extension AppController {
         let controller = AppController(preview: true)
         if CommandLine.arguments.contains("--custom-transcription") {
             controller.transcriptionRoute = .cloud
-            controller.cloudTranscriber = .customAPI
         }
         // Applying an unrelated switch must not reload History on the main thread.
         controller.applySettings()
@@ -167,7 +166,7 @@ extension AppController {
                 case "ready": controller.showLocalModelFixture(.ready)
                 case "downloading": controller.showLocalModelFixture(.downloading(ModelDownloadProgress(bytesDone: 214_000_000, totalBytes: 560_000_000)))
                 case "failed": controller.showLocalModelFixture(.failed(.diskFull))
-                case "notice": controller.showLocalModelFixture(.notDownloaded); controller.geminiCleanupNotice = true
+                case "notice": controller.showLocalModelFixture(.notDownloaded)
                 default: controller.showLocalModelFixture(.notDownloaded)
                 }
             }

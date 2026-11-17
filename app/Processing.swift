@@ -18,7 +18,7 @@ import Foundation
 // text inserted has passed the guard or is the user's own words. Reasons stay content-free.
 
 /// Where cleanup runs. `.local` is the RuleCleaner. `.cloud` means "through a `CleanupProvider`":
-/// Gemini, a custom OpenAI-compatible endpoint, a user-run local model server, or Apple's on-device
+/// a custom OpenAI-compatible endpoint, a user-run local model server, or Apple's on-device
 /// model (see `CleanupChoice` in Routes.swift).
 enum CleanupRoute: String, Codable, CaseIterable, Sendable {
     case local

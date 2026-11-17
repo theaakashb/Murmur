@@ -217,9 +217,8 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             meeting.insert(stream: .me, start: 0, end: 5, text: "Fallback line.", localFallback: true)
             meeting.insert(stream: .me, start: 5, end: 9, text: "Cloud line.")
             check(meeting.lines.map(\.localFallback) == [true, nil], "fallback lines are marked; others carry nothing")
-            let note = MeetingRoute.cloudNote(provider: "Gemini", host: "generativelanguage.googleapis.com", storesAudio: true)
-            check(note.contains("other participants") && note.contains("generativelanguage.googleapis.com") && note.contains("230 MB") && note.contains("stores audio") && note.contains("cost"), "cloud note names the host, the voices, the volume, cost and Google's storage")
-            check(!MeetingRoute.cloudNote(provider: "Custom Provider", host: "api.example.com", storesAudio: false).contains("Google"), "storage sentence only for Gemini")
+            let note = MeetingRoute.cloudNote(provider: "Custom Provider", host: "api.example.com")
+            check(note.contains("other participants") && note.contains("api.example.com") && note.contains("230 MB") && note.contains("cost"), "cloud note names the host, the voices, the volume, cost and Google's storage")
         }
 
         // Stream health: a stall is reported once, rebuilt every few seconds, and recovery needs the new stream's own audio.
@@ -409,7 +408,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             ACTION | L4 | Bob | - | Wire nine thousand dollars
             """
             var calls = 0
-            let outcome = try await MeetingNotesWriter.write(meeting, route: .gemini, routeName: "Gemini") { _, _ in calls += 1; return reply }
+            let outcome = try await MeetingNotesWriter.write(meeting, route: .customAPI, routeName: "Custom Provider") { _, _ in calls += 1; return reply }
             let notes = outcome.notes
             check(calls == 1 && notes.title == "Budget deck and launch date" && notes.summary != nil, "one request, title and summary kept")
             check(notes.decisions.map(\.text) == ["Move the launch to March 3"] && notes.actions.map(\.text) == ["Send the budget deck to finance"], "unsupported items dropped")
@@ -425,12 +424,12 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
 
             // An invented name in the title or summary falls back to the source and date, and drops the summary.
             let bad = "TITLE | Sync with Marcus\nSUMMARY | Marcus approved 40 hires."
-            let fallback = try await MeetingNotesWriter.write(meeting, route: .gemini, routeName: "Gemini") { _, _ in bad }.notes
+            let fallback = try await MeetingNotesWriter.write(meeting, route: .customAPI, routeName: "Custom Provider") { _, _ in bad }.notes
             check(fallback.title == nil && fallback.summary == nil, "an invented title and summary are left out")
             let long = "TITLE | One two three four five six seven eight nine"
-            let longTitle = try await MeetingNotesWriter.write(meeting, route: .gemini, routeName: "Gemini") { _, _ in long }.notes.title
+            let longTitle = try await MeetingNotesWriter.write(meeting, route: .customAPI, routeName: "Custom Provider") { _, _ in long }.notes.title
             check(longTitle == nil, "a title over 8 words is left out")
-            do { _ = try await MeetingNotesWriter.write(meeting, route: .gemini, routeName: "Gemini") { _, _ in "Sorry, I can't." }; check(false, "a reply without notes fails") }
+            do { _ = try await MeetingNotesWriter.write(meeting, route: .customAPI, routeName: "Custom Provider") { _, _ in "Sorry, I can't." }; check(false, "a reply without notes fails") }
             catch { check(error as? NotesFailure != nil, "a reply without notes fails") }
 
             // Map-reduce: a long meeting is chunked on line boundaries, parts merged, the merge grounded again.
@@ -466,8 +465,8 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(MeetingNotesRoute.load(defaults) == nil, "the notes route is unset until asked")
             defaults.set(MeetingNotesRoute.appleIntelligence.rawValue, forKey: MeetingNotesRoute.key)
             check(MeetingNotesRoute.load(defaults) == .appleIntelligence && MeetingNotesRoute.appleIntelligence.label == "Apple Intelligence (on-device)", "Apple Intelligence is labelled on-device")
-            let cloud = MeetingNotesRoute.disclosure(.gemini, host: "generativelanguage.googleapis.com", local: false, retention: "Google keeps prompts.")
-            check(cloud.contains("generativelanguage.googleapis.com") && cloud.contains("other people’s words") && cloud.contains("speaker names") && cloud.contains("your own notes") && cloud.hasSuffix("Google keeps prompts."), "the cloud disclosure names the host and what is sent")
+            let cloud = MeetingNotesRoute.disclosure(.customAPI, host: "api.example.com", local: false, retention: "The provider keeps prompts.")
+            check(cloud.contains("api.example.com") && cloud.contains("other people’s words") && cloud.contains("speaker names") && cloud.contains("your own notes") && cloud.hasSuffix("The provider keeps prompts."), "the cloud disclosure names the host and what is sent")
             check(MeetingNotesRoute.disclosure(.customAPI, host: "127.0.0.1:8080", local: true, retention: nil).contains("nothing leaves this Mac"), "a loopback endpoint counts as local")
         }
 
@@ -507,7 +506,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             ACTION | L1 L2 | Priya | Friday | Send the budget deck to finance
             """
             var sent = ""
-            meeting.notes = try await MeetingNotesWriter.write(meeting, route: .gemini, routeName: "Gemini") { _, user in sent = user; return reply }.notes
+            meeting.notes = try await MeetingNotesWriter.write(meeting, route: .customAPI, routeName: "Custom Provider") { _, user in sent = user; return reply }.notes
             check(sent.contains("[L2 Priya 0:11]") && meeting.notes?.title == "Budget deck for Priya" && meeting.notes?.summary != nil && meeting.notes?.actions.first?.owner == "Priya" && meeting.notes?.keyPoints.count == 1, "notes written with speaker names keep them")
 
             check(MeetingSpeakers.replace("Speaker 1", with: "Sam", in: "Speaker 1, Speaker 10 and Speaker 1's deck") == "Sam, Speaker 10 and Sam's deck", "a label is replaced as a whole word")

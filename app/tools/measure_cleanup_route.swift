@@ -1,11 +1,11 @@
 // Runs app/cleanup-corpus.json through a cleanup route with the real ProcessingCoordinator path
 // (prompt, guard, local-rules fallback) for Strict, Polish and Professional, and prints the
-// cleanup measures plus model latency. `apple` uses Apple's on-device model; `gemini` (primary model only) and `custom` (the Custom Provider cleanup
-// settings) read Murmur's key from the Keychain (never printed) and costs API calls. Corpus text is
+// cleanup measures plus model latency. `apple` uses Apple's on-device model; `custom` (the Custom Provider cleanup
+// settings) reads Murmur's key from the Keychain (never printed) and costs API calls. Corpus text is
 // synthetic, so per-utterance misses may be printed with --verbose.
 //
 //   app/tools/build.sh measure_cleanup_route   # prints the executable path, called /tmp/mcr below
-//   [MCR_DELAY=4.5] /tmp/mcr apple|gemini|custom [strict,polish,professional] [--verbose]
+//   [MCR_DELAY=4.5] /tmp/mcr apple|custom [strict,polish,professional] [--verbose]
 import Foundation
 
 struct Entry: Decodable { var id: String; var input: String; var options: CleanupOptions; var expected: String; var tags: [String] }
@@ -45,7 +45,7 @@ func quantile(_ xs: [Double], _ q: Double) -> Double { let s = xs.sorted(); retu
         setvbuf(stdout, nil, _IOLBF, 0)
         var args = Array(CommandLine.arguments.dropFirst())
         let verbose = args.contains("--verbose"); args.removeAll { $0 == "--verbose" }
-        // Seconds between calls, e.g. 4.5 for a free-tier Gemini key (about 15 requests a minute).
+        // Seconds between calls, e.g. 4.5 for a provider limited to about 15 requests a minute.
         let delay = Double(ProcessInfo.processInfo.environment["MCR_DELAY"] ?? "") ?? 0
         let route = args.first ?? "apple"
         let styles = (args.dropFirst().first ?? "strict,polish,professional").split(separator: ",").map(String.init)
@@ -56,11 +56,6 @@ func quantile(_ xs: [Double], _ q: Double) -> Double { let s = xs.sorted(); retu
             let apple = AppleCleanupProvider()
             if let reason = apple.status() { print("Apple Intelligence unavailable: \(reason.userMessage)"); exit(2) }
             inner = apple
-        case "gemini":
-            guard let key = try KeychainCredentialStore().read(.gemini) else { print("No Gemini key in Murmur's Keychain"); exit(2) }
-            // Measure the primary model only: no silent failover to Gemma when it is rate limited.
-            var gemini = GeminiCleanupProvider(apiKey: key); gemini.fallback = nil
-            inner = gemini
         case "custom":
             // Murmur's Custom Provider cleanup settings and endpoint-bound key (development defaults).
             let d = UserDefaults(suiteName: "cc.clouddev.dictation.development")!
@@ -69,7 +64,7 @@ func quantile(_ xs: [Double], _ q: Double) -> Double { let s = xs.sorted(); retu
                                                      apiBaseURL: base, model: model) else { print("No Custom Provider cleanup configured"); exit(2) }
             print("custom: \(model) at \(URL(string: base)?.host ?? "?")")
             inner = provider
-        default: print("route must be apple, gemini or custom"); exit(2)
+        default: print("route must be apple or custom"); exit(2)
         }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("murmur-measure-\(UUID())")
         let suite = "murmur-measure-\(UUID())"

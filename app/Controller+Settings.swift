@@ -63,7 +63,7 @@ extension AppController {
             if cleanupStyle == .faithful { cleanupFillers = true; cleanupCorrections = true; cleanupLists = true; cleanupPunctuation = true; cleanupSpoken = true }
             cleanupPolish = newValue.needsModel; cleanupProfessional = newValue == .professional
             // Polish and Professional need a model; Strict keeps the stored one for next time.
-            if newValue.needsModel, cleanupChoice == .localRules, let first = CleanupChoice.selectable.first(where: { $0 != .localRules }) { cleanupChoice = first }
+            if newValue.needsModel, cleanupChoice == .localRules, let first = CleanupChoice.allCases.first(where: { $0 != .localRules }) { cleanupChoice = first }
         }
     }
 

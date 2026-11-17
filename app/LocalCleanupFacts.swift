@@ -15,7 +15,3 @@ extension ModelFacts {
         completed: "The model is downloaded and verified.",
         removed: "The local cleanup model was removed.")
 }
-
-enum LocalCleanupFacts {
-    static let removedGeminiNotice = "Gemini cleanup was removed. Cleanup is now Local rules; choose Local model or Custom Provider if you want a model."
-}

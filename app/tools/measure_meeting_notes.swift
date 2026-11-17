@@ -1,6 +1,6 @@
 // Runs app/meeting-notes-corpus.json through a meeting notes route with the real writer (prompt,
 // map-reduce, grounding check) and prints the notes measures. `apple` uses Apple's on-device
-// model; `gemini` and `custom` read Murmur's key from the Keychain (never printed) and cost API calls.
+// model; `custom` reads Murmur's key from the Keychain (never printed) and costs API calls.
 // `--long` also times notes for synthetic 1-hour and 2-hour meetings built from the corpus.
 //
 // "Unsupported" is judged against the corpus labels, not by the grounding check (which would make it
@@ -11,7 +11,7 @@
 // meeting's text or the user's notes, plus traps that are names or numbers.
 //
 //   app/tools/build.sh measure_meeting_notes   # prints the executable path, called /tmp/mmn below
-//   /tmp/mmn apple|gemini|custom [--long] [--verbose]
+//   /tmp/mmn apple|custom [--long] [--verbose]
 import Foundation
 
 struct Corpus: Decodable {
@@ -46,17 +46,13 @@ nonisolated(unsafe) var lastReplies: [String] = []
             let apple = AppleCleanupProvider()
             if let reason = apple.status() { print("Apple Intelligence unavailable: \(reason.userMessage)"); exit(2) }
             apple.prewarm(); provider = apple; route = .appleIntelligence
-        case "gemini":
-            guard let key = try KeychainCredentialStore().read(.gemini) else { print("No Gemini key in Murmur's Keychain"); exit(2) }
-            var gemini = GeminiCleanupProvider(apiKey: key); gemini.fallback = nil; gemini.timeout = 120
-            provider = gemini; route = .gemini
         case "custom":
             let d = UserDefaults(suiteName: "cc.clouddev.dictation.development")!
             guard let base = d.string(forKey: "customAPIBaseURL"), let model = d.string(forKey: "customAPIModel"),
                   let custom = makeCleanupProvider(.customAPI, key: try CustomAPIKeyBinding.read(at: base, defaults: d, credentials: KeychainCredentialStore(), provider: .customCleanup),
                                                    apiBaseURL: base, model: model) else { print("No Custom Provider cleanup configured"); exit(2) }
             provider = custom; route = .customAPI
-        default: print("route must be apple, gemini or custom"); exit(2)
+        default: print("route must be apple or custom"); exit(2)
         }
         let generate: MeetingNotesWriter.Generate = { system, user in
             do {

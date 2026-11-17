@@ -75,7 +75,7 @@ Optional download from Settings → Meetings → "Separate speakers after a meet
 
 ## Cloud services
 
-Gemini API and any custom OpenAI-compatible endpoint the user configures are optional services reached with the user's own API keys. No provider code or SDK is bundled; Murmur sends plain HTTPS requests. Their terms apply to the user's account, not to redistribution. See [provider integration](app/PROVIDERS.md) for data flows, and review the selected provider’s current terms.
+Any custom OpenAI-compatible endpoint the user configures is an optional service reached with the user's own API key. No provider code or SDK is bundled; Murmur sends plain HTTPS requests. Their terms apply to the user's account, not to redistribution. See [provider integration](app/PROVIDERS.md) for data flows, and review the selected provider’s current terms.
 
 ## Bundled fonts and retained dependency notices
 

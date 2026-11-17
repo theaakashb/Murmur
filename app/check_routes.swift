@@ -40,23 +40,18 @@ private final class SpyTranscriber: TranscriptionProvider, @unchecked Sendable {
     let id: ProviderID
     private let lock = NSLock()
     private var _calls = 0
-    private var _vocabulary: [String]?
     let response: Result<String, ProviderError>
     let delaySeconds: Double
-    let acceptsVocabulary: Bool
-    init(_ response: Result<String, ProviderError>, id: ProviderID = .customAPI, delaySeconds: Double = 0, acceptsVocabulary: Bool = false) {
-        self.id = id; self.response = response; self.delaySeconds = delaySeconds; self.acceptsVocabulary = acceptsVocabulary
+    init(_ response: Result<String, ProviderError>, id: ProviderID = .customAPI, delaySeconds: Double = 0) {
+        self.id = id; self.response = response; self.delaySeconds = delaySeconds
     }
     var calls: Int { lock.lock(); defer { lock.unlock() }; return _calls }
-    /// The vocabulary on the last payload this provider was given.
-    var vocabulary: [String]? { lock.lock(); defer { lock.unlock() }; return _vocabulary }
     private func bump() { lock.lock(); _calls += 1; lock.unlock() }
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .transcription, destinationHost: "example.invalid", leavesDevice: ["the recorded audio"], staysOnDevice: ["history"], retentionNote: "test")
     }
     func transcribe(_ audio: AudioPayload) async throws -> String {
         bump()
-        lock.lock(); _vocabulary = audio.vocabulary; lock.unlock()
         if delaySeconds > 0 { try await Task.sleep(nanoseconds: UInt64(delaySeconds * 1_000_000_000)) }
         return try response.get()
     }
@@ -64,7 +59,7 @@ private final class SpyTranscriber: TranscriptionProvider, @unchecked Sendable {
 }
 
 private final class MockCleaner: CleanupProvider, @unchecked Sendable {
-    let id = ProviderID.gemini
+    let id = ProviderID.customAPI
     let response: Result<String, ProviderError>
     init(_ response: Result<String, ProviderError>) { self.response = response }
     var disclosure: DataDisclosure {
@@ -101,12 +96,6 @@ private final class VerboseJSONStub: DetailedTranscriber, @unchecked Sendable {
         try OpenAITranscriptionFormat.parseDetailed(provider: .customAPI, result: HTTPResult(status: 200, body: Data(json.utf8)), levels: audio.levels)
     }
     func validate() async throws {}
-}
-
-private func geminiBody(_ transcript: String) -> Data {
-    let inner = String(data: try! JSONSerialization.data(withJSONObject: ["transcript": transcript]), encoding: .utf8)!
-    let outer: [String: Any] = ["candidates": [["content": ["parts": [["text": inner]]], "finishReason": "STOP"]]]
-    return try! JSONSerialization.data(withJSONObject: outer)
 }
 
 /// A float32 stereo WAVE_FORMAT_EXTENSIBLE file, the shape AVAudioFile may write.
@@ -146,7 +135,6 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         try await lexiconChecks(root.appendingPathComponent("lexicon"), defaults)
         try await cleanupChecks(root.appendingPathComponent("cleanup"), defaults)
         await cancelChecks()
-        await vocabularyChecks()
         endpointChecks()
         shapeChecks()
 
@@ -159,20 +147,14 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
     // MARK: Factory
 
     static func factoryChecks() {
-        check(Set(CloudTranscriber.allCases) == [.customAPI, .gemini], "offered transcribers")
-        check(RouteSettings().cloudTranscriber == .gemini, "Gemini is the default cloud transcriber")
-        check((makeTranscriptionProvider(id: .gemini, key: testKey) as? GeminiTranscribeProvider)?.languageCodes == ["en-US"], "Gemini Transcribe factory sends en-US")
-        check(makeTranscriptionProvider(id: .gemini, key: testKey)?.disclosure.summary.contains("stored") == true, "Gemini Transcribe disclosure says stored")
-        check(makeTranscriptionProvider(id: .gemini, key: nil) == nil, "no key, no provider")
-        check(makeTranscriptionProvider(id: .gemini, key: testKey, geminiModel: "gemini-2.5-flash") is GeminiTranscriptionProvider, "non-transcription Gemini model uses general audio endpoint")
-        check(makeTranscriptionProvider(id: .customAPI, key: testKey) is OpenAICompatibleTranscriptionProvider, "custom transcription factory")
+        check(makeTranscriptionProvider(key: testKey) is OpenAICompatibleTranscriptionProvider && makeTranscriptionProvider(key: nil) != nil, "custom transcription factory; its key is optional")
+        check(makeTranscriptionProvider(key: testKey, apiBaseURL: "ftp://x") == nil, "custom transcription rejects a bad URL")
         check(makeCleanupProvider(.localRules, key: testKey, apiBaseURL: "", model: "") == nil, "local rules has no provider")
-        check(makeCleanupProvider(.gemini, key: nil, apiBaseURL: "", model: "") == nil, "Gemini cleanup needs a key")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "http://localhost:11434", model: "llama3.2") is OpenAICompatibleCleanupProvider, "local custom API needs no key")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "http://localhost:11434", model: " ") == nil, "custom API needs a model")
         check(makeCleanupProvider(.customAPI, key: testKey, apiBaseURL: "ftp://x", model: "m") == nil, "custom API rejects a bad URL")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is OpenAICompatibleCleanupProvider, "custom API key is optional")
-        check(CleanupChoice.selectable == [.localRules, .appleIntelligence, .localModel, .customAPI], "cleanup choices: local rules, Apple Intelligence, local model and custom API (no Gemini)")
+        check(CleanupChoice.allCases == [.localRules, .appleIntelligence, .localModel, .customAPI], "cleanup choices: local rules, Apple Intelligence, local model and custom API")
         check(CleanupChoice.localModel.providerID == .localModel && CleanupChoice.localModel.providerID != CleanupChoice.customAPI.providerID && CleanupChoice.localModel.credentialID == .localModel, "local model is its own provider with no key")
         check(makeCleanupProvider(.localModel, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is LocalModelCleanupProvider, "local model factory ignores custom provider settings")
         let localPlan = RoutePlan.make({ var s = RouteSettings(); s.cleanup = .localModel; return s }(), cleanupSendsText: true, key: { _ in nil })
@@ -191,22 +173,18 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let local = RoutePlan.make(RouteSettings(), cleanupSendsText: true, key: all)
         check(local.usesLocalModel && local.cleaner == nil && local.stages.isEmpty && local.refusal == nil, "defaults are local/local with no disclosure")
 
-        var cloud = RouteSettings(); cloud.transcription = .cloud; cloud.cloudTranscriber = .gemini
-        let unconfigured = RoutePlan.make(cloud, cleanupSendsText: true, key: none)
+        var cloud = RouteSettings(); cloud.transcription = .cloud; cloud.customTranscriptionAPIBaseURL = "ftp://x"
+        let unconfigured = RoutePlan.make(cloud, cleanupSendsText: true, key: all)
         check(unconfigured.transcriber == nil && !unconfigured.usesLocalModel, "no fallback: an unconfigured cloud route never uses the local model")
-        check(unconfigured.refusal == ProviderError.invalidConfiguration(.gemini).userMessage, "unconfigured cloud route refuses")
-        check(unconfigured.stages.count == 1, "the disclosure is known before a key is saved")
-
-        let gemini = RoutePlan.make(cloud, cleanupSendsText: true, key: all)
-        check(gemini.transcriber is GeminiTranscribeProvider && gemini.refusal == nil, "configured recommended Gemini Transcribe model")
-        let summary = gemini.stages.first?.summary ?? ""
-        check(summary.contains("audio") && summary.contains("Google"), "Gemini disclosure says audio goes to Google")
-        check(summary.contains("human reviewers"), "Gemini disclosure says free-tier human review")
-        check(summary.lowercased().contains("55 days") && summary.lowercased().contains("stored"), "Gemini Transcribe disclosure states storage")
-        check(DisclosureText.summary(gemini, stage: .transcription) == summary, "Settings summary")
+        check(unconfigured.refusal == ProviderError.invalidConfiguration(.customAPI).userMessage, "unconfigured cloud route refuses")
+        cloud.customTranscriptionAPIBaseURL = "https://speech.example/v1"
+        let configured = RoutePlan.make(cloud, cleanupSendsText: true, key: none)
+        let summary = configured.stages.first?.summary ?? ""
+        check(configured.transcriber != nil && configured.refusal == nil && summary.contains("audio") && summary.contains("speech.example"), "the disclosure names the audio and the host before a key is saved")
+        check(DisclosureText.summary(configured, stage: .transcription) == summary, "Settings summary")
 
         var separate = RouteSettings()
-        separate.transcription = .cloud; separate.cloudTranscriber = .customAPI
+        separate.transcription = .cloud
         separate.customTranscriptionAPIBaseURL = "https://speech.example/v1"
         separate.customAPIBaseURL = "https://cleanup.example/v1"
         separate.cleanup = .customAPI; separate.customAPIModel = "cleanup-model"
@@ -232,33 +210,26 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         loopback.customAPIModel = ""
         check(RoutePlan.make(loopback, cleanupSendsText: true, key: all).refusal == ProviderError.invalidConfiguration(.customAPI).userMessage, "custom API without a model refuses")
 
-        var geminiCleanup = RouteSettings(); geminiCleanup.cleanup = .gemini
-        let off = RoutePlan.make(geminiCleanup, cleanupSendsText: false, key: none)
-        check(off.cleaner == nil && off.refusal == nil && off.stages.isEmpty, "cleanup with every option off sends nothing and needs no key")
-        let missing = RoutePlan.make(geminiCleanup, cleanupSendsText: true, key: none)
-        check(missing.refusal != nil && missing.cleaner == nil, "cloud cleanup without a key refuses instead of using local rules")
+        var cloudCleanup = RouteSettings(); cloudCleanup.cleanup = .customAPI; cloudCleanup.customAPIModel = ""
+        let off = RoutePlan.make(cloudCleanup, cleanupSendsText: false, key: none)
+        check(off.cleaner == nil && off.refusal == nil && off.stages.isEmpty, "cleanup with every option off sends nothing and needs no setup")
+        let missing = RoutePlan.make(cloudCleanup, cleanupSendsText: true, key: none)
+        check(missing.refusal != nil && missing.cleaner == nil, "cloud cleanup that is not set up refuses instead of using local rules")
     }
 
     // MARK: Inline disclosure
 
     static func disclosureChecks() {
         let all: (ProviderID) -> APIKey? = { _ in testKey }
-        var settings = RouteSettings(); settings.transcription = .cloud; settings.cloudTranscriber = .customAPI
+        var settings = RouteSettings(); settings.transcription = .cloud
         let first = RoutePlan.make(settings, cleanupSendsText: true, key: all)
         check(first.stages.count == 1 && first.stages[0].stage == .transcription &&
               first.stages[0].summary.contains("audio"), "cloud transcription shows its disclosure in Settings")
 
-        settings.cleanup = .gemini
-        let geminiCleanup = RoutePlan.make(settings, cleanupSendsText: true, key: all)
-        check(Set(geminiCleanup.stages.map(\.stage)) == [.transcription, .cleanup], "transcription and cleanup disclosures stay visible inline")
+        settings.cleanup = .customAPI; settings.customAPIModel = "m"
+        let both = RoutePlan.make(settings, cleanupSendsText: true, key: all)
+        check(both.stages.map(\.stage) == [.transcription, .cleanup], "transcription and cleanup disclosures stay visible inline")
 
-        settings.cloudTranscriber = .gemini
-        let changed = RoutePlan.make(settings, cleanupSendsText: true, key: all)
-        check(changed.stages.first?.provider == .gemini &&
-              changed.stages.first?.summary.contains("human reviewers") == true,
-              "Gemini disclosure stays visible without a confirmation alert")
-
-        settings.cloudTranscriber = .customAPI; settings.cleanup = .customAPI; settings.customAPIModel = "m"
         settings.customTranscriptionAPIBaseURL = "http://10.0.0.5:8080"
         settings.customAPIBaseURL = "http://10.0.0.7:8080"
         let endpoint = RoutePlan.make(settings, cleanupSendsText: true, key: all)
@@ -271,7 +242,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
 
     static func settingsChecks(_ defaults: UserDefaults) {
         check(RouteSettings.load(from: defaults) == RouteSettings(), "missing settings load as local defaults")
-        var settings = RouteSettings(); settings.transcription = .cloud; settings.cloudTranscriber = .gemini
+        var settings = RouteSettings(); settings.transcription = .cloud
         settings.cleanup = .customAPI; settings.customAPIBaseURL = "https://api.example.com/v1"; settings.customAPIModel = "qwen"
         settings.save(to: defaults)
         check(RouteSettings.load(from: defaults) == settings, "route settings round-trip")
@@ -281,19 +252,15 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let migrated = RouteSettings.load(from: defaults)
         check(migrated.cleanup == .customAPI && migrated.customAPIBaseURL == "https://api.cerebras.ai/v1" && migrated.customAPIModel == "gpt-oss-120b", "legacy Cerebras route migrates to editable custom API settings")
         check(RouteSettings.legacyCustomAPIKey(from: "openrouter") == .openrouter && RouteSettings.legacyCustomAPIKey(from: "local-server") == .localServer, "legacy custom-route keys migrate by provider")
-        defaults.set("openrouter-whisper", forKey: RouteSettings.Key.cloudTranscriber)
+        defaults.set("openrouter-whisper", forKey: RouteSettings.Key.legacyCloudTranscriber)
         defaults.removeObject(forKey: RouteSettings.Key.customTranscriptionModel)
         let oldSpeech = RouteSettings.load(from: defaults)
-        check(oldSpeech.cloudTranscriber == .customAPI && oldSpeech.customTranscriptionModel == "openai/whisper-large-v3-turbo",
+        check(oldSpeech.customTranscriptionModel == "openai/whisper-large-v3-turbo",
               "legacy OpenRouter transcription becomes editable custom transcription")
         check(oldSpeech.customAPIBaseURL == "https://api.cerebras.ai/v1", "migration preserves an existing chosen custom server")
-        defaults.set("gemini-audio", forKey: RouteSettings.Key.cloudTranscriber)
-        defaults.removeObject(forKey: RouteSettings.Key.geminiTranscriptionModel)
-        check(RouteSettings.load(from: defaults).geminiTranscriptionModel == GeminiTranscriptionProvider.defaultModel,
-              "legacy Gemini audio route keeps its general audio model on migration")
-        defaults.set("fireworks", forKey: RouteSettings.Key.cloudTranscriber)
-        check(RouteSettings.load(from: defaults).cloudTranscriber == .gemini, "removed transcriber (Fireworks) falls back to the default choice")
-        for key in [RouteSettings.Key.transcription, RouteSettings.Key.cloudTranscriber, RouteSettings.Key.cleanup, RouteSettings.Key.customAPIBaseURL, RouteSettings.Key.customAPIModel, RouteSettings.Key.customTranscriptionModel, RouteSettings.Key.geminiTranscriptionModel, RouteSettings.Key.legacyServerURL, RouteSettings.Key.legacyServerModel] { defaults.removeObject(forKey: key) }
+        defaults.set("gemini", forKey: RouteSettings.Key.legacyCloudTranscriber); defaults.set("gemini", forKey: RouteSettings.Key.cleanup)
+        check(RouteSettings.load(from: defaults).cleanup == .localRules, "a stored choice that no longer exists loads as local rules")
+        for key in [RouteSettings.Key.transcription, RouteSettings.Key.legacyCloudTranscriber, RouteSettings.Key.cleanup, RouteSettings.Key.customAPIBaseURL, RouteSettings.Key.customAPIModel, RouteSettings.Key.customTranscriptionModel, RouteSettings.Key.legacyServerURL, RouteSettings.Key.legacyServerModel] { defaults.removeObject(forKey: key) }
     }
 
     // MARK: Audio
@@ -329,33 +296,14 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let speech = WAVAudio.encodePCM16(tone(seconds: 1, amplitude: 0.3), sampleRate: 48_000)
         let silence = WAVAudio.encodePCM16([Float](repeating: 0.001, count: 48_000), sampleRate: 48_000)
 
-        // Silence skip: the Gemini LLM transcriber is never called for silence.
-        let quiet = MockTransport(HTTPResult(status: 200, body: geminiBody("Thank you for watching.")))
-        var gemini = GeminiTranscriptionProvider(apiKey: testKey); gemini.transport = quiet
-        await checkA(await CloudTranscription.run(provider: gemini, audioData: silence) == .noSpeech(skipped: true), "silence is skipped")
-        check(quiet.count == 0, "skipped silence sends no request")
-        let tap = WAVAudio.encodePCM16(tone(seconds: 0.1, amplitude: 0.5), sampleRate: 48_000)
-        await checkA(await CloudTranscription.run(provider: gemini, audioData: tap) == .noSpeech(skipped: true), "an accidental tap is skipped")
+        // Silence skip: the transcriber is never called for silence.
         var custom = try! OpenAICompatibleTranscriptionProvider(baseURL: "https://stt.example.test", model: "whisper-large-v3-turbo", apiKey: testKey)
         let whisperQuiet = MockTransport(HTTPResult(status: 200, body: Data(#"{"text":"Thank you."}"#.utf8)))
         custom.transport = whisperQuiet
         await checkA(await CloudTranscription.run(provider: custom, audioData: silence) == .noSpeech(skipped: true), "custom Whisper transcriber skips silence")
         check(whisperQuiet.count == 0, "skipped silence sends no Whisper request")
-
-        // Answer-suspected hold.
-        let answer = MockTransport(HTTPResult(status: 200, body: geminiBody("Sure, here's a poem about the sea.")))
-        gemini.transport = answer
-        let held = await CloudTranscription.run(provider: gemini, audioData: speech)
-        check(held == .heldAnswerSuspected("Sure, here's a poem about the sea."), "reply-shaped LLM output is held: \(held)")
-        check(answer.count == 1, "one request")
-        check(CloudTranscription.message(held)?.contains("held") == true, "held message")
-
-        let plain = MockTransport(HTTPResult(status: 200, body: geminiBody("Meet Thursday at three.")))
-        gemini.transport = plain
-        await checkA(await CloudTranscription.run(provider: gemini, audioData: speech) == .transcript("Meet Thursday at three."), "Gemini transcript")
-        check(!plain.lastBody.contains("Spelling hints"), "no hint without a dictionary")
-        _ = await CloudTranscription.run(provider: gemini, audioData: speech, vocabulary: ["Kubernetes", "Shelfmate"])
-        check(plain.lastBody.contains("Kubernetes, Shelfmate"), "dictionary spellings reach cloud transcription")
+        let tap = WAVAudio.encodePCM16(tone(seconds: 0.1, amplitude: 0.5), sampleRate: 48_000)
+        await checkA(await CloudTranscription.run(provider: custom, audioData: tap) == .noSpeech(skipped: true), "an accidental tap is skipped")
 
         // A transcriber without a pre-check: silence is sent, and an empty result is "no speech".
         let whisper = SpyTranscriber(.success("  "))
@@ -364,9 +312,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         await checkA(await CloudTranscription.run(provider: SpyTranscriber(.success(" .")), audioData: silence) == .noSpeech(skipped: false), "punctuation-only transcript is no speech")
         await checkA(await CloudTranscription.run(provider: SpyTranscriber(.success(" 42.")), audioData: silence) == .transcript(" 42."), "a spoken number is speech")
 
-        // Vocabulary alone cannot distinguish speech from a prompt echo. Preserve provider text,
-        // including names, lists and literal discussion of vocabulary, on every cloud route.
-        let vocab = ["Aakash", "spaceyboi", "Open Router"]
+        // Provider text is preserved as returned, including names, lists and literal discussion of vocabulary.
         for spoken in ["Aakash.", "Aakash, spaceyboi, Open Router.", "Meet at three. Aakash.",
                        "Call Aakash, spaceyboi", "Vocabulary: Aakash, spaceyboi.",
                        "We adjusted the camera settings. Vocabulary is aakash, spaceyboi. Vocabulary is",
@@ -374,20 +320,8 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
             let response = try! JSONSerialization.data(withJSONObject: ["text": spoken])
             let customSpeech = MockTransport(HTTPResult(status: 200, body: response))
             custom.transport = customSpeech
-            await checkA(await CloudTranscription.run(provider: custom, audioData: speech, vocabulary: vocab) == .transcript(spoken), "custom preserves spoken dictionary terms: \(spoken)")
+            await checkA(await CloudTranscription.run(provider: custom, audioData: speech) == .transcript(spoken), "custom preserves spoken dictionary terms: \(spoken)")
             check(!customSpeech.lastBody.contains("name=\"prompt\"") && !customSpeech.lastBody.contains("spaceyboi"), "custom request has no dictionary prompt")
-
-            gemini.transport = MockTransport(HTTPResult(status: 200, body: geminiBody(spoken)))
-            await checkA(await CloudTranscription.run(provider: gemini, audioData: speech, vocabulary: vocab) == .transcript(spoken), "Gemini LLM preserves spoken dictionary terms: \(spoken)")
-
-            var asr = GeminiTranscribeProvider(apiKey: testKey)
-            let result = try! JSONSerialization.data(withJSONObject: ["id": "v1_test", "status": "completed", "steps": [["type": "model_output", "content": [["type": "text", "text": spoken]]]]])
-            let structured = MockTransport(HTTPResult(status: 200, body: result))
-            asr.transport = structured
-            await checkA(await CloudTranscription.run(provider: asr, audioData: speech, vocabulary: vocab) == .transcript(spoken), "Gemini ASR preserves spoken dictionary terms: \(spoken)")
-            let body = try! JSONSerialization.jsonObject(with: Data(structured.lastBody.utf8)) as! [String: Any]
-            let config = (body["generation_config"] as? [String: Any])?["transcription_config"] as? [String: Any]
-            check(config?["custom_vocabulary"] as? [String] == vocab, "Gemini ASR keeps structured vocabulary")
         }
 
         // Errors: one call, no retry, no other provider; audio kept for retry.
@@ -403,9 +337,9 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
 
         // Real request path with a 401 whose body echoes the key: the message has no key.
         let rejecting = MockTransport(HTTPResult(status: 401, body: Data("{\"error\":{\"message\":\"bad key \(secret)\",\"code\":401}}".utf8)))
-        var rejectingGemini = GeminiTranscriptionProvider(apiKey: testKey); rejectingGemini.transport = rejecting
-        let rejected = await CloudTranscription.run(provider: rejectingGemini, audioData: speech)
-        check(CloudTranscription.message(rejected).map { !$0.contains(secret) && $0.contains(ProviderError.authentication(.gemini).userMessage) } == true, "key never in transcription messages")
+        custom.transport = rejecting
+        let rejected = await CloudTranscription.run(provider: custom, audioData: speech)
+        check(CloudTranscription.message(rejected).map { !$0.contains(secret) && $0.contains(ProviderError.authentication(.customAPI).userMessage) } == true, "key never in transcription messages")
         await checkA(await CloudTranscription.run(provider: whisper, audioFile: URL(fileURLWithPath: "/nonexistent/\(UUID()).wav")) == .failed(message: CloudTranscription.unreadableAudio, keepAudio: true), "unreadable file keeps audio")
     }
 
@@ -423,7 +357,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let response = try JSONSerialization.data(withJSONObject: ["text": raw])
         let transport = MockTransport(HTTPResult(status: 200, body: response))
         provider.transport = transport
-        let outcome = await CloudTranscription.run(provider: provider, audioData: speech, vocabulary: p.dictionary.vocabularyTerms)
+        let outcome = await CloudTranscription.run(provider: provider, audioData: speech)
         guard case .transcript(let text) = outcome else { check(false, "custom transcript reaches dictionary"); return }
         check(text == raw, "raw provider text remains available for history")
         check((p.process(text)).outcome == .insert("Call Aakash and spaceyboi."), "manual and learned variants correct without ASR hints or cleanup")
@@ -433,7 +367,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         try p.update(settings)
         p.cloudCleaner = MockCleaner(.success("Send a Shelfmate report."))
         await checkA((await p.processAsync("Send a shelf made report.")).outcome == .insert("Send a Shelfmate report."), "preferred-only learned spelling still corrected by guarded cleanup")
-        p.cloudCleaner = MockCleaner(.failure(.timeout(.gemini)))
+        p.cloudCleaner = MockCleaner(.failure(.timeout(.customAPI)))
         await checkA((await p.processAsync(text)).outcome == .insert("Call Aakash and spaceyboi."), "cleanup failure keeps manual and learned exact corrections")
     }
 
@@ -456,9 +390,9 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check((try? CustomAPIKeyBinding.read(at: "https://first.example/v1", defaults: relaunched, credentials: boundKeys)) == testKey, "binding survives relaunch")
         check(!binding.dictionaryRepresentation().values.map { "\($0)" }.joined().contains(secret), "binding stores no secret")
         check(APIKey("sk bad 99") == nil && !KeyText.invalid.contains("sk bad 99"), "invalid key message does not echo input")
-        check(KeyText.providers == [.gemini, .customTranscription, .customCleanup], "separate custom provider keys appear in settings")
+        check(KeyText.providers == [.customTranscription, .customCleanup], "separate custom provider keys appear in settings")
         let migration = UserDefaults(suiteName: "murmur-migration-" + UUID().uuidString)!
-        defer { for key in [RouteSettings.Key.cleanup, RouteSettings.Key.customAPIBaseURL, RouteSettings.Key.customTranscriptionAPIBaseURL, RouteSettings.Key.customAPIModel, RouteSettings.Key.customTranscriptionModel, RouteSettings.Key.geminiTranscriptionModel, RouteSettings.Key.transcription, RouteSettings.Key.cloudTranscriber, "customAPIKeysSplitMigrationComplete"] { migration.removeObject(forKey: key) } }
+        defer { for key in [RouteSettings.Key.cleanup, RouteSettings.Key.customAPIBaseURL, RouteSettings.Key.customTranscriptionAPIBaseURL, RouteSettings.Key.customAPIModel, RouteSettings.Key.customTranscriptionModel, RouteSettings.Key.transcription, RouteSettings.Key.legacyCloudTranscriber, "customAPIKeysSplitMigrationComplete"] { migration.removeObject(forKey: key) } }
         let keys = InMemoryCredentialStore([.cerebras: testKey, .openrouter: testKey])
         migration.set("legacy-cloud-route", forKey: "acknowledgedCloudRoutes")
         migration.set("custom-api", forKey: RouteSettings.Key.cleanup)
@@ -479,33 +413,23 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         migration.set("https://other.example", forKey: CustomAPIKeyBinding.preference(.customCleanup))
         do { _ = try CustomAPIKeyBinding.read(at: "https://changed.example/v1", defaults: migration, credentials: changedKeys, provider: .customCleanup); check(false, "changed custom endpoint must not reuse another key") }
         catch { check(error as? CredentialError == .destinationMismatch, "each custom route keeps its own endpoint binding") }
-        let geminiSuite = "murmur-gemini-removed-" + UUID().uuidString
-        let geminiDefaults = UserDefaults(suiteName: geminiSuite)!
-        defer { geminiDefaults.removePersistentDomain(forName: geminiSuite) }
-        geminiDefaults.set("gemini", forKey: RouteSettings.Key.cleanup); geminiDefaults.set("https://keep.example/v1", forKey: RouteSettings.Key.customAPIBaseURL)
-        let geminiKeys = InMemoryCredentialStore([.gemini: testKey])
-        try! RouteSettings.migrateCustomAPI(in: geminiDefaults, credentials: geminiKeys)
-        check(RouteSettings.load(from: geminiDefaults).cleanup == .localRules && geminiDefaults.string(forKey: RouteSettings.Key.cleanup) == "local-rules", "saved Gemini cleanup becomes local rules, never a new cloud request")
-        check(geminiDefaults.bool(forKey: RouteSettings.Key.geminiCleanupRemovedNotice) && RouteSettings.load(from: geminiDefaults).customAPIBaseURL == "https://keep.example/v1", "Gemini removal is announced and Custom Provider settings are kept")
-        check(geminiKeys.exists(.gemini), "the Gemini key stays for transcription")
         let speechSuite = "murmur-speech-migration-" + UUID().uuidString
         let speechDefaults = UserDefaults(suiteName: speechSuite)!
         defer { speechDefaults.removePersistentDomain(forName: speechSuite) }
         speechDefaults.set("cloud", forKey: RouteSettings.Key.transcription)
-        speechDefaults.set("openrouter-whisper", forKey: RouteSettings.Key.cloudTranscriber)
+        speechDefaults.set("openrouter-whisper", forKey: RouteSettings.Key.legacyCloudTranscriber)
         let speechKeys = InMemoryCredentialStore([.openrouter: testKey])
         try! RouteSettings.migrateCustomAPI(in: speechDefaults, credentials: speechKeys)
         let migratedSpeech = RouteSettings.load(from: speechDefaults)
-        check(migratedSpeech.cloudTranscriber == .customAPI && migratedSpeech.customAPIBaseURL == "https://openrouter.ai/api/v1", "selected legacy speech server migrates to editable settings")
+        check(migratedSpeech.customAPIBaseURL == "https://openrouter.ai/api/v1", "selected legacy speech server migrates to editable settings")
         check(speechKeys.exists(.customTranscription) && speechDefaults.string(forKey: CustomAPIKeyBinding.preference(.customTranscription)) == nil, "migrated speech key remains unbound")
         let echo = HTTPResult(status: 401, body: Data("{\"error\":{\"message\":\"API key not valid: \(secret)\",\"code\":401}}".utf8))
-        for provider in [ProviderID.gemini, .localServer, .customAPI, .customTranscription, .customCleanup] {
+        for provider in [ProviderID.localServer, .customAPI, .customTranscription, .customCleanup] {
             let message = await KeyCheck.run(provider, key: testKey, apiBaseURL: "http://localhost:11434", transport: MockTransport(echo))
             let errorProvider: ProviderID = provider == .customTranscription || provider == .customCleanup ? .customAPI : provider
             check(!message.contains(secret) && message == ProviderError.authentication(errorProvider).userMessage, "validate \(provider.rawValue) message has no key")
         }
         let ok = MockTransport(HTTPResult(status: 200, body: Data("{\"data\":[{\"id\":\"llama3.2\"}],\"object\":\"list\"}".utf8)))
-        await checkA(await KeyCheck.run(.gemini, key: testKey, apiBaseURL: "", transport: ok) == KeyText.validated(.gemini), "validation success")
         await checkA(await KeyCheck.run(.openrouter, key: testKey, apiBaseURL: "", transport: ok) == ProviderError.invalidConfiguration(.openrouter).userMessage, "legacy OpenRouter key cannot be validated")
         await checkA(await KeyCheck.run(.customAPI, key: testKey, apiBaseURL: "https://api.example.com/v1", transport: ok) == KeyText.validated(.customAPI), "custom API validates its configured endpoint")
         await checkA(await KeyCheck.run(.customAPI, key: nil, apiBaseURL: "https://api.example.com/v1", transport: ok) == KeyText.validated(.customAPI), "custom API validates without a key when the endpoint permits it")
@@ -541,14 +465,14 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
 
     @MainActor static func cleanupChecks(_ directory: URL, _ defaults: UserDefaults) async throws {
         let p = try ProcessingCoordinator(directory: directory, defaults: defaults)
-        var settings = p.settings; settings.route = CleanupChoice.gemini.processingRoute; settings.options = .standard; settings.options.polish = true; try p.update(settings)
+        var settings = p.settings; settings.route = CleanupChoice.customAPI.processingRoute; settings.options = .standard; settings.options.polish = true; try p.update(settings)
         p.cloudCleaner = MockCleaner(.success("Call Akme."))
         await checkA((await p.processAsync("Um, call Akme.")).outcome == .insert("Call Akme."), "configured cloud cleanup inserts")
-        p.cloudCleaner = MockCleaner(.failure(.quota(.gemini)))
+        p.cloudCleaner = MockCleaner(.failure(.quota(.customAPI)))
         let result6 = await p.processAsync("Um, call Akme.")
         let fellBack = result6.outcome
         check(fellBack == .insert("Call Akme."), "cleanup error uses local rules: \(fellBack)")
-        check(result6.providerError == .quota(.gemini), "provider error kept for the notice")
+        check(result6.providerError == .quota(.customAPI), "provider error kept for the notice")
         p.cloudCleaner = nil
         let result7 = await p.processAsync("Um, call Akme.")
         await checkA(result7.outcome == .insert("Call Akme."), "unconfigured cloud cleanup uses local rules")
@@ -592,24 +516,12 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
                      && boundary.detail.noSpeechReason == nil, "three loud windows retain speech without a rejection reason")
         let punctuation = await CloudTranscription.runDetailed(provider: VerboseJSONStub(verboseJSON([(" .", 0, 1, -0.2)])), audioData: speech)
         await checkA(punctuation.detail.noSpeechReason == .punctuationOnly, "punctuation-only reason")
-        var precheckProvider = GeminiTranscriptionProvider(apiKey: testKey); precheckProvider.transport = MockTransport(HTTPResult(status: 200, body: geminiBody("unused")))
+        var precheckProvider = try! OpenAICompatibleTranscriptionProvider(baseURL: "https://stt.example.test", model: "whisper-1", apiKey: testKey); precheckProvider.transport = MockTransport(HTTPResult(status: 200, body: Data(#"{"text":"unused"}"#.utf8)))
         let skipped = await CloudTranscription.runDetailed(provider: precheckProvider, audioData: WAVAudio.encodePCM16([Float](repeating: 0.001, count: 48_000), sampleRate: 48_000))
         await checkA(skipped.detail.noSpeechReason == .precheck && skipped.detail.noSpeechLogLine.hasPrefix("no-speech reason=precheck clip="), "pre-check skip reason")
         await checkA(await CloudTranscription.run(provider: VerboseJSONStub(verboseJSON([
             (" Send the report.", 0, 1, -0.8)])), audioData: speech) == .transcript(" Send the report."),
             "moderately confident speech is kept")
-    }
-
-    /// Dictionary spellings reach only a transcriber that declares it accepts them (never custom OpenAI-compatible transcription).
-    @MainActor static func vocabularyChecks() async {
-        let speech = WAVAudio.encodePCM16(tone(seconds: 1, amplitude: 0.3), sampleRate: 16_000)
-        let declined = SpyTranscriber(.success("ok")), accepted = SpyTranscriber(.success("ok"), id: .gemini, acceptsVocabulary: true)
-        _ = await CloudTranscription.run(provider: declined, audioData: speech, vocabulary: ["Akme", "Penguin"])
-        _ = await CloudTranscription.run(provider: accepted, audioData: speech, vocabulary: ["Akme", "Penguin"])
-        check(declined.vocabulary == [] && accepted.vocabulary == ["Akme", "Penguin"], "vocabulary is attached only for a provider that accepts it")
-        let key = APIKey("vocab-key")!
-        check((try? OpenAICompatibleTranscriptionProvider(baseURL: "https://speech.example/v1", model: "whisper-1", apiKey: key))?.acceptsVocabulary == false, "custom OpenAI-compatible transcription declares no vocabulary")
-        check(GeminiTranscriptionProvider(apiKey: key).acceptsVocabulary && GeminiTranscribeProvider(apiKey: key).acceptsVocabulary, "the Gemini transcribers declare vocabulary")
     }
 
     /// Providers declare how shared code shapes their requests (no type tests): context caps, sections, model id, notes timeout.
@@ -618,12 +530,6 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let apple: CleanupProvider = AppleCleanupProvider(), local: CleanupProvider = LocalModelCleanupProvider()
         check(apple.shape == CleanupShape(contextCaps: .init(selected: 400, clipboard: 400, window: 1_000), sectionTarget: 400) && apple.modelID == nil, "Apple: capped context, 400-word sections, no model id")
         check(local.shape == CleanupShape(takesContext: false, sectionTarget: 150, keepsCorrectionsAttached: true) && local.modelID == LocalCleanupIdentity.modelID, "local model: no context, 150-word sections kept with corrections")
-        var gemini = GeminiCleanupProvider(apiKey: key)
-        gemini.limits = GeminiModelLimits()
-        check(gemini.shape == CleanupShape() && gemini.modelID == GeminiCleanupProvider.defaultModel, "Gemini: whole text on its primary model")
-        gemini.limits.markLimited(gemini.model, until: Date().addingTimeInterval(60))
-        check(gemini.shape == CleanupShape(sectionTarget: 100) && gemini.modelID == GeminiCleanupProvider.fallbackModel, "Gemini on its fallback: 100-word sections and the fallback id")
-        check((gemini.forMeetingNotes() as? GeminiCleanupProvider)?.timeout == 120, "Gemini notes wait 120 s")
         let custom = try? OpenAICompatibleCleanupProvider(baseURL: "https://api.example.com/v1", model: "m", apiKey: key, provider: .customAPI)
         check(custom?.shape == CleanupShape() && custom?.modelID == "m" && (custom?.forMeetingNotes() as? OpenAICompatibleCleanupProvider)?.timeout == OpenAICompatibleCleanupProvider.maximumTimeout, "custom cleanup: its model id, the longest notes wait")
         check(apple.forMeetingNotes() is AppleCleanupProvider, "providers without a longer wait are unchanged for notes")
@@ -634,7 +540,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         var settings = RouteSettings()
         settings.customAPIBaseURL = "https://cleanup.example/v1"; settings.customTranscriptionAPIBaseURL = "https://speech.example/v1"
         check(settings.apiBaseURL(for: .customCleanup) == "https://cleanup.example/v1" && settings.apiBaseURL(for: .customTranscription) == "https://speech.example/v1", "custom keys map to their own endpoint settings")
-        check(settings.apiBaseURL(for: .gemini) == nil && settings.apiBaseURL(for: .localServer) == nil, "other providers have no endpoint binding")
+        check(settings.apiBaseURL(for: .customAPI) == nil && settings.apiBaseURL(for: .localServer) == nil, "other providers have no endpoint binding")
     }
 
     @MainActor static func cancelChecks() async {

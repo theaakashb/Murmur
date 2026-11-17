@@ -43,7 +43,7 @@ enum NoteSections {
 /// Settings → Meetings → Meeting notes. Nil in preferences means not asked yet: the first
 /// Stop asks, with None preselected.
 enum MeetingNotesRoute: String, CaseIterable, Codable {
-    case none, appleIntelligence = "apple-intelligence", gemini, customAPI = "custom-api"
+    case none, appleIntelligence = "apple-intelligence", customAPI = "custom-api"
     static let key = "meetingNotesRoute"
     static func load(_ defaults: UserDefaults) -> MeetingNotesRoute? { defaults.string(forKey: key).flatMap(MeetingNotesRoute.init(rawValue:)) }
 
@@ -51,7 +51,6 @@ enum MeetingNotesRoute: String, CaseIterable, Codable {
         switch self {
         case .none: return "None (transcript only)"
         case .appleIntelligence: return "Apple Intelligence (on-device)"
-        case .gemini: return "Gemini"
         case .customAPI: return "Custom Provider"
         }
     }
@@ -62,8 +61,7 @@ enum MeetingNotesRoute: String, CaseIterable, Codable {
     var chunkCharacters: Int {
         switch self {
         case .appleIntelligence: return 5_000
-        case .customAPI: return 24_000
-        case .gemini, .none: return 150_000
+        case .customAPI, .none: return 24_000
         }
     }
 
@@ -73,7 +71,7 @@ enum MeetingNotesRoute: String, CaseIterable, Codable {
         switch route {
         case .none: return "No notes are written; the meeting keeps its transcript. Nothing leaves this Mac."
         case .appleIntelligence: return "Apple's on-device model writes the notes; nothing leaves this Mac."
-        case .gemini, .customAPI:
+        case .customAPI:
             let host = host ?? "the provider"
             if local { return "Notes are written by the model server on this Mac (\(host)); nothing leaves this Mac." }
             return "Writing notes sends the meeting transcript to \(host). It contains other people’s words, speaker names and your own notes. " + (retention ?? "")

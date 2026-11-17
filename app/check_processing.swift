@@ -36,7 +36,7 @@ private final class SpyCleaner: Cleaner {
 
 /// A cloud cleanup provider that records prompts and never touches the network.
 private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
-    let id = ProviderID.gemini
+    let id = ProviderID.customAPI
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .cleanup, destinationHost: "example.invalid", leavesDevice: ["transcript"], staysOnDevice: ["audio"], retentionNote: "test")
     }
@@ -254,7 +254,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check((p.process("Spassyboy")).outcome == .insert("Override"), "explicit variant wins over an approximate term")
         try p.dictionary.delete(id: override.id)
         settings.route = .cloud; settings.options = .standard; settings.options.polish = true; try p.update(settings, persist: false)
-        p.cloudCleaner = MockCloudCleaner(.failure(.timeout(.gemini)))
+        p.cloudCleaner = MockCloudCleaner(.failure(.timeout(.customAPI)))
         await expect(p, "Send the Shelfmet report to Akash and Spassyboy.", .insert("Send the Shelfmate report to Aakash and spaceyboi."), "respelling survives cleanup provider failure")
         check(p.ledger.evidence.isEmpty && p.dictionary.entries.allSatisfy { $0.variants.isEmpty || $0.preferred == "Aakash" || $0.preferred == "spaceyboi" }, "automatic respelling creates no learned aliases or evidence")
     }
@@ -386,12 +386,12 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
 
         // Provider failure: local rules, not retried, and the error is kept for the notice.
         let localBefore = local.calls
-        let timeout = MockCloudCleaner(.failure(.timeout(.gemini))); p.cloudCleaner = timeout
+        let timeout = MockCloudCleaner(.failure(.timeout(.customAPI))); p.cloudCleaner = timeout
         let result36 = await expect(p, "Um, call acme.", .insert("Um, call Akme."), "cloud failure uses local rules")
         check(timeout.messages.count == 1, "a provider error is not retried")
-        check(result36.providerError == .timeout(.gemini) && result36.fallback == .cleanerFailed, "provider error kept")
+        check(result36.providerError == .timeout(.customAPI) && result36.fallback == .cleanerFailed, "provider error kept")
         check(result36.cleanupPath == .localRules, "provider error outcome is local rules")
-        p.cloudCleaner = MockCloudCleaner(.failure(.network(.gemini)))
+        p.cloudCleaner = MockCloudCleaner(.failure(.network(.customAPI)))
         await expect(p, "Um, call acme.", .insert("Um, call Akme."), "network failure uses local rules")
         check(local.calls == localBefore + 2, "local rules ran for each failure")
 
@@ -457,7 +457,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
             await expect(p, "Meet on Monday. Thursday instead.", .insert("Meet on Thursday."), "AI instead repair accepted")
             p.cloudCleaner = MockCloudCleaner(.success("Meet on Thursday. Add 9."))
             await expect(p, "Meet on Monday. Thursday instead.", .insert("Meet on Thursday."), "instead repair survives rejected AI edit")
-            p.cloudCleaner = MockCloudCleaner(.failure(.network(.gemini)))
+            p.cloudCleaner = MockCloudCleaner(.failure(.network(.customAPI)))
             await expect(p, "Meet on Monday. Thursday instead.", .insert("Meet on Thursday."), "network failure keeps narrow instead repair")
             p.cloudCleaner = MockCloudCleaner(.success("Let's make pizza."))
             await expect(p, "Let's make pasta. Pizza instead.", .insert("Let's make pasta. Pizza instead."), "ambiguous noun alternative survives AI deletion")
@@ -467,7 +467,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
 
         settings.options = CleanupOptions(polish: true, spoken: true)
         try p.update(settings)
-        p.cloudCleaner = MockCloudCleaner(.failure(.network(.gemini)))
+        p.cloudCleaner = MockCloudCleaner(.failure(.network(.customAPI)))
         await expect(p, "Meet on Monday period Thursday instead period", .insert("Meet on Thursday."), "spoken punctuation precedes local instead repair")
 
         // A rejected rewrite still gets every enabled local operation, not just corrections.
@@ -714,23 +714,25 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
     }
 }
 
-/// Answers a Gemini request with its own transcript minus "um, ", counting requests and models.
-private final class EchoGemini: HTTPTransport, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _models: [String] = []
-    var models: [String] { lock.withLock { _models } }
-    func send(_ request: URLRequest) async throws -> HTTPResult {
-        lock.withLock { _models.append(request.url!.lastPathComponent) }
-        let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
-        let user = ((body["contents"] as! [[String: Any]])[0]["parts"] as! [[String: Any]])[0]["text"] as! String
-        let text = user.split(separator: "\n").dropFirst().dropLast().joined(separator: "\n").replacingOccurrences(of: "um, ", with: "")
-        let reply = ["candidates": [["content": ["parts": [["text": text]], "role": "model"], "finishReason": "STOP"]]]
-        return HTTPResult(status: 200, body: try JSONSerialization.data(withJSONObject: reply))
+/// Returns its transcript minus "um, ", counting requests; asks for sections when `sectionTarget` is set.
+private final class EchoCleaner: CleanupProvider, @unchecked Sendable {
+    let id = ProviderID.customAPI
+    var disclosure: DataDisclosure {
+        DataDisclosure(provider: id, stage: .cleanup, destinationHost: "example.invalid", leavesDevice: ["transcript"], staysOnDevice: ["audio"], retentionNote: "test")
     }
+    var shape = CleanupShape()
+    private let lock = NSLock()
+    private var _requests = 0
+    var requests: Int { lock.withLock { _requests } }
+    func cleanup(_ messages: CleanupMessages) async throws -> String {
+        lock.withLock { _requests += 1 }
+        return messages.user.split(separator: "\n").dropFirst().dropLast().joined(separator: "\n").replacingOccurrences(of: "um, ", with: "")
+    }
+    func validate() async throws {}
 }
 
 extension ProcessingChecks {
-    /// Long text on the Gemma fallback is cleaned in parallel sections; the primary model sends it whole.
+    /// A provider that asks for sections gets long text in parallel sections; any other gets it whole.
     static func sectionChecks(_ p: ProcessingCoordinator) async throws {
         let sentence = "We should um, ship the build on Friday after the review."   // 11 words
         let long = Array(repeating: sentence, count: 30).joined(separator: " ")
@@ -746,17 +748,13 @@ extension ProcessingChecks {
         settings.route = .cloud; settings.options = .standard; settings.options.polish = true
         try p.update(settings)
         let expected = long.replacingOccurrences(of: "um, ", with: "")
-        let limits = GeminiModelLimits(), echo = EchoGemini()
-        var gemini = GeminiCleanupProvider(apiKey: APIKey("test-key-123")!)
-        gemini.transport = echo; gemini.limits = limits
-        p.cloudCleaner = gemini
+        let echo = EchoCleaner()
+        p.cloudCleaner = echo
         let whole = (await p.processAsync(long)).outcome
-        check(whole == .insert(expected), "primary model: one whole request")
-        check(echo.models.count == 1 && echo.models[0].hasPrefix(GeminiCleanupProvider.defaultModel), "primary sent once: \(echo.models)")
-        limits.markLimited(GeminiCleanupProvider.defaultModel, until: Date().addingTimeInterval(60))
+        check(whole == .insert(expected) && echo.requests == 1, "no section target: one whole request (\(echo.requests))")
+        echo.shape.sectionTarget = CleanupSectioning.defaultTarget
         let sectioned = (await p.processAsync(long)).outcome
-        check(sectioned == .insert(expected), "fallback: sections rejoin in order")
-        check(echo.models.count == 4 && echo.models.dropFirst().allSatisfy { $0.hasPrefix(GeminiCleanupProvider.fallbackModel) }, "fallback sent 3 sections to Gemma: \(echo.models)")
+        check(sectioned == .insert(expected) && echo.requests == 4, "section target: 3 sections rejoin in order (\(echo.requests))")
     }
 }
 
@@ -806,7 +804,7 @@ extension ProcessingChecks {
         let rejected = await p.processAsync("call acme insert my profile here", style: polish)
         check(rejected.outcome == .insert("Call Akme " + text) && rejected.fallback != nil, "Polish: the guard judges only the spoken words: \(rejected.outcome) \(String(describing: rejected.fallback))")
         check(wrong.messages.allSatisfy { !$0.user.contains("SENTINEL") }, "Polish: rejected path sent no cue text")
-        let failing = MockCloudCleaner(.failure(.network(.gemini)))
+        let failing = MockCloudCleaner(.failure(.network(.customAPI)))
         p.cloudCleaner = failing
         let failed = await p.processAsync("call acme insert my profile here", style: polish)
         check(failed.outcome == .insert("call Akme " + text) && failed.providerError != nil, "Polish: a provider error leaves the expansion untouched")

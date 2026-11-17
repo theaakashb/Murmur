@@ -23,52 +23,10 @@ enum TranscriptionRoute: String, CaseIterable, Sendable {
     case cloud
 }
 
-/// Cloud transcribers offered in Settings. Other OpenAI-compatible services use the custom endpoint.
-/// To add a provider, add a case here, a `displayName` and `providerID`, and one case in
-/// `makeTranscriptionProvider(id:key:)`.
-enum CloudTranscriber: String, CaseIterable, Identifiable, Sendable {
-    /// A user-configured OpenAI-compatible audio transcription endpoint.
-    case customAPI = "custom-api"
-    case gemini
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .customAPI: return "Custom Provider"
-        case .gemini: return "Gemini"
-        }
-    }
-
-    /// The Keychain account that holds this transcriber's key.
-    var providerID: ProviderID {
-        switch self {
-        case .customAPI: return .customAPI
-        case .gemini: return .gemini
-        }
-    }
-
-    var credentialID: ProviderID { self == .customAPI ? .customTranscription : providerID }
-}
-
-/// The one place a cloud transcriber is constructed. Custom servers may not require a key.
-func makeTranscriptionProvider(id: CloudTranscriber, key: APIKey?, apiBaseURL: String = RouteSettings.defaultCustomAPIURL, model: String = RouteSettings.defaultCustomTranscriptionModel, geminiModel: String = GeminiTranscribeProvider.defaultModel) -> TranscriptionProvider? {
-    switch id {
-    case .customAPI: return try? OpenAICompatibleTranscriptionProvider(baseURL: apiBaseURL, model: model, apiKey: key)
-    case .gemini:
-        guard let key else { return nil }
-        let name = geminiModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return nil }
-        guard name != GeminiTranscribeProvider.defaultModel else {
-            var provider = GeminiTranscribeProvider(apiKey: key)
-            provider.model = name
-            provider.languageCodes = ["en-US"]  // Google's language table lists en-US, not a bare en.
-            return provider
-        }
-        var provider = GeminiTranscriptionProvider(apiKey: key)
-        provider.model = name
-        return provider
-    }
+/// The one place a cloud transcriber is constructed: a user-configured OpenAI-compatible audio transcription
+/// endpoint. Custom servers may not require a key.
+func makeTranscriptionProvider(key: APIKey?, apiBaseURL: String = RouteSettings.defaultCustomAPIURL, model: String = RouteSettings.defaultCustomTranscriptionModel) -> TranscriptionProvider? {
+    try? OpenAICompatibleTranscriptionProvider(baseURL: apiBaseURL, model: model, apiKey: key)
 }
 
 enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
@@ -78,8 +36,6 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
     case appleIntelligence = "apple-intelligence"
     /// The managed local model (LocalCleanup.swift): downloaded on request, runs on this Mac.
     case localModel = "local-model"
-    /// No longer offered for dictation cleanup; kept for meeting notes. A saved dictation choice of Gemini loads as local rules.
-    case gemini
     case customAPI = "custom-api"
 
     var id: String { rawValue }
@@ -89,7 +45,6 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
         case .localRules: return "Local rules (this Mac)"
         case .appleIntelligence: return "Apple Intelligence (this Mac)"
         case .localModel: return "Local model (this Mac)"
-        case .gemini: return "Gemini"
         case .customAPI: return "Custom Provider"
         }
     }
@@ -102,13 +57,9 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
         case .localRules: return nil
         case .appleIntelligence: return .appleIntelligence
         case .localModel: return .localModel
-        case .gemini: return .gemini
         case .customAPI: return .customAPI
         }
     }
-
-    /// What Settings offers for dictation cleanup.
-    static let selectable: [CleanupChoice] = [.localRules, .appleIntelligence, .localModel, .customAPI]
 
     var credentialID: ProviderID? { self == .customAPI ? .customCleanup : providerID }
 }
@@ -119,7 +70,6 @@ func makeCleanupProvider(_ choice: CleanupChoice, key: APIKey?, apiBaseURL: Stri
     case .localRules: return nil
     case .appleIntelligence: return AppleCleanupProvider()
     case .localModel: return LocalModelCleanupProvider()
-    case .gemini: return key.map { GeminiCleanupProvider(apiKey: $0) }
     case .customAPI:
         let name = model.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
@@ -134,7 +84,6 @@ struct RouteSettings: Equatable, Sendable {
     static let defaultCustomTranscriptionModel = "whisper-1"
 
     var transcription: TranscriptionRoute = .local
-    var cloudTranscriber: CloudTranscriber = .gemini
     var cleanup: CleanupChoice = .localRules
     var customAPIBaseURL: String = RouteSettings.defaultCustomAPIURL
     var customTranscriptionAPIBaseURL: String = RouteSettings.defaultCustomAPIURL
@@ -150,18 +99,15 @@ struct RouteSettings: Equatable, Sendable {
         default: return nil
         }
     }
-    var geminiTranscriptionModel: String = GeminiTranscribeProvider.defaultModel
 
     enum Key {
         static let transcription = "transcriptionRoute"
-        static let cloudTranscriber = "cloudTranscriber"
+        static let legacyCloudTranscriber = "cloudTranscriber"
         static let cleanup = "cleanupChoice"
         static let customAPIBaseURL = "customAPIBaseURL"
         static let customTranscriptionAPIBaseURL = "customTranscriptionAPIBaseURL"
         static let customAPIModel = "customAPIModel"
         static let customTranscriptionModel = "customTranscriptionModel"
-        static let geminiTranscriptionModel = "geminiTranscriptionModel"
-        static let geminiCleanupRemovedNotice = "geminiCleanupRemovedNotice"
         static let legacyServerURL = "localServerURL"
         static let legacyServerModel = "localServerModel"
     }
@@ -179,15 +125,13 @@ struct RouteSettings: Equatable, Sendable {
     static func migrateCustomAPI(in defaults: UserDefaults, credentials: CredentialStore) throws {
         defaults.removeObject(forKey: "acknowledgedCloudRoutes")
         if let legacy = legacyCustomAPIKey(from: defaults.string(forKey: Key.cleanup)) ??
-            (defaults.string(forKey: Key.cloudTranscriber) == "openrouter-whisper" ? .openrouter : nil) {
+            (defaults.string(forKey: Key.legacyCloudTranscriber) == "openrouter-whisper" ? .openrouter : nil) {
             if !credentials.exists(.customAPI), let key = try credentials.read(legacy) {
                 // Old keys have no destination proof; edited preferences must not silently approve them.
                 defaults.removeObject(forKey: CustomAPIKeyBinding.preference)
                 try credentials.save(key, for: .customAPI)
             }
         }
-        // Gemini is no longer a dictation cleanup choice: say so once in Settings instead of switching silently.
-        if defaults.string(forKey: Key.cleanup) == "gemini" { defaults.set(true, forKey: Key.geminiCleanupRemovedNotice) }
         load(from: defaults).save(to: defaults)
         guard !defaults.bool(forKey: "customAPIKeysSplitMigrationComplete") else { return }
         let settings = load(from: defaults)
@@ -212,14 +156,10 @@ struct RouteSettings: Equatable, Sendable {
     static func load(from defaults: UserDefaults) -> RouteSettings {
         var settings = RouteSettings()
         settings.transcription = defaults.string(forKey: Key.transcription).flatMap(TranscriptionRoute.init(rawValue:)) ?? .local
-        let legacyTranscription = defaults.string(forKey: Key.cloudTranscriber) == "openrouter-whisper"
-        let oldTranscriber = defaults.string(forKey: Key.cloudTranscriber)
-        settings.cloudTranscriber = legacyTranscription ? .customAPI : (oldTranscriber == "gemini-audio" || oldTranscriber == "gemini-transcribe" ? .gemini : oldTranscriber.flatMap(CloudTranscriber.init(rawValue:)) ?? .gemini)
+        let legacyTranscription = defaults.string(forKey: Key.legacyCloudTranscriber) == "openrouter-whisper"
         settings.customTranscriptionModel = defaults.string(forKey: Key.customTranscriptionModel) ?? (legacyTranscription ? "openai/whisper-large-v3-turbo" : RouteSettings.defaultCustomTranscriptionModel)
-        settings.geminiTranscriptionModel = defaults.string(forKey: Key.geminiTranscriptionModel) ??
-            (oldTranscriber == "gemini-audio" ? GeminiTranscriptionProvider.defaultModel : GeminiTranscribeProvider.defaultModel)
         let oldChoice = defaults.string(forKey: Key.cleanup)
-        settings.cleanup = oldChoice == "gemini" ? .localRules : oldChoice.flatMap(CleanupChoice.init(rawValue:)) ?? (legacyCustomAPIKey(from: oldChoice) == nil ? .localRules : .customAPI)
+        settings.cleanup = oldChoice.flatMap(CleanupChoice.init(rawValue:)) ?? (legacyCustomAPIKey(from: oldChoice) == nil ? .localRules : .customAPI)
         settings.customAPIBaseURL = defaults.string(forKey: Key.customAPIBaseURL) ?? {
             switch oldChoice {
             case "cerebras": return "https://api.cerebras.ai/v1"
@@ -242,13 +182,11 @@ struct RouteSettings: Equatable, Sendable {
 
     func save(to defaults: UserDefaults) {
         defaults.set(transcription.rawValue, forKey: Key.transcription)
-        defaults.set(cloudTranscriber.rawValue, forKey: Key.cloudTranscriber)
         defaults.set(cleanup.rawValue, forKey: Key.cleanup)
         defaults.set(customAPIBaseURL, forKey: Key.customAPIBaseURL)
         defaults.set(customTranscriptionAPIBaseURL, forKey: Key.customTranscriptionAPIBaseURL)
         defaults.set(customAPIModel, forKey: Key.customAPIModel)
         defaults.set(customTranscriptionModel, forKey: Key.customTranscriptionModel)
-        defaults.set(geminiTranscriptionModel, forKey: Key.geminiTranscriptionModel)
     }
 }
 
@@ -318,13 +256,9 @@ struct RoutePlan {
         var refusal: String?
         var transcriber: TranscriptionProvider?
         if settings.transcription == .cloud {
-            let choice = settings.cloudTranscriber
-            let credentialID = choice.credentialID
-            transcriber = makeTranscriptionProvider(id: choice, key: key(credentialID), apiBaseURL: settings.customTranscriptionAPIBaseURL, model: settings.customTranscriptionModel, geminiModel: settings.geminiTranscriptionModel)
-            if transcriber == nil { refusal = ProviderError.invalidConfiguration(choice.providerID).userMessage }
-            if let disclosure = (transcriber ?? makeTranscriptionProvider(id: choice, key: placeholderKey, apiBaseURL: settings.customTranscriptionAPIBaseURL, model: settings.customTranscriptionModel, geminiModel: settings.geminiTranscriptionModel))?.disclosure, !disclosure.staysOnThisMac {
-                stages.append(disclosure)
-            }
+            transcriber = makeTranscriptionProvider(key: key(.customTranscription), apiBaseURL: settings.customTranscriptionAPIBaseURL, model: settings.customTranscriptionModel)
+            if transcriber == nil { refusal = ProviderError.invalidConfiguration(.customAPI).userMessage }
+            if let disclosure = transcriber?.disclosure, !disclosure.staysOnThisMac { stages.append(disclosure) }
         }
         var cleaner: CleanupProvider?
         if settings.cleanup != .localRules && cleanupSendsText, let provider = settings.cleanup.providerID {
@@ -354,17 +288,6 @@ protocol SilencePrecheckedTranscriber: TranscriptionProvider {
     func shouldSkip(peakLevel: Float, durationSeconds: Double?) -> Bool
 }
 
-/// A language-model transcriber that flags reply-shaped output for recovery.
-protocol LLMTranscriber: TranscriptionProvider {
-    func transcribeChecked(_ audio: AudioPayload) async throws -> LLMTranscript
-}
-
-extension GeminiTranscriptionProvider: SilencePrecheckedTranscriber, LLMTranscriber {
-    func shouldSkip(peakLevel: Float, durationSeconds: Double?) -> Bool {
-        AudioFormat.shouldSkipForSilence(peakLevel: peakLevel, durationSeconds: durationSeconds)
-    }
-}
-
 /// Whisper-style models invent "Thank you." or "Okay." for silence, so silent clips are not sent.
 extension OpenAICompatibleTranscriptionProvider: SilencePrecheckedTranscriber {
     func shouldSkip(peakLevel: Float, durationSeconds: Double?) -> Bool {
@@ -374,8 +297,6 @@ extension OpenAICompatibleTranscriptionProvider: SilencePrecheckedTranscriber {
 
 enum CloudTranscriptionOutcome: Equatable, Sendable {
     case transcript(String)
-    /// An LLM transcriber's output looked like an answer: save it for recovery, never insert.
-    case heldAnswerSuspected(String)
     /// Silence was skipped before sending (`skipped`), or the provider heard nothing.
     case noSpeech(skipped: Bool)
     /// `message` is safe to show; `keepAudio` follows the provider error's disposition.
@@ -409,26 +330,25 @@ enum CloudTranscription {
     static let unreadableAudio = "The recording could not be read."
     static let unknownFailure = "Cloud transcription failed."
 
-    /// Reads the recording off the main thread and runs `run(provider:audioData:vocabulary:)`.
-    static func run(provider: TranscriptionProvider, audioFile: URL, vocabulary: [String] = []) async -> CloudTranscriptionOutcome {
-        await runDetailed(provider: provider, audioFile: audioFile, vocabulary: vocabulary).outcome
+    /// Reads the recording off the main thread and runs `run(provider:audioData:)`.
+    static func run(provider: TranscriptionProvider, audioFile: URL) async -> CloudTranscriptionOutcome {
+        await runDetailed(provider: provider, audioFile: audioFile).outcome
     }
 
-    static func run(provider: TranscriptionProvider, audioData: Data, vocabulary: [String] = []) async -> CloudTranscriptionOutcome {
-        await runDetailed(provider: provider, audioData: audioData, vocabulary: vocabulary).outcome
+    static func run(provider: TranscriptionProvider, audioData: Data) async -> CloudTranscriptionOutcome {
+        await runDetailed(provider: provider, audioData: audioData).outcome
     }
 
-    static func runDetailed(provider: TranscriptionProvider, audioFile: URL, vocabulary: [String] = []) async -> (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail) {
+    static func runDetailed(provider: TranscriptionProvider, audioFile: URL) async -> (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail) {
         guard let data = try? Data(contentsOf: audioFile) else { return (.failed(message: unreadableAudio, keepAudio: true), CloudTranscriptionDetail()) }
-        return await runDetailed(provider: provider, audioData: data, vocabulary: vocabulary)
+        return await runDetailed(provider: provider, audioData: data)
     }
 
     /// One provider call at most: silence pre-check, then one request, no retry, no fallback.
-    /// `vocabulary` (dictionary spellings) reaches only a provider that `acceptsVocabulary`; the payload of any other carries none.
+    /// No dictionary-derived prompt is ever attached (VOCABULARY.md).
     /// The detail (clip loudness, pre-check, segments) is for History; it never changes the outcome.
-    static func runDetailed(provider: TranscriptionProvider, audioData: Data, vocabulary: [String] = []) async -> (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail) {
-        var prepared = CloudAudio.prepare(audioData)
-        if provider.acceptsVocabulary { prepared.payload.vocabulary = vocabulary }
+    static func runDetailed(provider: TranscriptionProvider, audioData: Data) async -> (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail) {
+        let prepared = CloudAudio.prepare(audioData)
         var detail = CloudTranscriptionDetail(clipSeconds: prepared.duration, silencePeak: prepared.peak)
         if let peaks = prepared.payload.levels.flatMap(OpenAITranscriptionFormat.peakPercentiles) { detail.peakP50 = peaks.p50; detail.peakP90 = peaks.p90 }
         if let checker = provider as? SilencePrecheckedTranscriber, let peak = prepared.peak {
@@ -438,11 +358,7 @@ enum CloudTranscription {
         if Task.isCancelled { return (.cancelled, detail) }
         do {
             let text: String
-            var suspected = false
-            if let llm = provider as? LLMTranscriber {
-                let result = try await llm.transcribeChecked(prepared.payload)
-                text = result.text; suspected = result.answerSuspected
-            } else if let detailed = provider as? DetailedTranscriber {
+            if let detailed = provider as? DetailedTranscriber {
                 let result = try await detailed.transcribeDetailed(prepared.payload)
                 text = result.text; detail.segments = result.segments; detail.noSpeechReason = result.noSpeechReason
             } else {
@@ -454,7 +370,7 @@ enum CloudTranscription {
                 detail.noSpeechReason = detail.noSpeechReason ?? (!text.isEmpty ? .punctuationOnly : .empty)
                 return (.noSpeech(skipped: false), detail)
             }
-            return (suspected ? .heldAnswerSuspected(text) : .transcript(text), detail)
+            return (.transcript(text), detail)
         } catch let error as ProviderError {
             if error == .cancelled || Task.isCancelled { return (.cancelled, detail) }
             return (.failed(message: error.userMessage, keepAudio: error.disposition != .discard), detail)
@@ -468,7 +384,6 @@ enum CloudTranscription {
     static func message(_ outcome: CloudTranscriptionOutcome) -> String? {
         switch outcome {
         case .transcript: return nil
-        case .heldAnswerSuspected: return "The transcript looked like an answer rather than dictation, so it was held for review. It is in History."
         case .noSpeech: return "No speech was detected. Check your microphone and try again."
         case .failed(let message, let keepAudio): return keepAudio ? message + " Audio is saved for retry for up to \(RetryWindow.text)." : message
         case .cancelled: return "Canceled. The recording was deleted."

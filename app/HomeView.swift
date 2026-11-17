@@ -20,7 +20,7 @@ extension SettingsView {
     var home: some View {
         page("Home", "Dictate anywhere the cursor is.") {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                help("Transcription: \(controller.transcriptionRoute == .local ? "On this Mac" : controller.cloudTranscriber.displayName) · Cleanup: \((cleanupStyle.wrappedValue.needsModel ? controller.cleanupChoice : .localRules).displayName)")
+                help("Transcription: \(controller.transcriptionRoute == .local ? "On this Mac" : "Custom Provider") · Cleanup: \((cleanupStyle.wrappedValue.needsModel ? controller.cleanupChoice : .localRules).displayName)")
                 SettingInfoButton(text: ([controller.routeDisclosure(.transcription), controller.routeDisclosure(.cleanup)].compactMap { $0 } + ["On-device routes process data on this Mac. Custom providers use the server configured in Settings."]).joined(separator: "\n\n"))
                     .accessibilityLabel("Where dictation data goes")
             }.padding(.top, 12)

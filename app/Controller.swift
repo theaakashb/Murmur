@@ -109,10 +109,7 @@ enum ScreenRequest: Equatable {
     @Published var dictionarySupportFailed = false
     /// The managed local cleanup model (Vedu): downloaded only after the user asks, in the app's own model folder.
     @Published var localSlot: ModelSlot
-    /// A saved Gemini cleanup choice was replaced by local rules; Settings says so until dismissed.
-    @Published var geminiCleanupNotice = false
     var modelSlots: [ReferenceWritableKeyPath<AppController, ModelSlot>] { [\.modelSlot, \.dictionarySlot, \.liveWordsSlot, \.localSlot] }
-    func dismissGeminiCleanupNotice() { UserDefaults.standard.removeObject(forKey: RouteSettings.Key.geminiCleanupRemovedNotice); geminiCleanupNotice = false }
     var usesCustomModelFolder: Bool { modelSlot.downloader.map { URL(fileURLWithPath: modelDirectory).standardizedFileURL.path != $0.target.path } ?? false }
     // History-off mode and the size cap. History-off and update checks apply as soon as they change.
     @Published var historyMode = Prefs.historyMode.fallback
@@ -141,16 +138,14 @@ enum ScreenRequest: Equatable {
     // Processing routes apply as soon as they change.
     // API keys save immediately to the Keychain; only their presence is published.
     @Published var transcriptionRoute: TranscriptionRoute
-    @Published var cloudTranscriber: CloudTranscriber
     @Published var cleanupChoice: CleanupChoice
     @Published var customAPIBaseURL: String
     @Published var customTranscriptionAPIBaseURL: String
     @Published var customAPIModel: String
     @Published var customTranscriptionModel: String
-    @Published var geminiTranscriptionModel: String
     @Published var savedKeys: Set<ProviderID> = []
     @Published var keyMessages: [ProviderID: String] = [:]
-    var routeSettings: RouteSettings { RouteSettings(transcription: transcriptionRoute, cloudTranscriber: cloudTranscriber, cleanup: cleanupChoice, customAPIBaseURL: customAPIBaseURL, customTranscriptionAPIBaseURL: customTranscriptionAPIBaseURL, customAPIModel: customAPIModel, customTranscriptionModel: customTranscriptionModel, geminiTranscriptionModel: geminiTranscriptionModel) }
+    var routeSettings: RouteSettings { RouteSettings(transcription: transcriptionRoute, cleanup: cleanupChoice, customAPIBaseURL: customAPIBaseURL, customTranscriptionAPIBaseURL: customTranscriptionAPIBaseURL, customAPIModel: customAPIModel, customTranscriptionModel: customTranscriptionModel) }
     var appliedTranscriptionIsLocal: Bool { appliedRoutes.transcription == .local }
     /// What a stage would send off this Mac with the settings as edited, or nil when nothing leaves.
     /// Reads no key (SwiftUI calls it on every render); shows the configured route's disclosure.
@@ -319,8 +314,8 @@ enum ScreenRequest: Equatable {
         appliedRetention = defaults[Prefs.retention]; appliedHistoryMode = defaults[Prefs.historyMode]
         writingModes = WritingModes.load(from: defaults)
         let routes = RouteSettings.load(from: defaults)
-        transcriptionRoute = routes.transcription; cloudTranscriber = routes.cloudTranscriber; cleanupChoice = routes.cleanup
-        customAPIBaseURL = routes.customAPIBaseURL; customTranscriptionAPIBaseURL = routes.customTranscriptionAPIBaseURL; customAPIModel = routes.customAPIModel; customTranscriptionModel = routes.customTranscriptionModel; geminiTranscriptionModel = routes.geminiTranscriptionModel; appliedRoutes = routes
+        transcriptionRoute = routes.transcription; cleanupChoice = routes.cleanup
+        customAPIBaseURL = routes.customAPIBaseURL; customTranscriptionAPIBaseURL = routes.customTranscriptionAPIBaseURL; customAPIModel = routes.customAPIModel; customTranscriptionModel = routes.customTranscriptionModel; appliedRoutes = routes
         self.preview = preview
         loadSettings(from: defaults)
         do {
@@ -364,7 +359,6 @@ enum ScreenRequest: Equatable {
                 keyMessages[.customCleanup] = KeyText.storeFailed
             }
         }
-        geminiCleanupNotice = defaults.bool(forKey: RouteSettings.Key.geminiCleanupRemovedNotice)
         refreshKeys()
         // Choose Folder, Use Default and a finished download all change the folder, even with
         // Settings closed; apply each so the folder survives a relaunch.
@@ -959,21 +953,19 @@ enum ScreenRequest: Equatable {
         let token = generation; let timestamp = listeningStarted
         let began = ProcessInfo.processInfo.systemUptime
         cloudStage = .transcription; cloudDone = done
-        let vocabulary = processing?.dictionary.vocabularyTerms ?? []
         let heldWAV = held.map { WAVAudio.encodePCM16($0, sampleRate: AudioFormat.sampleRate) }
         cloudRequest.start({
-            if let heldWAV { return await CloudTranscription.runDetailed(provider: provider, audioData: heldWAV, vocabulary: vocabulary) }
-            guard let audio else { return await CloudTranscription.runDetailed(provider: provider, audioData: Data(), vocabulary: vocabulary) }
-            return await CloudTranscription.runDetailed(provider: provider, audioFile: audio, vocabulary: vocabulary)
+            if let heldWAV { return await CloudTranscription.runDetailed(provider: provider, audioData: heldWAV) }
+            guard let audio else { return await CloudTranscription.runDetailed(provider: provider, audioData: Data()) }
+            return await CloudTranscription.runDetailed(provider: provider, audioFile: audio)
         }) { [weak self] (result: (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail)) in
             guard let self, self.generation == token else { return }
             let outcome = result.outcome
             self.cloudStage = nil; self.cloudDone = nil
             timingLog.notice("cloud-transcribe took=\(ProcessInfo.processInfo.systemUptime - began, format: .fixed(precision: 3)) outcome=\(Self.transcriptionOutcomeName(outcome), privacy: .public)")
-            let text: String, held: Bool
+            let text: String
             switch outcome {
-            case .transcript(let value): text = value; held = false
-            case .heldAnswerSuspected(let value): text = value; held = true
+            case .transcript(let value): text = value
             case .noSpeech, .failed, .cancelled:
                 if case .noSpeech = outcome { timingLog.notice("\(result.detail.noSpeechLogLine, privacy: .public)") }
                 // Audio stays for retry (until the retry window ends) unless the provider error discards it.
@@ -983,17 +975,12 @@ enum ScreenRequest: Equatable {
                 if case .noSpeech = outcome { self.setPhase(.error, message, quick: true) } else { self.setPhase(.error, message) }
                 done(); return
             }
-            // An answer-shaped LLM transcript is held like a failed cleanup: raw text only, never inserted.
-            var entry = HistoryEntry(id: UUID().uuidString, recordedAt: timestamp, rawText: text, finalText: held ? "" : text, insertionStatus: (held ? InsertionStatus.heldTranscript : .savedNotInserted).rawValue)
+            var entry = HistoryEntry(id: UUID().uuidString, recordedAt: timestamp, rawText: text, finalText: text, insertionStatus: InsertionStatus.savedNotInserted.rawValue)
             entry.transcriptionProvider = provider.id.rawValue; entry.transcriptionModel = provider.modelID
             entry.transcription = Self.transcriptionDetail(result.detail)
             if let audio { entry.recordingFile = self.recordings.keep(audio, entryID: entry.id) }
             do { try store.save(entry) } catch { self.setPhase(.error, "Could not save the transcript. \(audio == nil ? Self.heldDiscarded : "Audio is saved for retry for up to \(RetryWindow.text).")"); done(); return }
             if let audio { try? FileManager.default.removeItem(at: audio) }
-            guard !held else {
-                self.recoveryEntryID = entry.id
-                self.setPhase(.error, CloudTranscription.message(outcome) ?? ""); self.destination = nil; self.historySaved(); done(); return
-            }
             self.deliver(entry, store: store, token: token, done: done)
         }
         setPhase(.processing, "Transcribing with \(provider.id.displayName)…")
@@ -1053,7 +1040,6 @@ enum ScreenRequest: Equatable {
     private static func transcriptionOutcomeName(_ outcome: CloudTranscriptionOutcome) -> String {
         switch outcome {
         case .transcript: return "transcript"
-        case .heldAnswerSuspected: return "held"
         case .noSpeech: return "noSpeech"
         case .failed: return "failed"
         case .cancelled: return "cancelled"

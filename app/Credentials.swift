@@ -8,7 +8,6 @@ import Security
 /// settings can migrate their keys; no client for them exists. `localServer` names a user-run local endpoint's errors
 /// and checks (`LocalEndpoint`, `KeyCheck`), and its key migrates the same way.
 enum ProviderID: String, CaseIterable, Codable, Sendable {
-    case gemini
     case openrouter
     case cerebras
     case customAPI
@@ -22,7 +21,6 @@ enum ProviderID: String, CaseIterable, Codable, Sendable {
 
     var displayName: String {
         switch self {
-        case .gemini: return "Gemini"
         case .openrouter: return "OpenRouter"
         case .cerebras: return "Cerebras"
         case .customAPI: return "Custom Provider"

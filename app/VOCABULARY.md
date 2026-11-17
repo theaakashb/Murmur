@@ -7,11 +7,9 @@ Dictionary entries support preferred spellings and explicit misheard variants. P
 | Route | Vocabulary input |
 |---|---|
 | Local Parakeet | Enabled preferred spellings and variants, supplied to the verified optional CTC model; `BoostFilter` limits replacements. |
-| Gemini Transcribe | Structured `custom_vocabulary` containing preferred spellings, capped at 1,000. |
-| Gemini audio LLM | Preferred spellings in instructions, limited to 1,000 characters and words actually spoken. |
 | Custom OpenAI-compatible | No dictionary-derived prompt or invented vocabulary field, including for Whisper models. |
 
-Whisper prompts can be continued as prior speech, producing unspoken dictionary text. Removing such text afterward can also erase deliberately spoken names or lists. Keep prompt omission and literal-output preservation together. Silence checks, trailing-silence trimming and answer detection are separate safeguards.
+Whisper prompts can be continued as prior speech, producing unspoken dictionary text. Removing such text afterward can also erase deliberately spoken names or lists. Keep prompt omission and literal-output preservation together. Silence checks and trailing-silence trimming are separate safeguards.
 
 ## Post-transcription correction
 

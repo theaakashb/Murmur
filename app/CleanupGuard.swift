@@ -17,7 +17,7 @@ enum CleanupGuard {
         var isName: Bool { capitalized && !sentenceStart && lower != "i" && !lower.hasPrefix("i'") }
     }
 
-    /// Assistant-specific phrases that rarely occur in dictation; `LLMTranscriptCheck` reuses exactly these.
+    /// Assistant-specific phrases that rarely occur in dictation.
     static let assistantPhrases = [
         "as an ai", "as a language model", "i'm an ai", "i am an ai", "i hope this helps", "hope this helps",
         "happy to help", "i'd be happy", "i would be happy", "i can't help", "i cannot help",

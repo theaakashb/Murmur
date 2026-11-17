@@ -7,7 +7,7 @@ import Foundation
 
 
 /// Splits a long transcript at sentence ends into sections of about `target` words, so a slow
-/// cleanup model (Gemma 4, about 44 tokens per second) can clean them in parallel. Short text and
+/// cleanup model can clean them in parallel. Short text and
 /// spoken lists ("first … second …", which must be formatted as one) stay whole.
 enum CleanupSections {
     /// `keepingCorrectionsAttached`: a sentence that opens with a correction cue ("No, actually Monday") is never cut off from the one it repairs.

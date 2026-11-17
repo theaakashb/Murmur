@@ -16,7 +16,7 @@ private func check(_ condition: @autoclosure () throws -> Bool, _ label: String,
 
 /// Records prompts and returns a fixed output; never touches the network.
 private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
-    let id = ProviderID.gemini
+    let id = ProviderID.customAPI
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .cleanup, destinationHost: "example.invalid", leavesDevice: ["transcript"], staysOnDevice: ["audio"], retentionNote: "test")
     }

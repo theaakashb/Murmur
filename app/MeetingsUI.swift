@@ -527,8 +527,7 @@ struct MeetingNotesRoutePicker: View {
     @Binding var selection: MeetingNotesRoute
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            segmented([(MeetingNotesRoute.none, "None (transcript only)"), (.appleIntelligence, "Apple Intelligence")], $selection, size: 14)
-            segmented([(MeetingNotesRoute.customAPI, "Custom Provider"), (.gemini, "Gemini")], $selection, size: 14)
+            segmented([(MeetingNotesRoute.none, "None (transcript only)"), (.appleIntelligence, "Apple Intelligence"), (.customAPI, "Custom Provider")], $selection, size: 14)
             HStack(spacing: 4) {
                 if selection == .appleIntelligence { lede("On-device", color: Palette.ink70) }
                 if tooltipDetails && selection != .appleIntelligence { SettingInfoButton(text: controller.meetingNotesDisclosure(selection)) }

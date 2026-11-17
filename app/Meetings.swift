@@ -181,11 +181,9 @@ enum MeetingRoute {
 
     /// The inline note under Cloud. No price is quoted: per-minute prices are not verified for
     /// either route, so the note says the price depends on the provider.
-    static func cloudNote(provider: String, host: String, storesAudio: Bool) -> String {
-        var note = "Meetings send all of their audio, including other participants’ voices, to \(provider) at \(host): up to about \(Int((megabytesPerStreamHour * 2).rounded())) MB an hour with both streams. Long meetings can cost significantly; the price depends on the provider and model, so check its pricing before a long call."
-        if storesAudio { note += " Google stores audio requests (55 days on the paid tier, 1 day on the free tier)." }
-        note += " If a part fails, it is transcribed on this Mac instead and marked; the meeting stays on the cloud route."
-        return note
+    static func cloudNote(provider: String, host: String) -> String {
+        "Meetings send all of their audio, including other participants’ voices, to \(provider) at \(host): up to about \(Int((megabytesPerStreamHour * 2).rounded())) MB an hour with both streams. Long meetings can cost significantly; the price depends on the provider and model, so check its pricing before a long call."
+            + " If a part fails, it is transcribed on this Mac instead and marked; the meeting stays on the cloud route."
     }
 }
 
