@@ -532,6 +532,10 @@ struct ThrowingCleaner: Cleaner {
         expect(CleanupGuard.check(raw: "What I meant was what we discussed", cleaned: "Was what we discussed.", options: professional) != .pass, "professional refuses a dropped declarative I meant")
         expect(CleanupGuard.check(raw: "Book table 5 for Alice", cleaned: "Book 5 tables for Alice.", options: professional) != .pass, "professional refuses a number changing role")
         expect(CleanupGuard.check(raw: "Book table 5 for Alice", cleaned: "Book table 5 for Alice.", options: professional) == .pass, "professional keeps a number in place")
+        // The name-order rule counts every occurrence of a word, so a sentence start said again in lowercase passes.
+        expect(CleanupGuard.check(raw: "Send the draft to Dana. Then send the invoice to Bob.", cleaned: "Send the draft to Dana. Then send the invoice to Bob.", options: professional) == .pass, "professional accepts a sentence-start word repeated in lowercase")
+        expect(CleanupGuard.check(raw: "Murmur is slow today. I think murmur needs a restart.", cleaned: "Murmur is slow today. I think Murmur needs a restart.", options: professional) == .pass, "professional accepts a name the transcript also has in lowercase")
+        expect(CleanupGuard.check(raw: "alice paid Bob and then Alice left.", cleaned: "Bob paid Alice and then Alice left.", options: professional) != .pass, "professional still refuses swapped names when one is also lowercase")
         // Third review: nested "I meant", pronoun roles, lowercase names.
         expect(CleanupGuard.applyCommaFreeCorrections("I told him I meant he told me") == "I told him I meant he told me", "nested I meant kept")
         expect(CleanupGuard.check(raw: "I told him I meant he told me", cleaned: "He told me.", options: professional) != .pass, "professional refuses a dropped outer clause")

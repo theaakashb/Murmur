@@ -877,8 +877,10 @@ enum CleanupGuard {
             if inserted.count > max(4, a.count / 4) { return .fail(.insertedWords) }
             if let first = pairedOut.first, let last = pairedOut.last, polishInserted.contains(where: { $0 < first || $0 > last }) { return .fail(.insertedWords) }
             // Names keep their order ("Alice paid Bob" never becomes "Bob paid Alice"), counting a capitalized
-            // sentence start that is not a grammar word.
-            let rawNames = rawWords.filter { $0.isName || ($0.capitalized && !grammarWords.contains($0.lower)) }.map(\.lower), nameSet = Set(rawNames)
+            // sentence start that is not a grammar word. Every occurrence counts, whatever its case: a sentence
+            // start said again in lowercase ("Send it. Then send it again") is the same word, not a moved name.
+            let nameSet = Set(rawWords.filter { $0.isName || ($0.capitalized && !grammarWords.contains($0.lower)) }.map(\.lower))
+            let rawNames = rawWords.map(\.lower).filter(nameSet.contains)
             var rest = rawNames[...]
             for n in outWords.map(\.lower) where nameSet.contains(n) {
                 guard let k = rest.firstIndex(of: n) else { return .fail(.nameDropped) }
