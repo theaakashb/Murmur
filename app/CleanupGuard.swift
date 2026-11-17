@@ -369,23 +369,38 @@ enum CleanupGuard {
     /// which is how a speaker says a sentence again in a better way (decided November 17, 2026: the first one may go).
     /// ponytail: word overlap, not meaning; a parallel sentence ("The project is late. The project is also over
     /// budget.") looks the same, and keeping it is left to the model. The full guard (`check`) does not use this.
-    static func replacedSentences(_ r: [Word]) -> (cued: Set<Int>, restated: Set<Int>) {
+    static func replacedSentences(_ r: [Word]) -> (cued: Set<Int>, restated: Set<Int>, cuts: [ClosedRange<Int>]) {
         let starts = r.indices.filter { $0 == 0 || r[$0].sentenceStart } + [r.count]
         func content(_ range: Range<Int>) -> Set<String> {
             Set(range.map { r[$0].lower }.filter { !grammarWords.contains($0) && !CleanupText.hesitations.contains($0) }.map { String($0.prefix(5)) })
         }
-        var cued = Set<Int>(), restated = Set<Int>()
+        var cued = Set<Int>(), restated = Set<Int>(), cuts: [ClosedRange<Int>] = []
         for k in starts.indices.dropLast(2) {
             let first = starts[k]..<starts[k + 1], second = starts[k + 1]..<starts[k + 2]
             var open = second.lowerBound
             while open < second.upperBound, CleanupText.hesitations.contains(r[open].lower) { open += 1 }
-            let cue = sentenceRepairCues.first { c in open + c.count < second.upperBound && c.indices.allSatisfy { r[open + $0].lower == c[$0] } }
-            let was = content(first), now = content((open + (cue?.count ?? 0))..<second.upperBound), shared = was.intersection(now).count
-            if cue != nil { if shared >= 1 { cued.formUnion(first) }; continue }
+            // Cues may stack ("Actually, I mean …").
+            var after = open
+            while let c = sentenceRepairCues.first(where: { c in after + c.count < second.upperBound && c.indices.allSatisfy { r[after + $0].lower == c[$0] } }) { after += c.count }
+            let was = content(first), now = content(after..<second.upperBound), shared = was.intersection(now).count
+            if after > open { if shared >= 1 { cued.formUnion(first); cuts.append(first.lowerBound...(after - 1)) }; continue }
             let sameOpening = first.count >= 2 && second.count >= 2 && r[first.lowerBound].lower == r[second.lowerBound].lower && r[first.lowerBound + 1].lower == r[second.lowerBound + 1].lower
             if sameOpening || (was.count >= 2 && shared * 5 >= was.count * 3) { restated.formUnion(first) }
         }
-        return (cued, restated)
+        return (cued, restated, cuts)
+    }
+
+    /// The transcript without each sentence that the next one corrects after a cue, and without the cue
+    /// ("…at 7 on Tuesday. Actually, I mean at 9 on Wednesday." -> "at 9 on Wednesday."). `check` also judges the output
+    /// against this text, so everything else it says is still held to the full guard. Sentences restated without a cue
+    /// are not removed here: the full guard keeps its narrower restart rule for those.
+    static func applyCuedSentenceRepairs(_ raw: String) -> String {
+        let cuts = replacedSentences(words(raw)).cuts
+        guard !cuts.isEmpty else { return raw }
+        var tokens = CleanupText.tokenize(raw.replacingOccurrences(of: "\u{2019}", with: "'"))
+        let tokenOfWord = tokens.indices.filter { tokens[$0].kind == .word }
+        for cut in cuts.reversed() { tokens.removeSubrange(tokenOfWord[cut.lowerBound]...tokenOfWord[cut.upperBound]) }
+        return CleanupText.render(CleanupText.normalize(tokens))
     }
 
     static func truncated(raw: String, cleaned: String) -> Bool {
@@ -447,7 +462,7 @@ enum CleanupGuard {
         let cleaned = cleaned.replacingOccurrences(of: "\\p{Zs}", with: " ", options: .regularExpression)
         let result = checkWords(raw: raw, cleaned: cleaned, options: options, allowedTerms: allowedTerms, soundsLike: soundsLike)
         if result != .pass, options.corrections, options.polish {
-            for repaired in [RuleCleaner.applyInsteadCorrections(raw), applyExplicitRepairs(raw)] where repaired != raw
+            for repaired in [RuleCleaner.applyInsteadCorrections(raw), applyExplicitRepairs(raw), applyCuedSentenceRepairs(raw)] where repaired != raw
                 && checkWords(raw: repaired, cleaned: cleaned, options: options, allowedTerms: allowedTerms, soundsLike: soundsLike) == .pass { return .pass }
         }
         guard result != .pass, options.spoken else { return result }
@@ -1010,6 +1025,8 @@ enum TransformGuard {
             t.lowercased().split(whereSeparator: { !$0.isLetter && $0 != "'" && $0 != "\u{2019}" })
                 .contains { CleanupText.basicNegations.contains(String($0)) || $0 == "without" || $0.hasSuffix("n't") || $0.hasSuffix("n\u{2019}t") }
         }
-        return !negates(input) || negates(out)
+        // A correction cue's "no" ("actually no, make it Monday") is not a negation the rewrite must keep.
+        let said = input.replacingOccurrences(of: #"(?i)\b(actually|oh|wait|sorry),? no\b|\bno,? (wait|sorry|i mean|i meant|actually|scratch that)\b"#, with: " ", options: .regularExpression)
+        return !negates(said) || negates(out)
     }
 }

@@ -737,6 +737,12 @@ struct ThrowingCleaner: Cleaner {
         // A sentence the next one replaces may go whole: after a cue, or said again in a better way.
         let crossed = "The standup is at 7 and 8 on Tuesday for the whole team. Actually, I mean the standup is at 9 on Wednesday for the whole team."
         expect(CleanupPipeline.judge(raw: crossed, cleaned: "The standup is at 9 on Wednesday for the whole team.", options: trustedPro, allowedTerms: []) == .cleaned("The standup is at 9 on Wednesday for the whole team."), "trust accepts a correction across a sentence break")
+        // The full guard (always used for the local model) accepts the same cued correction and nothing more.
+        expect(CleanupGuard.check(raw: crossed, cleaned: "The standup is at 9 on Wednesday for the whole team.", options: professional) == .pass, "the full guard accepts a cued correction across a sentence break")
+        expect(CleanupGuard.check(raw: crossed, cleaned: "The standup is at 9 on Thursday for the whole team.", options: professional) != .pass, "the full guard still refuses a changed day after a cued correction")
+        expect(CleanupGuard.check(raw: crossed, cleaned: "The standup is at 7 and 8 on Tuesday and at 9 on Wednesday for the whole team.", options: professional) != .pass, "the full guard still refuses keeping both versions")
+        expect(CleanupGuard.check(raw: "The warehouse ships 40 orders on Tuesday. Actually, I mean to ask Dana about the budget.", cleaned: "I mean to ask Dana about the budget.", options: professional) != .pass, "the full guard keeps a sentence the cue does not restate")
+        expect(CleanupGuard.check(raw: crossed, cleaned: "The standup is at 9 on Wednesday for the whole team.", options: .standard) != .pass, "strict does not apply cross-sentence corrections")
         let again = "Can you send me the quarterly report today. Could you please send me the quarterly report by the end of the day today."
         expect(CleanupPipeline.judge(raw: again, cleaned: "Could you please send me the quarterly report by the end of the day today?", options: trustedPro, allowedTerms: []) == .cleaned("Could you please send me the quarterly report by the end of the day today?"), "trust accepts dropping a sentence said again in other words")
         let unrelated = "The standup moved to Wednesday for the whole team this week. Actually, I mean to book the large room for it."
