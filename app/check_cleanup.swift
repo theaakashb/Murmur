@@ -466,8 +466,8 @@ struct ThrowingCleaner: Cleaner {
         let restated = "Shaker settlements were built to be self-sufficient communities."
         for o in [polish, professional] { expect(CleanupGuard.check(raw: restart, cleaned: restated, options: o) == .pass, "restarted sentence drops in polish modes") }
         for o in [CleanupOptions.standard, CleanupOptions.faithful] { expect(CleanupGuard.check(raw: restart, cleaned: restated, options: o) != .pass, "restarted sentence kept without polish") }
-        expect(CleanupPrompt.build(transcript: "x", options: polish).system.contains("restarted sentence")
-               && !CleanupPrompt.build(transcript: "x", options: .standard).system.contains("restarted sentence"), "only polish modes ask to drop restarts")
+        expect(CleanupPrompt.build(transcript: "x", options: polish).system.contains("or restarts")
+               && !CleanupPrompt.build(transcript: "x", options: .standard).system.contains("or restarts"), "only polish modes ask to drop restarts")
         // The per-call nonce must stay out of the system prompt so local servers can reuse the cached prefix.
         for opts in [CleanupOptions.standard, polish] {
             let a = CleanupPrompt.build(transcript: "x", options: opts, dictionaryTerms: ["Kubernetes"], nonce: "AAAA").system
@@ -663,14 +663,14 @@ struct ThrowingCleaner: Cleaner {
             ("we should increase the budget", "We should Decrease the budget.", "a capitalized antonym"),
         ] { for o in [.standard, polish, professional] { expect(CleanupGuard.check(raw: raw, cleaned: out, options: o) != .pass, "every level refuses: \(label)") } }
         let professionalPrompt = CleanupPrompt.build(transcript: "x", options: professional, nonce: "n").system
-        expect(professionalPrompt.contains("professional") && professionalPrompt.contains("item one") && !professionalPrompt.contains("change tone"), "professional prompt")
+        expect(professionalPrompt.contains("professional English") && professionalPrompt.contains("spoken markers") && !professionalPrompt.contains("change tone"), "professional prompt")
         expect(!CleanupPrompt.build(transcript: "x", options: polish, nonce: "n").system.contains("professional"), "polish prompt unchanged")
         for options in [CleanupOptions(corrections: false, professional: true), CleanupOptions(lists: false, professional: true)] {
             expect(!CleanupPrompt.build(transcript: "x", options: options, nonce: "n").system.contains("Sarah and I are meeting at 4"), "professional omits the combined example when an operation is off")
         }
         // Polish asks for these edits; strict's prompt is unchanged.
         let polishPrompt = CleanupPrompt.build(transcript: "x", options: polish, nonce: "n").system
-        expect(polishPrompt.contains("false starts") && polishPrompt.contains("grammar slips") && !polishPrompt.contains("respell words"), "polish prompt")
+        expect(polishPrompt.contains("we need to, we have to go") && polishPrompt.contains("grammar slips") && !polishPrompt.contains("respell words") && !polishPrompt.contains("professional English"), "polish prompt")
         expect(!CleanupPrompt.build(transcript: "x", options: .standard, nonce: "n").system.contains("false starts"), "strict prompt unchanged")
         // Punctuation transfer: the model's punctuation on the transcript's words.
         expect(CleanupPipeline.punctuated(raw: "every like give or take twenty seconds okay", cleaned: "Every give or take twenty seconds. Okay?") == "Every like give or take twenty seconds. Okay?", "transfer keeps a dropped filler")
