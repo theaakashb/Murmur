@@ -234,6 +234,10 @@ extension AppController {
                 controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : name == "reverted" ? .reverted : .offer, mode: name.hasPrefix("plain") || name == "chip" ? nil : "AI Prompt", full: name != "chip")
                 if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
             }
+            if let i = args.firstIndex(of: "--voice-edit") {
+                controller.showVoiceEditFixture(args.indices.contains(i + 1) ? args[i + 1] : "")
+                if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
+            }
             if CommandLine.arguments.contains("--undo") {
                 controller.bubble.showUndo(screen: nil)
                 if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }

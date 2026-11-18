@@ -228,6 +228,18 @@ final class ShortcutListener {
     var onRevertChord: (() -> Void)?
     var revertOffered: (() -> Bool)?
     static func isRevertChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(Int64(kVK_ANSI_Z), keyCode, flags) }
+    /// Voice edit's own shortcut (a recorded key), or nil when voice edit shares the dictation key. Captured only while
+    /// `editSelectionProbe` says text is selected, so a text-editing key such as ⌃E keeps working everywhere else.
+    var editBinding: CustomShortcut?
+    /// Tap thread: whether the focused field has a readable, non-empty selection outside Secure Input.
+    var editSelectionProbe: (() -> Bool)?
+    /// Main thread: a captured press and its release of `editBinding`.
+    var onEditPress: (() -> Void)?
+    var onEditRelease: (() -> Void)?
+    private let editLock = NSLock()
+    private var editHeld = false
+    /// Timestamps of the events the tap swallowed, so the main thread acts on exactly those.
+    private var editStamps = Set<UInt64>()
     /// ⌃⌘C exactly: Control and Command, no Option or Shift.
     static func isCopyChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(Int64(kVK_ANSI_C), keyCode, flags) }
     static func isPasteChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(Int64(kVK_ANSI_V), keyCode, flags) }
@@ -343,6 +355,7 @@ final class ShortcutListener {
             || Self.isPasteChord(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags) { return true }
         if type == .keyDown || type == .keyUp, Self.isRevertChord(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags),
            revertOffered?() == true { return true }
+        if consumesEdit(type, event) { return true }
         guard type == .keyDown || type == .keyUp,
               event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Escape) else { return false }
         if type == .keyDown && event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
@@ -352,6 +365,26 @@ final class ShortcutListener {
         defer { if type == .keyUp { swallowingEscape = false } }
         return swallowingEscape
     }
+    /// Tap thread. A fresh press of `editBinding` is swallowed only while the probe finds a selection (or an edit is already
+    /// recording, so the same key can finish it); its repeats and its release follow that decision. Otherwise the key passes.
+    func consumesEdit(_ type: CGEventType, _ event: CGEvent) -> Bool {
+        guard let edit = editBinding, type == .keyDown || type == .keyUp,
+              event.getIntegerValueField(.keyboardEventKeycode) == edit.keyCode else { return false }
+        let stamp = event.timestamp
+        if type == .keyDown && event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
+            guard event.flags.intersection(CustomShortcut.relevant) == edit.modifiers else { return false }
+            let capture = mirrored.state == .listening || (editSelectionProbe?() ?? false)
+            editLock.lock(); editHeld = capture; if capture { editStamps.insert(stamp) }; editLock.unlock()
+            return capture
+        }
+        editLock.lock(); defer { editLock.unlock() }
+        guard editHeld else { return false }
+        if type == .keyUp { editHeld = false }
+        editStamps.insert(stamp)
+        return true
+    }
+    private func takeEditStamp(_ stamp: UInt64) -> Bool { editLock.lock(); defer { editLock.unlock() }; return editStamps.remove(stamp) != nil }
+
     /// The one place taps are created, so the app and spike cannot drift. Active (not listen-only)
     /// taps need Accessibility as well as Input Monitoring; returns nil when either is missing.
     func createTap() -> CFMachPort? {
@@ -409,6 +442,10 @@ final class ShortcutListener {
         }
         if type == .keyDown, Self.isRevertChord(keyCode: key, flags: event.flags), event.getIntegerValueField(.keyboardEventAutorepeat) == 0, revertOffered?() == true {
             onRevertChord?(); return
+        }
+        if (type == .keyDown || type == .keyUp), takeEditStamp(event.timestamp) {
+            if type == .keyUp { onEditRelease?() } else if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 { onEditPress?() }
+            return
         }
         if type == .keyDown && key == Int64(kVK_Escape) {
             if !queued.isEmpty { cancelQueued(); return } // Cancels only the queued recording.

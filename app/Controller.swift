@@ -184,9 +184,15 @@ enum ScreenRequest: Equatable {
     // Preview and the developer probe never touch the login Keychain.
     let professionalHint = ProfessionalHint(defaults: .standard)
     lazy var credentials: CredentialStore = preview ? InMemoryCredentialStore() : KeychainCredentialStore()
-    private let cloudRequest = CloudRequest()
-    private var cloudDone: (() -> Void)?
-    private var cloudStage: ProcessingStage?
+    let cloudRequest = CloudRequest()
+    var cloudDone: (() -> Void)?
+    var cloudStage: ProcessingStage?
+    /// Voice edit (VoiceEdit.swift): armed by the chord, adopted by the next start, spent by this recording's transcript.
+    var pendingVoiceEdit: VoiceEditSession?
+    var voiceEdit: VoiceEditSession?
+    var voiceEditPressedAt: TimeInterval = 0
+    /// `EditTrigger.sameKey`: the dictation key, when text is selected. Otherwise a recorded `CustomShortcut`.
+    @Published var voiceEditShortcut = Prefs.voiceEditShortcut.fallback
     /// This session's cloud transcriber, chosen at start; nil means local Parakeet.
     var sessionTranscriber: TranscriptionProvider?
     var capture: Capture?
@@ -209,7 +215,7 @@ enum ScreenRequest: Equatable {
     }
     private var leadingSpaceThisSession = false
     private var shortcutGeneration = UUID()
-    private var listener: ShortcutListener?
+    var listener: ShortcutListener?
     private var source: CFRunLoopSource?
     private var tapThread: TapThread?
     let prestart = PreStart()
@@ -554,6 +560,11 @@ enum ScreenRequest: Equatable {
         next.onPasteChord = { [weak self] in self?.pasteLastDictation() }
         next.onRevertChord = { [weak self] in self?.revertToRaw() }
         next.revertOffered = { [weak self] in self?.revertOffered == true }
+        if case .custom(let edit) = ShortcutBinding(stored: voiceEditShortcut), voiceEditShortcut != EditTrigger.sameKey {
+            next.editBinding = edit; next.editSelectionProbe = editSelectionReadable
+            next.onEditPress = { [weak self] in self?.voiceEditPressed() }
+            next.onEditRelease = { [weak self] in self?.voiceEditReleased() }
+        }
         next.pressToToggle = pressToToggle
         // A press while the previous dictation processes records right away; its events replay
         // into the machine when that dictation finishes, which adopts this capture.
@@ -611,7 +622,15 @@ enum ScreenRequest: Equatable {
             guard permission() == .authorized else { refuse("Allow Microphone access in Settings before dictating.", done: done); return }
             // An unconfigured cloud route refuses; it never falls back to local.
             // A mode may turn cleanup on even when the Cleanup settings have it all off.
-            let sendsText = (processing?.settings.options.anyEnabled ?? false) || writingModes.contains { $0.enabled && $0.options?.anyEnabled == true }
+            // With the dictation key and a readable selection this recording is a voice edit; with none, it dictates as before.
+            if pendingVoiceEdit == nil, let edit = voiceEditForDictationKey() {
+                switch edit {
+                case .success(let session): pendingVoiceEdit = session
+                case .failure(let refusal): refuse(refusal.message, done: done); return
+                }
+            }
+            let editing = pendingVoiceEdit != nil // An edit sends no dictation cleanup and reads no screen context.
+            let sendsText = !editing && ((processing?.settings.options.anyEnabled ?? false) || writingModes.contains { $0.enabled && $0.options?.anyEnabled == true })
             let plan = routePlan(appliedRoutes, cleanupSendsText: sendsText)
             if let refusal = plan.refusal { refuse(refusal, done: done); return }
             if plan.usesLocalModel, let refusal = ModelGate.startRefusal(modelAvailable: modelFilesAvailable(), runtimeAvailable: BundledModels.helper != nil, downloadingActiveModel: modelSlot.inFlight && !usesCustomModelFolder) {
@@ -624,8 +643,9 @@ enum ScreenRequest: Equatable {
             if destination?.pid == getpid() { destination = nil }
             insertThisSession = automaticInsertion; leadingSpaceThisSession = intelligentLeadingSpace; activeModelDirectory = modelDirectory
             listeningStarted = Date(); generation = UUID(); recoveryEntryID = nil; recordingFailed = false
+            voiceEdit = pendingVoiceEdit.map { var edit = $0; edit.generation = generation; return edit }; pendingVoiceEdit = nil
             destinationScreen = screenForDestination(destination)
-            captureModeAndContext(aiCleanup: plan.cleaner != nil)
+            captureModeAndContext(aiCleanup: plan.cleaner != nil && voiceEdit == nil)
         }
         let wasListening = session.state == .listening
         if wasListening, action == .finish {
@@ -808,7 +828,8 @@ enum ScreenRequest: Equatable {
         let stage = cloudStage; cloudStage = nil
         if stage == .transcription, let audio = session.audio { try? FileManager.default.removeItem(at: audio) }
         destination = nil
-        setPhase(.ready, stage == .transcription ? CloudTranscription.message(.cancelled) ?? "Canceled." : "Canceled. The raw transcript is saved in History and was not inserted.")
+        let editing = voiceEdit != nil; voiceEdit = nil
+        setPhase(.ready, editing && stage != .transcription ? "Edit canceled. Your text was not changed." : stage == .transcription ? CloudTranscription.message(.cancelled) ?? "Canceled." : "Canceled. The raw transcript is saved in History and was not inserted.")
         bubble.hide(); historySaved(); done()
     }
     /// A dictation that could not be pasted, shown in the bubble with Copy. Any other status replaces it.
@@ -994,6 +1015,7 @@ enum ScreenRequest: Equatable {
     /// Dictionary, then cleanup, for a transcript already saved to History. Local rules run here;
     /// any other cleanup route makes one provider call in a cancellable Task (no local fallback).
     private func deliver(_ savedEntry: HistoryEntry, store: HistoryRouter<HistoryEntry>, token: UUID, done: @escaping () -> Void) {
+        if let edit = voiceEdit, edit.generation == token { runVoiceEdit(edit, instruction: savedEntry.rawText, entry: savedEntry, store: store, done: done); return }
         cleanupStartedAt = ProcessInfo.processInfo.systemUptime
         // Saved with the next write of this entry; no extra disk write before insertion.
         var savedEntry = savedEntry; savedEntry.seconds = sessionSeconds

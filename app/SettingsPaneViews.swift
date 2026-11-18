@@ -50,6 +50,7 @@ extension SettingsView {
                 ShortcutPresetPicker(controller: controller)
             }.padding(.vertical, 12)
             ShortcutRecorder(controller: controller).padding(.bottom, 12)
+            VoiceEditShortcutSettings(controller: controller)
             toggleRow("Press once to start, again to stop", "Holding still works: release to stop. Off means hold to record.", isOn: $controller.pressToToggle)
             softRule.padding(.vertical, 12)
             eyebrow("Audio")
@@ -720,9 +721,13 @@ struct ShortcutPresetPicker: View {
 
 struct ShortcutRecorder: View {
     @ObservedObject var controller: AppController
+    /// The setting this records into: the dictation shortcut, or voice edit's separate one (VoiceEditSettings.swift).
+    var target: ReferenceWritableKeyPath<AppController, String> = \.shortcut
+    var resetTo = ShortcutBinding.defaultID
     @State private var monitor: Any?
     @State private var refusal: String?
-    private var custom: CustomShortcut? { if case .custom(let shortcut) = ShortcutBinding(stored: controller.shortcut) { return shortcut }; return nil }
+    private var custom: CustomShortcut? { if case .custom(let shortcut) = ShortcutBinding(stored: controller[keyPath: target]) { return shortcut }; return nil }
+    private var forEdit: Bool { target == \.voiceEditShortcut }
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
@@ -731,7 +736,7 @@ struct ShortcutRecorder: View {
                 Spacer(minLength: 8)
                 Button(monitor != nil ? "Stop" : "Record Shortcut…") { monitor != nil ? stop() : start() }.buttonStyle(InkButtonStyle(kind: .outline))
                 if custom != nil && monitor == nil {
-                    Button("Reset") { refusal = nil; controller.shortcut = ShortcutBinding.defaultID }.buttonStyle(InkButtonStyle(kind: .outline))
+                    Button("Reset") { refusal = nil; controller[keyPath: target] = resetTo }.buttonStyle(InkButtonStyle(kind: .outline))
                 }
             }
             if let refusal { Text(refusal).font(WindowType.body(13)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }
@@ -749,8 +754,10 @@ struct ShortcutRecorder: View {
             let flags = (event.cgEvent?.flags ?? []).intersection(CustomShortcut.relevant)
             let code = Int64(event.keyCode)
             if code == 53 && flags.isEmpty { stop(); return nil }
-            if let reason = CustomShortcut.refusal(keyCode: code, modifiers: flags) { refusal = reason; return nil }
-            controller.shortcut = CustomShortcut(keyCode: code, modifiers: flags, key: Self.keyName(event)).stored
+            let reason = forEdit ? CustomShortcut.editRefusal(keyCode: code, modifiers: flags, dictation: controller.shortcut)
+                : CustomShortcut.refusal(keyCode: code, modifiers: flags) ?? controller.voiceEditConflict(keyCode: code, modifiers: flags)
+            if let reason { refusal = reason; return nil }
+            controller[keyPath: target] = CustomShortcut(keyCode: code, modifiers: flags, key: Self.keyName(event)).stored
             refusal = nil; stop(); return nil
         }
     }
