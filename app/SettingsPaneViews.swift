@@ -607,7 +607,6 @@ extension SettingsView {
                  : HistoryMode.offDisclosure).padding(.top, 12)
             eyebrow("Keep transcripts for").padding(.top, 28)
             segmented(HistoryRetention.allCases.map { ($0, $0.label) }, $controller.retention).padding(.top, 8)
-            toggleRow("Keep recordings for diagnostics (7 days)", "Keeps the audio of each dictation on this Mac, beside its History entry, so a developer can replay what Murmur heard. Off by default. Recordings are deleted after 7 days, and are kept only while History is saved. Delete All Data removes them.", isOn: $controller.keepRecordings).padding(.top, 20)
             if let notice = controller.historyNotice {
                 Text(notice).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true).padding(.top, 12)
             }

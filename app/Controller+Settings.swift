@@ -36,7 +36,7 @@ extension AppController {
         PersistedSetting(Prefs.shortcut, \.shortcut), PersistedSetting(Prefs.voiceEditShortcut, \.voiceEditShortcut), PersistedSetting(Prefs.showMenuBar, \.showMenuBar), PersistedSetting(Prefs.showInDock, \.showInDock), PersistedSetting(Prefs.meetingIndicator, \.meetingIndicator),
         PersistedSetting(Prefs.inputDeviceUID, \.inputDeviceUID), PersistedSetting(Prefs.intelligentLeadingSpace, \.intelligentLeadingSpace),
         PersistedSetting(Prefs.automaticInsertion, \.automaticInsertion), PersistedSetting(Prefs.pressToToggle, \.pressToToggle),
-        PersistedSetting(Prefs.recordingSounds, \.recordingSounds), PersistedSetting(Prefs.keepRecordings, \.keepRecordings),
+        PersistedSetting(Prefs.recordingSounds, \.recordingSounds),
         PersistedSetting(Prefs.liveWords, \.liveWords), PersistedSetting(Prefs.liveWordsOnCloud, \.liveWordsOnCloud),
         PersistedSetting(Prefs.retention, \.retention), PersistedSetting(Prefs.historyMode, \.historyMode),
         PersistedSetting(Prefs.updateChecks, \.updateChecksEnabled), PersistedSetting(Prefs.readableLearning, \.learningRequiresReadableField),

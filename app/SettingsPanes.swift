@@ -115,7 +115,6 @@ enum SettingsSearch {
         .init("Cues", .cues, "saved text expand insert paste email address link signature shortcut cue", target: "top"),
         .init("Transcript history", .privacy, "save off privacy storage"),
         .init("Keep transcripts for", .privacy, "retention delete thirty 30 days six months forever"),
-        .init("Keep recordings for diagnostics (7 days)", .privacy, "audio wav replay debug developer quality"),
         .init("Backup and restore", .privacy, "backup export import restore save copy", target: "backup-data"),
         .init("Delete all data", .privacy, "erase wipe reset history recordings keys", target: "delete-data"),
         .init("API Keys", .apiKeys, "credentials password keychain custom transcription cleanup murmur cloud", target: "top"),

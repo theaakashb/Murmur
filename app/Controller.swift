@@ -63,7 +63,7 @@ enum ScreenRequest: Equatable {
     @Published var pressToToggle = Prefs.pressToToggle.fallback
     /// Short system sounds when recording starts and stops; none on insertion.
     @Published var recordingSounds = Prefs.recordingSounds.fallback
-    /// "Keep recordings for diagnostics (7 days)": off by default; see `DiagnosticRecordings`.
+    /// Diagnostic recordings: removed from Settings, so always off; see `DiagnosticRecordings`.
     @Published var keepRecordings = Prefs.keepRecordings.fallback
     /// Live words in the bubble while recording; needs the optional download.
     @Published var liveWords = Prefs.liveWords.fallback
