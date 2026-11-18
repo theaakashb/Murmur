@@ -38,17 +38,7 @@ private func provider(_ status: OnDeviceModelUnavailable?, _ model: FakeModel) -
         guard let defaults = UserDefaults(suiteName: suite) else { print("FAIL: no defaults suite"); exit(1) }
         defer { try? FileManager.default.removeItem(at: root); defaults.removePersistentDomain(forName: suite) }
 
-        // Route wiring: a local route with no key, no refusal and no disclosure.
-        var routes = RouteSettings(); routes.cleanup = .appleIntelligence
-        var keyReads = 0
-        let plan = RoutePlan.make(routes, cleanupSendsText: true) { _ in keyReads += 1; return nil }
-        check(plan.cleaner is AppleCleanupProvider, "route builds the Apple provider")
-        check(plan.refusal == nil, "no key needed, never refuses: \(plan.refusal ?? "")")
-        check(plan.stages.isEmpty && keyReads == 0, "no disclosure stage, no Keychain read")
-        check(CleanupChoice.appleIntelligence.processingRoute == .cloud, "runs through the provider path")
-        check(CleanupChoice(rawValue: "apple-intelligence") == .appleIntelligence, "persisted value round-trips")
-        check(RouteSettings().cleanup == .localRules, "default route is unchanged")
-
+        // Apple Intelligence is no cleanup route; its provider remains for meeting notes.
         let messages = Set([OnDeviceModelUnavailable.deviceNotEligible, .appleIntelligenceOff, .modelNotReady].map(\.userMessage))
         check(messages.count == 3 && messages.allSatisfy { $0.contains("Apple Intelligence") }, "three distinct availability messages")
 

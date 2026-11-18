@@ -88,6 +88,8 @@ enum ScreenRequest: Equatable {
     /// Screen context for AI cleanup, opt-in; a writing mode can override it.
     @Published var screenContext = Prefs.screenContext.fallback
     /// Writing modes, saved as soon as they change and read at each recording start.
+    /// The engine writing modes and voice edit run on (AIEngine.swift): derived from the cleanup route, never stored.
+    var aiEngine: AIEngine? { AIEngine.derive(cleanup: appliedRoutes.cleanup) }
     @Published var writingModes: [WritingMode] { didSet { WritingModes.save(writingModes, to: .standard) } }
     /// Apps dictated into since launch, newest first, for the mode app picker. Memory only.
     @Published private(set) var recentApps: [String] = []
@@ -180,10 +182,17 @@ enum ScreenRequest: Equatable {
     var processing: ProcessingCoordinator?
     var appliedRoutes: RouteSettings
     // Preview and the developer probe never touch the login Keychain.
+    let professionalHint = ProfessionalHint(defaults: .standard)
     lazy var credentials: CredentialStore = preview ? InMemoryCredentialStore() : KeychainCredentialStore()
-    private let cloudRequest = CloudRequest()
-    private var cloudDone: (() -> Void)?
-    private var cloudStage: ProcessingStage?
+    let cloudRequest = CloudRequest()
+    var cloudDone: (() -> Void)?
+    var cloudStage: ProcessingStage?
+    /// Voice edit (VoiceEdit.swift): armed by the chord, adopted by the next start, spent by this recording's transcript.
+    var pendingVoiceEdit: VoiceEditSession?
+    var voiceEdit: VoiceEditSession?
+    var voiceEditPressedAt: TimeInterval = 0
+    /// `EditTrigger.sameKey`: the dictation key, when text is selected. Otherwise a recorded `CustomShortcut`.
+    @Published var voiceEditShortcut = Prefs.voiceEditShortcut.fallback
     /// This session's cloud transcriber, chosen at start; nil means local Parakeet.
     var sessionTranscriber: TranscriptionProvider?
     var capture: Capture?
@@ -206,7 +215,7 @@ enum ScreenRequest: Equatable {
     }
     private var leadingSpaceThisSession = false
     private var shortcutGeneration = UUID()
-    private var listener: ShortcutListener?
+    var listener: ShortcutListener?
     private var source: CFRunLoopSource?
     private var tapThread: TapThread?
     let prestart = PreStart()
@@ -494,7 +503,6 @@ enum ScreenRequest: Equatable {
             guard alert.runDestructive() == .alertFirstButtonReturn else { historyMode = appliedHistoryMode; return }
         }
         let routes = routeSettings
-        if routes.cleanup == .appleIntelligence && appliedRoutes.cleanup != .appleIntelligence { AppleCleanupProvider().prewarm() }
         if routes.cleanup == .localModel && appliedRoutes.cleanup != .localModel { LocalModelCleanupProvider().prewarm() }
         appliedRoutes = routes; routes.save(to: .standard)
         appliedRetention = retention
@@ -550,6 +558,13 @@ enum ScreenRequest: Equatable {
         next.onEscapeWhileProcessing = { [weak self] in self?.cancelCloudRequest() }
         next.onCopyChord = { [weak self] in self?.copyLatestRawTranscript() }
         next.onPasteChord = { [weak self] in self?.pasteLastDictation() }
+        next.onRevertChord = { [weak self] in self?.revertToRaw() }
+        next.revertOffered = { [weak self] in self?.revertOffered == true }
+        if case .custom(let edit) = ShortcutBinding(stored: voiceEditShortcut), voiceEditShortcut != EditTrigger.sameKey {
+            next.editBinding = edit; next.editSelectionProbe = editSelectionReadable
+            next.onEditPress = { [weak self] in self?.voiceEditPressed() }
+            next.onEditRelease = { [weak self] in self?.voiceEditReleased() }
+        }
         next.pressToToggle = pressToToggle
         // A press while the previous dictation processes records right away; its events replay
         // into the machine when that dictation finishes, which adopts this capture.
@@ -607,21 +622,30 @@ enum ScreenRequest: Equatable {
             guard permission() == .authorized else { refuse("Allow Microphone access in Settings before dictating.", done: done); return }
             // An unconfigured cloud route refuses; it never falls back to local.
             // A mode may turn cleanup on even when the Cleanup settings have it all off.
-            let sendsText = (processing?.settings.options.anyEnabled ?? false) || writingModes.contains { $0.enabled && $0.options?.anyEnabled == true }
+            // With the dictation key and a readable selection this recording is a voice edit; with none, it dictates as before.
+            if pendingVoiceEdit == nil, let edit = voiceEditForDictationKey() {
+                switch edit {
+                case .success(let session): pendingVoiceEdit = session
+                case .failure(let refusal): refuse(refusal.message, done: done); return
+                }
+            }
+            let editing = pendingVoiceEdit != nil // An edit sends no dictation cleanup and reads no screen context.
+            let sendsText = !editing && ((processing?.settings.options.anyEnabled ?? false) || writingModes.contains { $0.enabled && $0.options?.anyEnabled == true })
             let plan = routePlan(appliedRoutes, cleanupSendsText: sendsText)
             if let refusal = plan.refusal { refuse(refusal, done: done); return }
             if plan.usesLocalModel, let refusal = ModelGate.startRefusal(modelAvailable: modelFilesAvailable(), runtimeAvailable: BundledModels.helper != nil, downloadingActiveModel: modelSlot.inFlight && !usesCustomModelFolder) {
                 refuse(refusal, done: done); return
             }
-            sessionTranscriber = plan.transcriber; processing?.cloudCleaner = plan.cleaner
-            (plan.cleaner as? AppleCleanupProvider)?.prewarm(); (plan.cleaner as? LocalModelCleanupProvider)?.prewarm()
+            sessionTranscriber = plan.transcriber; processing?.cloudCleaner = plan.cleaner; processing?.engineCleaner = engineProvider()
+            (plan.cleaner as? LocalModelCleanupProvider)?.prewarm()
             destination = try? captureFocus()
             if destination?.secure == true { refuse("Password fields cannot receive dictation.", done: done); return }
             if destination?.pid == getpid() { destination = nil }
             insertThisSession = automaticInsertion; leadingSpaceThisSession = intelligentLeadingSpace; activeModelDirectory = modelDirectory
             listeningStarted = Date(); generation = UUID(); recoveryEntryID = nil; recordingFailed = false
+            voiceEdit = pendingVoiceEdit.map { var edit = $0; edit.generation = generation; return edit }; pendingVoiceEdit = nil
             destinationScreen = screenForDestination(destination)
-            captureModeAndContext(aiCleanup: plan.cleaner != nil)
+            captureModeAndContext(aiCleanup: plan.cleaner != nil && voiceEdit == nil)
         }
         let wasListening = session.state == .listening
         if wasListening, action == .finish {
@@ -667,7 +691,7 @@ enum ScreenRequest: Equatable {
         // Read only if this dictation could use it: the start mode (or the global setting) has it on,
         // or a mode that a trigger word could still pick does.
         // The managed local model never uses screen text, so none is read for it.
-        guard aiCleanup, appliedRoutes.cleanup != .localModel, let settings = processing?.settings,
+        guard aiCleanup || processing?.engineCleaner != nil, appliedRoutes.cleanup != .localModel || processing?.engineCleaner != nil, let settings = processing?.settings,
               DictationStyle.needsScreenContext(mode: sessionMode, modes: modes, settings: settings),
               !IsSecureEventInputEnabled(), destination?.secure != true else { return }
         let pasteboard = NSPasteboard.general
@@ -784,7 +808,7 @@ enum ScreenRequest: Equatable {
         _ = listener.runAsProcessing { [weak self] done in
             guard let self else { done(); return }
             self.destination = item.destination; self.sessionMode = item.mode; self.sessionContext = item.context
-            self.destinationScreen = item.screen; self.sessionTranscriber = item.transcriber; self.processing?.cloudCleaner = item.cleaner
+            self.destinationScreen = item.screen; self.sessionTranscriber = item.transcriber; self.processing?.cloudCleaner = item.cleaner; self.processing?.engineCleaner = self.engineProvider()
             self.insertThisSession = item.insert; self.leadingSpaceThisSession = item.leadingSpace
             self.activeModelDirectory = item.modelDirectory; self.listeningStarted = item.started
             self.generation = UUID(); self.recoveryEntryID = nil
@@ -804,15 +828,19 @@ enum ScreenRequest: Equatable {
         let stage = cloudStage; cloudStage = nil
         if stage == .transcription, let audio = session.audio { try? FileManager.default.removeItem(at: audio) }
         destination = nil
-        setPhase(.ready, stage == .transcription ? CloudTranscription.message(.cancelled) ?? "Canceled." : "Canceled. The raw transcript is saved in History and was not inserted.")
+        let editing = voiceEdit != nil; voiceEdit = nil
+        setPhase(.ready, editing && stage != .transcription ? "Edit canceled. Your text was not changed." : stage == .transcription ? CloudTranscription.message(.cancelled) ?? "Canceled." : "Canceled. The raw transcript is saved in History and was not inserted.")
         bubble.hide(); historySaved(); done()
     }
     /// A dictation that could not be pasted, shown in the bubble with Copy. Any other status replaces it.
     /// `title` names why: a failed paste, or a paste Murmur did not attempt.
     struct PasteFailure: Equatable { let entryID: String?; let text: String; var title = "Couldn’t paste here" }
     @Published private(set) var pasteFailure: PasteFailure?
+    /// Voice edit's processing bubble shows where the text goes; other processing bubbles stay as dots.
+    private(set) var processingLabel: String?
     /// `quick`: a status that needs no action ("No speech") goes after 2 s instead of 8.
-    func setPhase(_ phase: Phase, _ message: String, announcement: String? = nil, pasteFailure: PasteFailure? = nil, quick: Bool = false) {
+    func setPhase(_ phase: Phase, _ message: String, announcement: String? = nil, pasteFailure: PasteFailure? = nil, quick: Bool = false, showsMessage: Bool = false) {
+        processingLabel = showsMessage && phase == .processing ? message : nil
         self.phase = phase; self.message = message; self.pasteFailure = pasteFailure
         if phase == .listening || phase == .processing { clearModeRecovery() }
         // Every finished status leaves on its own unless replaced: text stays in History and retry audio
@@ -990,6 +1018,7 @@ enum ScreenRequest: Equatable {
     /// Dictionary, then cleanup, for a transcript already saved to History. Local rules run here;
     /// any other cleanup route makes one provider call in a cancellable Task (no local fallback).
     private func deliver(_ savedEntry: HistoryEntry, store: HistoryRouter<HistoryEntry>, token: UUID, done: @escaping () -> Void) {
+        if let edit = voiceEdit, edit.generation == token { runVoiceEdit(edit, instruction: savedEntry.rawText, entry: savedEntry, store: store, done: done); return }
         cleanupStartedAt = ProcessInfo.processInfo.systemUptime
         // Saved with the next write of this entry; no extra disk write before insertion.
         var savedEntry = savedEntry; savedEntry.seconds = sessionSeconds
@@ -1019,7 +1048,7 @@ enum ScreenRequest: Equatable {
             detail.contextChars = ["selected": context.selected.count, "clipboard": context.clipboard.count, "window": context.window.count]
         }
         savedEntry.cleanup = detail
-        guard let processing, processing.settings.route != .local else {
+        guard let processing, processing.settings.route != .local || style?.usesEngine == true else {
             complete(processing?.process(text, style: style) ?? ProcessingResult(outcome: .heldForRecovery(raw: text, reason: .cleanerFailed)), entry: savedEntry, store: store, done: done); return
         }
         cloudStage = .cleanup; cloudDone = done
@@ -1065,8 +1094,9 @@ enum ScreenRequest: Equatable {
             entry.cleanup = detail
         }
         timingLog.notice("cleanup took=\(ProcessInfo.processInfo.systemUptime - self.cleanupStartedAt, format: .fixed(precision: 3)) path=\(result.cleanupPath?.rawValue ?? "none", privacy: .public)")
-        entry.cleanupProvider = processing?.settings.route == .local ? "local-rules" : processing?.cloudCleaner?.id.rawValue
-        entry.cleanupModel = processing?.cloudCleaner?.modelID
+        // A writing-mode dictation ran on the AI engine, whatever the cleanup route is.
+        entry.cleanupProvider = result.engine?.rawValue ?? (processing?.settings.route == .local ? "local-rules" : processing?.cloudCleaner?.id.rawValue)
+        entry.cleanupModel = result.engine != nil ? processing?.engineCleaner?.modelID : processing?.cloudCleaner?.modelID
         entry.contextUsed = result.contextUsed
         let text = entry.rawText
         let saved = HistoryText.saved(persists: !store.sessionOnlyIDs.contains(entry.id))
@@ -1105,6 +1135,7 @@ enum ScreenRequest: Equatable {
             endDictation(done); return
         }
         lastDictationText = processed
+        professionalHint.consider(entryID: entry.id, raw: text, professionalActive: cleanupProfessional && cleanupChoice.cloudOnlyOK)
         if insertThisSession {
             // Murmur never pastes into itself, but a text view in its own window (the Report an Issue box) takes the text directly.
             if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid(), let editor = NSApp.keyWindow?.firstResponder as? NSTextView, editor.isEditable, !editor.isFieldEditor {
@@ -1205,7 +1236,7 @@ enum ScreenRequest: Equatable {
             do { try processing.update(local, persist: false) }
             catch { fputs("app-check=refused local-settings-failed\n", stderr); completion(); return }
         }
-        sessionTranscriber = nil; processing?.cloudCleaner = nil
+        sessionTranscriber = nil; processing?.cloudCleaner = nil; processing?.engineCleaner = nil
         destination = focused; insertThisSession = true; leadingSpaceThisSession = intelligentLeadingSpace
         activeModelDirectory = modelDirectory; listeningStarted = Date(); generation = UUID()
         destinationScreen = screenForDestination(focused); recoveryEntryID = nil

@@ -142,8 +142,8 @@ import AVFoundation
         controller.useFaithfulTranscription()
         controller.cleanupChoice = .localRules
         controller.cleanupStyle = .polish
-        precondition(controller.cleanupChoice == .appleIntelligence && controller.cleanupPolish && !controller.cleanupProfessional,
-                     "Polish without a model selects Apple Intelligence")
+        precondition(controller.cleanupChoice == .murmurCloud && controller.cleanupPolish && !controller.cleanupProfessional,
+                     "Polish on a local route moves to Murmur Cloud")
         controller.cleanupChoice = .customAPI
         controller.cleanupStyle = .strict
         precondition(controller.cleanupChoice == .customAPI && !controller.cleanupPolish && !controller.cleanupProfessional,
@@ -438,6 +438,19 @@ import AVFoundation
         precondition(!ShortcutListener.isCopyChord(keyCode: 9, flags: [.maskControl, .maskCommand]))
         precondition(ShortcutListener.isPasteChord(keyCode: 9, flags: [.maskControl, .maskCommand]))
         precondition(!ShortcutListener.isPasteChord(keyCode: 9, flags: [.maskCommand]), "plain ⌘V is never taken")
+        precondition(ShortcutListener.isRevertChord(keyCode: 6, flags: [.maskControl, .maskCommand]) && !ShortcutListener.isRevertChord(keyCode: 6, flags: [.maskCommand]), "plain ⌘Z is never taken")
+        precondition(CustomShortcut.refusal(keyCode: 6, modifiers: [.maskControl, .maskCommand]) != nil, "⌃⌘Z cannot be the dictation shortcut")
+        precondition(AppController.replacementCounts(.verified) && !AppController.replacementCounts(.unverified) && !AppController.replacementCounts(.failed), "only a verified paste counts as replaced")
+        let caret = AppController.caretAfter(CFRange(location: 4, length: 5))
+        precondition(caret.location == 9 && caret.length == 0, "a failed paste leaves no selected span")
+        let range = NSRange(location: 4, length: 5)
+        precondition(AppController.recoveryRangeIsIntact(value: "abc Hello def", range: range, inserted: "Hello"))
+        precondition(!AppController.recoveryRangeIsIntact(value: "abc Hellp def", range: range, inserted: "Hello"), "an edited span is never reverted")
+        precondition(!AppController.recoveryRangeIsIntact(value: "abc", range: range, inserted: "Hello"), "a shortened field is never reverted")
+        precondition(AppController.routeLabel(transcription: "local", cleanup: "local-rules", outcome: .localRoute) == "Heard and cleaned: Local")
+        precondition(AppController.routeLabel(transcription: "local", cleanup: "murmur-cloud", outcome: .modelAccepted) == "Heard: Local · Cleaned: Murmur Cloud")
+        precondition(AppController.routeLabel(transcription: "murmur-cloud", cleanup: "murmur-cloud", outcome: .localRules) == "Heard: Murmur Cloud · Cleaned: sent to Murmur Cloud, local rules used")
+        precondition(AppController.routeLabel(transcription: "local", cleanup: "murmur-cloud", outcome: .off) == "Heard: Local", "cleanup off sends nothing")
 
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("chunks-\(UUID())")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

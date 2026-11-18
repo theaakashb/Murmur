@@ -6,7 +6,7 @@ extension AppController {
         do { history = try records?.entries() ?? []; sessionOnlyIDs = records?.sessionOnlyIDs ?? [] }
         catch { message = "Could not read saved history." }
         // Once per change, not per render: Settings re-renders with every voice-level tick.
-        insights = Insights.compute(history.filter { !sessionOnlyIDs.contains($0.id) }.map {
+        insights = Insights.compute(history.filter { !sessionOnlyIDs.contains($0.id) && $0.editOriginal == nil }.map {
             InsightsItem(recordedAt: $0.recordedAt, rawText: $0.rawText, finalText: $0.finalText, seconds: $0.seconds, app: $0.app, expanded: $0.cues != nil)
         }, historyOn: appliedHistoryMode == .on, now: Date(), calendar: .current)
     }

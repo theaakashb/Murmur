@@ -8,8 +8,15 @@ import FoundationNetworking
 // OpenAI-style multipart upload. The guard stays in the app (Processing.cloudClean).
 
 enum MurmurCloud {
-    static let baseURL = URL(string: "https://api-murmur.clouddev.cc")!
+    static let defaultHost = "api.murmurdictation.com"
+    /// Build-time only (app/build.sh MURMUR_CLOUD_HOST, for testing against a Preview); not a setting.
+    static let baseURL = baseURL(infoHost: Bundle.main.object(forInfoDictionaryKey: "MurmurCloudHost") as? String)
+    static func baseURL(infoHost: String?) -> URL {
+        URL(string: "https://\(infoHost.flatMap { $0.isEmpty ? nil : $0 } ?? defaultHost)") ?? URL(string: "https://\(defaultHost)")!
+    }
     static var host: String { baseURL.host! }
+    /// No subscription purchase or free trial in this release. Flip to true to show "Start a trial" everywhere.
+    static let purchaseAvailable = false
     static let cleanupModel = "murmur-cleanup"
     static let transcriptionModel = "murmur-transcribe"
     /// The server's cleanup call to its model times out after 30 s; this leaves room for the upload and reply.
@@ -87,7 +94,7 @@ struct MurmurCloudCleanupProvider: CleanupProvider {
         DataDisclosure(provider: id, stage: .cleanup, destinationHost: MurmurCloud.host,
                        leavesDevice: ["the transcript text", "relevant dictionary terms", "any enabled screen context and style notes"],
                        staysOnDevice: ["audio", "history", "the rest of the dictionary"],
-                       retentionNote: "Murmur Cloud has it cleaned by a model on Amazon Bedrock.")
+                       retentionNote: "")
     }
 
     /// Rewrite presets and meeting notes carry no typed input: the server does not take them, so they are refused, not approximated.
@@ -111,7 +118,7 @@ struct MurmurCloudTranscriptionProvider: DetailedTranscriber {
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .transcription, destinationHost: MurmurCloud.host,
                        leavesDevice: ["audio"], staysOnDevice: ["dictionary", "history"],
-                       retentionNote: "Murmur Cloud has it transcribed by Groq.")
+                       retentionNote: "")
     }
 
     func makeRequest(_ audio: AudioPayload, boundary: String = Multipart.makeBoundary()) -> URLRequest {

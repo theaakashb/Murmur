@@ -4,7 +4,7 @@ Configure transcription and cleanup independently in Settings. Cloud routes requ
 
 ## Configure a route
 
-1. Choose a transcription route in Settings → Transcription and a cleanup style in Settings → Cleanup. Polish and Professional use the AI model you pick there; Faithful and Strict run on this Mac. Local Parakeet transcription and built-in cleanup need no provider account; Apple Intelligence cleanup depends on system availability.
+1. Choose a transcription route in Settings → Transcription and a cleanup style in Settings → Cleanup. Polish and Professional use the AI model you pick there; Faithful and Strict run on this Mac. Local Parakeet transcription and built-in cleanup need no provider account; Apple Intelligence is offered only for meeting notes (Settings → Meetings), depending on system availability.
 2. For Custom Provider, enter the service's base URL, model ID and, when required, API key. Transcription and cleanup have separate fields and destination-bound keys. URLs and model IDs apply on Return or focus loss; keys require Save.
 
 | Custom stage | Request | Base URL example |
@@ -18,7 +18,7 @@ Only loopback destinations count as on this Mac and can work without a key; a lo
 
 ## Murmur Cloud
 
-Murmur Cloud is Murmur's hosted service at `https://api-murmur.clouddev.cc` (fixed, not a setting). Choose it for cleanup only, or for transcription and cleanup. Paste the Murmur Cloud key in its key field; Validate calls `GET /v1/models` (a 402 means no active plan). With local transcription only `POST /v1/cleanup` runs and no audio leaves the Mac.
+Murmur Cloud is Murmur's hosted service at `https://api.murmurdictation.com` (fixed, not a setting). Choose it for cleanup only, or for transcription and cleanup. Paste the Murmur Cloud key in its key field; Validate calls `GET /v1/models` (a 402 means no active plan). With local transcription only `POST /v1/cleanup` runs and no audio leaves the Mac.
 
 | Stage | Request |
 | --- | --- |
@@ -26,6 +26,8 @@ Murmur Cloud is Murmur's hosted service at `https://api-murmur.clouddev.cc` (fix
 | Cleanup | Murmur's own JSON to `/v1/cleanup`: the transcript after the Mac's own edits, the level (Polish or Professional), the four cleanup toggles, relevant dictionary terms, style notes and any enabled screen context. The server builds the prompt; the guard stays on this Mac. |
 
 The Prompt, Email and Notes presets are not sent to Murmur Cloud: their dictations get ordinary cleanup without the preset's instructions. Meeting notes have their own route and never use Murmur Cloud.
+
+**AI engine.** Writing modes (presets and per-app or per-website styles) run on their own engine, chosen in Settings → Writing → Modes: Apple Intelligence (this Mac, macOS 26), your Custom Provider, or Murmur Cloud. A dictation that uses a mode is sent only to that engine, even when Cleanup runs on this Mac; with Apple Intelligence nothing leaves the Mac. With no engine available, modes apply only their non-AI settings. History records the engine that ran.
 
 Custom cleanup makes one provider request per dictation. A provider error or rejected rewrite can use guarded local cleanup; a transcription error does not switch to another transcriber.
 

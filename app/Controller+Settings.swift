@@ -6,6 +6,7 @@ import AppKit
 
 extension Prefs {
     static let shortcut = Setting("shortcut", ShortcutBinding.defaultID)
+    static let voiceEditShortcut = Setting("voiceEditShortcut", EditTrigger.sameKey)
     static let modelDirectory = Setting("modelDirectory", ModelFacts.batch.directory(FileManager.default.homeDirectoryForCurrentUser).path)
 }
 
@@ -32,7 +33,7 @@ extension AppController {
     /// Every setting that is stored in UserDefaults and applies as soon as it changes (README "Settings and recovery").
     /// The model folder is the exception: its own watcher applies it. Routes are `routeSettings`.
     static let persisted: [PersistedSetting] = [
-        PersistedSetting(Prefs.shortcut, \.shortcut), PersistedSetting(Prefs.showMenuBar, \.showMenuBar), PersistedSetting(Prefs.showInDock, \.showInDock), PersistedSetting(Prefs.meetingIndicator, \.meetingIndicator),
+        PersistedSetting(Prefs.shortcut, \.shortcut), PersistedSetting(Prefs.voiceEditShortcut, \.voiceEditShortcut), PersistedSetting(Prefs.showMenuBar, \.showMenuBar), PersistedSetting(Prefs.showInDock, \.showInDock), PersistedSetting(Prefs.meetingIndicator, \.meetingIndicator),
         PersistedSetting(Prefs.inputDeviceUID, \.inputDeviceUID), PersistedSetting(Prefs.intelligentLeadingSpace, \.intelligentLeadingSpace),
         PersistedSetting(Prefs.automaticInsertion, \.automaticInsertion), PersistedSetting(Prefs.pressToToggle, \.pressToToggle),
         PersistedSetting(Prefs.recordingSounds, \.recordingSounds), PersistedSetting(Prefs.keepRecordings, \.keepRecordings),
@@ -56,16 +57,19 @@ extension AppController {
     var cleanupStyle: CleanupStyle {
         get {
             guard cleanupFillers || cleanupCorrections || cleanupLists || cleanupPunctuation || cleanupSpoken else { return .faithful }
-            return cleanupChoice == .localRules ? .strict : cleanupProfessional ? .professional : cleanupPolish ? .polish : .strict
+            // The local routes have no levels: their one cleanup is Natural. A stored cloud level is kept for when a cloud route is chosen again.
+            return !cleanupChoice.cloudOnlyOK ? .strict : cleanupProfessional ? .professional : cleanupPolish ? .polish : .strict
         }
         set {
             if newValue == .faithful { useFaithfulTranscription(); return }
             if cleanupStyle == .faithful { cleanupFillers = true; cleanupCorrections = true; cleanupLists = true; cleanupPunctuation = true; cleanupSpoken = true }
             cleanupPolish = newValue.needsModel; cleanupProfessional = newValue == .professional
-            // Polish and Professional need a model; Strict keeps the stored one for next time.
-            if newValue.needsModel, cleanupChoice == .localRules, let first = CleanupChoice.allCases.first(where: { $0 != .localRules }) { cleanupChoice = first }
+            // Polish and Professional run on Murmur Cloud or a Custom Provider (the Settings picker offers them first).
+            if newValue.needsModel, !cleanupChoice.cloudOnlyOK { cleanupChoice = .murmurCloud }
         }
     }
+
+    func engineProvider() -> CleanupProvider? { aiEngine?.provider(routes: appliedRoutes, key: { (try? self.credentials.read($0)) ?? nil }) }
 
     /// Changes whenever a setting that applies immediately changes; the settings window calls `settingsChanged` on it.
     var immediateSettings: [AnyHashable] { Self.persisted.map { $0.value(self) } + [installUpdatesAutomatically] }

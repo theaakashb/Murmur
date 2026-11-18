@@ -23,7 +23,8 @@ struct UtilityGlass: ViewModifier {
         if opaquePreview || reduceTransparency || contrast == .increased {
             content.background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: radius))
         } else {
-            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: radius))
+            if #available(macOS 26.0, *) { content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: radius)) }
+            else { content.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: radius)) }
         }
     }
 }
@@ -295,19 +296,24 @@ struct SettingInfoButton: View {
     }
 }
 
-func segmented<T: Hashable>(_ options: [(T, String)], _ selection: Binding<T>, size: CGFloat = 15) -> some View {
+func segmented<T: Hashable>(_ options: [(T, String)], _ selection: Binding<T>, size: CGFloat = 15, cloud: @escaping (T) -> Bool = { _ in false }) -> some View {
     HStack(spacing: 12) {
         ForEach(options.indices, id: \.self) { index in
             let (value, label) = options[index]
             let on = selection.wrappedValue == value
             Button { selection.wrappedValue = value } label: {
-                Text(label).font(WindowType.body(size, weight: .medium)).lineLimit(1).minimumScaleFactor(0.75)
+                HStack(spacing: 4) {
+                    Text(label).lineLimit(1).minimumScaleFactor(0.75)
+                    if cloud(value) { Image(systemName: "cloud.fill").font(.system(size: size - 2)).foregroundStyle(Palette.accent) }
+                }
+                    .font(WindowType.body(size, weight: .medium))
                     .frame(maxWidth: .infinity).frame(minHeight: 40)
                     .foregroundStyle(on ? Palette.ink : Palette.ink70)
                     .overlay(alignment: .bottom) { Rectangle().fill(on ? Palette.accent : Color.clear).frame(height: 2) }
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain).accessibilityAddTraits(on ? .isSelected : [])
+            .accessibilityLabel(cloud(value) ? "\(label), runs on Murmur Cloud" : label)
         }
     }
 }

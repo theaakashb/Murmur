@@ -11,7 +11,7 @@ Murmur transcribes locally by default and inserts text into the focused field. I
 ## Requirements
 
 - Apple Silicon Mac (M1 or later). Intel is not supported.
-- macOS 26 or later.
+- macOS 14 or later on Apple silicon. Apple Intelligence cleanup and Apple Intelligence meeting notes need macOS 26; call-audio meeting capture needs macOS 14.2 (macOS 14.0 and 14.1 record the microphone only). The Liquid Glass bubble is used on macOS 26; older systems draw a standard material.
 - Swift toolchain to build (the development host uses Swift 6.3.3).
 - Permissions: Microphone, Accessibility, and Input Monitoring for dictation; System Audio Recording for meeting audio from other apps.
 
@@ -19,7 +19,7 @@ Development and performance testing has focused on an M3 MacBook Air with 16 GB 
 
 ## Build
 
-Install Apple Command Line Tools (`xcode-select --install`) or Xcode with a macOS 26 or newer SDK and Swift toolchain before building.
+Install Apple Command Line Tools (`xcode-select --install`) or Xcode with a macOS 26 or newer SDK and Swift toolchain (the app still runs on macOS 14) before building.
 
 ```sh
 git clone https://github.com/theaakashb/Murmur.git
@@ -49,6 +49,8 @@ See [SECURITY.md](SECURITY.md) for reporting and secret-scanning instructions.
 Murmur keeps dictation local by default. Review these data flows before enabling optional features:
 
 - Transcription and cleanup run locally by default. Model downloads and update checks use the network.
+- Writing modes use the AI engine chosen in Settings → Writing → Modes. Apple Intelligence keeps text on this Mac; Murmur Cloud and Custom Provider are opt-in, and a mode dictation is sent only to the engine you picked.
+- Voice edit (your dictation key when text is selected, or a separate shortcut you record) sends the text you selected and your spoken instruction to the AI engine that matches your cleanup route, only when you press it: Apple Intelligence on this Mac for local routes, your Custom Provider at its address, or Murmur Cloud. If that engine fails, the text is never sent to another one. When an edit is applied, History saves the original selection, your instruction and the result on this Mac, with the same retention and Delete All Data as dictations; with History Off nothing is kept after Murmur quits.
 - Cloud processing is opt-in. Settings displays the destination and data disclosure inline. Cloud transcription does not silently switch providers; failed or rejected AI cleanup can use local rules. Use your own provider credentials where required; loopback servers can work without a key.
 - API keys are stored in the macOS Keychain. The provider client redacts key representations and uses content-free errors; do not include keys in issue reports.
 - Transcript history stays on the Mac with no cloud sync. Retention is 30 days by default, with six-month and forever options. History Off keeps new transcripts only until Murmur quits, but does not erase existing history or disable retry audio and dictionary learning. Each entry also keeps diagnostic detail (segment scores, cleanup output, timing) in the same file. Settings can optionally keep each dictation's recording for 7 days (off by default); Delete All Data removes it.

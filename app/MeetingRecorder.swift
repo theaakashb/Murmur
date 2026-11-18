@@ -148,6 +148,7 @@ import os
     /// `cloud`: the meeting's cloud transcriber, fixed for this meeting (nil means this Mac).
     func start(_ source: MeetingSource, cloud: MeetingRoute.Cloud? = nil, cloudName: String? = nil) -> Bool {
         guard live == nil else { message = "A meeting is already being recorded."; return false }
+        let source = SystemAudioTap.isSupported ? source : .microphoneOnly
         if MeetingConsent.needed(defaults) { consentPending = source; return false }
         guard let audioRoot, local != nil else { message = "Meeting notes are unavailable: private storage could not be opened."; return false }
         var meeting = Meeting(id: UUID().uuidString, recordedAt: Date(), source: source)

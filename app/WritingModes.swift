@@ -41,6 +41,8 @@ struct DictationStyle: Equatable, Sendable {
     var tone: Tone = .formal
     var instructions = ""
     var transform: ModeTransform? = nil
+    /// A writing mode applied: this dictation runs on the AI engine (AIEngine.swift), not the cleanup route.
+    var usesEngine = false
     /// Captured screen text, used only when the mode or the global setting has screen context on
     /// and only on an AI route. Set it to nil otherwise.
     var context: ScreenContext? = nil
@@ -56,6 +58,7 @@ struct DictationStyle: Equatable, Sendable {
                   context: (mode?.screenContext ?? settings.screenContext) ? context : nil)
         options.trustModel = settings.options.trustModel
         transform = mode?.transform
+        usesEngine = mode != nil
         if !usesModel { self.context = nil } // Strict and Faithful run on this Mac; nothing to send context to.
     }
 

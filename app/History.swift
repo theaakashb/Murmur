@@ -5,7 +5,7 @@ import Darwin
 /// this version does not know still decodes and re-saves unchanged; read it through `HistoryEntry.status`.
 enum InsertionStatus: String {
     case savedNotInserted = "saved-not-inserted", insertionPending = "insertion-pending", heldCleanup = "held-cleanup"
-    case heldTranscript = "held-transcript", copied, failed, verified, unverified
+    case heldTranscript = "held-transcript", copied, failed, verified, unverified, edited
 }
 
 struct HistoryEntry: Codable, Identifiable, RetainedHistoryItem {
@@ -52,6 +52,8 @@ struct HistoryEntry: Codable, Identifiable, RetainedHistoryItem {
     var timing: StageTiming? = nil
     /// File name in `history/recordings` when "Keep recordings for diagnostics" was on; purged after 7 days.
     var recordingFile: String? = nil
+    /// A voice edit: the selection before the edit (`rawText` is the spoken instruction, `finalText` the result). Local only; expires with the entry.
+    var editOriginal: String? = nil
 
     /// The same dictation with new text and status; the recording facts carry over.
     func with(finalText: String, status: InsertionStatus? = nil, fallback: String? = nil, rejected: String? = nil) -> HistoryEntry {
@@ -265,9 +267,9 @@ struct HistoryStore {
 extension HistoryEntry {
     var needsAttention: Bool { [.insertionPending, .failed, .heldCleanup, .heldTranscript].contains(status) }
 
-    /// The entry History opens expanded: the last dictation's, while it still needs attention or was saved without being pasted.
+    /// The entry History opens expanded: the last dictation's, while it still needs attention, was saved without being pasted, or was a voice edit.
     static func recoveryEntryToOpen(_ id: String?, in history: [HistoryEntry]) -> String? {
-        history.first { $0.id == id && ($0.needsAttention || $0.status == .savedNotInserted) }?.id
+        history.first { $0.id == id && ($0.needsAttention || $0.status == .savedNotInserted || $0.status == .edited) }?.id
     }
 
     var statusLabel: String? {
@@ -276,6 +278,7 @@ extension HistoryEntry {
         case .insertionPending: return "Saved"
         case .failed: return "Not inserted"
         case .copied: return "Copied"
+        case .edited: return "Edited"
         case .heldCleanup: return "Cleanup held"
         case .heldTranscript: return "Held for review"
         default: return "Saved"

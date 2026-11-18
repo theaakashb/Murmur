@@ -34,6 +34,9 @@ enum ProviderID: String, CaseIterable, Codable, Sendable {
         case .murmurCloud: return "Murmur Cloud"
         }
     }
+
+    /// Professional is cloud-only: neither the Local model nor Apple Intelligence runs it.
+    var runsProfessional: Bool { self != .localModel && self != .appleIntelligence }
 }
 
 /// An API key. Every textual and reflective representation is redacted, so printing,

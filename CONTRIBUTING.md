@@ -4,7 +4,7 @@ Murmur is pre-release. Use the root [README](README.md) for visitor setup and pr
 
 ## Requirements
 
-- An Apple Silicon Mac running macOS 26 or later, with Xcode Command Line Tools or Xcode and Swift 6.0 or later for the pinned helper package. The app compiles in Swift 5 language mode.
+- An Apple Silicon Mac running macOS 14 or later (building needs the macOS 26 SDK), with Xcode Command Line Tools or Xcode and Swift 6.0 or later for the pinned helper package. The app compiles in Swift 5 language mode.
 - Python 3 for the corpus and model scripts.
 - Foundation-only modules and their checks also build on Linux; they were last checked with Swift 6.1.2.
 

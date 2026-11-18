@@ -13,7 +13,7 @@ extension AppController {
     func showLocalModelFixture(_ status: ModelStatus, message: String = "") { localSlot.status = status; localSlot.message = message }
     /// The pill without a real insertion.
     func showModeRecoveryFixture(stage: ModeRecovery.Stage) {
-        modeRecovery = ModeRecovery(entryID: "fixture", modeName: "AI Prompt", raw: "", inserted: "", anchor: nil, stage: stage)
+        modeRecovery = ModeRecovery(entryID: "fixture", raw: "", inserted: "", changes: 3, anchor: nil, stage: stage)
         bubble.showRecovery(screen: nil)
     }
 }
@@ -99,11 +99,18 @@ extension AppController {
         window.center(); window.makeKeyAndOrderFront(nil)
         var entries = [
             HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "Synthetic transcript pasted into an unreadable field. Long text wraps for visual inspection.\nSecond synthetic paragraph keeps this fixture free of real transcript content.", finalText: "Synthetic transcript pasted into an unreadable field. Long text wraps for visual inspection.\nSecond synthetic paragraph keeps this fixture free of real transcript content.", insertionStatus: InsertionStatus.unverified.rawValue),
+            { var e = HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-1800), rawText: "um so the synthetic meeting is at three pm on tuesday we should uh bring the slides", finalText: "So the synthetic meeting is at 3 PM on Tuesday. We should bring the slides.", insertionStatus: (args.contains("--history-diff") ? InsertionStatus.savedNotInserted : InsertionStatus.verified).rawValue)
+              e.transcriptionProvider = "local"; e.cleanupProvider = "murmur-cloud"; e.cleanupOutcome = .modelAccepted; return e }(),
             HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-3600), rawText: "Synthetic verified transcript.", finalText: "Synthetic verified transcript.", insertionStatus: InsertionStatus.verified.rawValue)
         ]
         entries[0].cleanupOptions = CleanupOptions(professional: true); entries[0].cleanupFallback = CleanupFailureReason.unexplainedDeletion.rawValue
         entries[0].cleanupOutcome = .localRules
         if CommandLine.arguments.contains("--paste-failed") { entries[0].insertionStatus = InsertionStatus.failed.rawValue }
+        // --history-edit: a voice edit entry (synthetic selection, instruction and result), opened in History.
+        if args.contains("--history-edit") {
+            var e = HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "make this friendlier and fix the typo", finalText: "Hi Sam, thanks for sending the draft. I made a few small fixes.", insertionStatus: InsertionStatus.edited.rawValue)
+            e.writingModeName = "Voice edit"; e.editOriginal = "hi sam, thx for sending the draft. i made a few small fixs"; entries.insert(e, at: 0)
+        }
         if CommandLine.arguments.contains("--empty") { entries = [] }
         // Insights: timed dictations into a few apps on most of the last 24 days.
         if args.contains("--insights") && !args.contains("--empty") {
@@ -127,6 +134,10 @@ extension AppController {
                 HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-21600), rawText: "Synthetic transcript hold.", finalText: "", insertionStatus: InsertionStatus.heldTranscript.rawValue)
             ]
         }
+        // --professional-hint [--hint-key [--hint-asking]]: an open Professional offer on a synthetic run-on dictation, without or with a Murmur Cloud key.
+        let hintText = "so I wanted to tell you about the plan for the launch and we should get the designs done and then the copy and then the review and then ship it on Thursday no I mean Friday and also tell the team about the new pricing page and the docs and the changelog and make sure support knows"
+        let hintEntry = HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-300), rawText: hintText, finalText: hintText, insertionStatus: InsertionStatus.verified.rawValue)
+        if CommandLine.arguments.contains("--professional-hint") { entries.insert(hintEntry, at: 0) }
         let sessionOnlyID = entries.first(where: { $0.status == .savedNotInserted })?.id
         do {
             guard let dataDirectory = controller.dataDirectory else { fatalError("Missing isolated fixture storage.") }
@@ -135,7 +146,22 @@ extension AppController {
         } catch { fatalError("Could not seed isolated History fixture.") }
         DispatchQueue.main.async {
             controller.refreshHistory()
-            controller.recoveryEntryID = entries.first?.id
+            if args.contains("--professional-hint") {
+                if args.contains("--hint-key"), let key = APIKey("fixture-key") { try? controller.credentials.save(key, for: .murmurCloud); controller.refreshKeys() }
+                controller.professionalHint.offer(hintEntry.id)
+                if args.contains("--hint-asking") { controller.professionalHint.preview = .asking }
+                // --hint-state ready|unchanged|unavailable|error: a finished preview (synthetic text; no request is made).
+                if let i = args.firstIndex(of: "--hint-state"), args.indices.contains(i + 1) {
+                    switch args[i + 1] {
+                    case "ready": controller.professionalHint.preview = .ready("I wanted to tell you about the launch plan: designs, copy, review, then ship on Friday.")
+                    case "unchanged": controller.professionalHint.preview = .unchanged
+                    case "unavailable": controller.professionalHint.preview = .unavailable("No preview available for this dictation.")
+                    default: controller.professionalHint.preview = .unavailable(ProviderError.quota(.murmurCloud).userMessage)
+                    }
+                }
+            }
+            controller.recoveryEntryID = args.contains("--history-diff") ? entries.first { $0.status == .savedNotInserted }?.id : entries.first?.id
+            if args.contains("--history-diff") || args.contains("--history-edit") { DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { controller.screenRequest = .history } }
             controller.sessionOnlyIDs = sessionOnlyID.map { Set([$0]) } ?? []
             if CommandLine.arguments.contains("--dictionary") {
                 controller.addDictionaryEntry(preferred: "Kubernetes", variants: "")
@@ -208,9 +234,19 @@ extension AppController {
             if CommandLine.arguments.contains("--not-pasted") {
                 controller.showNotPasted(.insertionOff, saved: "Saved to History.", entryID: entries.first?.id, text: "Synthetic dictation saved with Insert at the cursor off.")
             }
+            // --notch / --no-notch: a synthetic notched or notch-less display for the bubble cards.
+            if args.contains("--notch") || args.contains("--no-notch") {
+                let notch = args.contains("--notch")
+                controller.bubble.geometryOverride = BubbleGeometry(screenFrame: NSRect(x: 0, y: 0, width: 1512, height: 982), visibleFrame: NSRect(x: 0, y: 0, width: 1512, height: notch ? 950 : 982),
+                                                                    left: notch ? NSRect(x: 0, y: 950, width: 656, height: 32) : nil, right: notch ? NSRect(x: 856, y: 950, width: 656, height: 32) : nil, notchHeight: notch ? 32 : 0)
+            }
             if let i = args.firstIndex(of: "--mode-recovery") {
                 let name = args.indices.contains(i + 1) ? args[i + 1] : ""
-                controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : .offer)
+                controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "reverted" ? .reverted : .offer)
+                if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
+            }
+            if let i = args.firstIndex(of: "--voice-edit") {
+                controller.showVoiceEditFixture(args.indices.contains(i + 1) ? args[i + 1] : "")
                 if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
             }
             if CommandLine.arguments.contains("--undo") {
@@ -295,6 +331,13 @@ extension AppController {
                 if args.contains("--lecture-notes") { MeetingsPage.initialTab = .lecture }
                 controller.screenRequest = .meetings
                 fixtureMeetingPanel = panel
+            }
+            if args.contains("--diff-only") {
+                window.contentView = NSHostingView(rootView: VStack(alignment: .leading, spacing: 8) {
+                    Text("WHAT CHANGED").font(.system(size: 11, design: .monospaced)).foregroundStyle(Palette.ink70)
+                    WordDiffText(raw: "um so the synthetic meeting is at three pm on tuesday we should uh bring the slides", final: "So the synthetic meeting is at 3 PM on Tuesday. We should bring the slides.")
+                        .font(WindowType.body(15)).lineSpacing(3)
+                }.padding(24).frame(width: 760, height: 180, alignment: .topLeading).background(Palette.paper).preferredColorScheme(.dark))
             }
             if CommandLine.arguments.contains("--bubble-only") { window.orderOut(nil) }
             // --snapshot PATH renders the window offscreen to a PNG and quits; works with the screen locked.

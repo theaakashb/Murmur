@@ -35,6 +35,11 @@ def configure(info, env):
             if not re.fullmatch(r"[0-9]+(?:\.[0-9]+){0,2}", value):
                 raise ValueError(f"{variable} must contain one to three numeric components")
             info[field] = value
+    host = env.get("MURMUR_CLOUD_HOST", "")
+    if host:
+        if not re.fullmatch(r"[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+", host):
+            raise ValueError("MURMUR_CLOUD_HOST must be a bare hostname")
+        info["MurmurCloudHost"] = host
     return info
 
 

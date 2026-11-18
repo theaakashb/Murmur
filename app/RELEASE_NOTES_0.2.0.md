@@ -6,4 +6,4 @@ This preview uses a local development signing identity, not Apple Developer ID, 
 
 If your current build has no Sparkle updater, manually install this version once; later updates can use Sparkle. The stable update feed becomes available when this release is published. [Certain]
 
-Requires Apple silicon and macOS 26 or later. [Certain]
+Requires Apple silicon and macOS 14 or later. [Certain]

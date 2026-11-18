@@ -18,7 +18,7 @@ enum LocalCleanupIdentity {
 
 struct LocalCleanupRequest: Equatable, Sendable {
     var text: String
-    /// "formal" for Professional, otherwise "casual" (the model's default).
+    /// Always "casual" (the model's default): Professional does not run on this Mac.
     var tone: String
     var terms: [String]
 }
@@ -44,7 +44,7 @@ struct LocalModelCleanupProvider: CleanupProvider {
         guard let input = messages.input else { throw ProviderError.invalidConfiguration(id) }
         if let reason = status() { throw ProviderError.modelUnavailable(id, reason) }
         guard input.raw.count <= localCleanupMaximumCharacters else { throw ProviderError.payloadTooLarge(id, limitBytes: nil) }
-        return try await generate(LocalCleanupRequest(text: input.raw, tone: input.options.professional ? "formal" : "casual", terms: Array(input.terms.prefix(12))))
+        return try await generate(LocalCleanupRequest(text: input.raw, tone: "casual", terms: Array(input.terms.prefix(12))))
     }
 
     func validate() async throws { if let reason = status() { throw ProviderError.modelUnavailable(id, reason) } }

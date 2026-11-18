@@ -19,7 +19,7 @@ private struct VoiceBubbles: View {
         // Every display frame: a 0.15 s floor stepped the pulse visibly after release.
         TimelineView(.animation(minimumInterval: nil, paused: phase == .error || reduceMotion)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
-            GlassEffectContainer(spacing: 2) {
+            GlassGroup {
                 HStack(spacing: 0) {
                     ForEach(0..<5) { index in
                         let wobble = reduceMotion ? 1 : 0.65 + 0.35 * sin(t * 9 + Double(index) * 1.7)
@@ -52,8 +52,9 @@ private struct VoiceDotGlass: ViewModifier {
         else if opaque { content.overlay(Capsule().fill(Color.primary.opacity(0.65))) }
         // A royal-blue fill under clear glass: glass tint alone rendered gray and vanished on white.
         else {
-            content.background(Capsule().fill(Palette.accent.opacity(0.55)))
-                .glassEffect(.clear, in: Capsule())
+            let tinted = content.background(Capsule().fill(Palette.accent.opacity(0.55)))
+            if #available(macOS 26.0, *) { tinted.glassEffect(.clear, in: Capsule()) }
+            else { tinted.background(.ultraThinMaterial, in: Capsule()) }
         }
     }
 }
@@ -112,6 +113,22 @@ private struct PasteFailureCard: View {
         }
         .padding(10).frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
+        .modifier(UtilityGlass(radius: 18))
+    }
+}
+
+/// Voice edit's processing bubble: the dots plus where the text is going, so it is seen as well as announced.
+private struct EditingBubble: View {
+    @ObservedObject var controller: AppController
+    let label: String
+    var body: some View {
+        HStack(spacing: 6) {
+            VoiceBubbles(controller: controller, phase: .processing).scaleEffect(0.6).frame(width: 48, height: 28)
+            Text(label).font(.system(size: 12, weight: .medium)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+        }
+        .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore).accessibilityLabel(label)
         .modifier(UtilityGlass(radius: 18))
     }
 }
@@ -181,25 +198,25 @@ private struct ModeRecoveryCard: View {
     var body: some View {
         if let recovery = controller.modeRecovery {
             HStack(spacing: 8) {
-                Image(systemName: "slider.horizontal.3").font(.system(size: 12)).foregroundStyle(.secondary).accessibilityHidden(true)
+                Image(systemName: "sparkles").font(.system(size: 12)).foregroundStyle(Palette.accent).accessibilityHidden(true)
                 switch recovery.stage {
                 case .offer:
-                    Text("Mode used: \(recovery.modeName)").font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Spacer(minLength: 4)
-                    CardAction(title: "Use without mode", hint: "Processes the original transcript with ordinary Cleanup and replaces the inserted text if it is unchanged.", inNotch: inNotch) { controller.useWithoutMode() }
-                case .working:
-                    Text("Reprocessing…").font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Spacer(minLength: 4)
-                case .replaced:
-                    Text("Replaced without mode").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    // A chip that reverts to the raw transcript when clicked (⌃⌘Z too).
+                    Button { controller.revertToRaw() } label: {
+                        Text("\(recovery.changes) change\(recovery.changes == 1 ? "" : "s")").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
+                            .frame(maxWidth: .infinity, minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                        .accessibilityLabel("\(recovery.changes) changes by cleanup").accessibilityHint("Replaces the inserted text with your words before cleanup if it is unchanged. Shortcut: Control Command Z.")
+                case .reverted:
+                    Text("Replaced with your words").font(.system(size: 12, weight: .medium)).lineLimit(1)
                     Spacer(minLength: 4)
                 case .copy:
                     Text("Could not replace safely").font(.system(size: 12, weight: .medium)).lineLimit(1)
                     Spacer(minLength: 4)
                     Button("Copy") { controller.copyRecovery() }.buttonStyle(.borderedProminent).controlSize(.small)
-                        .accessibilityHint("Copies the text processed without the mode.")
+                        .accessibilityHint("Copies the replacement text.")
                 }
-                if !inNotch && recovery.stage != .replaced {
+                if !inNotch && recovery.stage != .reverted {
                     Button { controller.clearModeRecovery() } label: { Image(systemName: "xmark") }
                         .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Dismiss")
                 }
@@ -276,6 +293,8 @@ struct BubbleGeometry {
 final class BubblePresenter {
     private let controller: AppController
     private let panel = FloatingPanel(title: "Murmur status")
+    /// Synthetic notch for the UI fixture only (check_ui --notch); real displays leave it nil.
+    var geometryOverride: BubbleGeometry?
     private var transition = UUID()
     private var atNotch = false
 
@@ -290,7 +309,8 @@ final class BubblePresenter {
         notice = nil
         let geo = BubbleGeometry(screen: screen)
         let frame = geo.frame, notchWidth = geo.notchWidth, notchHeight = geo.notchHeight
-        let minimal = phase != .error && controller.pasteFailure == nil
+        let editLabel = phase == .processing ? controller.processingLabel : nil
+        let minimal = phase != .error && controller.pasteFailure == nil && editLabel == nil
         panel.hasShadow = !minimal
         let card = controller.pasteFailure
         let live = phase == .listening && controller.liveWordsActive
@@ -299,14 +319,14 @@ final class BubblePresenter {
         transition = UUID()
         atNotch = notch
         panel.alphaValue = 1
-        let width = notch ? 72 + geo.notchInset : live ? min(420, max(240, frame.width - 32)) : minimal ? 80 : card != nil ? min(320, max(200, frame.width - 32)) : min(240, max(180, frame.width - 32))
-        let content = notch ? AnyView(HStack(spacing: 0) {
+        let width = editLabel != nil ? min(300, max(200, frame.width - 32)) : notch ? 72 + geo.notchInset : live ? min(420, max(240, frame.width - 32)) : minimal ? 80 : card != nil ? min(320, max(200, frame.width - 32)) : min(240, max(180, frame.width - 32))
+        let content = editLabel.map { AnyView(EditingBubble(controller: controller, label: $0)) } ?? (notch ? AnyView(HStack(spacing: 0) {
             VoiceBubbles(controller: controller, phase: phase, ink: Palette.accent).scaleEffect(0.75).frame(width: 72, height: notchHeight)
             Color.clear.frame(width: geo.notchInset, height: notchHeight)
         }.frame(height: notchHeight).background(Color(red: 0, green: 0, blue: 0), in: UnevenRoundedRectangle(bottomLeadingRadius: 12)))
             : live ? AnyView(LiveWordsBubble(controller: controller))
             : minimal ? AnyView(VoiceBubbles(controller: controller, phase: phase))
-            : card.map { AnyView(PasteFailureCard(controller: controller, failure: $0)) } ?? AnyView(BubbleView(controller: controller, message: message))
+            : card.map { AnyView(PasteFailureCard(controller: controller, failure: $0)) } ?? AnyView(BubbleView(controller: controller, message: message)))
         let host = NSHostingView(rootView: content.frame(width: width))
         panel.contentView = host
         let height = host.fittingSize.height
@@ -359,11 +379,13 @@ final class BubblePresenter {
 
     private var notice: UUID?
     /// A card beside the notch, or centred above the bottom edge on a screen without one; `notchMax` and `plain` are its widths.
-    private func showCard<Card: View>(screen: NSScreen?, notchMax: CGFloat, plain: ClosedRange<CGFloat>, _ card: (Bool) -> Card) {
+    private func showCard<Card: View>(screen: NSScreen?, notchMax: CGFloat, plain: ClosedRange<CGFloat>, fitsContent: Bool = false, _ card: (Bool) -> Card) {
         transition = UUID(); atNotch = false; panel.alphaValue = 1
-        let geo = BubbleGeometry(screen: screen)
+        let geo = geometryOverride ?? BubbleGeometry(screen: screen)
         let frame = geo.frame, left = geo.left, hasNotch = geo.hasNotch, notchHeight = geo.notchHeight
-        let width = hasNotch ? min(notchMax, left!.width) : min(plain.upperBound, max(plain.lowerBound, frame.width - 32))
+        var width = hasNotch ? min(notchMax, left!.width) : min(plain.upperBound, max(plain.lowerBound, frame.width - 32))
+        // A card that fits its content: the widest the content wants, never more than the width above.
+        if fitsContent { width = min(width, ceil(NSHostingView(rootView: card(hasNotch).fixedSize(horizontal: true, vertical: false)).fittingSize.width) + 12) }
         let content = hasNotch ? AnyView(HStack(spacing: 0) {
             card(true).frame(width: width, height: notchHeight)
             Color.clear.frame(width: geo.notchInset, height: notchHeight)
@@ -375,7 +397,7 @@ final class BubblePresenter {
         panel.level = hasNotch ? .statusBar : .floating
         let height = host.fittingSize.height
         present(NSRect(x: hasNotch ? left!.maxX - width : frame.midX - width / 2,
-                       y: hasNotch ? geo.screen!.frame.maxY - height : frame.minY + 24,
+                       y: hasNotch ? geo.screenFrame.maxY - height : frame.minY + 24,
                        width: hasNotch ? width + geo.notchInset : width, height: height), slideFrom: hasNotch ? width : nil)
     }
     /// The Undo card; it leaves with the "Recording canceled" status (5 s) or when anything else is shown.
@@ -384,12 +406,12 @@ final class BubblePresenter {
         notice = UUID()
     }
     private var recoveryNotice: UUID?
-    /// The mode recovery pill; leaves after 12 s unless something else took the panel first.
+    /// The mode recovery pill (12 s), or the quiet changes chip (5 s); unless something else took the panel first.
     func showRecovery(screen: NSScreen?) {
-        showCard(screen: screen, notchMax: 320, plain: 260...380) { ModeRecoveryCard(controller: controller, inNotch: $0) }
+        showCard(screen: screen, notchMax: 150, plain: 110...150, fitsContent: true) { ModeRecoveryCard(controller: controller, inNotch: $0) }
         let shown = UUID()
         notice = shown; recoveryNotice = shown
-        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             guard let self, self.recoveryNotice == shown else { return }
             self.controller.clearModeRecovery()
         }
@@ -418,5 +440,13 @@ final class BubblePresenter {
             guard let self, self.notice == shown else { return }
             self.hide()
         }
+    }
+}
+
+/// Liquid Glass groups its children on macOS 26; older systems draw them as they are.
+private struct GlassGroup<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        if #available(macOS 26.0, *) { GlassEffectContainer(spacing: 2) { content } } else { content }
     }
 }

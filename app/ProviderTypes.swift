@@ -77,8 +77,9 @@ struct DataDisclosure: Equatable, Sendable {
             main = "\(provider.displayName) \(stage.rawValue) runs on this Mac (\(destinationHost)); nothing leaves this Mac. \(retentionNote)"
         } else {
             func list(_ items: [String]) -> String { items.count < 2 ? items.joined() : items.dropLast().joined(separator: ", ") + " and " + items.last! }
-            let stays = list(staysOnDevice)
-            main = "Sends \(list(leavesDevice)) to \(destinationHost). \(stays.prefix(1).uppercased() + stays.dropFirst()) \(staysOnDevice.count == 1 ? "stays" : "stay") on this Mac. \(retentionNote)"
+            main = provider == .murmurCloud
+                ? "Sends \(list(leavesDevice)) to Murmur Cloud. See murmurdictation.com/privacy for details."
+                : "Sends \(list(leavesDevice)) to \(destinationHost). \(retentionNote)"
         }
         return warning.map { main + " " + $0 } ?? main
     }

@@ -1,7 +1,7 @@
 import Foundation
 
 // Custom dictionary: manual and learned term preferences, applied to dictated text.
-// Foundation only, so it builds on Linux checks and on macOS 26.
+// Foundation only, so it builds on Linux checks and on macOS.
 
 /// A message-carrying error shared by the dictionary, cue, learning and private-file stores; the controller shows its text.
 struct StoreError: Error, CustomStringConvertible {

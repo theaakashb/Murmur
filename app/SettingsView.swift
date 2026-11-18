@@ -7,22 +7,14 @@ import SwiftUI
 enum CleanupStyle: CaseIterable {
     case faithful, strict, polish, professional
     var label: String {
-        switch self { case .faithful: "Faithful"; case .strict: "Strict"; case .polish: "Polish"; case .professional: "Professional" }
+        switch self { case .faithful: "Faithful"; case .strict: "Natural"; case .polish: "Polish"; case .professional: "Professional" }
     }
     var needsModel: Bool { self == .polish || self == .professional }
     init(_ o: CleanupOptions) { self = !o.anyEnabled ? .faithful : o.professional ? .professional : o.polish ? .polish : .strict }
-    var info: String {
-        switch self {
-        case .faithful: "Faithful keeps your words as dictated."
-        case .strict: "Strict runs on this Mac: it removes fillers and applies clear spoken corrections."
-        case .polish: "Polish uses an AI model to also resolve backtracks and small grammar slips, keeping your voice."
-        case .professional: "Professional uses an AI model to rewrite into clear writing of what you meant."
-        }
-    }
     var help: String {
         switch self {
         case .faithful: "Keeps the words as dictated, apart from dictionary spellings: “Um, let’s meet Tuesday, no, I mean, Thursday, at the cafe.”"
-        case .strict: "Runs on this Mac. Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”"
+        case .strict: "Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”"
         case .polish: "Also resolves backtracks and false starts, and fixes small grammar slips, keeping your voice: “Let’s meet Thursday at the cafe.”"
         case .professional: "Rewrites into clear, professional writing of what you meant: “Let’s meet on Thursday at the café.”"
         }
@@ -78,6 +70,8 @@ struct SettingsView: View {
     /// The last settings pane, restored by ⌘, and on relaunch.
     @AppStorage(Prefs.settingsSection.key) var section = SettingsPane.general
     @State var showAdvanced = false
+    /// A Polish or Professional tap on a local route: the offer shown instead of switching routes silently.
+    @State var levelOffer: CleanupStyle? = CommandLine.arguments.contains("--level-offer") ? .polish : nil // the flag is for check_ui snapshots
     @State var showLiveModel = false
     @State var selectedID: String?
     /// An entry History should scroll into view once it is showing.
@@ -329,9 +323,10 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
             Button { screen = .home } label: {
                 Label("Back to Murmur", systemImage: "chevron.left")
-                    .font(.system(size: 12)).foregroundStyle(Palette.ink70)
-                    .frame(minHeight: 32)
-            }.buttonStyle(.plain).padding(.bottom, 20)
+                    .font(.system(size: 13)).foregroundStyle(Palette.ink70)
+                    .padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+                    .contentShape(Rectangle())
+            }.buttonStyle(BackRowStyle()).accessibilityLabel("Back to Murmur").padding(.bottom, 20)
             Text("Settings").font(.system(size: 14, weight: .medium)).padding(.bottom, 12)
             Button { settingsSearchOpen = true } label: {
                 HStack(spacing: 8) {
@@ -482,17 +477,18 @@ struct SettingsView: View {
                         .padding(.top, 6).padding(.bottom, 24)
                     let tabs = section.tabs
                     if !tabs.isEmpty {
-                        HStack(spacing: 24) {
+                        HStack(spacing: 0) {
                             ForEach(tabs, id: \.self) { value in
                                 Button { section = value; settingsTarget = "top" } label: {
                                     Text(value.name).font(.system(size: 13, weight: .medium))
                                         .foregroundStyle(section == value ? Palette.ink : Palette.ink70)
                                         .padding(.vertical, 12)
                                         .overlay(alignment: .bottom) { Rectangle().fill(section == value ? Palette.accent : .clear).frame(height: 2) }
+                                        .padding(.horizontal, 12).contentShape(Rectangle()) // whole tab cell is clickable, not just the glyphs
                                 }.buttonStyle(.plain).accessibilityAddTraits(section == value ? .isSelected : [])
                             }
                             Spacer(minLength: 0)
-                        }.overlay(alignment: .bottom) { softRule }.padding(.bottom, 24)
+                        }.padding(.leading, -12).overlay(alignment: .bottom) { softRule }.padding(.bottom, 24)
                     }
                     sectionBody.disabled(controller.isBusy)
                     if controller.isBusy { help("Finish dictating to change settings.", color: EditorialPalette.ink70).padding(.top, 12) }
@@ -541,4 +537,14 @@ func standardEditMenuItem() -> NSMenuItem {
     let item = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
     item.submenu = edit
     return item
+}
+
+/// The sidebar's back row: the same accent tint as a selected row, on hover and while pressed.
+private struct BackRowStyle: ButtonStyle {
+    @State private var hovering = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(hovering || configuration.isPressed ? Palette.accent16 : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+            .onHover { hovering = $0 }
+    }
 }

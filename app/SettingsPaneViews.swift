@@ -50,6 +50,7 @@ extension SettingsView {
                 ShortcutPresetPicker(controller: controller)
             }.padding(.vertical, 12)
             ShortcutRecorder(controller: controller).padding(.bottom, 12)
+            VoiceEditShortcutSettings(controller: controller)
             toggleRow("Press once to start, again to stop", "Holding still works: release to stop. Off means hold to record.", isOn: $controller.pressToToggle)
             softRule.padding(.vertical, 12)
             eyebrow("Audio")
@@ -179,23 +180,42 @@ extension SettingsView {
         Binding(get: { controller.cleanupStyle }, set: { controller.cleanupStyle = $0 })
     }
 
-    static let aiCleanupChoices = CleanupChoice.allCases.filter { $0 != .localRules }
+    /// Cleanup levels for the route: the local routes have Faithful and Natural; Polish and Professional are Murmur Cloud levels there, shown with a cloud icon.
+    private var styleChoices: [(CleanupStyle, String)] { CleanupStyle.allCases.map { ($0, $0.label) } }
+
+    private var routeStyle: Binding<CleanupStyle> {
+        Binding(get: { controller.cleanupStyle }, set: { style in
+            if style.needsModel && !controller.cleanupChoice.cloudOnlyOK { levelOffer = style } else { levelOffer = nil; controller.cleanupStyle = style }
+        })
+    }
 
     var cleanupChoices: some View {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Cleanup style").padding(.top, 28)
             HStack(spacing: 4) {
-                segmented(CleanupStyle.allCases.map { ($0, $0.label) }, cleanupStyle, size: 14)
-                SettingInfoButton(text: CleanupStyle.allCases.map(\.info).joined(separator: "\n"))
+                segmented(styleChoices, routeStyle, size: 14, cloud: { $0.needsModel && !controller.cleanupChoice.cloudOnlyOK })
+                SettingInfoButton(text: "Polish and Professional run on Murmur Cloud or a Custom Provider.")
                     .accessibilityLabel("About cleanup styles")
             }.padding(.top, 8)
             help(cleanupStyle.wrappedValue.help)
                 .padding(.top, 8)
-            if cleanupStyle.wrappedValue.needsModel {
-                eyebrow("AI model").padding(.top, 20)
-                segmented(Self.aiCleanupChoices.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14)
+            if let offered = levelOffer {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("\(offered.label) runs on Murmur Cloud or a Custom Provider.")
+                        .font(Font.system(size: 14)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+                    Button { NSWorkspace.shared.open(MurmurCloud.getURL) } label: { Text(MurmurCloud.getTitle).frame(maxWidth: .infinity, minHeight: 44) }
+                        .buttonStyle(InkButtonStyle(kind: .filled)).disabled(!MurmurCloud.purchaseAvailable)
+                }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(EditorialPalette.accent16).padding(.top, 12)
+            }
+            if cleanupStyle.wrappedValue != .faithful {
+                eyebrow("Cleanup runs on").padding(.top, 20)
+                segmented(CleanupChoice.allCases.map { ($0, short($0.displayName)) }, Binding(get: { controller.cleanupChoice }, set: { levelOffer = nil; controller.cleanupChoice = $0 }), size: 14)
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
                 if controller.cleanupChoice == .localModel { localModelSection }
+                if cleanupStyle.wrappedValue == .strict {
+                    help(controller.cleanupChoice == .localModel ? "Natural runs the Local model's one cleanup under Murmur's guard." : controller.cleanupChoice == .localRules ? "Natural uses built-in rules on this Mac." : "On this route Natural uses built-in rules on this Mac; choose Polish or Professional to use the AI model.")
+                        .padding(.top, 8)
+                }
             }
         }
     }
@@ -219,15 +239,14 @@ extension SettingsView {
             }
             help("If an AI rewrite is rejected, clear spoken corrections can still apply. The raw transcript stays in History.").padding(.top, 16)
 
-            if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() {
-                help(reason.userMessage + " Until then, local rules clean dictations.").padding(.top, 8)
-            }
+            toggleRow("Suggest Professional", "Now and then, in History, Murmur notes when Professional would have tidied a dictation. It decides on this Mac and never sends anything until you ask for a preview.", isOn: Binding(get: { controller.professionalHint.enabled }, set: { UserDefaults.standard.set($0, forKey: ProfessionalHint.enabledKey); controller.objectWillChange.send() }))
+                .padding(.top, 12)
             toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac or Local model. Modes can turn it on or off.", isOn: $controller.screenContext)
                 .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel)
-            if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .customAPI {
+            if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .customAPI {
                 customCleanupSettings
             }
-            if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .murmurCloud {
+            if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .murmurCloud {
                 keyRow(.murmurCloud).padding(.top, 16)
                 disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 8)
             }
@@ -254,6 +273,9 @@ extension SettingsView {
 
     var modes: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if controller.aiEngine == nil {
+                help("Writing modes need Apple Intelligence (macOS 26), a Custom Provider or Murmur Cloud.").padding(.top, 12)
+            }
             HStack(spacing: 4) {
                 Text("How modes are chosen").font(Font.system(size: 14, weight: .semibold))
                 SettingInfoButton(text: "Preset trigger words work at the start of a dictation; other modes also accept them at the end. Spoken triggers take priority, then the website, then the app focused when you started. If two modes match the same way, the first in this list wins. Anything a mode leaves as “Same as Cleanup” follows the Cleanup settings.")
@@ -685,9 +707,13 @@ struct ShortcutPresetPicker: View {
 
 struct ShortcutRecorder: View {
     @ObservedObject var controller: AppController
+    /// The setting this records into: the dictation shortcut, or voice edit's separate one (VoiceEditSettings.swift).
+    var target: ReferenceWritableKeyPath<AppController, String> = \.shortcut
+    var resetTo = ShortcutBinding.defaultID
     @State private var monitor: Any?
     @State private var refusal: String?
-    private var custom: CustomShortcut? { if case .custom(let shortcut) = ShortcutBinding(stored: controller.shortcut) { return shortcut }; return nil }
+    private var custom: CustomShortcut? { if case .custom(let shortcut) = ShortcutBinding(stored: controller[keyPath: target]) { return shortcut }; return nil }
+    private var forEdit: Bool { target == \.voiceEditShortcut }
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
@@ -696,7 +722,7 @@ struct ShortcutRecorder: View {
                 Spacer(minLength: 8)
                 Button(monitor != nil ? "Stop" : "Record Shortcut…") { monitor != nil ? stop() : start() }.buttonStyle(InkButtonStyle(kind: .outline))
                 if custom != nil && monitor == nil {
-                    Button("Reset") { refusal = nil; controller.shortcut = ShortcutBinding.defaultID }.buttonStyle(InkButtonStyle(kind: .outline))
+                    Button("Reset") { refusal = nil; controller[keyPath: target] = resetTo }.buttonStyle(InkButtonStyle(kind: .outline))
                 }
             }
             if let refusal { Text(refusal).font(WindowType.body(13)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }
@@ -714,8 +740,10 @@ struct ShortcutRecorder: View {
             let flags = (event.cgEvent?.flags ?? []).intersection(CustomShortcut.relevant)
             let code = Int64(event.keyCode)
             if code == 53 && flags.isEmpty { stop(); return nil }
-            if let reason = CustomShortcut.refusal(keyCode: code, modifiers: flags) { refusal = reason; return nil }
-            controller.shortcut = CustomShortcut(keyCode: code, modifiers: flags, key: Self.keyName(event)).stored
+            let reason = forEdit ? CustomShortcut.editRefusal(keyCode: code, modifiers: flags, dictation: controller.shortcut)
+                : CustomShortcut.refusal(keyCode: code, modifiers: flags) ?? controller.voiceEditConflict(keyCode: code, modifiers: flags)
+            if let reason { refusal = reason; return nil }
+            controller[keyPath: target] = CustomShortcut(keyCode: code, modifiers: flags, key: Self.keyName(event)).stored
             refusal = nil; stop(); return nil
         }
     }

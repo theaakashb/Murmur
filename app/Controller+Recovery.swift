@@ -1,15 +1,19 @@
-// AppController: mode recovery (the "Use without mode" pill) and paste-failure cards.
+// AppController: the changes chip and paste-failure cards.
 import AppKit
 import os
 
 extension AppController {
     // MARK: Mode recovery
 
-    /// Where verified inserted text sits, so the pill's "Use without mode" can replace exactly it.
+    /// Where verified inserted text sits, so "Use my words" can replace exactly it.
     struct ModeRecoveryAnchor { let element: AXUIElement; let pid: pid_t; let value: String; let range: NSRange }
     struct ModeRecovery {
-        enum Stage: Equatable { case offer, working, replaced, copy(String) }
-        let entryID: String, modeName: String, raw: String, inserted: String
+        enum Stage: Equatable { case offer, copy(String), reverted }
+        /// `changes` counts the words cleanup changed.
+        let entryID: String, raw: String, inserted: String
+        var changes = 0
+        /// The text before cleanup but after dictionary spellings: what "Use my words" puts back.
+        var mine = ""
         var anchor: ModeRecoveryAnchor?
         var stage = Stage.offer
     }
@@ -24,8 +28,29 @@ extension AppController {
         recoveryRequest.cancel(); modeRecovery = nil
         bubble.hideRecovery()
     }
+    /// Where the audio and the text went: "Local" or the route's name. Cleanup is judged by what happened, not
+    /// by the configured route: a cloud call whose output the guard rejected still sent the text.
+    nonisolated static func routeLabel(transcription: String?, cleanup: String?, outcome: CleanupPath?) -> String? {
+        let onThisMac: Set<String> = ["local", "local-rules", ProviderID.localModel.rawValue, ProviderID.appleIntelligence.rawValue]
+        func name(_ id: String) -> String { onThisMac.contains(id) ? "Local" : ProviderID(rawValue: id)?.displayName ?? id }
+        let heard = transcription.map(name)
+        var cleaned: String?
+        if let cleanup, outcome != .off {
+            let n = name(cleanup)
+            cleaned = n != "Local" && (outcome == .localRules || outcome == .modelPunctuationOnLocal) ? "sent to \(n), local rules used" : n
+        }
+        switch (heard, cleaned) {
+        case (nil, nil): return nil
+        case (let h?, nil): return "Heard: \(h)"
+        case (nil, let c?): return "Cleaned: \(c)"
+        case (let h?, let c?): return h == c ? "Heard and cleaned: \(h)" : "Heard: \(h) · Cleaned: \(c)"
+        }
+    }
+    /// Offered after any insertion that changed the transcript.
     func offerModeRecovery(entry: HistoryEntry, inserted: String, insertion: InsertionResult, target: FocusSnapshot?) {
-        guard let name = entry.writingModeName else { return }
+        let mine = entry.cleanup?.input ?? entry.rawText
+        let changes = WordDiff.changeCount(raw: mine, final: inserted)
+        guard changes > 0 else { return }
         var anchor: ModeRecoveryAnchor?
         if insertion.status == .verified, let after = insertion.snapshot, let value = after.value, let selection = target?.selection {
             let range = NSRange(location: selection.location, length: inserted.utf16.count)
@@ -33,27 +58,28 @@ extension AppController {
                 anchor = ModeRecoveryAnchor(element: after.element, pid: after.pid, value: value, range: range)
             }
         }
-        modeRecovery = ModeRecovery(entryID: entry.id, modeName: name, raw: entry.rawText, inserted: inserted, anchor: anchor)
+        modeRecovery = ModeRecovery(entryID: entry.id, raw: entry.rawText, inserted: inserted, changes: changes, anchor: anchor)
+        modeRecovery?.mine = mine
         bubble.showRecovery(screen: destinationScreen)
     }
-    /// Reprocesses the original transcript (trigger included) through ordinary Cleanup, with no mode matching.
-    func useWithoutMode() {
-        guard var recovery = modeRecovery, recovery.stage == .offer, !isBusy, let processing else { return }
-        recovery.stage = .working; modeRecovery = recovery
-        let style = DictationStyle(mode: nil, settings: processing.settings)
-        let entryID = recovery.entryID
-        recoveryRequest.start({ await processing.processAsync(recovery.raw, style: style) }) { [weak self] outcome in
-            guard let self, var recovery = self.modeRecovery, recovery.entryID == entryID, !self.isBusy else { return }
-            guard case .insert(let text) = outcome.outcome, !text.isEmpty else { recovery.stage = .offer; self.modeRecovery = recovery; return }
-            let replacement = recovery.inserted.hasPrefix(" ") && !text.hasPrefix(" ") ? " " + text : text
-            if self.replaceInserted(recovery, with: replacement) {
-                recovery.stage = .replaced
-                self.updateRecoveredHistory(entryID: entryID, text: replacement)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in if self?.modeRecovery?.entryID == entryID { self?.clearModeRecovery() } }
-            } else { recovery.stage = .copy(text) }
-            self.modeRecovery = recovery
-        }
+    /// ⌃⌘Z and the card's "Use raw": puts the raw transcript back over exactly the inserted text. Anything
+    /// unreadable or changed since insertion leaves the field alone.
+    func revertToRaw() {
+        guard var recovery = modeRecovery, recovery.stage == .offer, !isBusy else { return }
+        let text = WordDiff.revertText(raw: recovery.mine, inserted: recovery.inserted)
+        if replaceInserted(recovery, with: text) {
+            recovery.stage = .reverted
+            updateRecoveredHistory(entryID: recovery.entryID, text: text)
+            let id = recovery.entryID
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in if self?.modeRecovery?.entryID == id { self?.clearModeRecovery() } }
+        } else { recovery.stage = .copy(text) }
+        modeRecovery = recovery
     }
+    /// Whether ⌃⌘Z is live: the tap swallows it only while the offer is open.
+    var revertOffered: Bool { modeRecovery?.stage == .offer }
+    /// An empty selection at the end of the span: nothing selected for the next keystroke to delete.
+    nonisolated static func caretAfter(_ range: CFRange) -> CFRange { CFRange(location: range.location + range.length, length: 0) }
+    nonisolated static func replacementCounts(_ status: InsertionResult.Status) -> Bool { status == .verified }
     /// Selects the recorded range and pastes over it, only if the same focused field still holds the
     /// verified value; nothing else is ever touched.
     private func replaceInserted(_ recovery: ModeRecovery, with text: String) -> Bool {
@@ -67,8 +93,14 @@ extension AppController {
               selected.value == anchor.value, selected.selection?.location == range.location, selected.selection?.length == range.length else { return false }
         let result = insertText(text, into: selected)
         timingLog.notice("mode-recovery status=\(result.status.rawValue, privacy: .public) detail=\(result.detail, privacy: .public)")
+        // Only a verified paste counts as replaced. A failed one must not leave the dictated span selected,
+        // where the next keystroke would delete it.
+        if result.status == .failed {
+            var caret = Self.caretAfter(range)
+            if let collapsed = AXValueCreate(.cfRange, &caret) { AXUIElementSetAttributeValue(anchor.element, kAXSelectedTextRangeAttribute as CFString, collapsed) }
+        }
         if result.status != .failed { lastDictationText = text }
-        return result.status != .failed
+        return Self.replacementCounts(result.status)
     }
     private func updateRecoveredHistory(entryID: String, text: String) {
         guard let index = history.firstIndex(where: { $0.id == entryID }) else { return }
