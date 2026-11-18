@@ -1,21 +1,11 @@
 import Foundation
 
 // The engine behind Murmur's optional AI features that are not dictation cleanup: writing modes (and voice edit).
-// One setting, three engines. Dictation cleanup keeps its own route (Routes.swift).
+// No setting: the engine follows the cleanup route (Routes.swift). Murmur Cloud and Custom Provider keep their own; the local routes
+// use Apple Intelligence silently, only where it is available.
 
-enum AIEngine: String, CaseIterable, Identifiable, Sendable {
+enum AIEngine: String, Sendable {
     case appleIntelligence = "apple-intelligence", customProvider = "custom-provider", murmurCloud = "murmur-cloud"
-
-    static let defaultsKey = "aiEngine"
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .appleIntelligence: return "Apple Intelligence (this Mac, free)"
-        case .customProvider: return "Custom Provider"
-        case .murmurCloud: return "Murmur Cloud"
-        }
-    }
 
     /// Why this engine cannot run now, in one line, or nil when it can. `hasKey` only asks whether a key is stored.
     func unavailableReason(routes: RouteSettings, hasKey: (ProviderID) -> Bool) -> String? {
@@ -41,10 +31,12 @@ enum AIEngine: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// The stored choice; before one is made, the engine matching the cleanup route (Murmur Cloud, Custom Provider), else Apple Intelligence.
-    static func resolve(from defaults: UserDefaults, cleanup: CleanupChoice) -> AIEngine {
-        if let stored = defaults.string(forKey: defaultsKey).flatMap(AIEngine.init(rawValue:)) { return stored }
-        switch cleanup { case .murmurCloud: return .murmurCloud; case .customAPI: return .customProvider; default: return .appleIntelligence }
+    /// The engine for a cleanup route; nil when the route has none (local routes on a Mac without Apple Intelligence).
+    static func derive(cleanup: CleanupChoice) -> AIEngine? {
+        switch cleanup {
+        case .murmurCloud: return .murmurCloud
+        case .customAPI: return .customProvider
+        default: return AIEngine.appleIntelligence.unavailableReason(routes: RouteSettings(), hasKey: { _ in false }) == nil ? .appleIntelligence : nil
+        }
     }
-    func save(to defaults: UserDefaults) { defaults.set(rawValue, forKey: Self.defaultsKey) }
 }

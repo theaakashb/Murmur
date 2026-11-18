@@ -19,10 +19,6 @@ struct VoiceEditSession {
 }
 
 extension AppController {
-    /// Flip when `POST /v1/edit` is deployed on Murmur Cloud (Murmur-Cloud-Service). Until then Murmur Cloud is not an edit engine,
-    /// and a selection never falls through to another engine the user did not choose.
-    static let cloudEditDeployed = false
-
     /// The separate shortcut was pressed on a selection (the tap captured it): starts a voice edit, or finishes the one listening.
     func voiceEditPressed() {
         guard sessionAvailable, let listener else { return }
@@ -63,11 +59,9 @@ extension AppController {
     func voiceEditSession() -> Result<VoiceEditSession, VoiceEditRefusal> {
         func no(_ message: String, dictates: Bool = true) -> Result<VoiceEditSession, VoiceEditRefusal> { .failure(VoiceEditRefusal(message: message, dictates: dictates)) }
         guard !IsSecureEventInputEnabled() else { return no("Voice edit is unavailable while Secure Input is active.") }
-        let routes = routeSettings, engine = AIEngine.resolve(from: .standard, cleanup: cleanupChoice)
+        let routes = routeSettings
         let key: (ProviderID) -> APIKey? = { try? CustomAPIKeyBinding.readKey(for: $0, routes: routes, defaults: .standard, credentials: self.credentials) }
-        if engine == .murmurCloud && !Self.cloudEditDeployed {
-            return no("Voice edit is not on Murmur Cloud yet. Choose Apple Intelligence or a Custom Provider for AI features.")
-        }
+        guard let engine = AIEngine.derive(cleanup: cleanupChoice) else { return no("Voice edit needs Apple Intelligence (macOS 26), a Custom Provider or Murmur Cloud.") }
         if let reason = engine.unavailableReason(routes: routes, hasKey: { key($0) != nil }) {
             return no("\(reason) Voice edit works with Apple Intelligence (macOS 26) or your own API key.")
         }
@@ -104,7 +98,7 @@ extension AppController {
         }) { [weak self] result in
             guard let self, self.generation == token else { return }
             self.cloudStage = nil; self.cloudDone = nil; self.voiceEdit = nil
-            self.finishVoiceEdit(edit, instruction: words, result: result)
+            self.finishVoiceEdit(edit, instruction: words, result: result, entry: entry, store: store)
             done()
         }
         setPhase(.processing, edit.onDevice ? "Editing on this Mac…" : "Editing with \(edit.engineName) (\(edit.destination))…", showsMessage: true)
@@ -116,7 +110,7 @@ extension AppController {
         setPhase(phase, message, pasteFailure: PasteFailure(entryID: nil, text: text, title: title))
     }
 
-    private func finishVoiceEdit(_ edit: VoiceEditSession, instruction: String, result: Result<String, Error>) {
+    private func finishVoiceEdit(_ edit: VoiceEditSession, instruction: String, result: Result<String, Error>, entry: HistoryEntry, store: HistoryRouter<HistoryEntry>) {
         switch result {
         case .failure(let error):
             let failure = error as? ProviderError
@@ -136,6 +130,7 @@ extension AppController {
                 showEditCard(.error, "\(why) The selection was not changed.", text: output, title: "Edit not applied")
             case .apply(let text):
                 if replaceVoiceEditSelection(edit, with: text) {
+                    var saved = entry.with(finalText: text, status: .edited); saved.editOriginal = edit.selection; try? store.save(saved)
                     // The original stays in memory only: Copy here, or ⌘Z in the app.
                     showEditCard(.ready, "Edited with \(edit.engineName). ⌘Z in the app undoes it.", text: edit.selection, title: "Original selection")
                 } else {

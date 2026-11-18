@@ -88,8 +88,8 @@ enum ScreenRequest: Equatable {
     /// Screen context for AI cleanup, opt-in; a writing mode can override it.
     @Published var screenContext = Prefs.screenContext.fallback
     /// Writing modes, saved as soon as they change and read at each recording start.
-    /// The engine writing modes run on (AIEngine.swift); stored under `AIEngine.defaultsKey`.
-    @Published var aiEngine = AIEngine.appleIntelligence { didSet { aiEngine.save(to: .standard) } }
+    /// The engine writing modes and voice edit run on (AIEngine.swift): derived from the cleanup route, never stored.
+    var aiEngine: AIEngine? { AIEngine.derive(cleanup: appliedRoutes.cleanup) }
     @Published var writingModes: [WritingMode] { didSet { WritingModes.save(writingModes, to: .standard) } }
     /// Apps dictated into since launch, newest first, for the mode app picker. Memory only.
     @Published private(set) var recentApps: [String] = []
@@ -326,7 +326,7 @@ enum ScreenRequest: Equatable {
         writingModes = WritingModes.load(from: defaults)
         let routes = RouteSettings.load(from: defaults)
         transcriptionRoute = routes.transcription; cleanupChoice = routes.cleanup
-        customAPIBaseURL = routes.customAPIBaseURL; customTranscriptionAPIBaseURL = routes.customTranscriptionAPIBaseURL; customAPIModel = routes.customAPIModel; customTranscriptionModel = routes.customTranscriptionModel; customAPIReasoningEffort = routes.customAPIReasoningEffort; appliedRoutes = routes; aiEngine = AIEngine.resolve(from: defaults, cleanup: routes.cleanup)
+        customAPIBaseURL = routes.customAPIBaseURL; customTranscriptionAPIBaseURL = routes.customTranscriptionAPIBaseURL; customAPIModel = routes.customAPIModel; customTranscriptionModel = routes.customTranscriptionModel; customAPIReasoningEffort = routes.customAPIReasoningEffort; appliedRoutes = routes
         self.preview = preview
         loadSettings(from: defaults)
         do {

@@ -155,7 +155,15 @@ extension SettingsView {
                     if let route = AppController.routeLabel(transcription: entry.transcriptionProvider, cleanup: entry.cleanupProvider, outcome: entry.cleanupOutcome) {
                         Text(route).font(WindowType.body(13)).foregroundStyle(Palette.ink64).padding(.top, 2)
                     }
-                    if entry.rawText != entry.finalText {
+                    if let original = entry.editOriginal {
+                        eyebrow("Voice edit").padding(.top, 16)
+                        Text("Instruction: \(entry.rawText)").font(WindowType.body(15)).foregroundStyle(Palette.ink70).textSelection(.enabled).padding(.top, 6)
+                        eyebrow("Original").padding(.top, 12)
+                        Text(original).font(WindowType.body(15)).lineSpacing(3).foregroundStyle(Palette.ink70).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
+                        eyebrow("What changed").padding(.top, 12)
+                        WordDiffText(raw: original, final: entry.finalText).font(WindowType.body(15)).lineSpacing(3)
+                            .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
+                    } else if entry.rawText != entry.finalText {
                         eyebrow("What changed").padding(.top, 16)
                         WordDiffText(raw: entry.cleanup?.input ?? entry.rawText, final: entry.finalText)
                             .font(WindowType.body(15)).lineSpacing(3)
@@ -209,6 +217,12 @@ struct WordDiffText: View {
             case .same: piece.foregroundColor = Palette.ink70
             case .removed: piece.strikethroughStyle = .single; piece.foregroundColor = Palette.ink45
             case .added: piece.foregroundColor = Palette.accent; piece.underlineStyle = .single
+            case .tweaked:
+                piece.foregroundColor = Palette.ink70
+                if let mark = run.mark {
+                    let chars = Array(run.text), lo = piece.index(piece.startIndex, offsetByCharacters: mark.lowerBound), hi = piece.index(piece.startIndex, offsetByCharacters: min(mark.upperBound, chars.count))
+                    piece[lo..<hi].backgroundColor = Palette.accent16; piece[lo..<hi].foregroundColor = Palette.accentInk
+                }
             }
             return result + piece
         })

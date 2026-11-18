@@ -273,7 +273,7 @@ extension SettingsView {
 
     var modes: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if controller.aiEngineReason != nil {
+            if controller.aiEngine == nil {
                 help("Writing modes need Apple Intelligence (macOS 26), a Custom Provider or Murmur Cloud.").padding(.top, 12)
             }
             HStack(spacing: 4) {

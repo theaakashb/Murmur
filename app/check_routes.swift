@@ -170,9 +170,9 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
             r.customAPIBaseURL = "https://api.example.com/v1"; r.customAPIModel = "m"
             check(AIEngine.customProvider.unavailableReason(routes: r, hasKey: { _ in false }) == nil && AIEngine.customProvider.provider(routes: r, key: { _ in nil }) is OpenAICompatibleCleanupProvider, "Custom engine builds the existing provider")
             check(AIEngine.murmurCloud.provider(routes: r, key: { _ in nil }) == nil, "an unavailable engine builds no provider")
-            let d = UserDefaults(suiteName: "murmur-engine-\(UUID())")!
-            check(AIEngine.resolve(from: d, cleanup: .murmurCloud) == .murmurCloud && AIEngine.resolve(from: d, cleanup: .localRules) == .appleIntelligence, "engine defaults follow the cleanup route")
-            AIEngine.customProvider.save(to: d); check(AIEngine.resolve(from: d, cleanup: .murmurCloud) == .customProvider, "a stored engine wins")
+            let apple = AIEngine.derive(cleanup: .localRules)
+            check(AIEngine.derive(cleanup: .murmurCloud) == .murmurCloud && AIEngine.derive(cleanup: .customAPI) == .customProvider, "cloud and custom routes keep their own engine")
+            check(apple == AIEngine.derive(cleanup: .localModel) && (apple == nil || apple == .appleIntelligence), "local routes use Apple Intelligence only where available")
         }
         check(CleanupChoice.localModel.providerID == .localModel && CleanupChoice.localModel.providerID != CleanupChoice.customAPI.providerID && CleanupChoice.localModel.credentialID == .localModel, "local model is its own provider with no key")
         check(makeCleanupProvider(.localModel, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is LocalModelCleanupProvider, "local model factory ignores custom provider settings")

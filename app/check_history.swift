@@ -19,6 +19,10 @@ import Darwin
         let older = #"{"id":"\#(UUID().uuidString)","recordedAt":0,"rawText":"a","finalText":"a","insertionStatus":"unverified"}"#
         let olderEntry = try JSONDecoder().decode(HistoryEntry.self, from: Data(older.utf8))
         precondition(olderEntry.cleanupFallback == nil, "older history decodes without a fallback reason")
+        // A voice edit entry: instruction in rawText, result in finalText, the selection in editOriginal; it round-trips and reads "Edited".
+        var edited = entry.with(finalText: "Synthetic result", status: .edited); edited.editOriginal = "Synthetic selection"
+        let editBack = try JSONDecoder().decode(HistoryEntry.self, from: JSONEncoder().encode(edited))
+        precondition(editBack.editOriginal == "Synthetic selection" && editBack.status == .edited && editBack.statusLabel == "Edited" && !editBack.needsAttention && olderEntry.editOriginal == nil, "voice edit entry round-trips")
         // History's wording for each status, and which entry it opens on.
         func with(_ status: InsertionStatus) -> HistoryEntry { entry.with(finalText: "ok", status: status) }
         precondition([.verified, .unverified].allSatisfy { with($0).statusLabel == nil && with($0).statusNote == nil && !with($0).needsAttention }, "delivered text carries no label or note")
