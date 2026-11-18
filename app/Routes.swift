@@ -37,8 +37,6 @@ func makeTranscriptionProvider(key: APIKey?, apiBaseURL: String, model: String) 
 enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
     /// The built-in RuleCleaner. The default.
     case localRules = "local-rules"
-    /// Apple's on-device system model (AppleCleanup.swift): no key, nothing leaves this Mac.
-    case appleIntelligence = "apple-intelligence"
     /// The managed local model (LocalCleanup.swift): downloaded on request, runs on this Mac.
     case localModel = "local-model"
     case customAPI = "custom-api"
@@ -47,13 +45,12 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    /// Choices this macOS can offer: Apple Intelligence needs macOS 26.
-    var isOffered: Bool { self != .appleIntelligence || AppleSystemModel.isSupported }
+    /// Professional is cloud-only (ProviderID.runsProfessional): Murmur Cloud and Custom Provider.
+    var cloudOnlyOK: Bool { self == .murmurCloud || self == .customAPI }
 
     var displayName: String {
         switch self {
         case .localRules: return "Local rules (this Mac)"
-        case .appleIntelligence: return "Apple Intelligence (this Mac)"
         case .localModel: return "Local model (this Mac)"
         case .customAPI: return "Custom Provider"
         case .murmurCloud: return "Murmur Cloud"
@@ -66,7 +63,6 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
     var providerID: ProviderID? {
         switch self {
         case .localRules: return nil
-        case .appleIntelligence: return .appleIntelligence
         case .localModel: return .localModel
         case .customAPI: return .customAPI
         case .murmurCloud: return .murmurCloud
@@ -80,7 +76,6 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
 func makeCleanupProvider(_ choice: CleanupChoice, key: APIKey?, apiBaseURL: String, model: String, reasoningEffort: String = "") -> CleanupProvider? {
     switch choice {
     case .localRules: return nil
-    case .appleIntelligence: return AppleCleanupProvider()
     case .localModel: return LocalModelCleanupProvider()
     case .customAPI:
         let name = model.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -179,7 +174,8 @@ struct RouteSettings: Equatable, Sendable {
         let legacyTranscription = defaults.string(forKey: Key.legacyCloudTranscriber) == "openrouter-whisper"
         settings.customTranscriptionModel = defaults.string(forKey: Key.customTranscriptionModel) ?? (legacyTranscription ? "openai/whisper-large-v3-turbo" : "")
         let oldChoice = defaults.string(forKey: Key.cleanup)
-        settings.cleanup = oldChoice.flatMap(CleanupChoice.init(rawValue:)) ?? (legacyCustomAPIKey(from: oldChoice) == nil ? .localRules : .customAPI)
+        // Apple Intelligence is meeting notes only now: a stored cleanup choice of it becomes the Local model (local rules clean until it is downloaded).
+        settings.cleanup = (oldChoice == "apple-intelligence" ? .localModel : oldChoice.flatMap(CleanupChoice.init(rawValue:))) ?? (legacyCustomAPIKey(from: oldChoice) == nil ? .localRules : .customAPI)
         settings.customAPIBaseURL = defaults.string(forKey: Key.customAPIBaseURL) ?? {
             switch oldChoice {
             case "cerebras": return "https://api.cerebras.ai/v1"
@@ -291,7 +287,7 @@ struct RoutePlan {
         }
         var cleaner: CleanupProvider?
         if settings.cleanup != .localRules && cleanupSendsText, let provider = settings.cleanup.providerID {
-            let storedKey = settings.cleanup == .appleIntelligence || settings.cleanup == .localModel ? nil : key(settings.cleanup.credentialID ?? provider)
+            let storedKey = settings.cleanup == .localModel ? nil : key(settings.cleanup.credentialID ?? provider)
             cleaner = makeCleanupProvider(settings.cleanup, key: storedKey, apiBaseURL: settings.customAPIBaseURL, model: settings.customAPIModel, reasoningEffort: settings.customAPIReasoningEffort)
             if cleaner == nil, refusal == nil { refusal = ProviderError.invalidConfiguration(provider).userMessage }
             let preview = cleaner ?? makeCleanupProvider(settings.cleanup, key: storedKey ?? placeholderKey,

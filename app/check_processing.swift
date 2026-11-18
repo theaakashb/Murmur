@@ -812,12 +812,20 @@ extension ProcessingChecks {
         // A writing mode: a preset rewrite is applied to each stretch of spoken words, never to the expansion.
         let email = WritingMode.presets.first { $0.transform == .email } ?? WritingMode.presets[0]
         let rewrite = MockCloudCleaner(.success("Hi,\n\nCall Akme."))
-        p.cloudCleaner = rewrite
+        p.cloudCleaner = rewrite; p.engineCleaner = rewrite // writing modes run on the AI engine
         let mode = DictationStyle(mode: email, settings: settings)
         let moded = await p.processAsync("call acme insert my profile here", style: mode)
         guard case .insert(let modeOut) = moded.outcome else { check(false, "mode: inserted"); return }
         check(modeOut.contains(text) && rewrite.messages.allSatisfy { !$0.user.contains("SENTINEL") && !$0.system.contains("SENTINEL") }, "writing mode: expansion verbatim and never sent")
         let modeWhole = await p.processAsync("my profile", style: mode)
         check(modeWhole.outcome == .insert(text) && rewrite.messages.count == 1, "writing mode: a whole cue makes no request")
+        // A mode runs on the AI engine, never on the cleanup route; with no engine it falls back to local cleanup, flagged.
+        let engineSpy = MockCloudCleaner(.success("Hi,\n\nCall Akme.")), routeSpy = MockCloudCleaner(.success("route reply"))
+        p.cloudCleaner = routeSpy; p.engineCleaner = engineSpy
+        _ = await p.processAsync("call acme", style: mode)
+        check(engineSpy.messages.count == 1 && routeSpy.messages.isEmpty, "writing mode: the engine runs it, not the cleanup route")
+        p.engineCleaner = nil
+        let noEngine = await p.processAsync("call acme", style: mode)
+        check(noEngine.fallback == .cleanerFailed && routeSpy.messages.isEmpty, "writing mode: no engine means local cleanup, flagged, and the route is not used")
     }
 }

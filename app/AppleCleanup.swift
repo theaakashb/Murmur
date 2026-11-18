@@ -33,9 +33,6 @@ struct AppleCleanupProvider: CleanupProvider {
     func validate() async throws {
         if let reason = status() { throw ProviderError.modelUnavailable(id, reason) }
     }
-
-    /// Loads the model ahead of the first request (route selected, recording started).
-    func prewarm() { if status() == nil { AppleSystemModel.prewarm() } }
 }
 
 enum AppleSystemModel {
@@ -52,12 +49,6 @@ enum AppleSystemModel {
         if #available(macOS 26.0, *) { return Native.status() }
 #endif
         return .deviceNotEligible
-    }
-
-    static func prewarm() {
-#if canImport(FoundationModels)
-        if #available(macOS 26.0, *) { Native.prewarm() }
-#endif
     }
 
     @Sendable static func respond(_ messages: CleanupMessages) async throws -> String {
@@ -80,10 +71,6 @@ enum AppleSystemModel {
 #if canImport(FoundationModels)
 @available(macOS 26.0, *)
 private enum Native {
-    private static let lock = NSLock()
-    /// Kept alive so the prewarm is not cancelled with its session.
-    nonisolated(unsafe) private static var warm: LanguageModelSession?
-
     @Sendable static func status() -> OnDeviceModelUnavailable? {
         switch SystemLanguageModel.default.availability {
         case .available: return nil
@@ -91,12 +78,6 @@ private enum Native {
         case .unavailable(.appleIntelligenceNotEnabled): return .appleIntelligenceOff
         case .unavailable: return .modelNotReady
         }
-    }
-
-    static func prewarm() {
-        let session = LanguageModelSession()
-        session.prewarm()
-        lock.withLock { warm = session }
     }
 
     /// A fresh session per call: a session keeps its transcript, which would fill the context.

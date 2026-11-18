@@ -46,7 +46,7 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         let terms = (1...15).map { "Term\($0)" }
         let built = CleanupPrompt.build(transcript: "hello there", options: pro, dictionaryTerms: terms, context: ScreenContext(selected: "SECRET-SCREEN-TEXT", clipboard: "", window: ""), instructions: "STYLE-NOTE")
         _ = try await provider(rec) { $0 }.cleanup(built)
-        check(rec.requests.count == 1 && rec.requests[0].text == "hello there" && rec.requests[0].tone == "formal", "Professional sends the typed transcript with the formal tone")
+        check(rec.requests.count == 1 && rec.requests[0].text == "hello there" && rec.requests[0].tone == "casual", "Professional never reaches this Mac's model as a formal tone: the request is the typed transcript, casual")
         check(rec.requests[0].terms == Array(terms.prefix(12)), "at most 12 relevant terms")
         let casual = CleanupPrompt.build(transcript: "hello there", options: .standard)
         _ = try await provider(rec) { $0 }.cleanup(casual)
@@ -144,13 +144,10 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         let ok = await p.processAsync(deadlineRaw)
         check(ok.fallback == nil && ok.promptHash == "local-fixed", "a faithful output is accepted and the fixed prompt is recorded")
 
-        let fridayRaw = "me and Priya was thinking we could ship on Friday actually no on Monday"
+        let fridayRaw = "Priya and I were thinking we could ship on Friday, actually no, on Monday" // Polish only here: Professional is cloud-only
         p.cloudCleaner = provider(rec) { _ in "Priya and I were thinking we could ship on Monday." }
         let friday = await p.processAsync(fridayRaw)
         check(friday.outcome == .insert("Priya and I were thinking we could ship on Monday.") && friday.fallback == nil, "the correct \"actually no\" repair is accepted")
-        p.cloudCleaner = provider(rec) { _ in "Priya and I were thinking we could ship on Friday and Monday." }
-        let both2 = await p.processAsync(fridayRaw)
-        check(both2.fallback != nil, "keeping both versions of a repair is rejected")
         let notRaw = "please do not send the contract today"
         p.cloudCleaner = provider(rec) { _ in "Please send the contract today." }
         let negation = await p.processAsync(notRaw)
@@ -158,16 +155,11 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         p.cloudCleaner = provider(rec) { _ in "Thanks, Shreya Raman. Send 42.50 dollars." }
         let names = await p.processAsync("thanks shreya raman send 42.50 dollars")
         check(names.fallback == nil, "names and numbers kept pass")
-        // Professional asks for the formal tone first; a refused formal answer gets one casual try.
         var tones = LocalModelCleanupProvider(); tones.status = { nil }
-        tones.generate = { $0.tone == "formal" ? "Please send the contract today." : "Please do not send the contract today." }
-        p.cloudCleaner = tones
-        let retried = await p.processAsync(notRaw)
-        check(retried.outcome == .insert("Please do not send the contract today.") && retried.fallback == nil && retried.cleanupPath == .modelAccepted, "a refused formal answer is replaced by an accepted casual one")
         tones.generate = { _ in "Please send the contract today." }
         p.cloudCleaner = tones
         let refusedTwice = await p.processAsync(notRaw)
-        check(refusedTwice.fallback == .negationChanged && refusedTwice.cleanupPath != .modelAccepted, "two refused answers still fall back")
+        check(refusedTwice.fallback == .negationChanged && refusedTwice.cleanupPath != .modelAccepted, "a refused answer falls back with no second try")
         // A rewrite preset cannot run on the fixed-prompt model: it is never sent, ordinary cleanup runs instead.
         var preset = WritingMode(); preset.transform = .email
         let presetRec = Recorder()

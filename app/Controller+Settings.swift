@@ -56,16 +56,20 @@ extension AppController {
     var cleanupStyle: CleanupStyle {
         get {
             guard cleanupFillers || cleanupCorrections || cleanupLists || cleanupPunctuation || cleanupSpoken else { return .faithful }
-            return cleanupChoice == .localRules ? .strict : cleanupProfessional ? .professional : cleanupPolish ? .polish : .strict
+            // The local routes have no levels: their one cleanup is Natural. A stored cloud level is kept for when a cloud route is chosen again.
+            return !cleanupChoice.cloudOnlyOK ? .strict : cleanupProfessional ? .professional : cleanupPolish ? .polish : .strict
         }
         set {
             if newValue == .faithful { useFaithfulTranscription(); return }
             if cleanupStyle == .faithful { cleanupFillers = true; cleanupCorrections = true; cleanupLists = true; cleanupPunctuation = true; cleanupSpoken = true }
             cleanupPolish = newValue.needsModel; cleanupProfessional = newValue == .professional
-            // Polish and Professional need a model; Strict keeps the stored one for next time.
-            if newValue.needsModel, cleanupChoice == .localRules, let first = CleanupChoice.allCases.first(where: { $0 != .localRules && $0.isOffered }) { cleanupChoice = first }
+            // Polish and Professional run on Murmur Cloud or a Custom Provider (the Settings picker offers them first).
+            if newValue.needsModel, !cleanupChoice.cloudOnlyOK { cleanupChoice = .murmurCloud }
         }
     }
+
+    func engineProvider() -> CleanupProvider? { aiEngine.provider(routes: appliedRoutes, key: { (try? self.credentials.read($0)) ?? nil }) }
+    var aiEngineReason: String? { aiEngine.unavailableReason(routes: routeSettings, hasKey: { self.savedKeys.contains($0) }) }
 
     /// Changes whenever a setting that applies immediately changes; the settings window calls `settingsChanged` on it.
     var immediateSettings: [AnyHashable] { Self.persisted.map { $0.value(self) } + [installUpdatesAutomatically] }

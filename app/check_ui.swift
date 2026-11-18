@@ -129,6 +129,10 @@ extension AppController {
                 HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-21600), rawText: "Synthetic transcript hold.", finalText: "", insertionStatus: InsertionStatus.heldTranscript.rawValue)
             ]
         }
+        // --professional-hint [--hint-key [--hint-asking]]: an open Professional offer on a synthetic run-on dictation, without or with a Murmur Cloud key.
+        let hintText = "so I wanted to tell you about the plan for the launch and we should get the designs done and then the copy and then the review and then ship it on Thursday no I mean Friday and also tell the team about the new pricing page and the docs and the changelog and make sure support knows"
+        let hintEntry = HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-300), rawText: hintText, finalText: hintText, insertionStatus: InsertionStatus.verified.rawValue)
+        if CommandLine.arguments.contains("--professional-hint") { entries.insert(hintEntry, at: 0) }
         let sessionOnlyID = entries.first(where: { $0.status == .savedNotInserted })?.id
         do {
             guard let dataDirectory = controller.dataDirectory else { fatalError("Missing isolated fixture storage.") }
@@ -137,6 +141,20 @@ extension AppController {
         } catch { fatalError("Could not seed isolated History fixture.") }
         DispatchQueue.main.async {
             controller.refreshHistory()
+            if args.contains("--professional-hint") {
+                if args.contains("--hint-key"), let key = APIKey("fixture-key") { try? controller.credentials.save(key, for: .murmurCloud); controller.refreshKeys() }
+                controller.professionalHint.offer(hintEntry.id)
+                if args.contains("--hint-asking") { controller.professionalHint.preview = .asking }
+                // --hint-state ready|unchanged|unavailable|error: a finished preview (synthetic text; no request is made).
+                if let i = args.firstIndex(of: "--hint-state"), args.indices.contains(i + 1) {
+                    switch args[i + 1] {
+                    case "ready": controller.professionalHint.preview = .ready("I wanted to tell you about the launch plan: designs, copy, review, then ship on Friday.")
+                    case "unchanged": controller.professionalHint.preview = .unchanged
+                    case "unavailable": controller.professionalHint.preview = .unavailable("No preview available for this dictation.")
+                    default: controller.professionalHint.preview = .unavailable(ProviderError.quota(.murmurCloud).userMessage)
+                    }
+                }
+            }
             controller.recoveryEntryID = args.contains("--history-diff") ? entries.first { $0.cleanupOutcome != nil }?.id : entries.first?.id
             if args.contains("--history-diff") { DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { controller.screenRequest = .history } }
             controller.sessionOnlyIDs = sessionOnlyID.map { Set([$0]) } ?? []

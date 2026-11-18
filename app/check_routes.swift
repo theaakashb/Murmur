@@ -162,7 +162,18 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
               && RouteSettings().customAPIReasoningEffort == "low", "reasoning effort defaults to low, is trimmed, and empty sends none")
         check(makeCleanupProvider(.customAPI, key: testKey, apiBaseURL: "ftp://x", model: "m") == nil, "custom API rejects a bad URL")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is OpenAICompatibleCleanupProvider, "custom API key is optional")
-        check(CleanupChoice.allCases == [.localRules, .appleIntelligence, .localModel, .customAPI, .murmurCloud], "cleanup choices: local rules, Apple Intelligence, local model, custom API and Murmur Cloud")
+        check(CleanupChoice.allCases == [.localRules, .localModel, .customAPI, .murmurCloud], "cleanup choices: local rules, local model, custom API and Murmur Cloud; Apple Intelligence is meeting notes only")
+        do { // AI engine: availability and defaults
+            var r = RouteSettings()
+            check(AIEngine.murmurCloud.unavailableReason(routes: r, hasKey: { _ in false }) != nil && AIEngine.murmurCloud.unavailableReason(routes: r, hasKey: { $0 == .murmurCloud }) == nil, "Murmur Cloud engine needs a key")
+            check(AIEngine.customProvider.unavailableReason(routes: r, hasKey: { _ in false }) != nil, "Custom engine needs a configured provider")
+            r.customAPIBaseURL = "https://api.example.com/v1"; r.customAPIModel = "m"
+            check(AIEngine.customProvider.unavailableReason(routes: r, hasKey: { _ in false }) == nil && AIEngine.customProvider.provider(routes: r, key: { _ in nil }) is OpenAICompatibleCleanupProvider, "Custom engine builds the existing provider")
+            check(AIEngine.murmurCloud.provider(routes: r, key: { _ in nil }) == nil, "an unavailable engine builds no provider")
+            let d = UserDefaults(suiteName: "murmur-engine-\(UUID())")!
+            check(AIEngine.resolve(from: d, cleanup: .murmurCloud) == .murmurCloud && AIEngine.resolve(from: d, cleanup: .localRules) == .appleIntelligence, "engine defaults follow the cleanup route")
+            AIEngine.customProvider.save(to: d); check(AIEngine.resolve(from: d, cleanup: .murmurCloud) == .customProvider, "a stored engine wins")
+        }
         check(CleanupChoice.localModel.providerID == .localModel && CleanupChoice.localModel.providerID != CleanupChoice.customAPI.providerID && CleanupChoice.localModel.credentialID == .localModel, "local model is its own provider with no key")
         check(makeCleanupProvider(.localModel, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is LocalModelCleanupProvider, "local model factory ignores custom provider settings")
         let localPlan = RoutePlan.make({ var s = RouteSettings(); s.cleanup = .localModel; return s }(), cleanupSendsText: true, key: { _ in nil })
@@ -269,6 +280,8 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check(oldSpeech.customAPIBaseURL == "https://api.cerebras.ai/v1", "migration preserves an existing chosen custom server")
         defaults.set("gemini", forKey: RouteSettings.Key.legacyCloudTranscriber); defaults.set("gemini", forKey: RouteSettings.Key.cleanup)
         check(RouteSettings.load(from: defaults).cleanup == .localRules, "a stored choice that no longer exists loads as local rules")
+        defaults.set("apple-intelligence", forKey: RouteSettings.Key.cleanup)
+        check(RouteSettings.load(from: defaults).cleanup == .localModel, "a stored Apple Intelligence cleanup choice loads as the Local model")
         for key in [RouteSettings.Key.transcription, RouteSettings.Key.legacyCloudTranscriber, RouteSettings.Key.cleanup, RouteSettings.Key.customAPIBaseURL, RouteSettings.Key.customAPIModel, RouteSettings.Key.customTranscriptionModel, RouteSettings.Key.legacyServerURL, RouteSettings.Key.legacyServerModel] { defaults.removeObject(forKey: key) }
     }
 
@@ -579,6 +592,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check(body["transcript"] as? String == "revenue is up 10%" && body["level"] as? String == "polish", "the server gets the transcript after spoken commands")
         check(result.outcome == .insert("Revenue is up 10%.") && result.promptHash == "murmur-cloud-server", "the guarded reply is inserted; the prompt hash names the server's prompt")
         // A preset is refused without a request; the ordinary cleanup that follows carries none of the preset's instructions.
+        p.engineCleaner = p.cloudCleaner // writing modes run on the AI engine
         let email = DictationStyle(mode: WritingMode.presets[1], settings: p.settings)
         let before = server.count
         _ = await p.processAsync("revenue is up ten percent", style: email)

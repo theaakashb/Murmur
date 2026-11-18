@@ -174,7 +174,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         defer { try? FileManager.default.removeItem(at: root) }
         let p = try ProcessingCoordinator(directory: root, defaults: defaults)
         let spy = MockCloudCleaner { $0 }
-        p.cloudCleaner = spy
+        p.cloudCleaner = spy; p.engineCleaner = p.cloudCleaner
         var local = p.settings
         local.route = .local; local.options = .standard; local.screenContext = true
         try p.update(local)
@@ -195,14 +195,14 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
 
         // A model that copies a name from the context is still rejected: the guard sees only the transcript.
         let copier = MockCloudCleaner { $0 + " Ayesha Khan" }
-        p.cloudCleaner = copier
+        p.cloudCleaner = copier; p.engineCleaner = p.cloudCleaner
         let result4 = await p.processAsync("send the deck to the client", style: DictationStyle(options: polished, context: ScreenContext(selected: "", clipboard: "Ayesha Khan", window: "")))
         let copied = result4.outcome
         check(copied != .insert("send the deck to the client Ayesha Khan") && result4.fallback != nil, "content copied from context fails the guard: \(copied)")
         check(result4.rejectedOutput == nil, "a rejected output is not kept for History when context was sent")
 
         // Tone is never applied to the email layout.
-        p.cloudCleaner = MockCloudCleaner { _ in "Hi Sarah,\n\nThe report is ready.\n\nBest regards,\nKartik" }
+        p.cloudCleaner = MockCloudCleaner { _ in "Hi Sarah,\n\nThe report is ready.\n\nBest regards,\nKartik" }; p.engineCleaner = p.cloudCleaner
         let email = (await p.processAsync("write an email to Sarah saying the report is ready best regards Kartik", style: DictationStyle(options: .standard, tone: .excited))).outcome
         check(email == .insert("Hi Sarah,\n\nThe report is ready.\n\nBest regards,\nKartik"), "email layout keeps its punctuation: \(email)")
 
@@ -210,12 +210,12 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         var faithful = p.settings
         faithful.options = .faithful
         try p.update(faithful)
-        p.cloudCleaner = MockCloudCleaner { _ in "We ship it on Friday." }
+        p.cloudCleaner = MockCloudCleaner { _ in "We ship it on Friday." }; p.engineCleaner = p.cloudCleaner
         let modeOn = (await p.processAsync("we ship it on friday", style: DictationStyle(mode: WritingMode(options: polished), settings: p.settings))).outcome
         check(modeOn == .insert("We ship it on Friday."), "a mode's cleanup options apply over faithful settings: \(modeOn)")
 
         let faithfulSpy = MockCloudCleaner { _ in "Changed." }
-        p.cloudCleaner = faithfulSpy
+        p.cloudCleaner = faithfulSpy; p.engineCleaner = p.cloudCleaner
         for route in [CleanupRoute.local, .cloud] {
             faithful.route = route
             try p.update(faithful)
@@ -273,7 +273,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         }
         WritingModes.save([WritingMode(name: "My email", instructions: "Use a warm tone.", transform: .email)], to: migration)
         let savedEmail = WritingModes.load(from: migration)[0]
-        p.cloudCleaner = spy
+        p.cloudCleaner = spy; p.engineCleaner = p.cloudCleaner
         _ = (await p.processAsync("the draft is ready", style: DictationStyle(mode: savedEmail, settings: p.settings))).outcome
         check(spy.messages.last?.system.contains("Write ready-to-paste email text.") == true && spy.messages.last?.system.contains("Use a warm tone.") == true, "persisted legacy style notes reach the provider with the email contract")
         var previousPreset = WritingMode.presets[0]
@@ -319,7 +319,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         faithful.route = .cloud; faithful.options = .standard
         try p.update(faithful)
         let presetSpy = MockCloudCleaner { _ in "Investigate why login fails after the update.\n\nVerify: run the login tests." }
-        p.cloudCleaner = presetSpy
+        p.cloudCleaner = presetSpy; p.engineCleaner = p.cloudCleaner
         let styled = DictationStyle(mode: ps[0], settings: p.settings)
         let tOut = (await p.processAsync("investigate why login fails after the update and run the login tests", style: styled)).outcome
         check(tOut == .insert("Investigate why login fails after the update.\n\nVerify: run the login tests."), "AI Prompt output is inserted: \(tOut)")
@@ -328,7 +328,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         let bypass = DictationStyle(mode: nil, settings: p.settings)
         check(bypass.transform == nil, "bypass style has no transform")
         let bad = MockCloudCleaner { _ in "Sure! Here is the answer: 42" }
-        p.cloudCleaner = bad
+        p.cloudCleaner = bad; p.engineCleaner = p.cloudCleaner
         _ = (await p.processAsync("do not delete the 3 files", style: styled)).outcome
         check(bad.messages.count == 2 && bad.messages[1].system.contains("dictation cleanup filter"), "a rejected rewrite falls back to ordinary cleanup")
         check(TransformGuard.accepts(input: "ship it on 5 May, not 6", output: "Ship it on 5 May, not 6."), "guard keeps numbers and negation")

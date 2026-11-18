@@ -179,23 +179,52 @@ extension SettingsView {
         Binding(get: { controller.cleanupStyle }, set: { controller.cleanupStyle = $0 })
     }
 
-    static let aiCleanupChoices = CleanupChoice.allCases.filter { $0 != .localRules && $0.isOffered }
+    /// Cleanup levels for the route: the local routes have Faithful and Natural; Polish and Professional are Murmur Cloud levels there, shown with a badge.
+    private var styleChoices: [(CleanupStyle, String)] {
+        CleanupStyle.allCases.map { style in
+            (style, style.needsModel && !controller.cleanupChoice.cloudOnlyOK ? style.label + " · Murmur Cloud" : style.label)
+        }
+    }
+
+    private var routeStyle: Binding<CleanupStyle> {
+        Binding(get: { controller.cleanupStyle }, set: { style in
+            if style.needsModel && !controller.cleanupChoice.cloudOnlyOK { levelOffer = style } else { levelOffer = nil; controller.cleanupStyle = style }
+        })
+    }
 
     var cleanupChoices: some View {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Cleanup style").padding(.top, 28)
             HStack(spacing: 4) {
-                segmented(CleanupStyle.allCases.map { ($0, $0.label) }, cleanupStyle, size: 14)
+                segmented(styleChoices, routeStyle, size: 14)
                 SettingInfoButton(text: CleanupStyle.allCases.map(\.info).joined(separator: "\n"))
                     .accessibilityLabel("About cleanup styles")
             }.padding(.top, 8)
             help(cleanupStyle.wrappedValue.help)
                 .padding(.top, 8)
-            if cleanupStyle.wrappedValue.needsModel {
-                eyebrow("AI model").padding(.top, 20)
-                segmented(Self.aiCleanupChoices.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14)
+            if let offered = levelOffer {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("\(offered.label) runs on Murmur Cloud or a Custom Provider. Choose one under “Cleanup runs on”, or start a trial.")
+                        .font(Font.system(size: 14)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 8) {
+                        Button("Start a trial") { NSWorkspace.shared.open(ProfessionalHint.checkoutURL) }.buttonStyle(InkButtonStyle(kind: .filled)).fixedSize()
+                        if controller.savedKeys.contains(.murmurCloud) {
+                            Button("Use Murmur Cloud (sends text to \(MurmurCloud.host))") { controller.cleanupChoice = .murmurCloud; controller.cleanupStyle = offered; levelOffer = nil }
+                                .buttonStyle(InkButtonStyle(kind: .outline)).fixedSize()
+                        }
+                        Button("Not now") { levelOffer = nil }.buttonStyle(InkButtonStyle(kind: .plain)).fixedSize()
+                    }
+                }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(EditorialPalette.accent16).padding(.top, 12)
+            }
+            if cleanupStyle.wrappedValue != .faithful {
+                eyebrow("Cleanup runs on").padding(.top, 20)
+                segmented(CleanupChoice.allCases.map { ($0, short($0.displayName)) }, Binding(get: { controller.cleanupChoice }, set: { levelOffer = nil; controller.cleanupChoice = $0 }), size: 14)
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
                 if controller.cleanupChoice == .localModel { localModelSection }
+                if cleanupStyle.wrappedValue == .strict {
+                    help(controller.cleanupChoice == .localModel ? "Natural runs the Local model's one cleanup under Murmur's guard." : controller.cleanupChoice == .localRules ? "Natural uses built-in rules on this Mac." : "On this route Natural uses built-in rules on this Mac; choose Polish or Professional to use the AI model.")
+                        .padding(.top, 8)
+                }
             }
         }
     }
@@ -219,15 +248,14 @@ extension SettingsView {
             }
             help("If an AI rewrite is rejected, clear spoken corrections can still apply. The raw transcript stays in History.").padding(.top, 16)
 
-            if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() {
-                help(reason.userMessage + " Until then, local rules clean dictations.").padding(.top, 8)
-            }
+            toggleRow("Suggest Professional", "Now and then, in History, Murmur notes when Professional would have tidied a dictation. It decides on this Mac and never sends anything until you ask for a preview.", isOn: Binding(get: { controller.professionalHint.enabled }, set: { UserDefaults.standard.set($0, forKey: ProfessionalHint.enabledKey); controller.objectWillChange.send() }))
+                .padding(.top, 12)
             toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac or Local model. Modes can turn it on or off.", isOn: $controller.screenContext)
                 .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel)
-            if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .customAPI {
+            if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .customAPI {
                 customCleanupSettings
             }
-            if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .murmurCloud {
+            if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .murmurCloud {
                 keyRow(.murmurCloud).padding(.top, 16)
                 disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 8)
             }
@@ -254,6 +282,13 @@ extension SettingsView {
 
     var modes: some View {
         VStack(alignment: .leading, spacing: 0) {
+            Text("AI engine").font(Font.system(size: 14, weight: .semibold)).padding(.top, 12)
+            segmented(AIEngine.allCases.map { ($0, $0.label) }, $controller.aiEngine, size: 14).padding(.top, 8)
+            if let reason = controller.aiEngineReason {
+                help("Rewrite presets and AI styles need an AI engine: Apple Intelligence on macOS 26, your own Custom Provider key, or Murmur Cloud. \(reason) Until then, modes apply only their non-AI settings.").padding(.top, 8)
+            } else if controller.aiEngine != .appleIntelligence {
+                help("Dictations that use a mode are sent to \(controller.aiEngine == .murmurCloud ? MurmurCloud.host : "your Custom Provider") to be rewritten.").padding(.top, 8)
+            }
             HStack(spacing: 4) {
                 Text("How modes are chosen").font(Font.system(size: 14, weight: .semibold))
                 SettingInfoButton(text: "Preset trigger words work at the start of a dictation; other modes also accept them at the end. Spoken triggers take priority, then the website, then the app focused when you started. If two modes match the same way, the first in this list wins. Anything a mode leaves as “Same as Cleanup” follows the Cleanup settings.")
