@@ -121,6 +121,8 @@ func checkKeychainStore() {
         let minimal = json(try! MurmurCloudCleanupFormat.makeRequest(plain, key: key).httpBody)
         check(Set(minimal.keys) == ["transcript", "level", "fillers", "corrections", "punctuation", "lists"] && minimal["level"] as? String == "polish", "Polish with no terms, notes or context sends only the required keys")
         let strict = CleanupPrompt.build(transcript: "um send it", options: CleanupOptions(punctuation: true)).input!
+        check(MurmurCloud.baseURL(infoHost: nil).host == "api.murmurdictation.com" && MurmurCloud.baseURL(infoHost: "").host == "api.murmurdictation.com"
+                && MurmurCloud.baseURL(infoHost: "preview.example.com").host == "preview.example.com", "Murmur Cloud host is the default unless the build bakes another")
         check(MurmurCloudCleanupFormat.body(strict) == nil, "Strict has no Murmur Cloud level")
 
         // The provider: refuses presets and Strict without a request; parses {"text"}; maps the documented statuses.
