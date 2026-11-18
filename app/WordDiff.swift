@@ -3,47 +3,37 @@ import Foundation
 /// Word-level diff of the raw transcript against the inserted text, and the rule for when a
 /// just-inserted span may be swapped back to the raw transcript.
 enum WordDiff {
-    /// `tweaked`: one word that differs from the raw only by punctuation or case; `text` is the new word and `mark` the characters that changed.
+    /// `tweaked`: one word that differs from the raw only by punctuation or case; `text` is the new word and `marks` the positions of the characters that changed.
     enum Kind { case same, removed, added, tweaked }
-    struct Run: Equatable { let kind: Kind; let text: String; var mark: Range<Int>? = nil }
+    struct Run: Equatable { let kind: Kind; let text: String; var marks: [Int] = [] }
 
     /// Whitespace-separated words, punctuation attached, so "Hello," vs "hello" shows as a change.
     static func runs(raw: String, final: String) -> [Run] {
-        foldTweaks(runs(a: words(raw), b: words(final)))
+        runs(a: words(raw), b: words(final), key: { w in let k = w.lowercased().filter { $0.isLetter || $0.isNumber }; return k.isEmpty ? w : k })
     }
-    /// A removed run followed by an added run of the same length is paired word by word; a pair that differs only by punctuation or case becomes one tweaked word.
-    private static func foldTweaks(_ runs: [Run]) -> [Run] {
-        func letters(_ w: String) -> String { w.lowercased().filter { $0.isLetter || $0.isNumber } }
-        var out: [Run] = [], i = 0
-        while i < runs.count {
-            if i + 1 < runs.count, runs[i].kind == .removed, runs[i + 1].kind == .added {
-                let old = runs[i].text.split(separator: " ").map(String.init), new = runs[i + 1].text.split(separator: " ").map(String.init)
-                if old.count == new.count {
-                    for (o, n) in zip(old, new) {
-                        if !letters(o).isEmpty && letters(o) == letters(n) { out.append(Run(kind: .tweaked, text: n, mark: changedSpan(from: o, to: n))) }
-                        else { out += [Run(kind: .removed, text: o), Run(kind: .added, text: n)] }
-                    }
-                    i += 2; continue
-                }
-            }
-            out.append(runs[i]); i += 1
-        }
-        return out
-    }
-    /// The characters of `new` that are not shared with `old` at either end; nil when `new` only dropped characters.
-    private static func changedSpan(from old: String, to new: String) -> Range<Int>? {
+    /// The positions in `new` of the characters that are not shared with `old` (character-level LCS), so every mark is one changed letter or punctuation mark.
+    private static func changedChars(from old: String, to new: String) -> [Int] {
         let a = Array(old), b = Array(new)
-        var head = 0; while head < min(a.count, b.count), a[head] == b[head] { head += 1 }
-        var tail = 0; while tail < min(a.count, b.count) - head, a[a.count - 1 - tail] == b[b.count - 1 - tail] { tail += 1 }
-        return head < b.count - tail ? head..<(b.count - tail) : nil
+        var table = [[Int]](repeating: [Int](repeating: 0, count: b.count + 1), count: a.count + 1)
+        for i in stride(from: a.count - 1, through: 0, by: -1) {
+            for j in stride(from: b.count - 1, through: 0, by: -1) { table[i][j] = a[i] == b[j] ? table[i + 1][j + 1] + 1 : max(table[i + 1][j], table[i][j + 1]) }
+        }
+        var marks: [Int] = [], i = 0, j = 0
+        while j < b.count {
+            if i < a.count, a[i] == b[j] { i += 1; j += 1 }
+            else if i < a.count, table[i + 1][j] >= table[i][j + 1] { i += 1 }
+            else { marks.append(j); j += 1 }
+        }
+        return marks
     }
     private static func words(_ text: String) -> [String] { text.split(whereSeparator: \.isWhitespace).map(String.init) }
-    private static func runs(a: [String], b: [String]) -> [Run] {
+    /// Words align on `key` (letters and digits, case-folded for the display diff), so a deleted word next to a case or punctuation change still pairs the right words.
+    private static func runs(a: [String], b: [String], key: (String) -> String = { $0 }) -> [Run] {
         // Longest-common-subsequence table; dictations are short, so O(n*m) is fine.
         var table = [[Int]](repeating: [Int](repeating: 0, count: b.count + 1), count: a.count + 1)
         for i in stride(from: a.count - 1, through: 0, by: -1) {
             for j in stride(from: b.count - 1, through: 0, by: -1) {
-                table[i][j] = a[i] == b[j] ? table[i + 1][j + 1] + 1 : max(table[i + 1][j], table[i][j + 1])
+                table[i][j] = key(a[i]) == key(b[j]) ? table[i + 1][j + 1] + 1 : max(table[i + 1][j], table[i][j + 1])
             }
         }
         var out: [Run] = []
@@ -53,7 +43,10 @@ enum WordDiff {
         }
         var i = 0, j = 0
         while i < a.count || j < b.count {
-            if i < a.count, j < b.count, a[i] == b[j] { add(.same, a[i]); i += 1; j += 1 }
+            if i < a.count, j < b.count, key(a[i]) == key(b[j]) {
+                if a[i] == b[j] { add(.same, a[i]) } else { out.append(Run(kind: .tweaked, text: b[j], marks: changedChars(from: a[i], to: b[j]))) }
+                i += 1; j += 1
+            }
             else if i < a.count, j == b.count || table[i + 1][j] >= table[i][j + 1] { add(.removed, a[i]); i += 1 }
             else { add(.added, b[j]); j += 1 }
         }
