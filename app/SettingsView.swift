@@ -177,6 +177,9 @@ struct SettingsView: View {
         case .history:
             screen = .history
             if let id = HistoryEntry.recoveryEntryToOpen(controller.recoveryEntryID, in: controller.history) { searchText = ""; selectedID = id; scrollTarget = id }
+        case .historyEntry(let id):
+            screen = .history
+            if controller.history.contains(where: { $0.id == id }) { searchText = ""; selectedID = id; scrollTarget = id }
         case .home: screen = .home
         }
     }

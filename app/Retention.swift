@@ -303,3 +303,61 @@ enum PostWipeStep: String, CaseIterable, Equatable {
         return (false, "Some Murmur data could not be deleted. " + problems.joined(separator: " "))
     }
 }
+
+/// Backup & Restore: settings, history (with meetings), dictionary, learned entries and cues, copied
+/// into one folder. API keys and audio stay out: keys belong in the Keychain, audio is short-lived.
+enum DataBackup {
+    static let settingsFile = "settings.plist"
+
+    /// Settings that describe this Mac, not the user: paths, devices, window frames, updater state,
+    /// and which host each Keychain key was approved for (restoring that could send a key elsewhere).
+    static func isMachineSetting(_ key: String) -> Bool {
+        ["modelDirectory", "inputDeviceUID"].contains(key) || key.hasPrefix("customAPIKeyEndpoint") || key.hasPrefix("SU") || key.hasPrefix("NSWindow Frame")
+    }
+
+    /// Writes to a sibling folder first, so a failed backup never removes the one it replaces.
+    static func export(_ locations: MurmurDataLocations, settings: [String: Any], to folder: URL) throws {
+        let fm = FileManager.default
+        let staged = folder.deletingLastPathComponent().appendingPathComponent(".murmur-backup-" + UUID().uuidString)
+        defer { try? fm.removeItem(at: staged) }
+        try fm.createDirectory(at: staged, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        for dir in [locations.history, locations.dictionary] where fm.fileExists(atPath: dir.path) {
+            try fm.copyItem(at: dir, to: staged.appendingPathComponent(dir.lastPathComponent))
+        }
+        let file = staged.appendingPathComponent(settingsFile)
+        try PropertyListSerialization.data(fromPropertyList: settings.filter { !isMachineSetting($0.key) }, format: .xml, options: 0).write(to: file)
+        try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        if fm.fileExists(atPath: folder.path) { _ = try fm.replaceItemAt(folder, withItemAt: staged) } else { try fm.moveItem(at: staged, to: folder) }
+    }
+
+    /// The backup's settings; throws for a folder that is not a Murmur backup.
+    static func readSettings(from folder: URL) throws -> [String: Any] {
+        guard let data = FileManager.default.contents(atPath: folder.appendingPathComponent(settingsFile).path),
+              let settings = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else { throw RetentionError("This folder is not a Murmur backup.") }
+        return settings
+    }
+
+    /// The backup's settings, keeping this Mac's machine settings.
+    static func merged(backup: [String: Any], current: [String: Any]) -> [String: Any] {
+        backup.filter { !isMachineSetting($0.key) }.merging(current.filter { isMachineSetting($0.key) }) { _, mine in mine }
+    }
+
+    /// Copies both folders in beside the live ones, then swaps them, so a failed copy changes nothing.
+    /// A folder missing from the backup is restored as empty.
+    static func restore(from folder: URL, into locations: MurmurDataLocations) throws {
+        let fm = FileManager.default
+        let dirs = [locations.history, locations.dictionary]
+        let staged = dirs.map { $0.deletingLastPathComponent().appendingPathComponent(".restore-" + $0.lastPathComponent) }
+        defer { staged.forEach { try? fm.removeItem(at: $0) } }
+        for (dir, stage) in zip(dirs, staged) {
+            try? fm.removeItem(at: stage)
+            let source = folder.appendingPathComponent(dir.lastPathComponent)
+            if fm.fileExists(atPath: source.path) { try fm.copyItem(at: source, to: stage) }
+            else { try fm.createDirectory(at: stage, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
+        }
+        for (dir, stage) in zip(dirs, staged) {
+            if fm.fileExists(atPath: dir.path) { _ = try fm.replaceItemAt(dir, withItemAt: stage) } else { try fm.moveItem(at: stage, to: dir) }
+        }
+    }
+}

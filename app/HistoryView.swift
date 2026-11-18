@@ -172,6 +172,9 @@ extension SettingsView {
                     if let line = entry.outcomeNote {
                         Text(line).font(WindowType.body(13)).foregroundStyle(Palette.ink64).padding(.top, 6)
                     }
+                    if entry.editOriginal == nil, let mode = entry.writingModeName {
+                        Text("Mode: \(mode)").font(WindowType.body(13)).foregroundStyle(Palette.ink64).padding(.top, 2)
+                    }
                     if let route = AppController.routeLabel(transcription: entry.transcriptionProvider, cleanup: entry.cleanupProvider, outcome: entry.cleanupOutcome) {
                         Text(route).font(WindowType.body(13)).foregroundStyle(Palette.ink64).padding(.top, 2)
                     }

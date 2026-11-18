@@ -161,8 +161,7 @@ private struct UndoCancelCard: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "xmark.circle").font(.system(size: 12)).foregroundStyle(.secondary).accessibilityHidden(true)
-            Text("Recording canceled").font(.system(size: 12, weight: .medium)).lineLimit(1)
-            Spacer(minLength: 4)
+            Text("Recording canceled").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
             CardAction(title: "Undo", hint: "Transcribes and inserts the canceled recording.", inNotch: inNotch) { controller.undoCancel() }
         }
         .padding(inNotch ? 4 : 8).padding(.trailing, inNotch ? 8 : 0)
@@ -192,38 +191,45 @@ private struct LearnedNotice: View {
     }
 }
 
+/// After a dictation that cleanup or a mode changed; laid out like the Recording canceled card.
+/// Every part but Undo opens the dictation in History.
 private struct ModeRecoveryCard: View {
     @ObservedObject var controller: AppController
     var inNotch = false
     var body: some View {
         if let recovery = controller.modeRecovery {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 12)).foregroundStyle(Palette.accent).accessibilityHidden(true)
-                switch recovery.stage {
-                case .offer:
-                    // A chip that reverts to the raw transcript when clicked (⌃⌘Z too).
-                    Button { controller.revertToRaw() } label: {
-                        Text("\(recovery.changes) change\(recovery.changes == 1 ? "" : "s")").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
-                            .frame(maxWidth: .infinity, minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                        .accessibilityLabel("\(recovery.changes) changes by cleanup").accessibilityHint("Replaces the inserted text with your words before cleanup if it is unchanged. Shortcut: Control Command Z.")
-                case .reverted:
-                    Text("Replaced with your words").font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Spacer(minLength: 4)
-                case .copy:
-                    Text("Could not replace safely").font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Spacer(minLength: 4)
-                    Button("Copy") { controller.copyRecovery() }.buttonStyle(.borderedProminent).controlSize(.small)
-                        .accessibilityHint("Copies the replacement text.")
-                }
-                if !inNotch && recovery.stage != .reverted {
-                    Button { controller.clearModeRecovery() } label: { Image(systemName: "xmark") }
-                        .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Dismiss")
+                Button {
+                    if case .copy = recovery.stage { controller.copyRecovery() }
+                    controller.openRecoveryEntry()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: icon(recovery)).font(.system(size: 12)).foregroundStyle(Palette.accent).accessibilityHidden(true)
+                        Text(label(recovery)).font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
+                    }.frame(minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityHint(recovery.stage == .offer || recovery.stage == .reverted ? "Opens this dictation in History." : "Copies your words before cleanup and opens this dictation in History.")
+                if recovery.stage == .offer {
+                    CardAction(title: "Undo", hint: "Puts your words before cleanup back. Shortcut: Control Command Z.", inNotch: inNotch) { controller.revertToRaw() }
                 }
             }
-            .padding(inNotch ? 4 : 8).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(inNotch ? 4 : 8).padding(.trailing, inNotch ? 8 : 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .contain)
             .modifier(RecoveryBackground(inNotch: inNotch))
+        }
+    }
+    func icon(_ r: AppController.ModeRecovery) -> String {
+        switch r.stage {
+        case .offer: return r.usedMode ? "slider.horizontal.3" : "sparkles"
+        case .reverted: return "arrow.uturn.backward"
+        case .copy: return "doc.on.doc"
+        }
+    }
+    func label(_ r: AppController.ModeRecovery) -> String {
+        switch r.stage {
+        case .offer: return "\(r.changes) change\(r.changes == 1 ? "" : "s")"
+        case .reverted: return "Undone"
+        case .copy: return "Copy original"
         }
     }
 }
@@ -235,8 +241,8 @@ private struct CardAction: View {
     let action: () -> Void
     var body: some View {
         if inNotch {
-            Rectangle().fill(Color.white.opacity(0.3)).frame(width: 1, height: 16)
-            Spacer(minLength: 4)
+            // The HStack's 8 pt plus this padding: equal gaps either side of the divider.
+            Rectangle().fill(Color.white.opacity(0.3)).frame(width: 1, height: 16).padding(.horizontal, 4)
             Button(action: action) {
                 Text(title).font(.system(size: 12, weight: .medium))
                     .frame(height: 24).contentShape(Rectangle())
@@ -259,13 +265,19 @@ struct BubbleGeometry {
     let screen: NSScreen?
     let screenFrame: NSRect
     let frame: NSRect
-    let left: NSRect?
-    let right: NSRect?
+    var left: NSRect?
+    var right: NSRect?
     let notchHeight: CGFloat
     var hasNotch: Bool { left != nil && right != nil }
     var notchWidth: CGFloat { (right?.minX ?? 0) - (left?.maxX ?? 0) }
     var notchInset: CGFloat { notchWidth / 2 + 10 }
     // The menu bar is a point taller than the notch (33 vs 32 on a 15-inch Air), so the height comes from the area beside the notch.
+    /// The dictation indicator's geometry: with "Bottom of the screen" chosen, a notch is ignored.
+    static func dictation(screen: NSScreen?) -> BubbleGeometry {
+        var geo = BubbleGeometry(screen: screen)
+        if UserDefaults.standard[Prefs.dictationIndicator] == .bottom { geo.left = nil; geo.right = nil }
+        return geo
+    }
     init(screen: NSScreen?) {
         let target = screen ?? NSScreen.main ?? NSScreen.screens.first
         let fallback = NSRect(x: 0, y: 0, width: 1280, height: 800)
@@ -307,7 +319,7 @@ final class BubblePresenter {
         // A card holding text not pasted shows in any phase (Saved included).
         guard showsFloatingIndicator(phase: phase) || controller.pasteFailure != nil else { if notice == nil { hide() }; return }
         notice = nil
-        let geo = BubbleGeometry(screen: screen)
+        let geo = BubbleGeometry.dictation(screen: screen)
         let frame = geo.frame, notchWidth = geo.notchWidth, notchHeight = geo.notchHeight
         let editLabel = phase == .processing ? controller.processingLabel : nil
         let minimal = phase != .error && controller.pasteFailure == nil && editLabel == nil
@@ -381,7 +393,7 @@ final class BubblePresenter {
     /// A card beside the notch, or centred above the bottom edge on a screen without one; `notchMax` and `plain` are its widths.
     private func showCard<Card: View>(screen: NSScreen?, notchMax: CGFloat, plain: ClosedRange<CGFloat>, fitsContent: Bool = false, _ card: (Bool) -> Card) {
         transition = UUID(); atNotch = false; panel.alphaValue = 1
-        let geo = geometryOverride ?? BubbleGeometry(screen: screen)
+        let geo = geometryOverride ?? BubbleGeometry.dictation(screen: screen)
         let frame = geo.frame, left = geo.left, hasNotch = geo.hasNotch, notchHeight = geo.notchHeight
         var width = hasNotch ? min(notchMax, left!.width) : min(plain.upperBound, max(plain.lowerBound, frame.width - 32))
         // A card that fits its content: the widest the content wants, never more than the width above.
@@ -402,16 +414,22 @@ final class BubblePresenter {
     }
     /// The Undo card; it leaves with the "Recording canceled" status (5 s) or when anything else is shown.
     func showUndo(screen: NSScreen?) {
-        showCard(screen: screen, notchMax: 225, plain: 200...260) { UndoCancelCard(controller: controller, inNotch: $0) }
+        showCard(screen: screen, notchMax: 225, plain: 200...260, fitsContent: true) { UndoCancelCard(controller: controller, inNotch: $0) }
         notice = UUID()
     }
     private var recoveryNotice: UUID?
-    /// The mode recovery pill (12 s), or the quiet changes chip (5 s); unless something else took the panel first.
+    /// The changes card stays 8 s, unless something else takes the panel first.
+    static let recoverySeconds: TimeInterval = 8
     func showRecovery(screen: NSScreen?) {
-        showCard(screen: screen, notchMax: 150, plain: 110...150, fitsContent: true) { ModeRecoveryCard(controller: controller, inNotch: $0) }
+        showCard(screen: screen, notchMax: 225, plain: 200...260, fitsContent: true) { ModeRecoveryCard(controller: controller, inNotch: $0) }
+        notice = nil; recoveryNotice = nil; restartRecoveryTimer()
+    }
+    /// A fresh full window from now: "Copy original" gets its own time to be clicked.
+    func restartRecoveryTimer() {
+        guard notice == recoveryNotice else { return }  // something else took the panel
         let shown = UUID()
         notice = shown; recoveryNotice = shown
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.recoverySeconds) { [weak self] in
             guard let self, self.recoveryNotice == shown else { return }
             self.controller.clearModeRecovery()
         }

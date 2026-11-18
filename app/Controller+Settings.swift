@@ -33,10 +33,10 @@ extension AppController {
     /// Every setting that is stored in UserDefaults and applies as soon as it changes (README "Settings and recovery").
     /// The model folder is the exception: its own watcher applies it. Routes are `routeSettings`.
     static let persisted: [PersistedSetting] = [
-        PersistedSetting(Prefs.shortcut, \.shortcut), PersistedSetting(Prefs.voiceEditShortcut, \.voiceEditShortcut), PersistedSetting(Prefs.showMenuBar, \.showMenuBar), PersistedSetting(Prefs.showInDock, \.showInDock), PersistedSetting(Prefs.meetingIndicator, \.meetingIndicator),
+        PersistedSetting(Prefs.shortcut, \.shortcut), PersistedSetting(Prefs.voiceEditShortcut, \.voiceEditShortcut), PersistedSetting(Prefs.showMenuBar, \.showMenuBar), PersistedSetting(Prefs.showInDock, \.showInDock), PersistedSetting(Prefs.meetingIndicator, \.meetingIndicator), PersistedSetting(Prefs.dictationIndicator, \.dictationIndicator),
         PersistedSetting(Prefs.inputDeviceUID, \.inputDeviceUID), PersistedSetting(Prefs.intelligentLeadingSpace, \.intelligentLeadingSpace),
         PersistedSetting(Prefs.automaticInsertion, \.automaticInsertion), PersistedSetting(Prefs.pressToToggle, \.pressToToggle),
-        PersistedSetting(Prefs.recordingSounds, \.recordingSounds), PersistedSetting(Prefs.keepRecordings, \.keepRecordings),
+        PersistedSetting(Prefs.recordingSounds, \.recordingSounds),
         PersistedSetting(Prefs.liveWords, \.liveWords), PersistedSetting(Prefs.liveWordsOnCloud, \.liveWordsOnCloud),
         PersistedSetting(Prefs.retention, \.retention), PersistedSetting(Prefs.historyMode, \.historyMode),
         PersistedSetting(Prefs.updateChecks, \.updateChecksEnabled), PersistedSetting(Prefs.readableLearning, \.learningRequiresReadableField),

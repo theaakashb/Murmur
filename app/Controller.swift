@@ -28,6 +28,7 @@ enum Phase: String { case ready = "Ready", listening = "Listening", processing =
 enum ScreenRequest: Equatable {
     case home, guide, insights, meetings, history, settings, settingsSearch
     case settingsPane(SettingsPane)
+    case historyEntry(String)
 }
 
 @MainActor final class AppController: ObservableObject {
@@ -42,6 +43,7 @@ enum ScreenRequest: Equatable {
     @Published var showMenuBar = Prefs.showMenuBar.fallback
     /// Off by default; applies as soon as it changes.
     @Published var showInDock = Prefs.showInDock.fallback
+    @Published var dictationIndicator = Prefs.dictationIndicator.fallback
     @Published var meetingIndicator = Prefs.meetingIndicator.fallback
     /// A screen the window should switch to, set from a menu item or the UI fixture. The window clears it once shown.
     @Published var screenRequest: ScreenRequest?
@@ -63,7 +65,7 @@ enum ScreenRequest: Equatable {
     @Published var pressToToggle = Prefs.pressToToggle.fallback
     /// Short system sounds when recording starts and stops; none on insertion.
     @Published var recordingSounds = Prefs.recordingSounds.fallback
-    /// "Keep recordings for diagnostics (7 days)": off by default; see `DiagnosticRecordings`.
+    /// Diagnostic recordings: removed from Settings, so always off; see `DiagnosticRecordings`.
     @Published var keepRecordings = Prefs.keepRecordings.fallback
     /// Live words in the bubble while recording; needs the optional download.
     @Published var liveWords = Prefs.liveWords.fallback
@@ -290,7 +292,8 @@ enum ScreenRequest: Equatable {
         didSet { UserDefaults.standard.set(meetingTranscription.rawValue, forKey: MeetingTranscription.key) }
     }
     /// Settings → Meetings → Meeting notes. Nil until the first Stop asks, with None preselected.
-    @Published var meetingNotesRoute = MeetingNotesRoute.load(.standard) {
+    // Unset defaults to Apple Intelligence when it is ready on this Mac; otherwise the first Stop asks.
+    @Published var meetingNotesRoute = MeetingNotesRoute.load(.standard) ?? (AppleSystemModel.status() == nil ? .appleIntelligence : nil) {
         didSet {
             if let route = meetingNotesRoute { UserDefaults.standard.set(route.rawValue, forKey: MeetingNotesRoute.key) }
             else { UserDefaults.standard.removeObject(forKey: MeetingNotesRoute.key) }

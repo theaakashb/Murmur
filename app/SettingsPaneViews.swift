@@ -86,6 +86,9 @@ extension SettingsView {
             toggleRow("Show menu bar icon", "When hidden, reopen Murmur from Finder or Spotlight.", isOn: $controller.showMenuBar)
             toggleRow("Show in Dock", "Adds Murmur to the Dock and the app switcher. With both icons hidden, reopen Murmur from Finder or Spotlight.", isOn: $controller.showInDock)
             toggleRow("Open at login", "Starts Murmur in the background when you log in, so the shortcut is ready.", isOn: Binding(get: { controller.openAtLogin }, set: controller.setOpenAtLogin))
+            titled("Dictation indicator", "Where the recording indicator and its notices, such as Undo, appear. A display without a notch always uses the bottom of the screen.")
+                .padding(.top, 12).id("dictation-indicator")
+            segmented([(DictationIndicator.notch, "Beside the notch"), (DictationIndicator.bottom, "Bottom of the screen")], $controller.dictationIndicator).padding(.top, 8).padding(.bottom, 12)
 
             eyebrow("Tips").padding(.top, 24).id("tips")
             toggleRow("Show tips", "Milestones, and now and then a tip about a feature you have not tried. At most one a day; everything is decided on this Mac.", isOn: $controller.tips.enabled)
@@ -612,7 +615,6 @@ extension SettingsView {
                  : HistoryMode.offDisclosure).padding(.top, 12)
             eyebrow("Keep transcripts for").padding(.top, 28)
             segmented(HistoryRetention.allCases.map { ($0, $0.label) }, $controller.retention).padding(.top, 8)
-            toggleRow("Keep recordings for diagnostics (7 days)", "Keeps the audio of each dictation on this Mac, beside its History entry, so a developer can replay what Murmur heard. Off by default. Recordings are deleted after 7 days, and are kept only while History is saved. Delete All Data removes them.", isOn: $controller.keepRecordings).padding(.top, 20)
             if let notice = controller.historyNotice {
                 Text(notice).font(Font.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true).padding(.top, 12)
             }
@@ -625,11 +627,18 @@ extension SettingsView {
                 help("Failed recordings stay on this Mac for up to \(RetryWindow.text).").padding(.top, 8)
             }
             HStack(spacing: 20) {
+                titled("Backup and restore", "Saves settings, history, meeting notes, dictionary and cues to a folder you choose. API keys and audio are not included.")
+                Spacer()
+                Button("Restore…", action: controller.restoreData).buttonStyle(InkButtonStyle(kind: .outline))
+                Button("Back Up…", action: controller.backupData).buttonStyle(InkButtonStyle())
+            }
+            .padding(.vertical, 18).padding(.top, 36).id("backup-data")
+            HStack(spacing: 20) {
                 titled("Delete all data", DeleteAllDataText.explanation)
                 Spacer()
                 Button("Delete All Data…", role: .destructive, action: controller.deleteAllData).buttonStyle(InkButtonStyle())
             }
-            .padding(.vertical, 18).padding(.top, 36).id("delete-data")
+            .padding(.vertical, 18).id("delete-data")
         }
     }
 
