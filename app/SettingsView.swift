@@ -300,7 +300,7 @@ struct SettingsView: View {
                     navigationRow("Insights", icon: "chart.bar.xaxis", selected: screen == .insights) { screen = .insights }
                     navigationRow("Meetings", icon: "person.2", selected: screen == .meetings) { screen = .meetings }
                     navigationRow("History", icon: "clock.arrow.circlepath", selected: screen == .history) { screen = .history }
-                    navigationRow("Settings", icon: "gearshape", selected: false) { screen = .settings }
+                    navigationRow("Settings", icon: "gearshape", selected: false, dot: !controller.tips.dots.isEmpty) { screen = .settings }
 
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -342,7 +342,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(SettingsPane.groups, id: \.self) { pane in
                         if pane == .privacy { Divider().padding(.vertical, 12) }
-                        navigationRow(pane.title, icon: pane.icon, selected: section.group == pane) {
+                        navigationRow(pane.title, icon: pane.icon, selected: section.group == pane, dot: controller.tips.dots.contains { $0.group == pane }) {
                             section = pane; settingsTarget = "top"
                         }
                     }
@@ -419,12 +419,14 @@ struct SettingsView: View {
         settingsSearchOpen = false; settingsQuery = ""; settingsSearchFocused = false
     }
 
-    private func navigationRow(_ title: String, icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
+    private func navigationRow(_ title: String, icon: String, selected: Bool, dot: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: icon).font(.system(size: 15)).frame(width: 20)
+                    .overlay(alignment: .topTrailing) { if dot && sidebarCollapsed && screen != .settings { ExploreDot().offset(x: 3, y: -2) } }
                 if screen == .settings { Text(title).font(.system(size: 13, weight: selected ? .medium : .regular)).lineLimit(1) }
                 else if !sidebarCollapsed { mono(title, size: 11, color: selected ? Palette.ink : Palette.ink70).lineLimit(1) }
+                if dot && (screen == .settings || !sidebarCollapsed) { Spacer(minLength: 4); ExploreDot() }
             }
             .foregroundStyle(selected ? Palette.ink : Palette.ink70)
             .padding(.horizontal, screen == .settings ? 10 : 0)
@@ -432,7 +434,7 @@ struct SettingsView: View {
             .background(selected ? Palette.accent16 : Color.clear, in: RoundedRectangle(cornerRadius: 6))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain).help(title).accessibilityLabel(title)
+        .buttonStyle(.plain).help(title).accessibilityLabel(dot ? "\(title), new" : title)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -480,16 +482,21 @@ struct SettingsView: View {
                         HStack(spacing: 0) {
                             ForEach(tabs, id: \.self) { value in
                                 Button { section = value; settingsTarget = "top" } label: {
-                                    Text(value.name).font(.system(size: 13, weight: .medium))
+                                    HStack(spacing: 5) {
+                                        Text(value.name).font(.system(size: 13, weight: .medium))
+                                        if controller.tips.dots.contains(value) { ExploreDot() }
+                                    }
                                         .foregroundStyle(section == value ? Palette.ink : Palette.ink70)
                                         .padding(.vertical, 12)
                                         .overlay(alignment: .bottom) { Rectangle().fill(section == value ? Palette.accent : .clear).frame(height: 2) }
                                         .padding(.horizontal, 12).contentShape(Rectangle()) // whole tab cell is clickable, not just the glyphs
                                 }.buttonStyle(.plain).accessibilityAddTraits(section == value ? .isSelected : [])
+                                    .accessibilityLabel(controller.tips.dots.contains(value) ? "\(value.name), new" : value.name)
                             }
                             Spacer(minLength: 0)
                         }.padding(.leading, -12).overlay(alignment: .bottom) { softRule }.padding(.bottom, 24)
                     }
+                    PaneIntro(pane: section, tips: controller.tips)
                     sectionBody.disabled(controller.isBusy)
                     if controller.isBusy { help("Finish dictating to change settings.", color: EditorialPalette.ink70).padding(.top, 12) }
                 }
@@ -502,6 +509,7 @@ struct SettingsView: View {
             .onChange(of: settingsNavigationID) { DispatchQueue.main.async { proxy.scrollTo(settingsTarget, anchor: .top) } }
             .background(EditorialPalette.paper)
             .tint(EditorialPalette.accent)
+            .onAppear { controller.tips.opened(section) }
             .id(section)
         }
     }

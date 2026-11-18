@@ -7,6 +7,7 @@ extension AppController {
     func refreshDictionary() {
         dictionaryEntries = processing?.dictionary.entries ?? []
         blockedWords = processing?.ledger.blocked ?? []
+        tips.changed() // learned words earn the Dictionary dot
         writeHelperVocabulary()
         if started { prewarm() }
     }

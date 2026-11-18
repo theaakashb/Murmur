@@ -161,6 +161,7 @@ enum ScreenRequest: Equatable {
     lazy var bubble = BubblePresenter(controller: self)
     /// Meeting detection: offers meeting notes when a call app or browser uses the microphone.
     lazy var callOffers = CallOfferPresenter(controller: self)
+    lazy var tips = TipPresenter(controller: self)
     /// Meeting notes: its own capture and store, sharing the warm helper.
     let meetingRecorder = MeetingRecorder()
     /// Settings → Meetings → speaker separation: the switch and its optional download.
@@ -408,7 +409,7 @@ enum ScreenRequest: Equatable {
                 guard let self else { return }
                 self.voiceLevel = self.capture?.currentLevel ?? 0
                 self.meetingRecorder.tick()
-                if !self.preview { self.callOffers.tick() }
+                if !self.preview { self.callOffers.tick(); self.tips.tick() }
                 for (audio, job) in self.chunkJobs where !FileManager.default.fileExists(atPath: audio.path) { job.discard(); self.chunkJobs[audio] = nil }
                 for slot in self.modelSlots where self[keyPath: slot].inFlight {
                     if let status = self[keyPath: slot].downloader?.status(), status != self[keyPath: slot].status { self[keyPath: slot].status = status }
@@ -1136,6 +1137,7 @@ enum ScreenRequest: Equatable {
         }
         lastDictationText = processed
         professionalHint.consider(entryID: entry.id, raw: text, professionalActive: cleanupProfessional && cleanupChoice.cloudOnlyOK)
+        if !preview { tips.recordDictation(final: processed, seconds: entry.seconds) }
         if insertThisSession {
             // Murmur never pastes into itself, but a text view in its own window (the Report an Issue box) takes the text directly.
             if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid(), let editor = NSApp.keyWindow?.firstResponder as? NSTextView, editor.isEditable, !editor.isFieldEditor {
