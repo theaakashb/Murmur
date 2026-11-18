@@ -29,7 +29,7 @@ struct MurmurCloudEditProvider: Sendable {
     var disclosure: DataDisclosure {
         DataDisclosure(provider: .murmurCloud, stage: .cleanup, destinationHost: MurmurCloud.host,
                        leavesDevice: ["the selected text", "your spoken instruction"], staysOnDevice: ["audio", "history", "the dictionary"],
-                       retentionNote: "Murmur Cloud has it edited by a model on Amazon Bedrock.")
+                       retentionNote: "")
     }
 
     /// A 404 (an older server) is a rejected request, never a retry on another route.

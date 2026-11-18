@@ -477,17 +477,18 @@ struct SettingsView: View {
                         .padding(.top, 6).padding(.bottom, 24)
                     let tabs = section.tabs
                     if !tabs.isEmpty {
-                        HStack(spacing: 24) {
+                        HStack(spacing: 0) {
                             ForEach(tabs, id: \.self) { value in
                                 Button { section = value; settingsTarget = "top" } label: {
                                     Text(value.name).font(.system(size: 13, weight: .medium))
                                         .foregroundStyle(section == value ? Palette.ink : Palette.ink70)
                                         .padding(.vertical, 12)
                                         .overlay(alignment: .bottom) { Rectangle().fill(section == value ? Palette.accent : .clear).frame(height: 2) }
+                                        .padding(.horizontal, 12).contentShape(Rectangle()) // whole tab cell is clickable, not just the glyphs
                                 }.buttonStyle(.plain).accessibilityAddTraits(section == value ? .isSelected : [])
                             }
                             Spacer(minLength: 0)
-                        }.overlay(alignment: .bottom) { softRule }.padding(.bottom, 24)
+                        }.padding(.leading, -12).overlay(alignment: .bottom) { softRule }.padding(.bottom, 24)
                     }
                     sectionBody.disabled(controller.isBusy)
                     if controller.isBusy { help("Finish dictating to change settings.", color: EditorialPalette.ink70).padding(.top, 12) }

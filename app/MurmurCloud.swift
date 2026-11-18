@@ -94,7 +94,7 @@ struct MurmurCloudCleanupProvider: CleanupProvider {
         DataDisclosure(provider: id, stage: .cleanup, destinationHost: MurmurCloud.host,
                        leavesDevice: ["the transcript text", "relevant dictionary terms", "any enabled screen context and style notes"],
                        staysOnDevice: ["audio", "history", "the rest of the dictionary"],
-                       retentionNote: "Murmur Cloud has it cleaned by a model on Amazon Bedrock.")
+                       retentionNote: "")
     }
 
     /// Rewrite presets and meeting notes carry no typed input: the server does not take them, so they are refused, not approximated.
