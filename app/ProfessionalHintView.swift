@@ -73,13 +73,13 @@ struct ProfessionalHintLine: View {
             case .idle:
                 HStack(spacing: 8) {
                     if key == nil {
-                        Button("Start a trial") { NSWorkspace.shared.open(ProfessionalHint.checkoutURL); hint.finish() }.buttonStyle(InkButtonStyle(kind: .filled)).fixedSize()
+                        Button(MurmurCloud.getTitle) { NSWorkspace.shared.open(MurmurCloud.getURL); hint.finish() }.buttonStyle(InkButtonStyle(kind: .filled)).fixedSize().disabled(!MurmurCloud.purchaseAvailable)
                     } else {
                         Button("See it in Professional") { hint.preview = .asking }.buttonStyle(InkButtonStyle(kind: .filled)).fixedSize()
                     }
                     Button("Not now") { hint.dismiss() }.buttonStyle(InkButtonStyle(kind: .plain)).fixedSize()
                 }
-                if key == nil { note("Professional runs on Murmur Cloud. A card is required to start a trial; your key arrives by email.") }
+                if key == nil { note(MurmurCloud.purchaseAvailable ? "Professional runs on Murmur Cloud. A card is required to start a trial; your key arrives by email." : "Professional runs on Murmur Cloud.") }
             case .asking:
                 note("This sends this dictation's text to \(MurmurCloud.host) so Murmur Cloud can write the Professional version. Nothing is sent until you press Preview.")
                 HStack(spacing: 8) {
@@ -108,4 +108,11 @@ struct ProfessionalHintLine: View {
         .padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
         .background(Palette.accent16).padding(.bottom, 12)
     }
+}
+
+extension MurmurCloud {
+    /// The one place the "get Murmur Cloud" button is defined; "Coming soon" and disabled until purchase exists.
+    static var getTitle: String { purchaseAvailable ? "Start a trial" : "Coming soon" }
+    /// Callers disable the button while `purchaseAvailable` is false, so nothing opens.
+    @MainActor static var getURL: URL { ProfessionalHint.checkoutURL }
 }
