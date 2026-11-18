@@ -192,42 +192,21 @@ private struct LearnedNotice: View {
     }
 }
 
-/// The changes chip and card icon: a sparkle on a line of text reads as "polished". `symbol` is only changed by the UI fixture.
-enum RecoveryIcon { nonisolated(unsafe) static var symbol = "text.badge.star" }
-
 private struct ModeRecoveryCard: View {
     @ObservedObject var controller: AppController
     var inNotch = false
     var body: some View {
         if let recovery = controller.modeRecovery {
             HStack(spacing: 8) {
-                Image(systemName: recovery.modeName == nil ? RecoveryIcon.symbol : "slider.horizontal.3").font(.system(size: 12)).foregroundStyle(.secondary).accessibilityHidden(true)
+                Image(systemName: "sparkles").font(.system(size: 12)).foregroundStyle(Palette.accent).accessibilityHidden(true)
                 switch recovery.stage {
-                case .offer where !recovery.full:
-                    // The quiet default: a chip that reverts to the raw transcript when clicked.
+                case .offer:
+                    // A chip that reverts to the raw transcript when clicked (⌃⌘Z too).
                     Button { controller.revertToRaw() } label: {
                         Text("\(recovery.changes) change\(recovery.changes == 1 ? "" : "s")").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
                             .frame(maxWidth: .infinity, minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
                     }.buttonStyle(.plain)
                         .accessibilityLabel("\(recovery.changes) changes by cleanup").accessibilityHint("Replaces the inserted text with your words before cleanup if it is unchanged. Shortcut: Control Command Z.")
-                case .offer:
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(recovery.modeName.map { "Mode used: \($0)" } ?? "Cleaned up · \(recovery.changes) change\(recovery.changes == 1 ? "" : "s")")
-                            .font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
-                    }
-                    Spacer(minLength: 4)
-                    if recovery.changes > 0 {
-                        CardAction(title: "Use my words", hint: "Replaces the inserted text with your words before cleanup if it is unchanged. Shortcut: Control Command Z.", inNotch: inNotch) { controller.revertToRaw() }
-                    }
-                    if recovery.modeName != nil {
-                        CardAction(title: "Use without mode", hint: "Processes the original transcript with ordinary Cleanup and replaces the inserted text if it is unchanged.", inNotch: inNotch) { controller.useWithoutMode() }
-                    }
-                case .working:
-                    Text("Reprocessing…").font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Spacer(minLength: 4)
-                case .replaced:
-                    Text("Replaced without mode").font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Spacer(minLength: 4)
                 case .reverted:
                     Text("Replaced with your words").font(.system(size: 12, weight: .medium)).lineLimit(1)
                     Spacer(minLength: 4)
@@ -237,7 +216,7 @@ private struct ModeRecoveryCard: View {
                     Button("Copy") { controller.copyRecovery() }.buttonStyle(.borderedProminent).controlSize(.small)
                         .accessibilityHint("Copies the replacement text.")
                 }
-                if !inNotch && recovery.stage != .replaced && recovery.stage != .reverted {
+                if !inNotch && recovery.stage != .reverted {
                     Button { controller.clearModeRecovery() } label: { Image(systemName: "xmark") }
                         .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Dismiss")
                 }
@@ -428,11 +407,11 @@ final class BubblePresenter {
     }
     private var recoveryNotice: UUID?
     /// The mode recovery pill (12 s), or the quiet changes chip (5 s); unless something else took the panel first.
-    func showRecovery(screen: NSScreen?, full: Bool) {
-        showCard(screen: screen, notchMax: full ? 470 : 150, plain: full ? 400...500 : 110...150, fitsContent: true) { ModeRecoveryCard(controller: controller, inNotch: $0) }
+    func showRecovery(screen: NSScreen?) {
+        showCard(screen: screen, notchMax: 150, plain: 110...150, fitsContent: true) { ModeRecoveryCard(controller: controller, inNotch: $0) }
         let shown = UUID()
         notice = shown; recoveryNotice = shown
-        DispatchQueue.main.asyncAfter(deadline: .now() + (full ? 12 : 5)) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             guard let self, self.recoveryNotice == shown else { return }
             self.controller.clearModeRecovery()
         }

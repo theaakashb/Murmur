@@ -126,6 +126,26 @@ extension SettingsView {
             ProfessionalHintLine(hint: controller.professionalHint, controller: controller, entry: entry)
             if open {
                 VStack(alignment: .leading, spacing: 0) {
+                    let actions = Group {
+                        if !entry.finalText.isEmpty {
+                            Button(copiedID == entry.id + "f" ? "Copied ✓" : "Copy Text") { controller.copyEntry(entry); flashCopied(entry.id + "f") }
+                                .buttonStyle(InkButtonStyle())
+                        }
+                        if entry.rawText != entry.finalText {
+                            Button(copiedID == entry.id + "r" ? "Copied ✓" : "Copy Raw") { controller.copyRawEntry(entry); flashCopied(entry.id + "r") }
+                                .buttonStyle(InkButtonStyle(kind: .outline))
+                        }
+                        if !entry.finalText.isEmpty && editingTextID != entry.id {
+                            Button("Edit") { textDraft = entry.finalText; editingTextID = entry.id }.buttonStyle(InkButtonStyle(kind: .outline))
+                                .accessibilityLabel("Edit final text")
+                        }
+                        Button("Delete", role: .destructive) { controller.deleteEntry(entry) }.buttonStyle(InkButtonStyle(kind: .plain))
+                    }
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { actions }.fixedSize(horizontal: true, vertical: false)
+                        VStack(alignment: .leading, spacing: 8) { actions }
+                    }
+                    .padding(.bottom, 16)
                     if let note {
                         Text(note).font(WindowType.body(14)).foregroundStyle(Palette.ink80).fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
@@ -156,13 +176,13 @@ extension SettingsView {
                         Text(route).font(WindowType.body(13)).foregroundStyle(Palette.ink64).padding(.top, 2)
                     }
                     if let original = entry.editOriginal {
-                        eyebrow("Voice edit").padding(.top, 16)
-                        Text("Instruction: \(entry.rawText)").font(WindowType.body(15)).foregroundStyle(Palette.ink70).textSelection(.enabled).padding(.top, 6)
-                        eyebrow("Original").padding(.top, 12)
-                        Text(original).font(WindowType.body(15)).lineSpacing(3).foregroundStyle(Palette.ink70).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
-                        eyebrow("What changed").padding(.top, 12)
+                        eyebrow("What changed").padding(.top, 16)
                         WordDiffText(raw: original, final: entry.finalText).font(WindowType.body(15)).lineSpacing(3)
                             .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
+                        eyebrow("Original").padding(.top, 16)
+                        Text(original).font(WindowType.body(15)).lineSpacing(3).foregroundStyle(Palette.ink70).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
+                        eyebrow("Voice edit").padding(.top, 16)
+                        Text(entry.rawText).font(WindowType.body(15)).lineSpacing(3).foregroundStyle(Palette.ink70).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
                     } else if entry.rawText != entry.finalText {
                         eyebrow("What changed").padding(.top, 16)
                         WordDiffText(raw: entry.cleanup?.input ?? entry.rawText, final: entry.finalText)
@@ -172,27 +192,6 @@ extension SettingsView {
                         Text(entry.rawText).font(WindowType.body(15)).lineSpacing(3).foregroundStyle(Palette.ink70)
                             .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
                     }
-                    let actions = Group {
-                        if !entry.finalText.isEmpty {
-                            Button(copiedID == entry.id + "f" ? "Copied ✓" : "Copy Text") { controller.copyEntry(entry); flashCopied(entry.id + "f") }
-                                .buttonStyle(InkButtonStyle())
-                        }
-                        if entry.rawText != entry.finalText {
-                            Button(copiedID == entry.id + "r" ? "Copied ✓" : "Copy Raw") { controller.copyRawEntry(entry); flashCopied(entry.id + "r") }
-                                .buttonStyle(InkButtonStyle(kind: .outline))
-                        }
-                        if !entry.finalText.isEmpty && editingTextID != entry.id {
-                            Button("Edit") { textDraft = entry.finalText; editingTextID = entry.id }.buttonStyle(InkButtonStyle(kind: .outline))
-                                .accessibilityLabel("Edit final text")
-                        }
-                        Button("Delete", role: .destructive) { controller.deleteEntry(entry) }.buttonStyle(InkButtonStyle(kind: .plain))
-                    }
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 8) { actions }.fixedSize(horizontal: true, vertical: false)
-                        VStack(alignment: .leading, spacing: 8) { actions }
-                    }
-                    .padding(.top, 18)
-                    Text("Copying never retries insertion or sends a message.").font(WindowType.body(13)).foregroundStyle(Palette.ink64).padding(.top, 10)
                 }
                 .padding(.top, 4).padding(.bottom, 20)
             }
@@ -219,8 +218,8 @@ struct WordDiffText: View {
             case .added: piece.foregroundColor = Palette.accent; piece.underlineStyle = .single
             case .tweaked:
                 piece.foregroundColor = Palette.ink70
-                if let mark = run.mark {
-                    let chars = Array(run.text), lo = piece.index(piece.startIndex, offsetByCharacters: mark.lowerBound), hi = piece.index(piece.startIndex, offsetByCharacters: min(mark.upperBound, chars.count))
+                for position in run.marks {
+                    let lo = piece.index(piece.startIndex, offsetByCharacters: position), hi = piece.index(lo, offsetByCharacters: 1)
                     piece[lo..<hi].backgroundColor = Palette.accent16; piece[lo..<hi].foregroundColor = Palette.accentInk
                 }
             }

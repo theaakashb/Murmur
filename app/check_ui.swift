@@ -12,9 +12,9 @@ import Combine
 extension AppController {
     func showLocalModelFixture(_ status: ModelStatus, message: String = "") { localSlot.status = status; localSlot.message = message }
     /// The pill without a real insertion.
-    func showModeRecoveryFixture(stage: ModeRecovery.Stage, mode: String? = "AI Prompt", full: Bool = true) {
-        modeRecovery = ModeRecovery(entryID: "fixture", modeName: mode, raw: "", inserted: "", changes: 3, route: "", full: full, anchor: nil, stage: stage)
-        bubble.showRecovery(screen: nil, full: modeRecovery?.full == true)
+    func showModeRecoveryFixture(stage: ModeRecovery.Stage) {
+        modeRecovery = ModeRecovery(entryID: "fixture", raw: "", inserted: "", changes: 3, anchor: nil, stage: stage)
+        bubble.showRecovery(screen: nil)
     }
 }
 
@@ -234,15 +234,15 @@ extension AppController {
             if CommandLine.arguments.contains("--not-pasted") {
                 controller.showNotPasted(.insertionOff, saved: "Saved to History.", entryID: entries.first?.id, text: "Synthetic dictation saved with Insert at the cursor off.")
             }
+            // --notch / --no-notch: a synthetic notched or notch-less display for the bubble cards.
+            if args.contains("--notch") || args.contains("--no-notch") {
+                let notch = args.contains("--notch")
+                controller.bubble.geometryOverride = BubbleGeometry(screenFrame: NSRect(x: 0, y: 0, width: 1512, height: 982), visibleFrame: NSRect(x: 0, y: 0, width: 1512, height: notch ? 950 : 982),
+                                                                    left: notch ? NSRect(x: 0, y: 950, width: 656, height: 32) : nil, right: notch ? NSRect(x: 856, y: 950, width: 656, height: 32) : nil, notchHeight: notch ? 32 : 0)
+            }
             if let i = args.firstIndex(of: "--mode-recovery") {
                 let name = args.indices.contains(i + 1) ? args[i + 1] : ""
-                if let k = args.firstIndex(of: "--chip-icon"), args.indices.contains(k + 1) { RecoveryIcon.symbol = args[k + 1] }
-                // --notch: a synthetic notched display, so the card's placement beside the notch can be seen.
-                if args.contains("--notch") {
-                    controller.bubble.geometryOverride = BubbleGeometry(screenFrame: NSRect(x: 0, y: 0, width: 1512, height: 982), visibleFrame: NSRect(x: 0, y: 0, width: 1512, height: 950),
-                                                                        left: NSRect(x: 0, y: 950, width: 656, height: 32), right: NSRect(x: 856, y: 950, width: 656, height: 32), notchHeight: 32)
-                }
-                controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : name == "reverted" ? .reverted : .offer, mode: name.hasPrefix("plain") || name == "chip" ? nil : "AI Prompt", full: name != "chip")
+                controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "reverted" ? .reverted : .offer)
                 if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
             }
             if let i = args.firstIndex(of: "--voice-edit") {
