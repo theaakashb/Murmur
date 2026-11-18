@@ -146,7 +146,7 @@ extension AppController {
                 // --hint-state ready|unchanged|unavailable|error: a finished preview (synthetic text; no request is made).
                 if let i = args.firstIndex(of: "--hint-state"), args.indices.contains(i + 1) {
                     switch args[i + 1] {
-                    case "ready": controller.professionalHint.preview = .ready("I wanted to tell you about the launch plan. We should finish the designs, then the copy, then the review, and ship on Friday. Please also tell the team about the new pricing page, the docs and the changelog, and make sure support knows.")
+                    case "ready": controller.professionalHint.preview = .ready("I wanted to tell you about the launch plan: designs, copy, review, then ship on Friday.")
                     case "unchanged": controller.professionalHint.preview = .unchanged
                     case "unavailable": controller.professionalHint.preview = .unavailable("No preview available for this dictation.")
                     default: controller.professionalHint.preview = .unavailable(ProviderError.quota(.murmurCloud).userMessage)

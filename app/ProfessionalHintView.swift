@@ -9,8 +9,8 @@ import SwiftUI
     enum Preview: Equatable { case idle, asking, working, ready(String), unchanged, unavailable(String) }
 
     static let stateKey = "professionalHintState", enabledKey = "professionalHints"
-    /// The plan choice (basic or pro) is pending the user's pricing decision.
-    static let trialPlan = "pro"
+    /// Professional is in both plans; the trial starts on the lowest-cost one.
+    static let trialPlan = "basic"
     static var checkoutURL: URL { MurmurCloud.baseURL.appendingPathComponent("billing/checkout").appending(queryItems: [URLQueryItem(name: "plan", value: trialPlan)]) }
 
     @Published private(set) var state: ProfessionalHintState
