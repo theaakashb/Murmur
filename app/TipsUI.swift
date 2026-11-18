@@ -37,6 +37,8 @@ import SwiftUI
     func recordDictation(final: String, seconds: Double?) {
         guard let controller else { return }
         let seed: () -> (words: Int, secondsSaved: Double, firstUse: Date?) = {
+            // A login launch may not have read History yet; seeding 0 would undercount forever.
+            if controller.insights == .empty { controller.refreshHistory() }
             if case .stats(let s) = controller.insights { return (s.words, s.secondsSaved ?? 0, s.days.min()) }
             return (0, 0, nil)
         }
@@ -47,7 +49,7 @@ import SwiftUI
     }
     /// The correction watch ended: a hand rewrite, twice in a week, by someone who has not used voice edit.
     func noteAfterPaste(initial: String, edited: String) {
-        guard let controller, !Tips.isDone(.voiceEdit), !controller.history.contains(where: { $0.editOriginal != nil }),
+        guard let controller, !Tips.isDone(.voiceEdit), controller.voiceEditReady, !controller.history.contains(where: { $0.editOriginal != nil }),
               Tips.isRewrite(initial: initial, edited: edited), Tips.noteRewrite(now: Date()) else { return }
         queue(.voiceEdit)
     }
@@ -63,7 +65,7 @@ import SwiftUI
         // The tip shares the bubble's spot: it gives way to anything else there, without counting as dismissed.
         if let card, busy || now - shownAt >= card.lifetime { hide() }
         guard let next = pending, card == nil, !busy else { return }
-        guard Tips.canShow(next.id, now: Date()) else { pending = nil; return }
+        guard Tips.canShow(next.id, now: Date()), next != .voiceEdit || controller.voiceEditReady else { pending = nil; return }
         show(next)
     }
 

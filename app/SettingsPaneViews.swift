@@ -87,7 +87,7 @@ extension SettingsView {
             toggleRow("Show in Dock", "Adds Murmur to the Dock and the app switcher. With both icons hidden, reopen Murmur from Finder or Spotlight.", isOn: $controller.showInDock)
             toggleRow("Open at login", "Starts Murmur in the background when you log in, so the shortcut is ready.", isOn: Binding(get: { controller.openAtLogin }, set: controller.setOpenAtLogin))
 
-            eyebrow("Tips").padding(.top, 24)
+            eyebrow("Tips").padding(.top, 24).id("tips")
             toggleRow("Show tips", "Milestones, and now and then a tip about a feature you have not tried. At most one a day; everything is decided on this Mac.", isOn: $controller.tips.enabled)
             Button("Show Tips Again") { controller.tips.showAgain() }.buttonStyle(InkButtonStyle(kind: .outline)).padding(.top, 8).padding(.bottom, 12)
                 .help("Brings back tips you dismissed and the dots on settings you have not opened.")
