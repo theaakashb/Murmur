@@ -50,6 +50,7 @@ extension AppController {
         for setting in Self.persisted { setting.load(defaults, self) }
         cleanupPolish = cleanupPolish || cleanupProfessional // As CleanupOptions does: Professional includes Polish.
         if cleanupProfessional, !cleanupChoice.cloudOnlyOK { cleanupProfessional = false } // Professional is cloud-only; a stored local route keeps Polish.
+        // The Local model has no levels: a stored Professional (above) or Polish is its one natural cleanup. cleanupPolish stays on only to mean "use the model".
     }
     func saveSettings(to defaults: UserDefaults) { for setting in Self.persisted { setting.save(defaults, self) } }
 

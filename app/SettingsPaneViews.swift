@@ -199,7 +199,8 @@ extension SettingsView {
                 }), size: 14)
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
                 if controller.cleanupChoice == .localModel { localModelSection }
-                if !controller.cleanupChoice.cloudOnlyOK { help("Professional needs Murmur Cloud or a Custom Provider. On this Mac, Polish is the most it writes.").padding(.top, 8) }
+                if controller.cleanupChoice == .localModel { help("The Local model runs one natural cleanup of each dictation under Murmur's guard, whichever level is chosen. Polish and Professional levels are for Murmur Cloud and Custom Provider.").padding(.top, 8) }
+                else if !controller.cleanupChoice.cloudOnlyOK { help("Professional needs Murmur Cloud or a Custom Provider. On this Mac, Polish is the most it writes.").padding(.top, 8) }
             }
         }
     }
