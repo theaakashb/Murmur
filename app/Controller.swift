@@ -187,6 +187,9 @@ enum ScreenRequest: Equatable {
     /// Voice edit (VoiceEdit.swift): armed by the chord, adopted by the next start, spent by this recording's transcript.
     var pendingVoiceEdit: VoiceEditSession?
     var voiceEdit: VoiceEditSession?
+    var voiceEditPressedAt: TimeInterval = 0
+    /// `EditTrigger.sameKey`: the dictation key, when text is selected. Otherwise a recorded `CustomShortcut`.
+    @Published var voiceEditShortcut = Prefs.voiceEditShortcut.fallback
     /// This session's cloud transcriber, chosen at start; nil means local Parakeet.
     var sessionTranscriber: TranscriptionProvider?
     var capture: Capture?
@@ -553,7 +556,11 @@ enum ScreenRequest: Equatable {
         next.onEscapeWhileProcessing = { [weak self] in self?.cancelCloudRequest() }
         next.onCopyChord = { [weak self] in self?.copyLatestRawTranscript() }
         next.onPasteChord = { [weak self] in self?.pasteLastDictation() }
-        next.onEditChord = { [weak self] in self?.voiceEditChord() }
+        if case .custom(let edit) = ShortcutBinding(stored: voiceEditShortcut), voiceEditShortcut != EditTrigger.sameKey {
+            next.editBinding = edit; next.editSelectionProbe = editSelectionReadable
+            next.onEditPress = { [weak self] in self?.voiceEditPressed() }
+            next.onEditRelease = { [weak self] in self?.voiceEditReleased() }
+        }
         next.pressToToggle = pressToToggle
         // A press while the previous dictation processes records right away; its events replay
         // into the machine when that dictation finishes, which adopts this capture.
@@ -611,6 +618,13 @@ enum ScreenRequest: Equatable {
             guard permission() == .authorized else { refuse("Allow Microphone access in Settings before dictating.", done: done); return }
             // An unconfigured cloud route refuses; it never falls back to local.
             // A mode may turn cleanup on even when the Cleanup settings have it all off.
+            // With the dictation key and a readable selection this recording is a voice edit; with none, it dictates as before.
+            if pendingVoiceEdit == nil, let edit = voiceEditForDictationKey() {
+                switch edit {
+                case .success(let session): pendingVoiceEdit = session
+                case .failure(let refusal): refuse(refusal.message, done: done); return
+                }
+            }
             let editing = pendingVoiceEdit != nil // An edit sends no dictation cleanup and reads no screen context.
             let sendsText = !editing && ((processing?.settings.options.anyEnabled ?? false) || writingModes.contains { $0.enabled && $0.options?.anyEnabled == true })
             let plan = routePlan(appliedRoutes, cleanupSendsText: sendsText)

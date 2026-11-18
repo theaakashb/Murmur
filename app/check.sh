@@ -28,6 +28,7 @@ deps() {
     local_cleanup) echo "$cloud MurmurCloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
     providers) echo "$providers" ;;
     voice_edit) echo "$providers EditPrompt MurmurCloudEdit" ;;
+    voice_edit_trigger) echo "Shortcut EditTrigger EditShortcut" ;;
     insights) echo "Insights" ;;
     meetings|speakers) echo "$meetings" ;;
     call_detection) echo "CallApps CallDetection" ;;
@@ -38,7 +39,7 @@ deps() {
     *) return 1 ;;
   esac
 }
-swift_checks="launch history controller meeting_start recording speaker_flow delivery diagnostics dictionary voice_cues processing modes apple_cleanup routes local_cleanup providers voice_edit insights meetings speakers call_detection model_download app_services boost_filter cleanup"
+swift_checks="launch history controller meeting_start recording speaker_flow delivery diagnostics dictionary voice_cues processing modes apple_cleanup routes local_cleanup providers voice_edit voice_edit_trigger insights meetings speakers call_detection model_download app_services boost_filter cleanup"
 script_checks="http update_config"
 if [ "${1:-}" = "--list" ]; then echo $swift_checks $script_checks; exit 0; fi
 out="${TMPDIR:-/tmp}/murmur-checks"; mkdir -p "$out"; cd "$project_root" || exit 1

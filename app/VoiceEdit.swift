@@ -3,6 +3,7 @@
 import AppKit
 import ApplicationServices
 import Carbon
+import Carbon.HIToolbox
 import os
 
 /// What one voice edit holds from the chord to the result: the engine, the field and the selection as it was.
@@ -22,8 +23,8 @@ extension AppController {
     /// and a selection never falls through to another engine the user did not choose.
     static let cloudEditDeployed = false
 
-    /// ⌃⌥E: starts a voice edit, or finishes the one that is listening.
-    func voiceEditChord() {
+    /// The separate shortcut was pressed on a selection (the tap captured it): starts a voice edit, or finishes the one listening.
+    func voiceEditPressed() {
         guard sessionAvailable, let listener else { return }
         if voiceEdit != nil, listener.machine.state == .listening { stopRecording(); return }
         guard listener.machine.state == .idle, !isBusy else { return }
@@ -31,19 +32,36 @@ extension AppController {
         case .failure(let refusal): setPhase(.error, refusal.message)
         case .success(let edit):
             pendingVoiceEdit = edit
+            voiceEditPressedAt = ProcessInfo.processInfo.systemUptime
             listener.emit(listener.machine.startToggled())
             pendingVoiceEdit = nil
-            if listener.machine.state == .listening {
-                setPhase(.listening, "Say how to change the selection. \(edit.onDevice ? "Editing on this Mac." : "The selection and your words go to \(edit.destination).") Press ⌃⌥E to finish.")
-            } else { voiceEdit = nil }
+            if listener.machine.state != .listening { voiceEdit = nil }
+        }
+    }
+    /// A hold finishes on release; a quick tap stays latched until the next press, as with the dictation key.
+    func voiceEditReleased() {
+        guard voiceEdit != nil, let listener, listener.machine.state == .listening,
+              ProcessInfo.processInfo.systemUptime - voiceEditPressedAt >= listener.machine.holdThreshold else { return }
+        stopRecording()
+    }
+
+    /// The dictation key was pressed: with "same key" and a readable selection this recording is a voice edit, started by
+    /// the normal start. Nil means dictate as before; a refusal that must not dictate over the selection is returned to show.
+    func voiceEditForDictationKey() -> Result<VoiceEditSession, VoiceEditRefusal>? {
+        guard voiceEditShortcut == EditTrigger.sameKey else { return nil }
+        switch voiceEditSession() {
+        case .success(let edit): return .success(edit)
+        case .failure(let refusal): return refusal.dictates ? nil : .failure(refusal)
         }
     }
 
-    struct VoiceEditRefusal: Error { let message: String }
+    /// `dictates`: nothing to edit here (no readable selection, no engine), so the dictation key dictates as it always did.
+    /// A selection that is too long is not that: dictating would overwrite it, so it is refused instead.
+    struct VoiceEditRefusal: Error { let message: String; var dictates = false }
 
     /// The chosen engine and the current selection, or the one line that says why not. Makes no call and records nothing.
     func voiceEditSession() -> Result<VoiceEditSession, VoiceEditRefusal> {
-        func no(_ message: String) -> Result<VoiceEditSession, VoiceEditRefusal> { .failure(VoiceEditRefusal(message: message)) }
+        func no(_ message: String, dictates: Bool = true) -> Result<VoiceEditSession, VoiceEditRefusal> { .failure(VoiceEditRefusal(message: message, dictates: dictates)) }
         guard !IsSecureEventInputEnabled() else { return no("Voice edit is unavailable while Secure Input is active.") }
         let routes = routeSettings, engine = AIEngine.resolve(from: .standard, cleanup: cleanupChoice)
         let key: (ProviderID) -> APIKey? = { try? CustomAPIKeyBinding.readKey(for: $0, routes: routes, defaults: .standard, credentials: self.credentials) }
@@ -61,7 +79,7 @@ extension AppController {
         }
         let name = engine == .appleIntelligence ? "Apple Intelligence" : engine == .customProvider ? "your Custom Provider" : "Murmur Cloud"
         let cap = engine == .appleIntelligence ? EditPrompt.appleSelectionLimit : EditPrompt.remoteSelectionLimit
-        guard selection.count <= cap else { return no("The selection is too long for \(name) (\(cap) characters at most). Select less.") }
+        guard selection.count <= cap else { return no("The selection is too long for \(name) (\(cap) characters at most). Select less.", dictates: false) }
         if engine == .murmurCloud, let apiKey = key(.murmurCloud) {
             let client = MurmurCloudEditProvider(apiKey: apiKey)
             return .success(VoiceEditSession(engineName: name, destination: MurmurCloud.host, onDevice: false, target: target, selection: selection, run: { try await client.edit(text: $0, instruction: $1) }))
@@ -149,4 +167,13 @@ extension AppController {
         default: setPhase(.processing, "Editing on this Mac…")
         }
     }
+}
+
+/// Tap thread, called at the key-down of the separate shortcut: is a non-empty selection readable in the focused field?
+func editSelectionReadable() -> Bool {
+    if IsSecureEventInputEnabled() { return false }
+    let system = AXUIElementCreateSystemWide()
+    AXUIElementSetMessagingTimeout(system, 0.15)
+    guard let focused = axElement(system, kAXFocusedUIElementAttribute) else { return false }
+    return EditTrigger.capturesKey(secureInput: false, selection: focusedSelectedText(focused))
 }
