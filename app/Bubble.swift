@@ -161,8 +161,7 @@ private struct UndoCancelCard: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "xmark.circle").font(.system(size: 12)).foregroundStyle(.secondary).accessibilityHidden(true)
-            Text("Recording canceled").font(.system(size: 12, weight: .medium)).lineLimit(1)
-            Spacer(minLength: 4)
+            Text("Recording canceled").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
             CardAction(title: "Undo", hint: "Transcribes and inserts the canceled recording.", inNotch: inNotch) { controller.undoCancel() }
         }
         .padding(inNotch ? 4 : 8).padding(.trailing, inNotch ? 8 : 0)
@@ -206,8 +205,7 @@ private struct ModeRecoveryCard: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: icon(recovery)).font(.system(size: 12)).foregroundStyle(Palette.accent).accessibilityHidden(true)
-                        Text(label(recovery)).font(.system(size: 12, weight: .medium)).lineLimit(1)
-                        Spacer(minLength: 4)
+                        Text(label(recovery)).font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
                     }.frame(minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityHint(recovery.stage == .offer || recovery.stage == .reverted ? "Opens this dictation in History." : "Copies your words before cleanup and opens this dictation in History.")
                 if recovery.stage == .offer {
@@ -243,8 +241,8 @@ private struct CardAction: View {
     let action: () -> Void
     var body: some View {
         if inNotch {
-            Rectangle().fill(Color.white.opacity(0.3)).frame(width: 1, height: 16)
-            Spacer(minLength: 4)
+            // The HStack's 8 pt plus this padding: equal gaps either side of the divider.
+            Rectangle().fill(Color.white.opacity(0.3)).frame(width: 1, height: 16).padding(.horizontal, 4)
             Button(action: action) {
                 Text(title).font(.system(size: 12, weight: .medium))
                     .frame(height: 24).contentShape(Rectangle())
@@ -410,13 +408,13 @@ final class BubblePresenter {
     }
     /// The Undo card; it leaves with the "Recording canceled" status (5 s) or when anything else is shown.
     func showUndo(screen: NSScreen?) {
-        showCard(screen: screen, notchMax: 225, plain: 200...260) { UndoCancelCard(controller: controller, inNotch: $0) }
+        showCard(screen: screen, notchMax: 225, plain: 200...260, fitsContent: true) { UndoCancelCard(controller: controller, inNotch: $0) }
         notice = UUID()
     }
     private var recoveryNotice: UUID?
     /// The mode recovery pill (12 s), or the quiet changes chip (5 s); unless something else took the panel first.
     func showRecovery(screen: NSScreen?) {
-        showCard(screen: screen, notchMax: 225, plain: 200...260) { ModeRecoveryCard(controller: controller, inNotch: $0) }
+        showCard(screen: screen, notchMax: 225, plain: 200...260, fitsContent: true) { ModeRecoveryCard(controller: controller, inNotch: $0) }
         let shown = UUID()
         notice = shown; recoveryNotice = shown
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
