@@ -180,6 +180,7 @@ enum ScreenRequest: Equatable {
     var processing: ProcessingCoordinator?
     var appliedRoutes: RouteSettings
     // Preview and the developer probe never touch the login Keychain.
+    let professionalHint = ProfessionalHint(defaults: .standard)
     lazy var credentials: CredentialStore = preview ? InMemoryCredentialStore() : KeychainCredentialStore()
     private let cloudRequest = CloudRequest()
     private var cloudDone: (() -> Void)?
@@ -1105,6 +1106,7 @@ enum ScreenRequest: Equatable {
             endDictation(done); return
         }
         lastDictationText = processed
+        professionalHint.consider(entryID: entry.id, raw: text, professionalActive: cleanupProfessional && cleanupChoice.cloudOnlyOK)
         if insertThisSession {
             // Murmur never pastes into itself, but a text view in its own window (the Report an Issue box) takes the text directly.
             if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid(), let editor = NSApp.keyWindow?.firstResponder as? NSTextView, editor.isEditable, !editor.isFieldEditor {

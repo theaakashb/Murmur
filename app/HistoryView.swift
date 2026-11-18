@@ -123,6 +123,7 @@ extension SettingsView {
             .buttonStyle(.plain).accessibilityAddTraits(open ? .isSelected : [])
             .accessibilityValue(open ? "Expanded" : "Collapsed")
             .accessibilityHint("Show or hide transcript and recovery actions")
+            ProfessionalHintLine(hint: controller.professionalHint, controller: controller, entry: entry)
             if open {
                 VStack(alignment: .leading, spacing: 0) {
                     if let note {
