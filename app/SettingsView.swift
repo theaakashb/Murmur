@@ -11,14 +11,6 @@ enum CleanupStyle: CaseIterable {
     }
     var needsModel: Bool { self == .polish || self == .professional }
     init(_ o: CleanupOptions) { self = !o.anyEnabled ? .faithful : o.professional ? .professional : o.polish ? .polish : .strict }
-    var info: String {
-        switch self {
-        case .faithful: "Faithful keeps your words as dictated."
-        case .strict: "Natural cleans up your dictation without rewriting it: it removes fillers and applies clear spoken corrections."
-        case .polish: "Polish uses an AI model (Murmur Cloud or a Custom Provider) to also resolve backtracks and small grammar slips, keeping your voice."
-        case .professional: "Professional uses a cloud AI model (Murmur Cloud or a Custom Provider) to rewrite into clear writing of what you meant."
-        }
-    }
     var help: String {
         switch self {
         case .faithful: "Keeps the words as dictated, apart from dictionary spellings: “Um, let’s meet Tuesday, no, I mean, Thursday, at the cafe.”"
@@ -79,7 +71,7 @@ struct SettingsView: View {
     @AppStorage(Prefs.settingsSection.key) var section = SettingsPane.general
     @State var showAdvanced = false
     /// A Polish or Professional tap on a local route: the offer shown instead of switching routes silently.
-    @State var levelOffer: CleanupStyle?
+    @State var levelOffer: CleanupStyle? = CommandLine.arguments.contains("--level-offer") ? .polish : nil // the flag is for check_ui snapshots
     @State var showLiveModel = false
     @State var selectedID: String?
     /// An entry History should scroll into view once it is showing.

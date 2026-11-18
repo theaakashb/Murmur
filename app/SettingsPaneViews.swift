@@ -180,12 +180,8 @@ extension SettingsView {
         Binding(get: { controller.cleanupStyle }, set: { controller.cleanupStyle = $0 })
     }
 
-    /// Cleanup levels for the route: the local routes have Faithful and Natural; Polish and Professional are Murmur Cloud levels there, shown with a badge.
-    private var styleChoices: [(CleanupStyle, String)] {
-        CleanupStyle.allCases.map { style in
-            (style, style.needsModel && !controller.cleanupChoice.cloudOnlyOK ? style.label + " · Murmur Cloud" : style.label)
-        }
-    }
+    /// Cleanup levels for the route: the local routes have Faithful and Natural; Polish and Professional are Murmur Cloud levels there, shown with a cloud icon.
+    private var styleChoices: [(CleanupStyle, String)] { CleanupStyle.allCases.map { ($0, $0.label) } }
 
     private var routeStyle: Binding<CleanupStyle> {
         Binding(get: { controller.cleanupStyle }, set: { style in
@@ -197,24 +193,18 @@ extension SettingsView {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Cleanup style").padding(.top, 28)
             HStack(spacing: 4) {
-                segmented(styleChoices, routeStyle, size: 14)
-                SettingInfoButton(text: CleanupStyle.allCases.map(\.info).joined(separator: "\n"))
+                segmented(styleChoices, routeStyle, size: 14, cloud: { $0.needsModel && !controller.cleanupChoice.cloudOnlyOK })
+                SettingInfoButton(text: "Polish and Professional run on Murmur Cloud or a Custom Provider.")
                     .accessibilityLabel("About cleanup styles")
             }.padding(.top, 8)
             help(cleanupStyle.wrappedValue.help)
                 .padding(.top, 8)
             if let offered = levelOffer {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("\(offered.label) runs on Murmur Cloud or a Custom Provider. Choose one under “Cleanup runs on”, or start a trial.")
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("\(offered.label) runs on Murmur Cloud or a Custom Provider.")
                         .font(Font.system(size: 14)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 8) {
-                        Button("Start a trial") { NSWorkspace.shared.open(ProfessionalHint.checkoutURL) }.buttonStyle(InkButtonStyle(kind: .filled)).fixedSize()
-                        if controller.savedKeys.contains(.murmurCloud) {
-                            Button("Use Murmur Cloud (sends text to \(MurmurCloud.host))") { controller.cleanupChoice = .murmurCloud; controller.cleanupStyle = offered; levelOffer = nil }
-                                .buttonStyle(InkButtonStyle(kind: .outline)).fixedSize()
-                        }
-                        Button("Not now") { levelOffer = nil }.buttonStyle(InkButtonStyle(kind: .plain)).fixedSize()
-                    }
+                    Button { NSWorkspace.shared.open(MurmurCloud.getURL) } label: { Text(MurmurCloud.getTitle).frame(maxWidth: .infinity, minHeight: 44) }
+                        .buttonStyle(InkButtonStyle(kind: .filled))
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(EditorialPalette.accent16).padding(.top, 12)
             }
             if cleanupStyle.wrappedValue != .faithful {
@@ -283,12 +273,8 @@ extension SettingsView {
 
     var modes: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("AI engine").font(Font.system(size: 14, weight: .semibold)).padding(.top, 12)
-            segmented(AIEngine.allCases.map { ($0, $0.label) }, $controller.aiEngine, size: 14).padding(.top, 8)
-            if let reason = controller.aiEngineReason {
-                help("Rewrite presets and AI styles need an AI engine: Apple Intelligence on macOS 26, your own Custom Provider key, or Murmur Cloud. \(reason) Until then, modes apply only their non-AI settings.").padding(.top, 8)
-            } else if controller.aiEngine != .appleIntelligence {
-                help("Dictations that use a mode are sent to \(controller.aiEngine == .murmurCloud ? MurmurCloud.host : "your Custom Provider") to be rewritten.").padding(.top, 8)
+            if controller.aiEngineReason != nil {
+                help("Writing modes need Apple Intelligence (macOS 26), a Custom Provider or Murmur Cloud.").padding(.top, 12)
             }
             HStack(spacing: 4) {
                 Text("How modes are chosen").font(Font.system(size: 14, weight: .semibold))
