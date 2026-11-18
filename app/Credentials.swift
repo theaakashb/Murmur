@@ -34,6 +34,9 @@ enum ProviderID: String, CaseIterable, Codable, Sendable {
         case .murmurCloud: return "Murmur Cloud"
         }
     }
+
+    /// Professional is cloud-only: the two routes that run on this Mac write Polish at most.
+    var runsProfessional: Bool { self != .appleIntelligence && self != .localModel }
 }
 
 /// An API key. Every textual and reflective representation is redacted, so printing,

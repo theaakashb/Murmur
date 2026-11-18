@@ -225,7 +225,8 @@ final class ProcessingCoordinator {
         // Only the rewrite styles and preset rewrites use the model; Strict and Faithful stay on this Mac.
         guard settings.route == .cloud, style.usesModel else { return processSegment(raw, style: style) }
         let prepared = prepare(raw)
-        let options = style.options, terms = prepared.terms
+        var options = style.options; let terms = prepared.terms
+        if cloudCleaner?.id.runsProfessional == false { options.professional = false }
         evidence.terms = terms; evidence.cleanupInput = prepared.text == raw ? nil : prepared.text
         var context = style.context, instructions = style.instructions
         // The provider declares what it takes (CleanupShape): a fixed prompt gets no context or style notes (rewrite presets fall back below), a small window gets capped context.
@@ -324,7 +325,7 @@ final class ProcessingCoordinator {
     /// One provider call, no retry (a rate limit or an outage would only fail again). If the guard
     /// rejects the cleaned words, the transcript's words take the model's punctuation instead.
     /// The guard judges against the transcript section only: screen context never widens what it accepts.
-    private static func cloudClean(_ section: String, provider: CleanupProvider, options: CleanupOptions, terms: [String],
+    static func cloudClean(_ section: String, provider: CleanupProvider, options: CleanupOptions, terms: [String],
                                    context: ScreenContext? = nil, instructions: String = "") async -> CloudAttempt {
         var output: String
         let messages = CleanupPrompt.build(transcript: section, options: options, dictionaryTerms: terms, context: context, instructions: instructions)
@@ -337,15 +338,6 @@ final class ProcessingCoordinator {
         var judged = options
         if provider.id == .localModel { judged.trustModel = false }
         var verdict = CleanupPipeline.judge(raw: section, cleaned: output, options: judged, allowedTerms: terms, soundsLike: DictionaryStore.soundsLike)
-        // The local model's formal tone over-edits: on 139 real dictations the guard refused 36 formal answers and 22 casual
-        // ones. A refused formal answer gets one casual try under the same guard; if that is refused too, the first stands.
-        if provider.id == .localModel, options.professional, case .heldForRecovery = verdict {
-            var casual = messages; casual.input?.options.professional = false
-            if let second = try? await provider.cleanup(casual) {
-                let retried = CleanupPipeline.judge(raw: section, cleaned: second, options: judged, allowedTerms: terms, soundsLike: DictionaryStore.soundsLike)
-                if case .heldForRecovery = retried {} else { output = second; verdict = retried }
-            }
-        }
         switch verdict {
         case .cleaned(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: .cleaned, promptHash: hash)
         case .unchanged(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: .unchanged, promptHash: hash)

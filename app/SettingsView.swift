@@ -16,7 +16,7 @@ enum CleanupStyle: CaseIterable {
         case .faithful: "Faithful keeps your words as dictated."
         case .strict: "Strict runs on this Mac: it removes fillers and applies clear spoken corrections."
         case .polish: "Polish uses an AI model to also resolve backtracks and small grammar slips, keeping your voice."
-        case .professional: "Professional uses an AI model to rewrite into clear writing of what you meant."
+        case .professional: "Professional uses a cloud AI model (Murmur Cloud or a Custom Provider) to rewrite into clear writing of what you meant."
         }
     }
     var help: String {

@@ -193,9 +193,13 @@ extension SettingsView {
                 .padding(.top, 8)
             if cleanupStyle.wrappedValue.needsModel {
                 eyebrow("AI model").padding(.top, 20)
-                segmented(Self.aiCleanupChoices.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14)
+                segmented(Self.aiCleanupChoices.map { ($0, short($0.displayName)) }, Binding(get: { controller.cleanupChoice }, set: { choice in
+                    controller.cleanupChoice = choice
+                    if !choice.cloudOnlyOK { controller.cleanupProfessional = false }
+                }), size: 14)
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
                 if controller.cleanupChoice == .localModel { localModelSection }
+                if !controller.cleanupChoice.cloudOnlyOK { help("Professional needs Murmur Cloud or a Custom Provider. On this Mac, Polish is the most it writes.").padding(.top, 8) }
             }
         }
     }

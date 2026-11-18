@@ -49,6 +49,7 @@ extension AppController {
     func loadSettings(from defaults: UserDefaults) {
         for setting in Self.persisted { setting.load(defaults, self) }
         cleanupPolish = cleanupPolish || cleanupProfessional // As CleanupOptions does: Professional includes Polish.
+        if cleanupProfessional, !cleanupChoice.cloudOnlyOK { cleanupProfessional = false } // Professional is cloud-only; a stored local route keeps Polish.
     }
     func saveSettings(to defaults: UserDefaults) { for setting in Self.persisted { setting.save(defaults, self) } }
 
@@ -62,6 +63,8 @@ extension AppController {
             if newValue == .faithful { useFaithfulTranscription(); return }
             if cleanupStyle == .faithful { cleanupFillers = true; cleanupCorrections = true; cleanupLists = true; cleanupPunctuation = true; cleanupSpoken = true }
             cleanupPolish = newValue.needsModel; cleanupProfessional = newValue == .professional
+            // Professional needs Murmur Cloud or a Custom Provider.
+            if newValue == .professional, !cleanupChoice.cloudOnlyOK { cleanupChoice = .murmurCloud }
             // Polish and Professional need a model; Strict keeps the stored one for next time.
             if newValue.needsModel, cleanupChoice == .localRules, let first = CleanupChoice.allCases.first(where: { $0 != .localRules }) { cleanupChoice = first }
         }

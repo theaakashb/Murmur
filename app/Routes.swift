@@ -47,6 +47,9 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
+    /// Professional is cloud-only (ProviderID.runsProfessional): Murmur Cloud and Custom Provider.
+    var cloudOnlyOK: Bool { self == .murmurCloud || self == .customAPI }
+
     var displayName: String {
         switch self {
         case .localRules: return "Local rules (this Mac)"
