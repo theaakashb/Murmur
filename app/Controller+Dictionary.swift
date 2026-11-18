@@ -37,7 +37,7 @@ extension AppController {
     /// Recomputed when the Dictionary page opens and after each answer; spell checks are cached for the launch.
     func refreshDictionarySuggestions() {
         let dismissed = Set(UserDefaults.standard[Prefs.dismissedSuggestions])
-        dictionarySuggestions = DictionarySuggestions.find(history.map { (raw: $0.rawText, final: $0.finalText) }, entries: dictionaryEntries,
+        dictionarySuggestions = DictionarySuggestions.find(history.filter { $0.editOriginal == nil }.map { (raw: $0.rawText, final: $0.finalText) }, entries: dictionaryEntries,
                                                            dismissed: dismissed, isCommonWord: { [self] word in
             if let known = spellingCache[word] { return known }
             let common = isCommonEnglishWord(word); spellingCache[word] = common; return common

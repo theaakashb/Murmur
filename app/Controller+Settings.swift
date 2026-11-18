@@ -69,8 +69,7 @@ extension AppController {
         }
     }
 
-    func engineProvider() -> CleanupProvider? { aiEngine.provider(routes: appliedRoutes, key: { (try? self.credentials.read($0)) ?? nil }) }
-    var aiEngineReason: String? { aiEngine.unavailableReason(routes: routeSettings, hasKey: { self.savedKeys.contains($0) }) }
+    func engineProvider() -> CleanupProvider? { aiEngine?.provider(routes: appliedRoutes, key: { (try? self.credentials.read($0)) ?? nil }) }
 
     /// Changes whenever a setting that applies immediately changes; the settings window calls `settingsChanged` on it.
     var immediateSettings: [AnyHashable] { Self.persisted.map { $0.value(self) } + [installUpdatesAutomatically] }

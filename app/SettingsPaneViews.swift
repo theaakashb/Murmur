@@ -283,13 +283,6 @@ extension SettingsView {
 
     var modes: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("AI engine").font(Font.system(size: 14, weight: .semibold)).padding(.top, 12)
-            segmented(AIEngine.allCases.map { ($0, $0.label) }, $controller.aiEngine, size: 14).padding(.top, 8)
-            if let reason = controller.aiEngineReason {
-                help("Rewrite presets and AI styles need an AI engine: Apple Intelligence on macOS 26, your own Custom Provider key, or Murmur Cloud. \(reason) Until then, modes apply only their non-AI settings.").padding(.top, 8)
-            } else if controller.aiEngine != .appleIntelligence {
-                help("Dictations that use a mode are sent to \(controller.aiEngine == .murmurCloud ? MurmurCloud.host : "your Custom Provider") to be rewritten.").padding(.top, 8)
-            }
             HStack(spacing: 4) {
                 Text("How modes are chosen").font(Font.system(size: 14, weight: .semibold))
                 SettingInfoButton(text: "Preset trigger words work at the start of a dictation; other modes also accept them at the end. Spoken triggers take priority, then the website, then the app focused when you started. If two modes match the same way, the first in this list wins. Anything a mode leaves as “Same as Cleanup” follows the Cleanup settings.")
