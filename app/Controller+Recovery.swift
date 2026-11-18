@@ -75,6 +75,12 @@ extension AppController {
         } else { recovery.stage = .copy(text) }
         modeRecovery = recovery
     }
+    /// The chip's click: shows this dictation in History.
+    func openRecoveryEntry() {
+        guard let id = modeRecovery?.entryID else { return }
+        clearModeRecovery()
+        screenRequest = .historyEntry(id); openSettings?()
+    }
     /// Whether ⌃⌘Z is live: the tap swallows it only while the offer is open.
     var revertOffered: Bool { modeRecovery?.stage == .offer }
     /// An empty selection at the end of the span: nothing selected for the next keystroke to delete.

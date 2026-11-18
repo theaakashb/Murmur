@@ -204,12 +204,12 @@ private struct ModeRecoveryCard: View {
                 Text("Copy original").font(.system(size: 12, weight: .medium)).fixedSize().hidden().accessibilityHidden(true)
                 switch recovery.stage {
                 case .offer:
-                    // A chip that reverts to the raw transcript when clicked (⌃⌘Z too).
-                    Button { controller.revertToRaw() } label: {
+                    // Opens the History entry, which shows the mode and what changed; ⌃⌘Z still reverts while it shows.
+                    Button { controller.openRecoveryEntry() } label: {
                         Text("\(recovery.changes) change\(recovery.changes == 1 ? "" : "s")").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
                             .frame(maxWidth: .infinity, minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
                     }.buttonStyle(.plain)
-                        .accessibilityLabel("\(recovery.changes) changes by cleanup").accessibilityHint("Replaces the inserted text with your words before cleanup if it is unchanged. Shortcut: Control Command Z.")
+                        .accessibilityLabel("\(recovery.changes) changes by cleanup").accessibilityHint("Opens this dictation in History. Control Command Z puts your words before cleanup back.")
                 case .reverted:
                     Text("Undone").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
                         .accessibilityLabel("Replaced with your words")

@@ -28,6 +28,7 @@ enum Phase: String { case ready = "Ready", listening = "Listening", processing =
 enum ScreenRequest: Equatable {
     case home, guide, insights, meetings, history, settings, settingsSearch
     case settingsPane(SettingsPane)
+    case historyEntry(String)
 }
 
 @MainActor final class AppController: ObservableObject {
