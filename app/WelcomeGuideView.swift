@@ -145,8 +145,8 @@ extension SettingsView {
                                 if guideStep == .transcription { transcriptionRoutes }
                                 else if guideStep == .cleanup {
                                     cleanupChoices
-                                    if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .customAPI { customCleanupSettings }
-                                    if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .murmurCloud { keyRow(.murmurCloud).padding(.top, 16) }
+                                    if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .customAPI { customCleanupSettings }
+                                    if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .murmurCloud { keyRow(.murmurCloud).padding(.top, 16) }
                                     disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
                                 }
                                 else if guideStep == .welcome { welcome }

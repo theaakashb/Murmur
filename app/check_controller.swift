@@ -142,8 +142,8 @@ import AVFoundation
         controller.useFaithfulTranscription()
         controller.cleanupChoice = .localRules
         controller.cleanupStyle = .polish
-        precondition(controller.cleanupChoice == .localModel && controller.cleanupPolish && !controller.cleanupProfessional,
-                     "Polish without a model selects the Local model")
+        precondition(controller.cleanupChoice == .murmurCloud && controller.cleanupPolish && !controller.cleanupProfessional,
+                     "Polish on a local route moves to Murmur Cloud")
         controller.cleanupChoice = .customAPI
         controller.cleanupStyle = .strict
         precondition(controller.cleanupChoice == .customAPI && !controller.cleanupPolish && !controller.cleanupProfessional,

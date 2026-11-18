@@ -35,7 +35,7 @@ enum AIEngine: String, CaseIterable, Identifiable, Sendable {
     func provider(routes: RouteSettings, key: (ProviderID) -> APIKey?) -> CleanupProvider? {
         guard unavailableReason(routes: routes, hasKey: { key($0) != nil }) == nil else { return nil }
         switch self {
-        case .appleIntelligence: return AppleCleanupProvider()
+        case .appleIntelligence: if #available(macOS 26, *) { return AppleCleanupProvider() } else { return nil }
         case .customProvider: return makeCleanupProvider(.customAPI, key: key(.customCleanup), apiBaseURL: routes.customAPIBaseURL, model: routes.customAPIModel, reasoningEffort: routes.customAPIReasoningEffort)
         case .murmurCloud: return key(.murmurCloud).map { MurmurCloudCleanupProvider(apiKey: $0) }
         }

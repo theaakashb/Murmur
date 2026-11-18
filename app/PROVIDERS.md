@@ -27,6 +27,8 @@ Murmur Cloud is Murmur's hosted service at `https://api-murmur.clouddev.cc` (fix
 
 The Prompt, Email and Notes presets are not sent to Murmur Cloud: their dictations get ordinary cleanup without the preset's instructions. Meeting notes have their own route and never use Murmur Cloud.
 
+**AI engine.** Writing modes (presets and per-app or per-website styles) run on their own engine, chosen in Settings → Writing → Modes: Apple Intelligence (this Mac, macOS 26), your Custom Provider, or Murmur Cloud. A dictation that uses a mode is sent only to that engine, even when Cleanup runs on this Mac; with Apple Intelligence nothing leaves the Mac. With no engine available, modes apply only their non-AI settings. History records the engine that ran.
+
 Custom cleanup makes one provider request per dictation. A provider error or rejected rewrite can use guarded local cleanup; a transcription error does not switch to another transcriber.
 
 ## Implementation

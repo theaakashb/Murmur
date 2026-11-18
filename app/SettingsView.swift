@@ -7,22 +7,22 @@ import SwiftUI
 enum CleanupStyle: CaseIterable {
     case faithful, strict, polish, professional
     var label: String {
-        switch self { case .faithful: "Faithful"; case .strict: "Strict"; case .polish: "Polish"; case .professional: "Professional" }
+        switch self { case .faithful: "Faithful"; case .strict: "Natural"; case .polish: "Polish"; case .professional: "Professional" }
     }
     var needsModel: Bool { self == .polish || self == .professional }
     init(_ o: CleanupOptions) { self = !o.anyEnabled ? .faithful : o.professional ? .professional : o.polish ? .polish : .strict }
     var info: String {
         switch self {
         case .faithful: "Faithful keeps your words as dictated."
-        case .strict: "Strict runs on this Mac: it removes fillers and applies clear spoken corrections."
-        case .polish: "Polish uses an AI model to also resolve backtracks and small grammar slips, keeping your voice."
+        case .strict: "Natural cleans up your dictation without rewriting it: it removes fillers and applies clear spoken corrections."
+        case .polish: "Polish uses an AI model (Murmur Cloud or a Custom Provider) to also resolve backtracks and small grammar slips, keeping your voice."
         case .professional: "Professional uses a cloud AI model (Murmur Cloud or a Custom Provider) to rewrite into clear writing of what you meant."
         }
     }
     var help: String {
         switch self {
         case .faithful: "Keeps the words as dictated, apart from dictionary spellings: “Um, let’s meet Tuesday, no, I mean, Thursday, at the cafe.”"
-        case .strict: "Runs on this Mac. Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”"
+        case .strict: "Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”"
         case .polish: "Also resolves backtracks and false starts, and fixes small grammar slips, keeping your voice: “Let’s meet Thursday at the cafe.”"
         case .professional: "Rewrites into clear, professional writing of what you meant: “Let’s meet on Thursday at the café.”"
         }
@@ -78,6 +78,8 @@ struct SettingsView: View {
     /// The last settings pane, restored by ⌘, and on relaunch.
     @AppStorage(Prefs.settingsSection.key) var section = SettingsPane.general
     @State var showAdvanced = false
+    /// A Polish or Professional tap on a local route: the offer shown instead of switching routes silently.
+    @State var levelOffer: CleanupStyle?
     @State var showLiveModel = false
     @State var selectedID: String?
     /// An entry History should scroll into view once it is showing.

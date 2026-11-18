@@ -592,6 +592,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check(body["transcript"] as? String == "revenue is up 10%" && body["level"] as? String == "polish", "the server gets the transcript after spoken commands")
         check(result.outcome == .insert("Revenue is up 10%.") && result.promptHash == "murmur-cloud-server", "the guarded reply is inserted; the prompt hash names the server's prompt")
         // A preset is refused without a request; the ordinary cleanup that follows carries none of the preset's instructions.
+        p.engineCleaner = p.cloudCleaner // writing modes run on the AI engine
         let email = DictationStyle(mode: WritingMode.presets[1], settings: p.settings)
         let before = server.count
         _ = await p.processAsync("revenue is up ten percent", style: email)

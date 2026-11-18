@@ -47,6 +47,8 @@ struct ProcessingResult: Sendable {
     var cleanupInput: String?
     /// Screen context went to the cleanup provider with this dictation.
     var contextUsed = false
+    /// The engine provider that ran a writing-mode dictation, for History; nil otherwise.
+    var engine: ProviderID?
     /// How many cues were expanded; never their phrases or text.
     var cues = 0
 }
@@ -104,6 +106,8 @@ final class ProcessingCoordinator {
     /// The cloud route's provider. Nil means the cloud route is not configured, so local rules run.
     /// AppController sets it from `RoutePlan` (selected provider and Keychain key) at each start.
     var cloudCleaner: CleanupProvider?
+    /// The AI engine (AIEngine.swift) that writing-mode dictations use; nil when none is available.
+    var engineCleaner: CleanupProvider?
     /// What the punctuation transfer is guarded as: sentence punctuation and capitals, no word changes.
     static let punctuationOnly = CleanupOptions(fillers: false, corrections: false, lists: false, punctuation: true)
 
@@ -207,7 +211,7 @@ final class ProcessingCoordinator {
         func joined(_ parts: [String], _ separator: String) -> String? { parts.isEmpty ? nil : parts.joined(separator: separator) }
         evidence.cleanupPath = done.isEmpty ? .off : [CleanupPath.localRules, .modelPunctuationOnLocal, .modelAccepted, .localRoute, .off].first { path in done.contains { $0.cleanupPath == path } }
         evidence.fallback = done.compactMap(\.fallback).first; evidence.providerError = done.compactMap(\.providerError).first
-        evidence.promptHash = done.compactMap(\.promptHash).first; evidence.contextUsed = done.contains { $0.contextUsed }
+        evidence.engine = done.compactMap(\.engine).first; evidence.promptHash = done.compactMap(\.promptHash).first; evidence.contextUsed = done.contains { $0.contextUsed }
         evidence.rejectedOutput = joined(done.compactMap(\.rejectedOutput), "\n\n")
         evidence.modelOutput = joined(done.compactMap(\.modelOutput), "\n\n")
         evidence.cleanupInput = joined(done.compactMap(\.cleanupInput), "\n\n")
@@ -222,15 +226,20 @@ final class ProcessingCoordinator {
     @MainActor private func processSegmentAsync(_ raw: String, style: DictationStyle?) async -> ProcessingResult {
         var evidence = ProcessingResult(outcome: .insert(raw))
         let style = style ?? DictationStyle(mode: nil, settings: settings)
-        // Only the rewrite styles and preset rewrites use the model; Strict and Faithful stay on this Mac.
-        guard settings.route == .cloud, style.usesModel else { return processSegment(raw, style: style) }
+        // Writing-mode dictations run on the AI engine; the rest use the cleanup route.
+        let cleaner = style.usesEngine ? engineCleaner : cloudCleaner
+        // The Local model's Natural cleanup is its one model pass (no levels); other routes use the model for the rewrite styles and presets only.
+        let naturalOnLocalModel = !style.usesEngine && cloudCleaner?.id == .localModel && style.options.anyEnabled
+        guard settings.route == .cloud || style.usesEngine, style.usesModel || naturalOnLocalModel else { return processSegment(raw, style: style) }
         let prepared = prepare(raw)
         var options = style.options; let terms = prepared.terms
-        if cloudCleaner?.id.runsProfessional == false { options.professional = false }
+        if naturalOnLocalModel { options.polish = true }
+        if cleaner?.id.runsProfessional == false { options.professional = false }
+        if style.usesEngine, let id = cleaner?.id { evidence.engine = id }
         evidence.terms = terms; evidence.cleanupInput = prepared.text == raw ? nil : prepared.text
         var context = style.context, instructions = style.instructions
         // The provider declares what it takes (CleanupShape): a fixed prompt gets no context or style notes (rewrite presets fall back below), a small window gets capped context.
-        if let shape = cloudCleaner?.shape {
+        if let shape = cleaner?.shape {
             if !shape.takesContext { context = nil; instructions = "" }
             if !shape.takesPresets, style.transform != nil { instructions = "" }
             if let caps = shape.contextCaps, var c = context {
@@ -238,7 +247,7 @@ final class ProcessingCoordinator {
                 context = c
             }
         }
-        if let kind = style.transform, let provider = cloudCleaner, !prepared.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let kind = style.transform, let provider = cleaner, !prepared.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             if let attempt = await Self.transformClean(prepared.text, kind: kind, provider: provider, terms: terms, instructions: instructions) {
                 evidence.cleanupPath = .modelAccepted; evidence.modelOutput = attempt.accepted; evidence.promptHash = attempt.promptHash; evidence.guardVerdict = attempt.verdict.rawValue
                 evidence.outcome = .insert(attempt.text ?? prepared.text); return evidence
@@ -247,7 +256,7 @@ final class ProcessingCoordinator {
         }
         if !options.anyEnabled { evidence.cleanupPath = .off }
         if !options.anyEnabled || prepared.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { evidence.outcome = .insert(toned(prepared.text, input: prepared.text, style: style)); return evidence }
-        guard let provider = cloudCleaner else { evidence.fallback = .cleanerFailed; evidence.cleanupPath = .localRules; evidence.outcome = .insert(toned(localClean(prepared.text, terms: terms, options: options, evidence: &evidence), input: prepared.text, style: style)); return evidence }
+        guard let provider = cleaner else { evidence.fallback = .cleanerFailed; evidence.cleanupPath = .localRules; evidence.outcome = .insert(toned(localClean(prepared.text, terms: terms, options: options, evidence: &evidence), input: prepared.text, style: style)); return evidence }
         // Providers with a slow model or a small window clean long text in parallel sections, each guarded on its own (CleanupShape).
         let shape = provider.shape
         let sections = shape.sectionTarget.map { CleanupSections.split(prepared.text, target: $0, keepingCorrectionsAttached: shape.keepsCorrectionsAttached) } ?? [prepared.text]
@@ -334,9 +343,9 @@ final class ProcessingCoordinator {
         do { output = try await provider.cleanup(messages) }
         catch { return CloudAttempt(text: nil, reason: .cleanerFailed, error: error as? ProviderError, promptHash: hash) }
         let reason: CleanupFailureReason
-        // The managed local model is always held to the full guard (numbers, names, negations), whatever the global trust setting.
+        // The managed local model and Apple Intelligence are always held to the full guard (numbers, names, negations), whatever the global trust setting.
         var judged = options
-        if provider.id == .localModel { judged.trustModel = false }
+        if provider.id == .localModel || provider.id == .appleIntelligence { judged.trustModel = false }
         var verdict = CleanupPipeline.judge(raw: section, cleaned: output, options: judged, allowedTerms: terms, soundsLike: DictionaryStore.soundsLike)
         switch verdict {
         case .cleaned(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: .cleaned, promptHash: hash)
