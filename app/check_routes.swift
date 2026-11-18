@@ -163,6 +163,17 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check(makeCleanupProvider(.customAPI, key: testKey, apiBaseURL: "ftp://x", model: "m") == nil, "custom API rejects a bad URL")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is OpenAICompatibleCleanupProvider, "custom API key is optional")
         check(CleanupChoice.allCases == [.localRules, .appleIntelligence, .localModel, .customAPI, .murmurCloud], "cleanup choices: local rules, Apple Intelligence, local model, custom API and Murmur Cloud")
+        do { // AI engine: availability and defaults
+            var r = RouteSettings()
+            check(AIEngine.murmurCloud.unavailableReason(routes: r, hasKey: { _ in false }) != nil && AIEngine.murmurCloud.unavailableReason(routes: r, hasKey: { $0 == .murmurCloud }) == nil, "Murmur Cloud engine needs a key")
+            check(AIEngine.customProvider.unavailableReason(routes: r, hasKey: { _ in false }) != nil, "Custom engine needs a configured provider")
+            r.customAPIBaseURL = "https://api.example.com/v1"; r.customAPIModel = "m"
+            check(AIEngine.customProvider.unavailableReason(routes: r, hasKey: { _ in false }) == nil && AIEngine.customProvider.provider(routes: r, key: { _ in nil }) is OpenAICompatibleCleanupProvider, "Custom engine builds the existing provider")
+            check(AIEngine.murmurCloud.provider(routes: r, key: { _ in nil }) == nil, "an unavailable engine builds no provider")
+            let d = UserDefaults(suiteName: "murmur-engine-\(UUID())")!
+            check(AIEngine.resolve(from: d, cleanup: .murmurCloud) == .murmurCloud && AIEngine.resolve(from: d, cleanup: .localRules) == .appleIntelligence, "engine defaults follow the cleanup route")
+            AIEngine.customProvider.save(to: d); check(AIEngine.resolve(from: d, cleanup: .murmurCloud) == .customProvider, "a stored engine wins")
+        }
         check(CleanupChoice.localModel.providerID == .localModel && CleanupChoice.localModel.providerID != CleanupChoice.customAPI.providerID && CleanupChoice.localModel.credentialID == .localModel, "local model is its own provider with no key")
         check(makeCleanupProvider(.localModel, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is LocalModelCleanupProvider, "local model factory ignores custom provider settings")
         let localPlan = RoutePlan.make({ var s = RouteSettings(); s.cleanup = .localModel; return s }(), cleanupSendsText: true, key: { _ in nil })
