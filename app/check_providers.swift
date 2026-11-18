@@ -107,7 +107,7 @@ func checkKeychainStore() {
         check(input.raw == corrected && input.sent == RuleCleaner.spokenCommands(corrected) && input.sent != input.raw, "typed input: raw is the corrected text, sent has spoken commands written out")
         check(built.user.contains("\n\(input.sent)\n"), "sent is the text between the transcript tags")
         let request = try! MurmurCloudCleanupFormat.makeRequest(input, key: key)
-        check(request.url?.absoluteString == "https://api-murmur.clouddev.cc/v1/cleanup" && request.httpMethod == "POST", "cleanup posts to /v1/cleanup on the fixed base URL")
+        check(request.url?.absoluteString == "https://api.murmurdictation.com/v1/cleanup" && request.httpMethod == "POST", "cleanup posts to /v1/cleanup on the fixed base URL")
         check(request.value(forHTTPHeaderField: "Authorization") == "Bearer \(fakeSecret)" && request.value(forHTTPHeaderField: "Content-Type") == "application/json", "bearer key and JSON body")
         let body = json(request.httpBody)
         check(Set(body.keys) == ["transcript", "level", "fillers", "corrections", "punctuation", "lists", "terms", "style_notes", "context"], "only the documented keys are sent")
@@ -148,7 +148,7 @@ func checkKeychainStore() {
         // Key validation: GET /v1/models with the key.
         let models = MockTransport(.success(result(200, #"{"data":[{"id":"murmur-cleanup"},{"id":"murmur-transcribe"}]}"#)))
         do { try await MurmurCloud.validate(key: key, transport: models); check(true, "200 accepts the key") } catch { check(false, "200 accepts the key, got \(error)") }
-        check(models.requests.first?.url?.absoluteString == "https://api-murmur.clouddev.cc/v1/models" && models.requests.first?.httpMethod == "GET"
+        check(models.requests.first?.url?.absoluteString == "https://api.murmurdictation.com/v1/models" && models.requests.first?.httpMethod == "GET"
               && models.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer \(fakeSecret)", "validation is an authenticated GET /v1/models")
         for (status, expected) in [(401, ProviderError.authentication(.murmurCloud)), (402, .quota(.murmurCloud))] {
             do { try await MurmurCloud.validate(key: key, transport: MockTransport(.success(result(status, errorBody)))); check(false, "\(status) fails validation") }
@@ -161,12 +161,12 @@ func checkKeychainStore() {
         let heard = try? await stt.transcribe(AudioPayload(data: Data("RIFF".utf8)))
         check(heard == "Send the report.", "transcription returns the text")
         let sent = upload.requests.first, form = String(decoding: sent?.httpBody ?? Data(), as: UTF8.self)
-        check(sent?.url?.absoluteString == "https://api-murmur.clouddev.cc/v1/audio/transcriptions" && sent?.value(forHTTPHeaderField: "Authorization") == "Bearer \(fakeSecret)", "transcription posts to /v1/audio/transcriptions with the key")
+        check(sent?.url?.absoluteString == "https://api.murmurdictation.com/v1/audio/transcriptions" && sent?.value(forHTTPHeaderField: "Authorization") == "Bearer \(fakeSecret)", "transcription posts to /v1/audio/transcriptions with the key")
         check(form.contains(#"name="file""#) && form.contains(#"name="language""#) && !form.contains(#"name="prompt""#), "multipart has the file and language, no prompt")
         do { _ = try await stt.transcribe(AudioPayload(data: Data(count: OpenAICompatibleTranscriptionProvider.uploadLimitBytes + 1))); check(false, "oversized audio throws") }
         catch { check(error as? ProviderError == .payloadTooLarge(.murmurCloud, limitBytes: OpenAICompatibleTranscriptionProvider.uploadLimitBytes), "oversized audio is not sent") }
         check(upload.requests.count == 1, "the oversized upload sent nothing")
-        check(stt.disclosure.destinationHost == "api-murmur.clouddev.cc" && stt.disclosure.leavesDevice == ["audio"] && cloud.disclosure.destinationHost == "api-murmur.clouddev.cc"
+        check(stt.disclosure.destinationHost == "api.murmurdictation.com" && stt.disclosure.leavesDevice == ["audio"] && cloud.disclosure.destinationHost == "api.murmurdictation.com"
               && !cloud.disclosure.leavesDevice.contains("audio"), "disclosures name the host; cleanup sends no audio")
     }
 

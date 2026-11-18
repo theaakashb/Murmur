@@ -8,7 +8,7 @@ import FoundationNetworking
 // OpenAI-style multipart upload. The guard stays in the app (Processing.cloudClean).
 
 enum MurmurCloud {
-    static let baseURL = URL(string: "https://api-murmur.clouddev.cc")!
+    static let baseURL = URL(string: "https://api.murmurdictation.com")!
     static var host: String { baseURL.host! }
     static let cleanupModel = "murmur-cleanup"
     static let transcriptionModel = "murmur-transcribe"
