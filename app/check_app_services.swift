@@ -217,14 +217,19 @@ func checkBackup() throws {
     for dir in [live.history, live.dictionary] { try fm.createDirectory(at: dir, withIntermediateDirectories: true) }
     try Data("old".utf8).write(to: live.dictionary.appendingPathComponent("cues.json"))
     try Data("h".utf8).write(to: live.history.appendingPathComponent("h.json"))
-    try DataBackup.export(live, settings: ["liveWords": true], to: folder)
+    try fm.createDirectory(at: folder, withIntermediateDirectories: true) // an existing backup is replaced
+    try DataBackup.export(live, settings: ["liveWords": true, "customAPIKeyEndpoint": "https://a.example", "modelDirectory": "/x"], to: folder)
     try Data("new".utf8).write(to: live.dictionary.appendingPathComponent("cues.json"))
     try fm.removeItem(at: live.history)
-    let settings = try DataBackup.restore(from: folder, into: live)
-    check(settings["liveWords"] as? Bool == true, "restore returns the backed-up settings")
+    let backup = try DataBackup.readSettings(from: folder)
+    check(backup["liveWords"] as? Bool == true && backup["customAPIKeyEndpoint"] == nil && backup["modelDirectory"] == nil, "backup keeps user settings and drops machine ones")
+    let merged = DataBackup.merged(backup: ["liveWords": true, "customAPIKeyEndpoint.x": "https://a.example"], current: ["liveWords": false, "customAPIKeyEndpoint.x": "https://b.example"])
+    check(merged["liveWords"] as? Bool == true && merged["customAPIKeyEndpoint.x"] as? String == "https://b.example", "restore keeps this Mac's key bindings")
+    try DataBackup.restore(from: folder, into: live)
     check(fm.contents(atPath: live.dictionary.appendingPathComponent("cues.json").path) == Data("old".utf8), "restore replaces cues with the backup's")
     check(fm.fileExists(atPath: live.history.appendingPathComponent("h.json").path), "restore recreates missing history")
-    check((try? DataBackup.restore(from: root, into: live)) == nil, "a folder without settings.plist is refused")
+    check(!(try fm.contentsOfDirectory(atPath: live.history.deletingLastPathComponent().path)).contains { $0.hasPrefix(".restore-") }, "restore leaves no staging folders")
+    check((try? DataBackup.readSettings(from: root)) == nil, "a folder without settings.plist is refused")
 }
 
 func checkUpdates() {
