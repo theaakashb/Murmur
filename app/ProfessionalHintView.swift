@@ -73,7 +73,7 @@ struct ProfessionalHintLine: View {
             case .idle:
                 HStack(spacing: 8) {
                     if key == nil {
-                        Button(MurmurCloud.getTitle) { NSWorkspace.shared.open(MurmurCloud.getURL); hint.finish() }.buttonStyle(InkButtonStyle(kind: .filled)).fixedSize()
+                        Button(MurmurCloud.getTitle) { NSWorkspace.shared.open(MurmurCloud.getURL); hint.finish() }.buttonStyle(InkButtonStyle(kind: .filled)).fixedSize().disabled(!MurmurCloud.purchaseAvailable)
                     } else {
                         Button("See it in Professional") { hint.preview = .asking }.buttonStyle(InkButtonStyle(kind: .filled)).fixedSize()
                     }
@@ -111,7 +111,8 @@ struct ProfessionalHintLine: View {
 }
 
 extension MurmurCloud {
-    /// The one place the "get Murmur Cloud" button is defined; the false branch is a placeholder pending the product decision.
-    static var getTitle: String { purchaseAvailable ? "Start a trial" : "Get Murmur Cloud" }
-    @MainActor static var getURL: URL { purchaseAvailable ? ProfessionalHint.checkoutURL : URL(string: "https://murmurdictation.com")! }
+    /// The one place the "get Murmur Cloud" button is defined; "Coming soon" and disabled until purchase exists.
+    static var getTitle: String { purchaseAvailable ? "Start a trial" : "Coming soon" }
+    /// Callers disable the button while `purchaseAvailable` is false, so nothing opens.
+    @MainActor static var getURL: URL { ProfessionalHint.checkoutURL }
 }

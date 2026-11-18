@@ -204,7 +204,7 @@ extension SettingsView {
                     Text("\(offered.label) runs on Murmur Cloud or a Custom Provider.")
                         .font(Font.system(size: 14)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
                     Button { NSWorkspace.shared.open(MurmurCloud.getURL) } label: { Text(MurmurCloud.getTitle).frame(maxWidth: .infinity, minHeight: 44) }
-                        .buttonStyle(InkButtonStyle(kind: .filled))
+                        .buttonStyle(InkButtonStyle(kind: .filled)).disabled(!MurmurCloud.purchaseAvailable)
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(EditorialPalette.accent16).padding(.top, 12)
             }
             if cleanupStyle.wrappedValue != .faithful {
