@@ -495,7 +495,6 @@ enum ScreenRequest: Equatable {
             guard alert.runDestructive() == .alertFirstButtonReturn else { historyMode = appliedHistoryMode; return }
         }
         let routes = routeSettings
-        if routes.cleanup == .appleIntelligence && appliedRoutes.cleanup != .appleIntelligence { AppleCleanupProvider().prewarm() }
         if routes.cleanup == .localModel && appliedRoutes.cleanup != .localModel { LocalModelCleanupProvider().prewarm() }
         appliedRoutes = routes; routes.save(to: .standard)
         appliedRetention = retention
@@ -615,7 +614,7 @@ enum ScreenRequest: Equatable {
                 refuse(refusal, done: done); return
             }
             sessionTranscriber = plan.transcriber; processing?.cloudCleaner = plan.cleaner
-            (plan.cleaner as? AppleCleanupProvider)?.prewarm(); (plan.cleaner as? LocalModelCleanupProvider)?.prewarm()
+            (plan.cleaner as? LocalModelCleanupProvider)?.prewarm()
             destination = try? captureFocus()
             if destination?.secure == true { refuse("Password fields cannot receive dictation.", done: done); return }
             if destination?.pid == getpid() { destination = nil }

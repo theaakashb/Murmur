@@ -162,7 +162,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
               && RouteSettings().customAPIReasoningEffort == "low", "reasoning effort defaults to low, is trimmed, and empty sends none")
         check(makeCleanupProvider(.customAPI, key: testKey, apiBaseURL: "ftp://x", model: "m") == nil, "custom API rejects a bad URL")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is OpenAICompatibleCleanupProvider, "custom API key is optional")
-        check(CleanupChoice.allCases == [.localRules, .appleIntelligence, .localModel, .customAPI, .murmurCloud], "cleanup choices: local rules, Apple Intelligence, local model, custom API and Murmur Cloud")
+        check(CleanupChoice.allCases == [.localRules, .localModel, .customAPI, .murmurCloud], "cleanup choices: local rules, local model, custom API and Murmur Cloud; Apple Intelligence is meeting notes only")
         check(CleanupChoice.localModel.providerID == .localModel && CleanupChoice.localModel.providerID != CleanupChoice.customAPI.providerID && CleanupChoice.localModel.credentialID == .localModel, "local model is its own provider with no key")
         check(makeCleanupProvider(.localModel, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is LocalModelCleanupProvider, "local model factory ignores custom provider settings")
         let localPlan = RoutePlan.make({ var s = RouteSettings(); s.cleanup = .localModel; return s }(), cleanupSendsText: true, key: { _ in nil })
@@ -269,6 +269,8 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check(oldSpeech.customAPIBaseURL == "https://api.cerebras.ai/v1", "migration preserves an existing chosen custom server")
         defaults.set("gemini", forKey: RouteSettings.Key.legacyCloudTranscriber); defaults.set("gemini", forKey: RouteSettings.Key.cleanup)
         check(RouteSettings.load(from: defaults).cleanup == .localRules, "a stored choice that no longer exists loads as local rules")
+        defaults.set("apple-intelligence", forKey: RouteSettings.Key.cleanup)
+        check(RouteSettings.load(from: defaults).cleanup == .localModel, "a stored Apple Intelligence cleanup choice loads as the Local model")
         for key in [RouteSettings.Key.transcription, RouteSettings.Key.legacyCloudTranscriber, RouteSettings.Key.cleanup, RouteSettings.Key.customAPIBaseURL, RouteSettings.Key.customAPIModel, RouteSettings.Key.customTranscriptionModel, RouteSettings.Key.legacyServerURL, RouteSettings.Key.legacyServerModel] { defaults.removeObject(forKey: key) }
     }
 

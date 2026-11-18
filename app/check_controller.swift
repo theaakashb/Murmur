@@ -142,8 +142,8 @@ import AVFoundation
         controller.useFaithfulTranscription()
         controller.cleanupChoice = .localRules
         controller.cleanupStyle = .polish
-        precondition(controller.cleanupChoice == .appleIntelligence && controller.cleanupPolish && !controller.cleanupProfessional,
-                     "Polish without a model selects Apple Intelligence")
+        precondition(controller.cleanupChoice == .localModel && controller.cleanupPolish && !controller.cleanupProfessional,
+                     "Polish without a model selects the Local model")
         controller.cleanupChoice = .customAPI
         controller.cleanupStyle = .strict
         precondition(controller.cleanupChoice == .customAPI && !controller.cleanupPolish && !controller.cleanupProfessional,

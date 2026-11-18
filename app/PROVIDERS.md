@@ -4,7 +4,7 @@ Configure transcription and cleanup independently in Settings. Cloud routes requ
 
 ## Configure a route
 
-1. Choose a transcription route in Settings → Transcription and a cleanup style in Settings → Cleanup. Polish and Professional use the AI model you pick there; Faithful and Strict run on this Mac. Local Parakeet transcription and built-in cleanup need no provider account; Apple Intelligence cleanup depends on system availability.
+1. Choose a transcription route in Settings → Transcription and a cleanup style in Settings → Cleanup. Polish and Professional use the AI model you pick there; Faithful and Strict run on this Mac. Local Parakeet transcription and built-in cleanup need no provider account; Apple Intelligence is offered only for meeting notes (Settings → Meetings), depending on system availability.
 2. For Custom Provider, enter the service's base URL, model ID and, when required, API key. Transcription and cleanup have separate fields and destination-bound keys. URLs and model IDs apply on Return or focus loss; keys require Save.
 
 | Custom stage | Request | Base URL example |

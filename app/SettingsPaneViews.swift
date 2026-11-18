@@ -200,7 +200,6 @@ extension SettingsView {
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
                 if controller.cleanupChoice == .localModel { localModelSection }
                 if controller.cleanupChoice == .localModel { help("The Local model runs one natural cleanup of each dictation under Murmur's guard, whichever level is chosen. Polish and Professional levels are for Murmur Cloud and Custom Provider.").padding(.top, 8) }
-                else if !controller.cleanupChoice.cloudOnlyOK { help("Professional needs Murmur Cloud or a Custom Provider. On this Mac, Polish is the most it writes.").padding(.top, 8) }
             }
         }
     }
@@ -224,9 +223,6 @@ extension SettingsView {
             }
             help("If an AI rewrite is rejected, clear spoken corrections can still apply. The raw transcript stays in History.").padding(.top, 16)
 
-            if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() {
-                help(reason.userMessage + " Until then, local rules clean dictations.").padding(.top, 8)
-            }
             toggleRow("Suggest Professional", "Now and then, in History, Murmur notes when Professional would have tidied a dictation. It decides on this Mac and never sends anything until you ask for a preview.", isOn: Binding(get: { controller.professionalHint.enabled }, set: { UserDefaults.standard.set($0, forKey: ProfessionalHint.enabledKey); controller.objectWillChange.send() }))
                 .padding(.top, 12)
             toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac or Local model. Modes can turn it on or off.", isOn: $controller.screenContext)

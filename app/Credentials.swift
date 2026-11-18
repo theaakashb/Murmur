@@ -35,8 +35,8 @@ enum ProviderID: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// Professional is cloud-only: the two routes that run on this Mac write Polish at most.
-    var runsProfessional: Bool { self != .appleIntelligence && self != .localModel }
+    /// Professional is cloud-only: the Local model does not run it.
+    var runsProfessional: Bool { self != .localModel }
 }
 
 /// An API key. Every textual and reflective representation is redacted, so printing,

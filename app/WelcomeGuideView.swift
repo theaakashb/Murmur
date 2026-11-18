@@ -147,7 +147,6 @@ extension SettingsView {
                                     cleanupChoices
                                     if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .customAPI { customCleanupSettings }
                                     if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .murmurCloud { keyRow(.murmurCloud).padding(.top, 16) }
-                                    if cleanupStyle.wrappedValue.needsModel, controller.cleanupChoice == .appleIntelligence, let reason = AppleSystemModel.status() { help(reason.userMessage).padding(.top, 12) }
                                     disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
                                 }
                                 else if guideStep == .welcome { welcome }
