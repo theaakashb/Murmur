@@ -199,6 +199,9 @@ private struct ModeRecoveryCard: View {
         if let recovery = controller.modeRecovery {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles").font(.system(size: 12)).foregroundStyle(Palette.accent).accessibilityHidden(true)
+                // The card is measured once when shown: the hidden widest label keeps a later stage from being cut off.
+                ZStack(alignment: .leading) {
+                Text("Copy original").font(.system(size: 12, weight: .medium)).fixedSize().hidden().accessibilityHidden(true)
                 switch recovery.stage {
                 case .offer:
                     // A chip that reverts to the raw transcript when clicked (⌃⌘Z too).
@@ -208,13 +211,17 @@ private struct ModeRecoveryCard: View {
                     }.buttonStyle(.plain)
                         .accessibilityLabel("\(recovery.changes) changes by cleanup").accessibilityHint("Replaces the inserted text with your words before cleanup if it is unchanged. Shortcut: Control Command Z.")
                 case .reverted:
-                    Text("Replaced with your words").font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Spacer(minLength: 4)
+                    Text("Undone").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
+                        .accessibilityLabel("Replaced with your words")
+                    Spacer(minLength: 0)
                 case .copy:
-                    Text("Could not replace safely").font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Spacer(minLength: 4)
-                    Button("Copy") { controller.copyRecovery() }.buttonStyle(.borderedProminent).controlSize(.small)
-                        .accessibilityHint("Copies the replacement text.")
+                    // The field changed since insertion, so it is left alone; the original words go to the clipboard instead.
+                    Button { controller.copyRecovery() } label: {
+                        Text("Copy original").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
+                            .frame(maxWidth: .infinity, minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                        .accessibilityLabel("Could not replace safely. Copy your original words").accessibilityHint("Copies your words before cleanup.")
+                }
                 }
                 if !inNotch && recovery.stage != .reverted {
                     Button { controller.clearModeRecovery() } label: { Image(systemName: "xmark") }
