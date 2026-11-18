@@ -546,7 +546,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         var asked: [ProviderID] = []
         let both = RoutePlan.make(routes, cleanupSendsText: true) { asked.append($0); return $0 == .murmurCloud ? testKey : nil }
         check(both.transcriber is MurmurCloudTranscriptionProvider && both.cleaner is MurmurCloudCleanupProvider && both.refusal == nil && Set(asked) == [.murmurCloud], "both stages on Murmur Cloud use only its key")
-        check(both.stages.map(\.stage) == [.transcription, .cleanup] && both.stages.allSatisfy { $0.destinationHost == "api-murmur.clouddev.cc" }, "both stages are disclosed with the host")
+        check(both.stages.map(\.stage) == [.transcription, .cleanup] && both.stages.allSatisfy { $0.destinationHost == "api.murmurdictation.com" }, "both stages are disclosed with the host")
         check(both.transcriber is SilencePrecheckedTranscriber, "silent clips are not sent to Murmur Cloud")
         routes.transcription = .local
         let cleanupOnly = RoutePlan.make(routes, cleanupSendsText: true) { $0 == .murmurCloud ? testKey : nil }

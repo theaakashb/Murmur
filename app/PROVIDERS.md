@@ -18,7 +18,7 @@ Only loopback destinations count as on this Mac and can work without a key; a lo
 
 ## Murmur Cloud
 
-Murmur Cloud is Murmur's hosted service at `https://api-murmur.clouddev.cc` (fixed, not a setting). Choose it for cleanup only, or for transcription and cleanup. Paste the Murmur Cloud key in its key field; Validate calls `GET /v1/models` (a 402 means no active plan). With local transcription only `POST /v1/cleanup` runs and no audio leaves the Mac.
+Murmur Cloud is Murmur's hosted service at `https://api.murmurdictation.com` (fixed, not a setting). Choose it for cleanup only, or for transcription and cleanup. Paste the Murmur Cloud key in its key field; Validate calls `GET /v1/models` (a 402 means no active plan). With local transcription only `POST /v1/cleanup` runs and no audio leaves the Mac.
 
 | Stage | Request |
 | --- | --- |
