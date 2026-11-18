@@ -86,6 +86,9 @@ extension SettingsView {
             toggleRow("Show menu bar icon", "When hidden, reopen Murmur from Finder or Spotlight.", isOn: $controller.showMenuBar)
             toggleRow("Show in Dock", "Adds Murmur to the Dock and the app switcher. With both icons hidden, reopen Murmur from Finder or Spotlight.", isOn: $controller.showInDock)
             toggleRow("Open at login", "Starts Murmur in the background when you log in, so the shortcut is ready.", isOn: Binding(get: { controller.openAtLogin }, set: controller.setOpenAtLogin))
+            titled("Dictation indicator", "Where the recording indicator and its notices, such as Undo, appear. A display without a notch always uses the bottom of the screen.")
+                .padding(.top, 12).id("dictation-indicator")
+            segmented([(DictationIndicator.notch, "Beside the notch"), (DictationIndicator.bottom, "Bottom of the screen")], $controller.dictationIndicator).padding(.top, 8).padding(.bottom, 12)
 
             Toggle("Show detailed info", isOn: $showDetailedSettingsInfo)
                 .font(Font.system(size: 13)).toggleStyle(.checkbox).padding(.top, 12).id("detailed-info")

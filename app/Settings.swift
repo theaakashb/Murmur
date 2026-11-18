@@ -23,6 +23,11 @@ extension UserDefaults {
     }
 }
 
+/// Where the dictation indicator and its cards sit on a display with a notch; without one, always the bottom.
+enum DictationIndicator: String, CaseIterable, Sendable {
+    case notch, bottom
+}
+
 /// Where the live meeting indicator sits once the meeting panel is minimized.
 enum MeetingIndicator: String, CaseIterable, Sendable {
     case notch, menuBar = "menu-bar"
@@ -64,6 +69,7 @@ enum Prefs {
     static let sidebarCollapsed = Setting("sidebarCollapsed", false)
     static let showDetailedSettingsInfo = Setting("showDetailedSettingsInfo", false)
     static let meetingPanelCollapsed = Setting("meetingPanelCollapsed", false)
+    static let dictationIndicator = Setting("dictationIndicator", DictationIndicator.notch)
     static let meetingIndicator = Setting("meetingIndicator", MeetingIndicator.notch)
     /// The live meeting panel's top-right corner, x then y.
     static let meetingPanelTopRight = Setting("meetingPanelTopRight", [Double]())

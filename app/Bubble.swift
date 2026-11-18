@@ -265,13 +265,19 @@ struct BubbleGeometry {
     let screen: NSScreen?
     let screenFrame: NSRect
     let frame: NSRect
-    let left: NSRect?
-    let right: NSRect?
+    var left: NSRect?
+    var right: NSRect?
     let notchHeight: CGFloat
     var hasNotch: Bool { left != nil && right != nil }
     var notchWidth: CGFloat { (right?.minX ?? 0) - (left?.maxX ?? 0) }
     var notchInset: CGFloat { notchWidth / 2 + 10 }
     // The menu bar is a point taller than the notch (33 vs 32 on a 15-inch Air), so the height comes from the area beside the notch.
+    /// The dictation indicator's geometry: with "Bottom of the screen" chosen, a notch is ignored.
+    static func dictation(screen: NSScreen?) -> BubbleGeometry {
+        var geo = BubbleGeometry(screen: screen)
+        if UserDefaults.standard[Prefs.dictationIndicator] == .bottom { geo.left = nil; geo.right = nil }
+        return geo
+    }
     init(screen: NSScreen?) {
         let target = screen ?? NSScreen.main ?? NSScreen.screens.first
         let fallback = NSRect(x: 0, y: 0, width: 1280, height: 800)
@@ -313,7 +319,7 @@ final class BubblePresenter {
         // A card holding text not pasted shows in any phase (Saved included).
         guard showsFloatingIndicator(phase: phase) || controller.pasteFailure != nil else { if notice == nil { hide() }; return }
         notice = nil
-        let geo = BubbleGeometry(screen: screen)
+        let geo = BubbleGeometry.dictation(screen: screen)
         let frame = geo.frame, notchWidth = geo.notchWidth, notchHeight = geo.notchHeight
         let editLabel = phase == .processing ? controller.processingLabel : nil
         let minimal = phase != .error && controller.pasteFailure == nil && editLabel == nil
@@ -387,7 +393,7 @@ final class BubblePresenter {
     /// A card beside the notch, or centred above the bottom edge on a screen without one; `notchMax` and `plain` are its widths.
     private func showCard<Card: View>(screen: NSScreen?, notchMax: CGFloat, plain: ClosedRange<CGFloat>, fitsContent: Bool = false, _ card: (Bool) -> Card) {
         transition = UUID(); atNotch = false; panel.alphaValue = 1
-        let geo = geometryOverride ?? BubbleGeometry(screen: screen)
+        let geo = geometryOverride ?? BubbleGeometry.dictation(screen: screen)
         let frame = geo.frame, left = geo.left, hasNotch = geo.hasNotch, notchHeight = geo.notchHeight
         var width = hasNotch ? min(notchMax, left!.width) : min(plain.upperBound, max(plain.lowerBound, frame.width - 32))
         // A card that fits its content: the widest the content wants, never more than the width above.
