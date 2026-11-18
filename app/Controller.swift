@@ -836,8 +836,11 @@ enum ScreenRequest: Equatable {
     /// `title` names why: a failed paste, or a paste Murmur did not attempt.
     struct PasteFailure: Equatable { let entryID: String?; let text: String; var title = "Couldn’t paste here" }
     @Published private(set) var pasteFailure: PasteFailure?
+    /// Voice edit's processing bubble shows where the text goes; other processing bubbles stay as dots.
+    private(set) var processingLabel: String?
     /// `quick`: a status that needs no action ("No speech") goes after 2 s instead of 8.
-    func setPhase(_ phase: Phase, _ message: String, announcement: String? = nil, pasteFailure: PasteFailure? = nil, quick: Bool = false) {
+    func setPhase(_ phase: Phase, _ message: String, announcement: String? = nil, pasteFailure: PasteFailure? = nil, quick: Bool = false, showsMessage: Bool = false) {
+        processingLabel = showsMessage && phase == .processing ? message : nil
         self.phase = phase; self.message = message; self.pasteFailure = pasteFailure
         if phase == .listening || phase == .processing { clearModeRecovery() }
         // Every finished status leaves on its own unless replaced: text stays in History and retry audio

@@ -117,6 +117,22 @@ private struct PasteFailureCard: View {
     }
 }
 
+/// Voice edit's processing bubble: the dots plus where the text is going, so it is seen as well as announced.
+private struct EditingBubble: View {
+    @ObservedObject var controller: AppController
+    let label: String
+    var body: some View {
+        HStack(spacing: 6) {
+            VoiceBubbles(controller: controller, phase: .processing).scaleEffect(0.6).frame(width: 48, height: 28)
+            Text(label).font(.system(size: 12, weight: .medium)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+        }
+        .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore).accessibilityLabel(label)
+        .modifier(UtilityGlass(radius: 18))
+    }
+}
+
 /// The level meter plus the words heard so far, at most two lines (the newest tail).
 /// Settled words are bright; the last word, which can still grow, is dimmed. Display only.
 private struct LiveWordsBubble: View {
@@ -310,7 +326,8 @@ final class BubblePresenter {
         notice = nil
         let geo = BubbleGeometry(screen: screen)
         let frame = geo.frame, notchWidth = geo.notchWidth, notchHeight = geo.notchHeight
-        let minimal = phase != .error && controller.pasteFailure == nil
+        let editLabel = phase == .processing ? controller.processingLabel : nil
+        let minimal = phase != .error && controller.pasteFailure == nil && editLabel == nil
         panel.hasShadow = !minimal
         let card = controller.pasteFailure
         let live = phase == .listening && controller.liveWordsActive
@@ -319,14 +336,14 @@ final class BubblePresenter {
         transition = UUID()
         atNotch = notch
         panel.alphaValue = 1
-        let width = notch ? 72 + geo.notchInset : live ? min(420, max(240, frame.width - 32)) : minimal ? 80 : card != nil ? min(320, max(200, frame.width - 32)) : min(240, max(180, frame.width - 32))
-        let content = notch ? AnyView(HStack(spacing: 0) {
+        let width = editLabel != nil ? min(300, max(200, frame.width - 32)) : notch ? 72 + geo.notchInset : live ? min(420, max(240, frame.width - 32)) : minimal ? 80 : card != nil ? min(320, max(200, frame.width - 32)) : min(240, max(180, frame.width - 32))
+        let content = editLabel.map { AnyView(EditingBubble(controller: controller, label: $0)) } ?? (notch ? AnyView(HStack(spacing: 0) {
             VoiceBubbles(controller: controller, phase: phase, ink: Palette.accent).scaleEffect(0.75).frame(width: 72, height: notchHeight)
             Color.clear.frame(width: geo.notchInset, height: notchHeight)
         }.frame(height: notchHeight).background(Color(red: 0, green: 0, blue: 0), in: UnevenRoundedRectangle(bottomLeadingRadius: 12)))
             : live ? AnyView(LiveWordsBubble(controller: controller))
             : minimal ? AnyView(VoiceBubbles(controller: controller, phase: phase))
-            : card.map { AnyView(PasteFailureCard(controller: controller, failure: $0)) } ?? AnyView(BubbleView(controller: controller, message: message))
+            : card.map { AnyView(PasteFailureCard(controller: controller, failure: $0)) } ?? AnyView(BubbleView(controller: controller, message: message)))
         let host = NSHostingView(rootView: content.frame(width: width))
         panel.contentView = host
         let height = host.fittingSize.height

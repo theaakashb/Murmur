@@ -107,7 +107,7 @@ extension AppController {
             self.finishVoiceEdit(edit, instruction: words, result: result)
             done()
         }
-        setPhase(.processing, edit.onDevice ? "Editing on this Mac…" : "Editing with \(edit.engineName) (\(edit.destination))…")
+        setPhase(.processing, edit.onDevice ? "Editing on this Mac…" : "Editing with \(edit.engineName) (\(edit.destination))…", showsMessage: true)
     }
 
     /// The card's "⌃⌘V pastes it too" line is true because the card's text is the last dictation.
@@ -159,12 +159,12 @@ extension AppController {
     /// Synthetic UI fixture only (check_ui.sh --voice-edit): the bubble for each state, with no capture, no engine call and no text.
     func showVoiceEditFixture(_ state: String) {
         switch state {
-        case "custom": setPhase(.processing, "Editing with your Custom Provider (api.example.com)…")
+        case "custom": setPhase(.processing, "Editing with your Custom Provider (api.example.com)…", showsMessage: true)
         case "no-engine": setPhase(.error, "Apple Intelligence needs macOS 26. Voice edit works with Apple Intelligence (macOS 26) or your own API key.")
         case "declined": setPhase(.error, "Apple Intelligence declined this text. The selection was not changed.")
         case "too-long": setPhase(.error, "The selection is too long for Apple Intelligence (3000 characters at most). Select less.")
         case "applied": setPhase(.ready, "Edited with Apple Intelligence. ⌘Z in the app undoes it.", pasteFailure: PasteFailure(entryID: nil, text: "Synthetic original selection.", title: "Original selection"))
-        default: setPhase(.processing, "Editing on this Mac…")
+        default: setPhase(.processing, "Editing on this Mac…", showsMessage: true)
         }
     }
 }
