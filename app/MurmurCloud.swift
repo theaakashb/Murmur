@@ -118,7 +118,7 @@ struct MurmurCloudTranscriptionProvider: DetailedTranscriber {
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .transcription, destinationHost: MurmurCloud.host,
                        leavesDevice: ["audio"], staysOnDevice: ["dictionary", "history"],
-                       retentionNote: "Murmur Cloud has it transcribed by Groq.")
+                       retentionNote: "")
     }
 
     func makeRequest(_ audio: AudioPayload, boundary: String = Multipart.makeBoundary()) -> URLRequest {
