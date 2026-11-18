@@ -3,12 +3,39 @@ import Foundation
 /// Word-level diff of the raw transcript against the inserted text, and the rule for when a
 /// just-inserted span may be swapped back to the raw transcript.
 enum WordDiff {
-    enum Kind { case same, removed, added }
-    struct Run: Equatable { let kind: Kind; let text: String }
+    /// `tweaked`: one word that differs from the raw only by punctuation or case; `text` is the new word and `mark` the characters that changed.
+    enum Kind { case same, removed, added, tweaked }
+    struct Run: Equatable { let kind: Kind; let text: String; var mark: Range<Int>? = nil }
 
     /// Whitespace-separated words, punctuation attached, so "Hello," vs "hello" shows as a change.
     static func runs(raw: String, final: String) -> [Run] {
-        runs(a: words(raw), b: words(final))
+        foldTweaks(runs(a: words(raw), b: words(final)))
+    }
+    /// A removed run followed by an added run of the same length is paired word by word; a pair that differs only by punctuation or case becomes one tweaked word.
+    private static func foldTweaks(_ runs: [Run]) -> [Run] {
+        func letters(_ w: String) -> String { w.lowercased().filter { $0.isLetter || $0.isNumber } }
+        var out: [Run] = [], i = 0
+        while i < runs.count {
+            if i + 1 < runs.count, runs[i].kind == .removed, runs[i + 1].kind == .added {
+                let old = runs[i].text.split(separator: " ").map(String.init), new = runs[i + 1].text.split(separator: " ").map(String.init)
+                if old.count == new.count {
+                    for (o, n) in zip(old, new) {
+                        if !letters(o).isEmpty && letters(o) == letters(n) { out.append(Run(kind: .tweaked, text: n, mark: changedSpan(from: o, to: n))) }
+                        else { out += [Run(kind: .removed, text: o), Run(kind: .added, text: n)] }
+                    }
+                    i += 2; continue
+                }
+            }
+            out.append(runs[i]); i += 1
+        }
+        return out
+    }
+    /// The characters of `new` that are not shared with `old` at either end; nil when `new` only dropped characters.
+    private static func changedSpan(from old: String, to new: String) -> Range<Int>? {
+        let a = Array(old), b = Array(new)
+        var head = 0; while head < min(a.count, b.count), a[head] == b[head] { head += 1 }
+        var tail = 0; while tail < min(a.count, b.count) - head, a[a.count - 1 - tail] == b[b.count - 1 - tail] { tail += 1 }
+        return head < b.count - tail ? head..<(b.count - tail) : nil
     }
     private static func words(_ text: String) -> [String] { text.split(whereSeparator: \.isWhitespace).map(String.init) }
     private static func runs(a: [String], b: [String]) -> [Run] {
@@ -42,7 +69,7 @@ enum WordDiff {
             switch run.kind {
             case .removed: pendingRemoved = run.text.split(separator: " ").count
             case .added: count += max(pendingRemoved, run.text.split(separator: " ").count); pendingRemoved = 0
-            case .same: count += pendingRemoved > 0 ? 1 : 0; pendingRemoved = 0
+            case .same, .tweaked: count += pendingRemoved > 0 ? 1 : 0; pendingRemoved = 0
             }
         }
         return count + (pendingRemoved > 0 ? 1 : 0)

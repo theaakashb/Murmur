@@ -192,26 +192,28 @@ private struct LearnedNotice: View {
     }
 }
 
+/// The changes chip and card icon: a sparkle on a line of text reads as "polished". `symbol` is only changed by the UI fixture.
+enum RecoveryIcon { nonisolated(unsafe) static var symbol = "text.badge.star" }
+
 private struct ModeRecoveryCard: View {
     @ObservedObject var controller: AppController
     var inNotch = false
     var body: some View {
         if let recovery = controller.modeRecovery {
             HStack(spacing: 8) {
-                Image(systemName: recovery.modeName == nil ? "text.badge.checkmark" : "slider.horizontal.3").font(.system(size: 12)).foregroundStyle(.secondary).accessibilityHidden(true)
+                Image(systemName: recovery.modeName == nil ? RecoveryIcon.symbol : "slider.horizontal.3").font(.system(size: 12)).foregroundStyle(.secondary).accessibilityHidden(true)
                 switch recovery.stage {
                 case .offer where !recovery.full:
                     // The quiet default: a chip that reverts to the raw transcript when clicked.
                     Button { controller.revertToRaw() } label: {
-                        Text("\(recovery.changes) change\(recovery.changes == 1 ? "" : "s")").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                        Text("\(recovery.changes) change\(recovery.changes == 1 ? "" : "s")").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
                             .frame(maxWidth: .infinity, minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
                     }.buttonStyle(.plain)
                         .accessibilityLabel("\(recovery.changes) changes by cleanup").accessibilityHint("Replaces the inserted text with your words before cleanup if it is unchanged. Shortcut: Control Command Z.")
                 case .offer:
                     VStack(alignment: .leading, spacing: 1) {
                         Text(recovery.modeName.map { "Mode used: \($0)" } ?? "Cleaned up · \(recovery.changes) change\(recovery.changes == 1 ? "" : "s")")
-                            .font(.system(size: 12, weight: .medium)).lineLimit(1)
-                        if !recovery.route.isEmpty { Text(recovery.route).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1) }
+                            .font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
                     }
                     Spacer(minLength: 4)
                     if recovery.changes > 0 {
@@ -312,6 +314,8 @@ struct BubbleGeometry {
 final class BubblePresenter {
     private let controller: AppController
     private let panel = FloatingPanel(title: "Murmur status")
+    /// Synthetic notch for the UI fixture only (check_ui --notch); real displays leave it nil.
+    var geometryOverride: BubbleGeometry?
     private var transition = UUID()
     private var atNotch = false
 
@@ -396,11 +400,13 @@ final class BubblePresenter {
 
     private var notice: UUID?
     /// A card beside the notch, or centred above the bottom edge on a screen without one; `notchMax` and `plain` are its widths.
-    private func showCard<Card: View>(screen: NSScreen?, notchMax: CGFloat, plain: ClosedRange<CGFloat>, _ card: (Bool) -> Card) {
+    private func showCard<Card: View>(screen: NSScreen?, notchMax: CGFloat, plain: ClosedRange<CGFloat>, fitsContent: Bool = false, _ card: (Bool) -> Card) {
         transition = UUID(); atNotch = false; panel.alphaValue = 1
-        let geo = BubbleGeometry(screen: screen)
+        let geo = geometryOverride ?? BubbleGeometry(screen: screen)
         let frame = geo.frame, left = geo.left, hasNotch = geo.hasNotch, notchHeight = geo.notchHeight
-        let width = hasNotch ? min(notchMax, left!.width) : min(plain.upperBound, max(plain.lowerBound, frame.width - 32))
+        var width = hasNotch ? min(notchMax, left!.width) : min(plain.upperBound, max(plain.lowerBound, frame.width - 32))
+        // A card that fits its content: the widest the content wants, never more than the width above.
+        if fitsContent { width = min(width, ceil(NSHostingView(rootView: card(hasNotch).fixedSize(horizontal: true, vertical: false)).fittingSize.width) + 12) }
         let content = hasNotch ? AnyView(HStack(spacing: 0) {
             card(true).frame(width: width, height: notchHeight)
             Color.clear.frame(width: geo.notchInset, height: notchHeight)
@@ -412,7 +418,7 @@ final class BubblePresenter {
         panel.level = hasNotch ? .statusBar : .floating
         let height = host.fittingSize.height
         present(NSRect(x: hasNotch ? left!.maxX - width : frame.midX - width / 2,
-                       y: hasNotch ? geo.screen!.frame.maxY - height : frame.minY + 24,
+                       y: hasNotch ? geo.screenFrame.maxY - height : frame.minY + 24,
                        width: hasNotch ? width + geo.notchInset : width, height: height), slideFrom: hasNotch ? width : nil)
     }
     /// The Undo card; it leaves with the "Recording canceled" status (5 s) or when anything else is shown.
@@ -423,7 +429,7 @@ final class BubblePresenter {
     private var recoveryNotice: UUID?
     /// The mode recovery pill (12 s), or the quiet changes chip (5 s); unless something else took the panel first.
     func showRecovery(screen: NSScreen?, full: Bool) {
-        showCard(screen: screen, notchMax: full ? 470 : 150, plain: full ? 400...500 : 110...150) { ModeRecoveryCard(controller: controller, inNotch: $0) }
+        showCard(screen: screen, notchMax: full ? 470 : 150, plain: full ? 400...500 : 110...150, fitsContent: true) { ModeRecoveryCard(controller: controller, inNotch: $0) }
         let shown = UUID()
         notice = shown; recoveryNotice = shown
         DispatchQueue.main.asyncAfter(deadline: .now() + (full ? 12 : 5)) { [weak self] in

@@ -13,7 +13,7 @@ extension AppController {
     func showLocalModelFixture(_ status: ModelStatus, message: String = "") { localSlot.status = status; localSlot.message = message }
     /// The pill without a real insertion.
     func showModeRecoveryFixture(stage: ModeRecovery.Stage, mode: String? = "AI Prompt", full: Bool = true) {
-        modeRecovery = ModeRecovery(entryID: "fixture", modeName: mode, raw: "", inserted: "", changes: 3, route: "Heard: Local · Cleaned: Murmur Cloud", full: full, anchor: nil, stage: stage)
+        modeRecovery = ModeRecovery(entryID: "fixture", modeName: mode, raw: "", inserted: "", changes: 3, route: "", full: full, anchor: nil, stage: stage)
         bubble.showRecovery(screen: nil, full: modeRecovery?.full == true)
     }
 }
@@ -106,6 +106,11 @@ extension AppController {
         entries[0].cleanupOptions = CleanupOptions(professional: true); entries[0].cleanupFallback = CleanupFailureReason.unexplainedDeletion.rawValue
         entries[0].cleanupOutcome = .localRules
         if CommandLine.arguments.contains("--paste-failed") { entries[0].insertionStatus = InsertionStatus.failed.rawValue }
+        // --history-edit: a voice edit entry (synthetic selection, instruction and result), opened in History.
+        if args.contains("--history-edit") {
+            var e = HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "make this friendlier and fix the typo", finalText: "Hi Sam, thanks for sending the draft. I made a few small fixes.", insertionStatus: InsertionStatus.edited.rawValue)
+            e.writingModeName = "Voice edit"; e.editOriginal = "hi sam, thx for sending the draft. i made a few small fixs"; entries.insert(e, at: 0)
+        }
         if CommandLine.arguments.contains("--empty") { entries = [] }
         // Insights: timed dictations into a few apps on most of the last 24 days.
         if args.contains("--insights") && !args.contains("--empty") {
@@ -155,8 +160,8 @@ extension AppController {
                     }
                 }
             }
-            controller.recoveryEntryID = args.contains("--history-diff") ? entries.first { $0.cleanupOutcome != nil }?.id : entries.first?.id
-            if args.contains("--history-diff") { DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { controller.screenRequest = .history } }
+            controller.recoveryEntryID = args.contains("--history-diff") ? entries.first { $0.status == .savedNotInserted }?.id : entries.first?.id
+            if args.contains("--history-diff") || args.contains("--history-edit") { DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { controller.screenRequest = .history } }
             controller.sessionOnlyIDs = sessionOnlyID.map { Set([$0]) } ?? []
             if CommandLine.arguments.contains("--dictionary") {
                 controller.addDictionaryEntry(preferred: "Kubernetes", variants: "")
@@ -231,6 +236,12 @@ extension AppController {
             }
             if let i = args.firstIndex(of: "--mode-recovery") {
                 let name = args.indices.contains(i + 1) ? args[i + 1] : ""
+                if let k = args.firstIndex(of: "--chip-icon"), args.indices.contains(k + 1) { RecoveryIcon.symbol = args[k + 1] }
+                // --notch: a synthetic notched display, so the card's placement beside the notch can be seen.
+                if args.contains("--notch") {
+                    controller.bubble.geometryOverride = BubbleGeometry(screenFrame: NSRect(x: 0, y: 0, width: 1512, height: 982), visibleFrame: NSRect(x: 0, y: 0, width: 1512, height: 950),
+                                                                        left: NSRect(x: 0, y: 950, width: 656, height: 32), right: NSRect(x: 856, y: 950, width: 656, height: 32), notchHeight: 32)
+                }
                 controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : name == "reverted" ? .reverted : .offer, mode: name.hasPrefix("plain") || name == "chip" ? nil : "AI Prompt", full: name != "chip")
                 if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
             }
