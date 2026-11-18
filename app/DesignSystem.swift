@@ -29,6 +29,26 @@ struct UtilityGlass: ViewModifier {
     }
 }
 
+/// UtilityGlass for good news and tips: an accent glow from the leading corner and an accent rim.
+/// Errors keep plain UtilityGlass. Without transparency the glow goes and the rim thickens to carry it.
+struct AccentGlass: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+    var radius: CGFloat = 18
+
+    func body(content: Content) -> some View {
+        let plain = reduceTransparency || contrast == .increased
+        content
+            .modifier(UtilityGlass(radius: radius))
+            .overlay {
+                RoundedRectangle(cornerRadius: radius)
+                    .fill(RadialGradient(colors: [Palette.accent.opacity(plain ? 0 : 0.2), .clear], center: .topLeading, startRadius: 0, endRadius: 200))
+                    .allowsHitTesting(false)
+            }
+            .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(Palette.accent.opacity(0.4), lineWidth: plain ? 2 : 1).allowsHitTesting(false) }
+    }
+}
+
 /// Neutral reading surfaces and the same royal-blue brand accent in both appearances.
 enum Palette {
     private static func rgb(_ hex: Int) -> NSColor {

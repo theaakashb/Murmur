@@ -90,6 +90,11 @@ extension SettingsView {
                 .padding(.top, 12).id("dictation-indicator")
             segmented([(DictationIndicator.notch, "Beside the notch"), (DictationIndicator.bottom, "Bottom of the screen")], $controller.dictationIndicator).padding(.top, 8).padding(.bottom, 12)
 
+            eyebrow("Tips").padding(.top, 24).id("tips")
+            toggleRow("Show tips", "Milestones, and now and then a tip about a feature you have not tried. At most one a day; everything is decided on this Mac.", isOn: $controller.tips.enabled)
+            Button("Show Tips Again") { controller.tips.showAgain() }.buttonStyle(InkButtonStyle(kind: .outline)).padding(.top, 8).padding(.bottom, 12)
+                .help("Brings back tips you dismissed and the dots on settings you have not opened.")
+
             Toggle("Show detailed info", isOn: $showDetailedSettingsInfo)
                 .font(Font.system(size: 13)).toggleStyle(.checkbox).padding(.top, 12).id("detailed-info")
 

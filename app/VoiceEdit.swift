@@ -84,11 +84,19 @@ extension AppController {
                                          run: { try await provider.cleanup(EditPrompt.build(selection: $0, instruction: $1)) }))
     }
 
+    /// An engine is set up, so the voice-edit tip never leads someone to dictate over their selection instead.
+    var voiceEditReady: Bool {
+        let routes = routeSettings
+        guard let engine = AIEngine.derive(cleanup: cleanupChoice) else { return false }
+        return engine.unavailableReason(routes: routes, hasKey: { (try? CustomAPIKeyBinding.readKey(for: $0, routes: routes, defaults: .standard, credentials: self.credentials)) != nil }) == nil
+    }
+
     /// The instruction transcript is in, saved like a dictation: one engine call, then a verified replace or a Copy card.
     func runVoiceEdit(_ edit: VoiceEditSession, instruction: String, entry: HistoryEntry, store: HistoryRouter<HistoryEntry>, done: @escaping () -> Void) {
         let words = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
         func stop(_ message: String) { voiceEdit = nil; setPhase(.error, message); done() }
         guard !words.isEmpty else { stop("No instruction was heard. The selection was not changed."); return }
+        tips.voiceEditUsed()
         guard words.count <= EditPrompt.instructionLimit else { stop("That instruction is too long. The selection was not changed."); return }
         var saved = entry; saved.writingModeName = "Voice edit"; try? store.save(saved)
         let token = edit.generation, selection = edit.selection, run = edit.run

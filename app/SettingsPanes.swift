@@ -97,6 +97,7 @@ enum SettingsSearch {
         .init("Microphone", .recording, "input device audio mic"),
         .init("Permissions", .privacy, "accessibility input monitoring microphone access"),
         .init("Show detailed info", .general, "help explanations tooltips", target: "detailed-info"),
+        .init("Show tips", .general, "tips milestones hints suggestions dots", target: "tips"),
         .init("Speech model", .transcription, "download parakeet local on device offline", target: "top"),
         .init("Where transcription runs", .transcription, "dictation cloud local on device provider custom api"),
         .init("Model folder", .transcription, "advanced storage location directory", target: "model-folder"),

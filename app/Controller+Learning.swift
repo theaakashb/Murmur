@@ -133,6 +133,8 @@ extension AppController {
     private func recordAfterPaste(_ w: Watch) {
         let seen = w.observation.edited.map { AfterPaste.trimmingAppended(initial: w.observation.initial, edited: $0) }
         let after = AfterPaste(text: seen?.text, changed: seen?.changed, route: w.route, endReason: w.observation.stopReason?.rawValue)
+        // Nil (attribution lost) is no signal, not a rewrite.
+        if let seen, seen.changed { tips.noteAfterPaste(initial: w.observation.initial, edited: seen.text) }
         DispatchQueue.main.async { [weak self] in
             guard let self, !w.entryID.isEmpty, let index = self.history.firstIndex(where: { $0.id == w.entryID }) else { return }
             var entry = self.history[index]

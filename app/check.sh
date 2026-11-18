@@ -31,6 +31,7 @@ deps() {
     voice_edit_trigger) echo "Shortcut EditTrigger EditShortcut" ;;
     insights) echo "Insights" ;;
     professional_hint) echo "ProfessionalHint" ;;
+    tips) echo "Insights SettingsPanes Tips" ;;
     meetings|speakers) echo "$meetings" ;;
     call_detection) echo "CallApps CallDetection" ;;
     model_download) echo "$models ModelText" ;;
@@ -41,7 +42,7 @@ deps() {
     *) return 1 ;;
   esac
 }
-swift_checks="launch history controller meeting_start recording speaker_flow delivery diagnostics dictionary voice_cues processing modes apple_cleanup routes local_cleanup providers voice_edit voice_edit_trigger insights professional_hint meetings speakers call_detection model_download app_services boost_filter cleanup worddiff"
+swift_checks="launch history controller meeting_start recording speaker_flow delivery diagnostics dictionary voice_cues processing modes apple_cleanup routes local_cleanup providers voice_edit voice_edit_trigger insights professional_hint tips meetings speakers call_detection model_download app_services boost_filter cleanup worddiff"
 script_checks="http update_config"
 if [ "${1:-}" = "--list" ]; then echo $swift_checks $script_checks; exit 0; fi
 out="${TMPDIR:-/tmp}/murmur-checks"; mkdir -p "$out"; cd "$project_root" || exit 1

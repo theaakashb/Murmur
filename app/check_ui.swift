@@ -261,6 +261,22 @@ extension AppController {
             controller.callOffers.enabled = true; controller.callOffers.removeNever("")
             if let id = args.contains("--call-offer") ? "us.zoom.xos" : args.contains("--call-offer-browser") ? "company.thebrowser.Browser" : nil,
                let app = CallDetector.app(for: id) { controller.callOffers.show(CallOffer(app: app)) }
+            // Tips: --tip-milestone / --tip-voice-edit show the floating card (MURMUR_TIP_PNG writes it),
+            // --home-milestone the Home card, --explore-dots the Cues dot and intro. Tip state is reset every run.
+            Tips.allKeys.forEach(UserDefaults.standard.removeObject(forKey:))
+            if args.contains("--home-milestone") {
+                UserDefaults.standard.set(10_240, forKey: Tips.wordsKey); UserDefaults.standard.set(9_000.0, forKey: Tips.savedKey)
+                UserDefaults.standard.set(10_000, forKey: Tips.rungKey); controller.screenRequest = .home
+            }
+            if args.contains("--explore-dots") {
+                UserDefaults.standard.set(Date().addingTimeInterval(-10 * 86_400), forKey: Tips.firstUseKey)
+                controller.screenRequest = .settingsPane(args.contains("--tab") ? .cues : .general)
+            }
+            controller.tips.changed() // seeded after the first render
+            if args.contains("--tip-milestone") || args.contains("--tip-voice-edit") {
+                controller.tips.show(args.contains("--tip-milestone") ? .milestone(.init(words: 10_000, secondsSaved: 9_000)) : .voiceEdit)
+                if let path = ProcessInfo.processInfo.environment["MURMUR_TIP_PNG"] { controller.tips.writeSnapshot(to: URL(fileURLWithPath: path)) }
+            }
             if CommandLine.arguments.contains("--keep-notice") {
                 Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
                     MainActor.assumeIsolated { controller.bubble.showLearned("Aakash", entryID: UUID(), screen: nil) }
