@@ -74,7 +74,7 @@ extension AppController {
             updateRecoveredHistory(entryID: recovery.entryID, text: text)
             let id = recovery.entryID
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in if self?.modeRecovery?.entryID == id { self?.clearModeRecovery() } }
-        } else { recovery.stage = .copy(text) }
+        } else { recovery.stage = .copy(text); bubble.restartRecoveryTimer() }
         modeRecovery = recovery
     }
     /// The chip's click: shows this dictation in History.

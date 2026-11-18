@@ -412,12 +412,18 @@ final class BubblePresenter {
         notice = UUID()
     }
     private var recoveryNotice: UUID?
-    /// The mode recovery pill (12 s), or the quiet changes chip (5 s); unless something else took the panel first.
+    /// The changes card stays 8 s, unless something else takes the panel first.
+    static let recoverySeconds: TimeInterval = 8
     func showRecovery(screen: NSScreen?) {
         showCard(screen: screen, notchMax: 225, plain: 200...260, fitsContent: true) { ModeRecoveryCard(controller: controller, inNotch: $0) }
+        notice = nil; recoveryNotice = nil; restartRecoveryTimer()
+    }
+    /// A fresh full window from now: "Copy original" gets its own time to be clicked.
+    func restartRecoveryTimer() {
+        guard notice == recoveryNotice else { return }  // something else took the panel
         let shown = UUID()
         notice = shown; recoveryNotice = shown
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.recoverySeconds) { [weak self] in
             guard let self, self.recoveryNotice == shown else { return }
             self.controller.clearModeRecovery()
         }
