@@ -323,9 +323,10 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
             Button { screen = .home } label: {
                 Label("Back to Murmur", systemImage: "chevron.left")
-                    .font(.system(size: 12)).foregroundStyle(Palette.ink70)
-                    .frame(minHeight: 32)
-            }.buttonStyle(.plain).padding(.bottom, 20)
+                    .font(.system(size: 13)).foregroundStyle(Palette.ink70)
+                    .padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+                    .contentShape(Rectangle())
+            }.buttonStyle(BackRowStyle()).accessibilityLabel("Back to Murmur").padding(.bottom, 20)
             Text("Settings").font(.system(size: 14, weight: .medium)).padding(.bottom, 12)
             Button { settingsSearchOpen = true } label: {
                 HStack(spacing: 8) {
@@ -535,4 +536,14 @@ func standardEditMenuItem() -> NSMenuItem {
     let item = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
     item.submenu = edit
     return item
+}
+
+/// The sidebar's back row: the same accent tint as a selected row, on hover and while pressed.
+private struct BackRowStyle: ButtonStyle {
+    @State private var hovering = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(hovering || configuration.isPressed ? Palette.accent16 : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+            .onHover { hovering = $0 }
+    }
 }
