@@ -210,6 +210,23 @@ func checkWipe() throws {
 
 // MARK: Updates
 
+func checkBackup() throws {
+    let fm = FileManager.default, root = fm.temporaryDirectory.appendingPathComponent("murmur-backup-" + UUID().uuidString)
+    defer { try? fm.removeItem(at: root) }
+    let live = MurmurDataLocations.standard(base: root.appendingPathComponent("live")), folder = root.appendingPathComponent("backup")
+    for dir in [live.history, live.dictionary] { try fm.createDirectory(at: dir, withIntermediateDirectories: true) }
+    try Data("old".utf8).write(to: live.dictionary.appendingPathComponent("cues.json"))
+    try Data("h".utf8).write(to: live.history.appendingPathComponent("h.json"))
+    try DataBackup.export(live, settings: ["liveWords": true], to: folder)
+    try Data("new".utf8).write(to: live.dictionary.appendingPathComponent("cues.json"))
+    try fm.removeItem(at: live.history)
+    let settings = try DataBackup.restore(from: folder, into: live)
+    check(settings["liveWords"] as? Bool == true, "restore returns the backed-up settings")
+    check(fm.contents(atPath: live.dictionary.appendingPathComponent("cues.json").path) == Data("old".utf8), "restore replaces cues with the backup's")
+    check(fm.fileExists(atPath: live.history.appendingPathComponent("h.json").path), "restore recreates missing history")
+    check((try? DataBackup.restore(from: root, into: live)) == nil, "a folder without settings.plist is refused")
+}
+
 func checkUpdates() {
     check(UpdateText.explanation.contains("uses the network") && UpdateText.explanation.contains("Sparkle checks GitHub daily"), "automatic-check explanation")
 }
@@ -311,7 +328,7 @@ func checkSettingsSearch() {
         checkSettingsSearch()
         try checkHistoryRouter()
         checkExpiryAndText()
-        try checkWipe()
+        try checkWipe(); try checkBackup()
         checkUpdates()
         if failures > 0 { print("\(failures) app services check(s) failed."); exit(1) }
         print("App services checks passed (model row, gates, history-off routing, retention, wipe reload, update text).")

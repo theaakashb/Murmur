@@ -148,3 +148,39 @@ extension AppController {
         setPhase(outcome.succeeded ? .ready : .error, outcome.text)
     }
 }
+
+extension AppController {
+    func backupData() {
+        guard let base = dataDirectory, let domain = Bundle.main.bundleIdentifier else { return }
+        let panel = NSSavePanel(); panel.nameFieldStringValue = "Murmur Backup \(Date().formatted(.iso8601.year().month().day()))"
+        panel.message = "The backup holds your settings, history, meeting notes, dictionary and cues. API keys and audio are not included."
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        do {
+            try? FileManager.default.removeItem(at: folder) // the save panel already confirmed replacing it
+            try DataBackup.export(.standard(base: base), settings: UserDefaults.standard.persistentDomain(forName: domain) ?? [:], to: folder)
+            message = "Backup saved."
+        } catch { message = "Backup failed: \(error)" }
+    }
+
+    func restoreData() {
+        guard !isBusy else { message = "Finish the current dictation before restoring."; return }
+        guard let base = dataDirectory, let domain = Bundle.main.bundleIdentifier else { return }
+        let panel = NSOpenPanel(); panel.canChooseDirectories = true; panel.canChooseFiles = false
+        panel.message = "Choose a Murmur backup folder."
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        let alert = NSAlert(); alert.messageText = "Restore from this backup?"
+        alert.informativeText = "Your current settings, history, dictionary and cues are replaced by the backup's. A meeting being recorded is discarded. Murmur restarts afterwards."
+        alert.addButton(withTitle: "Restore and Restart"); alert.addButton(withTitle: "Cancel")
+        guard alert.runDestructive() == .alertFirstButtonReturn else { return }
+        stopWatching(); meetingRecorder.discardAll()
+        do {
+            let settings = try DataBackup.restore(from: folder, into: .standard(base: base))
+            UserDefaults.standard.setPersistentDomain(settings, forName: domain)
+        } catch { message = "Restore failed: \(error)"; return }
+        // Relaunch so every store and setting is read fresh; nothing in memory can overwrite the restore.
+        let task = Process(); task.executableURL = URL(fileURLWithPath: "/bin/sh")
+        task.arguments = ["-c", "sleep 1; /usr/bin/open \"$0\"", Bundle.main.bundlePath]
+        try? task.run()
+        NSApp.terminate(nil)
+    }
+}

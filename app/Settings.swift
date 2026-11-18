@@ -57,7 +57,7 @@ enum Prefs {
     static let pressToToggle = Setting("pressToToggle", false)
     static let recordingSounds = Setting("recordingSounds", true)
     static let keepRecordings = Setting("keepRecordings", false)
-    static let liveWords = Setting("liveWords", true)
+    static let liveWords = Setting("liveWords", false)
     static let liveWordsOnCloud = Setting("liveWordsOnCloud", false)
     // Window and panel state, read by the views. `settingsSection` holds the raw value of `SettingsPane`.
     static let settingsSection = Setting("settingsSection", 0)

@@ -289,7 +289,8 @@ enum ScreenRequest: Equatable {
         didSet { UserDefaults.standard.set(meetingTranscription.rawValue, forKey: MeetingTranscription.key) }
     }
     /// Settings → Meetings → Meeting notes. Nil until the first Stop asks, with None preselected.
-    @Published var meetingNotesRoute = MeetingNotesRoute.load(.standard) {
+    // Unset defaults to Apple Intelligence where supported; otherwise the first Stop asks.
+    @Published var meetingNotesRoute = MeetingNotesRoute.load(.standard) ?? (AppleSystemModel.isSupported ? .appleIntelligence : nil) {
         didSet {
             if let route = meetingNotesRoute { UserDefaults.standard.set(route.rawValue, forKey: MeetingNotesRoute.key) }
             else { UserDefaults.standard.removeObject(forKey: MeetingNotesRoute.key) }

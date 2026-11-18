@@ -303,3 +303,38 @@ enum PostWipeStep: String, CaseIterable, Equatable {
         return (false, "Some Murmur data could not be deleted. " + problems.joined(separator: " "))
     }
 }
+
+/// Backup & Restore: settings, history (with meetings), dictionary, learned entries and cues, copied
+/// into one folder. API keys and audio stay out: keys belong in the Keychain, audio is short-lived.
+enum DataBackup {
+    static let settingsFile = "settings.plist"
+
+    static func export(_ locations: MurmurDataLocations, settings: [String: Any], to folder: URL) throws {
+        let fm = FileManager.default
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        for dir in [locations.history, locations.dictionary] where fm.fileExists(atPath: dir.path) {
+            try fm.copyItem(at: dir, to: folder.appendingPathComponent(dir.lastPathComponent))
+        }
+        let file = folder.appendingPathComponent(settingsFile)
+        try PropertyListSerialization.data(fromPropertyList: settings, format: .xml, options: 0).write(to: file, options: .atomic)
+        try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+    }
+
+    /// Replaces history and dictionary with the backup's copies and returns its settings.
+    /// A folder without settings.plist is not a Murmur backup and changes nothing.
+    static func restore(from folder: URL, into locations: MurmurDataLocations) throws -> [String: Any] {
+        let fm = FileManager.default
+        guard let data = fm.contents(atPath: folder.appendingPathComponent(settingsFile).path),
+              let settings = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else { throw RetentionError("This folder is not a Murmur backup.") }
+        for dir in [locations.history, locations.dictionary] {
+            let source = folder.appendingPathComponent(dir.lastPathComponent)
+            guard fm.fileExists(atPath: source.path) else { continue }
+            let staged = dir.deletingLastPathComponent().appendingPathComponent(".restore-" + dir.lastPathComponent)
+            try? fm.removeItem(at: staged)
+            try fm.copyItem(at: source, to: staged)
+            if fm.fileExists(atPath: dir.path) { _ = try fm.replaceItemAt(dir, withItemAt: staged) } else { try fm.moveItem(at: staged, to: dir) }
+        }
+        return settings
+    }
+}

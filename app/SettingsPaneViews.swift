@@ -620,11 +620,18 @@ extension SettingsView {
                 help("Failed recordings stay on this Mac for up to \(RetryWindow.text).").padding(.top, 8)
             }
             HStack(spacing: 20) {
+                titled("Backup and restore", "Saves settings, history, meeting notes, dictionary and cues to a folder you choose. API keys and audio are not included.")
+                Spacer()
+                Button("Restore…", action: controller.restoreData).buttonStyle(InkButtonStyle(kind: .outline))
+                Button("Back Up…", action: controller.backupData).buttonStyle(InkButtonStyle())
+            }
+            .padding(.vertical, 18).padding(.top, 36).id("backup-data")
+            HStack(spacing: 20) {
                 titled("Delete all data", DeleteAllDataText.explanation)
                 Spacer()
                 Button("Delete All Data…", role: .destructive, action: controller.deleteAllData).buttonStyle(InkButtonStyle())
             }
-            .padding(.vertical, 18).padding(.top, 36).id("delete-data")
+            .padding(.vertical, 18).id("delete-data")
         }
     }
 
