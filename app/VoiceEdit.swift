@@ -89,6 +89,7 @@ extension AppController {
         let words = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
         func stop(_ message: String) { voiceEdit = nil; setPhase(.error, message); done() }
         guard !words.isEmpty else { stop("No instruction was heard. The selection was not changed."); return }
+        tips.voiceEditUsed()
         guard words.count <= EditPrompt.instructionLimit else { stop("That instruction is too long. The selection was not changed."); return }
         var saved = entry; saved.writingModeName = "Voice edit"; try? store.save(saved)
         let token = edit.generation, selection = edit.selection, run = edit.run

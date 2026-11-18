@@ -65,6 +65,10 @@ app/check_ui.sh --meetings --compact --light
 app/check_ui.sh --meeting-live
 app/check_ui.sh --meetings --meeting-notes --meeting-settings --never --light --speaker-settings --ready
 app/check_ui.sh --call-offer --saved --bubble-only
+MURMUR_TIP_PNG=/tmp/murmur-tip.png app/check_ui.sh --tip-milestone --bubble-only --snapshot /tmp/murmur-tip-window.png
+MURMUR_TIP_PNG=/tmp/murmur-tip-edit.png app/check_ui.sh --tip-voice-edit --bubble-only --light --snapshot /tmp/murmur-tip-edit-window.png
+app/check_ui.sh --home-milestone --light
+app/check_ui.sh --explore-dots --tab
 app/check_ui.sh --meetings --speakers --meeting-notes
 app/check_ui.sh --meetings --separating
 ```

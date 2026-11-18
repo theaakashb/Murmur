@@ -24,6 +24,7 @@ extension SettingsView {
                 SettingInfoButton(text: ([controller.routeDisclosure(.transcription), controller.routeDisclosure(.cleanup)].compactMap { $0 } + ["On-device routes process data on this Mac. Custom providers use the server configured in Settings."]).joined(separator: "\n\n"))
                     .accessibilityLabel("Where dictation data goes")
             }.padding(.top, 12)
+            HomeMilestoneCard(tips: controller.tips).padding(.top, 20)
             HStack(spacing: 4) {
                 eyebrow("Shortcut")
                 SettingInfoButton(text: controller.pressToToggle ? "Press to start, press again to stop. Escape cancels." : "Hold to record, or double-press to keep recording until you press again. Escape cancels.")

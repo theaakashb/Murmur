@@ -9,6 +9,7 @@ extension AppController {
         insights = Insights.compute(history.filter { !sessionOnlyIDs.contains($0.id) && $0.editOriginal == nil }.map {
             InsightsItem(recordedAt: $0.recordedAt, rawText: $0.rawText, finalText: $0.finalText, seconds: $0.seconds, app: $0.app, expanded: $0.cues != nil)
         }, historyOn: appliedHistoryMode == .on, now: Date(), calendar: .current)
+        tips.changed() // dictations and apps earn the Modes dot
     }
     func copyEntry(_ entry: HistoryEntry) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(entry.finalText, forType: .string) }
     /// ⌃⌘C anywhere: the latest dictation's raw transcript, so a held or uninserted one needs no
@@ -128,6 +129,8 @@ extension AppController {
                 records?.clearSessionOnly(); records = nil; store = nil; retry = nil; processing = nil; stopWatching()
                 // Words from dismissed suggestions come from dictations, so they go too.
                 UserDefaults.standard.removeObject(forKey: Prefs.dismissedSuggestions.key); dictionarySuggestions = []
+                // Milestone totals and tip state are counts from dictations.
+                Tips.allKeys.forEach(UserDefaults.standard.removeObject(forKey:)); tips.reset()
                 recoveryEntryID = nil; recoveryAudio = nil; historyCapWarning = nil; historyNotice = nil
             case .recreateHistory:
                 let next = try makeHistoryStore(locations.history)
