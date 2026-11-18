@@ -47,6 +47,9 @@ enum CleanupChoice: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
+    /// Choices this macOS can offer: Apple Intelligence needs macOS 26.
+    var isOffered: Bool { self != .appleIntelligence || AppleSystemModel.isSupported }
+
     var displayName: String {
         switch self {
         case .localRules: return "Local rules (this Mac)"

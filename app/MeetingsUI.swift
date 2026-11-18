@@ -10,13 +10,15 @@ struct MeetingStartMenu: View {
     var title = "Start Meeting Notes"
     var body: some View {
         Menu {
-            let apps = MeetingRecorder.runningCallApps()
-            if apps.isEmpty { Text("No call app or browser is open") }
-            ForEach(apps, id: \.bundleID) { app in
-                Button(app.name) { controller.startMeeting(MeetingSource(name: app.name, bundleID: app.bundleID)) }
+            if SystemAudioTap.isSupported {
+                let apps = MeetingRecorder.runningCallApps()
+                if apps.isEmpty { Text("No call app or browser is open") }
+                ForEach(apps, id: \.bundleID) { app in
+                    Button(app.name) { controller.startMeeting(MeetingSource(name: app.name, bundleID: app.bundleID)) }
+                }
+                Divider()
+                Button(MeetingSource.everythingMenuTitle) { controller.startMeeting(.everything) }
             }
-            Divider()
-            Button(MeetingSource.everythingMenuTitle) { controller.startMeeting(.everything) }
             Button(MeetingSource.microphoneOnlyMenuTitle) { controller.startMeeting(.microphoneOnly) }
         } label: {
             Text(title).font(WindowType.body(14, weight: .semibold)).padding(.horizontal, 18).frame(height: 36)
@@ -527,7 +529,7 @@ struct MeetingNotesRoutePicker: View {
     @Binding var selection: MeetingNotesRoute
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            segmented([(MeetingNotesRoute.none, "None (transcript only)"), (.appleIntelligence, "Apple Intelligence"), (.customAPI, "Custom Provider")], $selection, size: 14)
+            segmented([(MeetingNotesRoute.none, "None (transcript only)")] + (AppleSystemModel.isSupported ? [(.appleIntelligence, "Apple Intelligence")] : []) + [(.customAPI, "Custom Provider")], $selection, size: 14)
             HStack(spacing: 4) {
                 if selection == .appleIntelligence { lede("On-device", color: Palette.ink70) }
                 if tooltipDetails && selection != .appleIntelligence { SettingInfoButton(text: controller.meetingNotesDisclosure(selection)) }
