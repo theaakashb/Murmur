@@ -24,7 +24,7 @@ deps() {
     processing) echo "$cloud Observation" ;;
     modes) echo "$cloud" ;;
     apple_cleanup) echo "$cloud MurmurCloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
-    routes) echo "$cloud MurmurCloud Routes CloudAudio KeyCheck AppleCleanup LocalCleanup" ;;
+    routes) echo "$cloud MurmurCloud Routes CloudAudio KeyCheck AppleCleanup LocalCleanup AIEngine" ;;
     local_cleanup) echo "$cloud MurmurCloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
     providers) echo "$providers" ;;
     insights) echo "Insights" ;;
