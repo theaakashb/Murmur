@@ -16,6 +16,8 @@ extension AppController {
         var mine = ""
         var anchor: ModeRecoveryAnchor?
         var stage = Stage.offer
+        /// A writing mode shaped the text: the chip shows the mode icon instead of the cleanup sparkle.
+        var usedMode = false
     }
 
     /// The field is replaced only when it still holds exactly the verified post-insertion value and
@@ -59,7 +61,7 @@ extension AppController {
             }
         }
         modeRecovery = ModeRecovery(entryID: entry.id, raw: entry.rawText, inserted: inserted, changes: changes, anchor: anchor)
-        modeRecovery?.mine = mine
+        modeRecovery?.mine = mine; modeRecovery?.usedMode = entry.writingModeID != nil
         bubble.showRecovery(screen: destinationScreen)
     }
     /// ⌃⌘Z and the card's "Use raw": puts the raw transcript back over exactly the inserted text. Anything
@@ -116,7 +118,6 @@ extension AppController {
     func copyRecovery() {
         guard let recovery = modeRecovery, case .copy(let text) = recovery.stage, !text.isEmpty else { return }
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
-        clearModeRecovery()
     }
 
     /// ⌃⌘V explicitly pastes again; never triggered by a read-back mismatch.

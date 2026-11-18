@@ -12,8 +12,8 @@ import Combine
 extension AppController {
     func showLocalModelFixture(_ status: ModelStatus, message: String = "") { localSlot.status = status; localSlot.message = message }
     /// The pill without a real insertion.
-    func showModeRecoveryFixture(stage: ModeRecovery.Stage) {
-        modeRecovery = ModeRecovery(entryID: "fixture", raw: "", inserted: "", changes: 3, anchor: nil, stage: stage)
+    func showModeRecoveryFixture(stage: ModeRecovery.Stage, mode: Bool) {
+        modeRecovery = ModeRecovery(entryID: "fixture", raw: "", inserted: "", changes: 3, anchor: nil, stage: stage, usedMode: mode)
         bubble.showRecovery(screen: nil)
     }
 }
@@ -242,7 +242,7 @@ extension AppController {
             }
             if let i = args.firstIndex(of: "--mode-recovery") {
                 let name = args.indices.contains(i + 1) ? args[i + 1] : ""
-                controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "reverted" ? .reverted : .offer)
+                controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "reverted" ? .reverted : .offer, mode: args.contains("--used-mode"))
                 if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
             }
             if let i = args.firstIndex(of: "--voice-edit") {

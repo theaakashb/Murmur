@@ -192,45 +192,46 @@ private struct LearnedNotice: View {
     }
 }
 
+/// After a dictation that cleanup or a mode changed; laid out like the Recording canceled card.
+/// Every part but Undo opens the dictation in History.
 private struct ModeRecoveryCard: View {
     @ObservedObject var controller: AppController
     var inNotch = false
     var body: some View {
         if let recovery = controller.modeRecovery {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 12)).foregroundStyle(Palette.accent).accessibilityHidden(true)
-                // The card is measured once when shown: the hidden widest label keeps a later stage from being cut off.
-                ZStack(alignment: .leading) {
-                Text("Copy original").font(.system(size: 12, weight: .medium)).fixedSize().hidden().accessibilityHidden(true)
-                switch recovery.stage {
-                case .offer:
-                    // Opens the History entry, which shows the mode and what changed; ⌃⌘Z still reverts while it shows.
-                    Button { controller.openRecoveryEntry() } label: {
-                        Text("\(recovery.changes) change\(recovery.changes == 1 ? "" : "s")").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
-                            .frame(maxWidth: .infinity, minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                        .accessibilityLabel("\(recovery.changes) changes by cleanup").accessibilityHint("Opens this dictation in History. Control Command Z puts your words before cleanup back.")
-                case .reverted:
-                    Text("Undone").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
-                        .accessibilityLabel("Replaced with your words")
-                    Spacer(minLength: 0)
-                case .copy:
-                    // The field changed since insertion, so it is left alone; the original words go to the clipboard instead.
-                    Button { controller.copyRecovery() } label: {
-                        Text("Copy original").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
-                            .frame(maxWidth: .infinity, minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                        .accessibilityLabel("Could not replace safely. Copy your original words").accessibilityHint("Copies your words before cleanup.")
-                }
-                }
-                if !inNotch && recovery.stage != .reverted {
-                    Button { controller.clearModeRecovery() } label: { Image(systemName: "xmark") }
-                        .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Dismiss")
+                Button {
+                    if case .copy = recovery.stage { controller.copyRecovery() }
+                    controller.openRecoveryEntry()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: icon(recovery)).font(.system(size: 12)).foregroundStyle(Palette.accent).accessibilityHidden(true)
+                        Text(label(recovery)).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                        Spacer(minLength: 4)
+                    }.frame(minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityHint(recovery.stage == .offer || recovery.stage == .reverted ? "Opens this dictation in History." : "Copies your words before cleanup and opens this dictation in History.")
+                if recovery.stage == .offer {
+                    CardAction(title: "Undo", hint: "Puts your words before cleanup back. Shortcut: Control Command Z.", inNotch: inNotch) { controller.revertToRaw() }
                 }
             }
-            .padding(inNotch ? 4 : 8).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(inNotch ? 4 : 8).padding(.trailing, inNotch ? 8 : 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .contain)
             .modifier(RecoveryBackground(inNotch: inNotch))
+        }
+    }
+    func icon(_ r: AppController.ModeRecovery) -> String {
+        switch r.stage {
+        case .offer: return r.usedMode ? "slider.horizontal.3" : "sparkles"
+        case .reverted: return "arrow.uturn.backward"
+        case .copy: return "doc.on.doc"
+        }
+    }
+    func label(_ r: AppController.ModeRecovery) -> String {
+        switch r.stage {
+        case .offer: return "\(r.changes) change\(r.changes == 1 ? "" : "s")"
+        case .reverted: return "Undone"
+        case .copy: return "Copy original"
         }
     }
 }
@@ -415,7 +416,7 @@ final class BubblePresenter {
     private var recoveryNotice: UUID?
     /// The mode recovery pill (12 s), or the quiet changes chip (5 s); unless something else took the panel first.
     func showRecovery(screen: NSScreen?) {
-        showCard(screen: screen, notchMax: 150, plain: 110...150, fitsContent: true) { ModeRecoveryCard(controller: controller, inNotch: $0) }
+        showCard(screen: screen, notchMax: 225, plain: 200...260) { ModeRecoveryCard(controller: controller, inNotch: $0) }
         let shown = UUID()
         notice = shown; recoveryNotice = shown
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
