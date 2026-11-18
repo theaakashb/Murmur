@@ -183,6 +183,13 @@ private struct ModeRecoveryCard: View {
             HStack(spacing: 8) {
                 Image(systemName: recovery.modeName == nil ? "text.badge.checkmark" : "slider.horizontal.3").font(.system(size: 12)).foregroundStyle(.secondary).accessibilityHidden(true)
                 switch recovery.stage {
+                case .offer where !recovery.full:
+                    // The quiet default: a chip that reverts to the raw transcript when clicked.
+                    Button { controller.revertToRaw() } label: {
+                        Text("\(recovery.changes) change\(recovery.changes == 1 ? "" : "s")").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                            .frame(maxWidth: .infinity, minHeight: inNotch ? 24 : 0).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                        .accessibilityLabel("\(recovery.changes) changes by cleanup").accessibilityHint("Replaces the inserted text with your words before cleanup if it is unchanged. Shortcut: Control Command Z.")
                 case .offer:
                     VStack(alignment: .leading, spacing: 1) {
                         Text(recovery.modeName.map { "Mode used: \($0)" } ?? "Cleaned up · \(recovery.changes) change\(recovery.changes == 1 ? "" : "s")")
@@ -191,7 +198,7 @@ private struct ModeRecoveryCard: View {
                     }
                     Spacer(minLength: 4)
                     if recovery.changes > 0 {
-                        CardAction(title: "Use raw", hint: "Replaces the inserted text with the raw transcript if it is unchanged. Shortcut: Control Command Z.", inNotch: inNotch) { controller.revertToRaw() }
+                        CardAction(title: "Use my words", hint: "Replaces the inserted text with your words before cleanup if it is unchanged. Shortcut: Control Command Z.", inNotch: inNotch) { controller.revertToRaw() }
                     }
                     if recovery.modeName != nil {
                         CardAction(title: "Use without mode", hint: "Processes the original transcript with ordinary Cleanup and replaces the inserted text if it is unchanged.", inNotch: inNotch) { controller.useWithoutMode() }
@@ -203,7 +210,7 @@ private struct ModeRecoveryCard: View {
                     Text("Replaced without mode").font(.system(size: 12, weight: .medium)).lineLimit(1)
                     Spacer(minLength: 4)
                 case .reverted:
-                    Text("Replaced with raw transcript").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    Text("Replaced with your words").font(.system(size: 12, weight: .medium)).lineLimit(1)
                     Spacer(minLength: 4)
                 case .copy:
                     Text("Could not replace safely").font(.system(size: 12, weight: .medium)).lineLimit(1)
@@ -396,12 +403,12 @@ final class BubblePresenter {
         notice = UUID()
     }
     private var recoveryNotice: UUID?
-    /// The mode recovery pill; leaves after 12 s unless something else took the panel first.
-    func showRecovery(screen: NSScreen?) {
-        showCard(screen: screen, notchMax: 470, plain: 400...500) { ModeRecoveryCard(controller: controller, inNotch: $0) }
+    /// The mode recovery pill (12 s), or the quiet changes chip (5 s); unless something else took the panel first.
+    func showRecovery(screen: NSScreen?, full: Bool) {
+        showCard(screen: screen, notchMax: full ? 470 : 150, plain: full ? 400...500 : 110...150) { ModeRecoveryCard(controller: controller, inNotch: $0) }
         let shown = UUID()
         notice = shown; recoveryNotice = shown
-        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + (full ? 12 : 5)) { [weak self] in
             guard let self, self.recoveryNotice == shown else { return }
             self.controller.clearModeRecovery()
         }

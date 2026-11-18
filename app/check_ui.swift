@@ -12,9 +12,9 @@ import Combine
 extension AppController {
     func showLocalModelFixture(_ status: ModelStatus, message: String = "") { localSlot.status = status; localSlot.message = message }
     /// The pill without a real insertion.
-    func showModeRecoveryFixture(stage: ModeRecovery.Stage, mode: String? = "AI Prompt") {
-        modeRecovery = ModeRecovery(entryID: "fixture", modeName: mode, raw: "", inserted: "", changes: 3, route: "Heard: Local · Cleaned: Murmur Cloud", anchor: nil, stage: stage)
-        bubble.showRecovery(screen: nil)
+    func showModeRecoveryFixture(stage: ModeRecovery.Stage, mode: String? = "AI Prompt", full: Bool = true) {
+        modeRecovery = ModeRecovery(entryID: "fixture", modeName: mode, raw: "", inserted: "", changes: 3, route: "Heard: Local · Cleaned: Murmur Cloud", full: full, anchor: nil, stage: stage)
+        bubble.showRecovery(screen: nil, full: modeRecovery?.full == true)
     }
 }
 
@@ -213,7 +213,7 @@ extension AppController {
             }
             if let i = args.firstIndex(of: "--mode-recovery") {
                 let name = args.indices.contains(i + 1) ? args[i + 1] : ""
-                controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : name == "reverted" ? .reverted : .offer, mode: name.hasPrefix("plain") ? nil : "AI Prompt")
+                controller.showModeRecoveryFixture(stage: name == "copy" ? .copy("x") : name == "working" ? .working : name == "replaced" ? .replaced : name == "reverted" ? .reverted : .offer, mode: name.hasPrefix("plain") || name == "chip" ? nil : "AI Prompt", full: name != "chip")
                 if let path = ProcessInfo.processInfo.environment["MURMUR_PILL_PNG"] { controller.bubble.writeSnapshot(to: URL(fileURLWithPath: path)) }
             }
             if CommandLine.arguments.contains("--undo") {

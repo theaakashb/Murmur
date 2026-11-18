@@ -156,7 +156,7 @@ extension SettingsView {
                     }
                     if entry.rawText != entry.finalText {
                         eyebrow("What changed").padding(.top, 16)
-                        WordDiffText(raw: entry.rawText, final: entry.finalText)
+                        WordDiffText(raw: entry.cleanup?.input ?? entry.rawText, final: entry.finalText)
                             .font(WindowType.body(15)).lineSpacing(3)
                             .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
                         eyebrow("Raw transcription").padding(.top, 16)

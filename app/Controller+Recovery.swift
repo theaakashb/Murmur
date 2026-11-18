@@ -12,6 +12,10 @@ extension AppController {
         /// `modeName` is nil when no writing mode was used; `changes` counts the words cleanup changed.
         let entryID: String, modeName: String?, raw: String, inserted: String
         var changes = 0, route = ""
+        /// The full card (diff count, route, buttons) or just the changes chip.
+        var full = false
+        /// The text before cleanup but after dictionary spellings: what "Use my words" puts back.
+        var mine = ""
         var anchor: ModeRecoveryAnchor?
         var stage = Stage.offer
     }
@@ -46,7 +50,8 @@ extension AppController {
     }
     /// Offered after any insertion that changed the transcript or used a writing mode.
     func offerModeRecovery(entry: HistoryEntry, inserted: String, insertion: InsertionResult, target: FocusSnapshot?) {
-        let changes = WordDiff.changeCount(raw: entry.rawText, final: inserted)
+        let mine = entry.cleanup?.input ?? entry.rawText
+        let changes = WordDiff.changeCount(raw: mine, final: inserted)
         guard entry.writingModeName != nil || changes > 0 else { return }
         var anchor: ModeRecoveryAnchor?
         if insertion.status == .verified, let after = insertion.snapshot, let value = after.value, let selection = target?.selection {
@@ -56,14 +61,15 @@ extension AppController {
             }
         }
         modeRecovery = ModeRecovery(entryID: entry.id, modeName: entry.writingModeName, raw: entry.rawText, inserted: inserted,
-                                   changes: changes, route: Self.routeLabel(transcription: entry.transcriptionProvider, cleanup: entry.cleanupProvider, outcome: entry.cleanupOutcome) ?? "", anchor: anchor)
-        bubble.showRecovery(screen: destinationScreen)
+                                   changes: changes, route: Self.routeLabel(transcription: entry.transcriptionProvider, cleanup: entry.cleanupProvider, outcome: entry.cleanupOutcome) ?? "", full: entry.writingModeName != nil || entry.cleanupOptions?.polish == true || entry.cleanupOptions?.professional == true, anchor: anchor)
+        modeRecovery?.mine = mine
+        bubble.showRecovery(screen: destinationScreen, full: modeRecovery?.full == true)
     }
     /// ⌃⌘Z and the card's "Use raw": puts the raw transcript back over exactly the inserted text. Anything
     /// unreadable or changed since insertion leaves the field alone.
     func revertToRaw() {
         guard var recovery = modeRecovery, recovery.stage == .offer, !isBusy else { return }
-        let text = WordDiff.revertText(raw: recovery.raw, inserted: recovery.inserted)
+        let text = WordDiff.revertText(raw: recovery.mine, inserted: recovery.inserted)
         if replaceInserted(recovery, with: text) {
             recovery.stage = .reverted
             updateRecoveredHistory(entryID: recovery.entryID, text: text)
@@ -92,6 +98,9 @@ extension AppController {
             self.modeRecovery = recovery
         }
     }
+    /// An empty selection at the end of the span: nothing selected for the next keystroke to delete.
+    nonisolated static func caretAfter(_ range: CFRange) -> CFRange { CFRange(location: range.location + range.length, length: 0) }
+    nonisolated static func replacementCounts(_ status: InsertionResult.Status) -> Bool { status == .verified }
     /// Selects the recorded range and pastes over it, only if the same focused field still holds the
     /// verified value; nothing else is ever touched.
     private func replaceInserted(_ recovery: ModeRecovery, with text: String) -> Bool {
@@ -105,8 +114,14 @@ extension AppController {
               selected.value == anchor.value, selected.selection?.location == range.location, selected.selection?.length == range.length else { return false }
         let result = insertText(text, into: selected)
         timingLog.notice("mode-recovery status=\(result.status.rawValue, privacy: .public) detail=\(result.detail, privacy: .public)")
+        // Only a verified paste counts as replaced. A failed one must not leave the dictated span selected,
+        // where the next keystroke would delete it.
+        if result.status == .failed {
+            var caret = Self.caretAfter(range)
+            if let collapsed = AXValueCreate(.cfRange, &caret) { AXUIElementSetAttributeValue(anchor.element, kAXSelectedTextRangeAttribute as CFString, collapsed) }
+        }
         if result.status != .failed { lastDictationText = text }
-        return result.status != .failed
+        return Self.replacementCounts(result.status)
     }
     private func updateRecoveredHistory(entryID: String, text: String) {
         guard let index = history.firstIndex(where: { $0.id == entryID }) else { return }
