@@ -195,6 +195,9 @@ struct CustomShortcut: Equatable {
         if (keyCode == Int64(kVK_ANSI_C) || keyCode == Int64(kVK_ANSI_V)) && flags == [.maskControl, .maskCommand] {
             return "⌃⌘C and ⌃⌘V copy and paste your last dictation."
         }
+        if keyCode == Int64(kVK_ANSI_Z) && flags == [.maskControl, .maskCommand] {
+            return "⌃⌘Z puts the raw transcript back after a cleanup."
+        }
         if flags.intersection([.maskCommand, .maskAlternate, .maskControl]).isEmpty && !functionKeys.contains(keyCode) {
             return "Add ⌘, ⌥ or ⌃, or use an F-key, so the shortcut doesn’t type a character."
         }
@@ -221,6 +224,10 @@ final class ShortcutListener {
     var onCopyChord: (() -> Void)?
     /// Called on the main thread for a fresh ⌃⌘V press, also swallowed.
     var onPasteChord: (() -> Void)?
+    /// ⌃⌘Z puts the raw transcript back; the tap takes the chord only while `revertOffered` says an offer is open.
+    var onRevertChord: (() -> Void)?
+    var revertOffered: (() -> Bool)?
+    static func isRevertChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(Int64(kVK_ANSI_Z), keyCode, flags) }
     /// ⌃⌘C exactly: Control and Command, no Option or Shift.
     static func isCopyChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(Int64(kVK_ANSI_C), keyCode, flags) }
     static func isPasteChord(keyCode: Int64, flags: CGEventFlags) -> Bool { isControlCommand(Int64(kVK_ANSI_V), keyCode, flags) }
@@ -334,6 +341,8 @@ final class ShortcutListener {
         if binding.consumes(type, event) { return true }
         if type == .keyDown || type == .keyUp, Self.isCopyChord(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags)
             || Self.isPasteChord(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags) { return true }
+        if type == .keyDown || type == .keyUp, Self.isRevertChord(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags),
+           revertOffered?() == true { return true }
         guard type == .keyDown || type == .keyUp,
               event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Escape) else { return false }
         if type == .keyDown && event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
@@ -397,6 +406,9 @@ final class ShortcutListener {
         }
         if type == .keyDown, Self.isPasteChord(keyCode: key, flags: event.flags), event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
             onPasteChord?(); return
+        }
+        if type == .keyDown, Self.isRevertChord(keyCode: key, flags: event.flags), event.getIntegerValueField(.keyboardEventAutorepeat) == 0, revertOffered?() == true {
+            onRevertChord?(); return
         }
         if type == .keyDown && key == Int64(kVK_Escape) {
             if !queued.isEmpty { cancelQueued(); return } // Cancels only the queued recording.

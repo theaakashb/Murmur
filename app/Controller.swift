@@ -550,6 +550,8 @@ enum ScreenRequest: Equatable {
         next.onEscapeWhileProcessing = { [weak self] in self?.cancelCloudRequest() }
         next.onCopyChord = { [weak self] in self?.copyLatestRawTranscript() }
         next.onPasteChord = { [weak self] in self?.pasteLastDictation() }
+        next.onRevertChord = { [weak self] in self?.revertToRaw() }
+        next.revertOffered = { [weak self] in self?.revertOffered == true }
         next.pressToToggle = pressToToggle
         // A press while the previous dictation processes records right away; its events replay
         // into the machine when that dictation finishes, which adopts this capture.
