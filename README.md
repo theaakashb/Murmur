@@ -1,6 +1,6 @@
 # Murmur
 
-Murmur is a macOS dictation app. Press a global shortcut, speak, and Murmur types the text into the focused field. It can remove fillers, apply spoken corrections and format lists, and each of these can be turned on or off. Transcription runs locally by default with NVIDIA Parakeet Unified English through FluidAudio and Core ML.
+Murmur is a macOS dictation app. Press a global shortcut, speak, and Murmur pastes the text into the focused field. It can remove fillers, apply spoken corrections and format lists, and each of these can be turned on or off. Transcription runs locally by default with NVIDIA Parakeet Unified English through FluidAudio and Core ML.
 
 ## Status
 

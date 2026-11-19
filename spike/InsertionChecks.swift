@@ -10,13 +10,6 @@ extension FocusSnapshot {
 }
 
 func runInsertionChecks() {
-    let steps = typingSteps("ab\ncd\t😀e\r\nf", limit: 2)
-    assert(steps == [.text("ab"), .key(kVK_Return), .text("cd"), .key(kVK_Tab), .text("😀"), .text("e"), .key(kVK_Return), .text("f")])
-    let long = typingSteps(String(repeating: "é😀", count: 50))
-    assert(long.allSatisfy { if case .text(let t) = $0 { return t.utf16.count <= 16 } else { return false } })
-    assert(long.map { if case .text(let t) = $0 { return t } else { return "" } }.joined() == String(repeating: "é😀", count: 50))
-    assert(typingFallbackAllowed(afterPasteRefusal: "Clipboard changed before staging; no paste attempted"))
-    assert(!typingFallbackAllowed(afterPasteRefusal: "Destination changed after clipboard staging; no paste attempted"))
     let fixture = FileManager.default.temporaryDirectory.appendingPathComponent("chromium-check-\(UUID().uuidString).app")
     defer { try? FileManager.default.removeItem(at: fixture) }
     let helper = fixture.appendingPathComponent("Contents/Frameworks/X Framework.framework/Versions/1/Helpers/X (Renderer).app")

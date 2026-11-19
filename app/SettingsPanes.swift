@@ -89,7 +89,7 @@ enum SettingsSearch {
         .init("Start and stop sounds", .recording, "sound audio chime feedback"),
         .init("Live words", .recording, "streaming preview real time", target: "live-words"),
         .init("Show live words on cloud routes", .recording, "preview streaming", target: "live-words"),
-        .init("Insert at the cursor", .insertion, "automatic paste typing clipboard insertion"),
+        .init("Insert at the cursor", .insertion, "automatic paste clipboard insertion"),
         .init("Add a leading space when needed", .insertion, "intelligent spacing whitespace"),
         .init("Show menu bar icon", .general, "status tray hide"),
         .init("Show in Dock", .general, "app switcher hide icon"),

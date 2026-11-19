@@ -213,78 +213,8 @@ func insertText(_ text: String, into destination: FocusSnapshot) -> InsertionRes
     let pasted = pasteThroughClipboard(text, lease: clipboardLease, stillTarget: {
         (try? captureFocus()).map { sameDestination(current, $0) } ?? false
     })
-    let stillTarget = { (try? captureFocus()).map { sameDestination(current, $0) } ?? false }
-    if let failure = pasted.failure {
-        // Clipboard trouble only: a focus or secure-input refusal must not be typed around.
-        guard typingFallbackAllowed(afterPasteRefusal: failure) else { return result(.failed, failure) }
-        return typeKeys(text, current: current, expected: expected, stillTarget: stillTarget, why: failure)
-    }
-    let verified = verifyInsertion(current, expected: expected, method: "clipboard paste", postedAt: pasted.postedAt)
-    // Type only when the field is provably untouched (the app ignored ⌘V); a partial or unreadable
-    // change could duplicate text, so that stays unverified for recovery.
-    if verified.status == .unverified, !current.browserTypeUnknown, stillTarget() {
-        return typeKeys(text, current: current, expected: expected, stillTarget: stillTarget, why: "paste had no effect")
-    }
-    return verified
-}
-
-func typingFallbackAllowed(afterPasteRefusal failure: String) -> Bool {
-    failure.hasPrefix("Clipboard") || failure.hasPrefix("Could not stage") || failure.hasPrefix("Cannot")
-}
-
-/// Typing steps: a run of text, or Return or Tab. Runs hold at most `limit` UTF-16 units and never
-/// split a character, so emoji, surrogate pairs and combining marks arrive whole.
-enum TypeStep: Equatable { case text(String), key(Int) }
-func typingSteps(_ text: String, limit: Int = 16) -> [TypeStep] {
-    var steps: [TypeStep] = [], run = ""
-    func flush() { if !run.isEmpty { steps.append(.text(run)); run = "" } }
-    for ch in text {
-        if ch == "\n" || ch == "\r\n" || ch == "\r" { flush(); steps.append(.key(kVK_Return)) }
-        else if ch == "\t" { flush(); steps.append(.key(kVK_Tab)) }
-        else {
-            if run.utf16.count + ch.utf16.count > limit { flush() }
-            run.append(ch)   // shortcut: a single character over `limit` units goes out as one run
-        }
-    }
-    flush()
-    return steps
-}
-
-private func typeKeys(_ text: String, current: FocusSnapshot, expected: String?, stillTarget: () -> Bool, why: String) -> InsertionResult {
-    func failed(_ detail: String) -> InsertionResult { InsertionResult(status: .failed, detail: detail, snapshot: nil) }
-    guard !IsSecureEventInputEnabled(), stillTarget() else { return failed("Focus or secure input changed; no typing attempted") }
-    let source = CGEventSource(stateID: .privateState)
-    let start = ProcessInfo.processInfo.systemUptime
-    var typed = 0
-    for step in typingSteps(text) {
-        // A user keypress since we began (hardware state; our private-source events are not counted) or a focus change stops typing.
-        guard !IsSecureEventInputEnabled(), stillTargetApp(current),
-              CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .keyDown) > ProcessInfo.processInfo.systemUptime - start else {
-            return failed("Typing stopped after \(typed) of \(text.utf16.count) UTF-16 units (key pressed or focus changed); output retained")
-        }
-        var units: [UniChar] = []
-        let code: CGKeyCode
-        switch step {
-        case .text(let s): units = Array(s.utf16); code = 0
-        case .key(let k): code = CGKeyCode(k); typed += 1
-        }
-        guard let down = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: true),
-              let up = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: false) else { return failed("Cannot create typing events") }
-        for e in [down, up] {
-            e.flags = []
-            if !units.isEmpty { e.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units) }
-            e.post(tap: .cghidEventTap)
-        }
-        typed += units.count
-        Thread.sleep(forTimeInterval: 0.012)
-    }
-    let result = verifyInsertion(current, expected: expected, method: "typed keys", postedAt: ProcessInfo.processInfo.systemUptime)
-    return InsertionResult(status: result.status, detail: "\(result.detail) (\(why))", snapshot: result.snapshot, visibleAt: result.visibleAt)
-}
-
-private func stillTargetApp(_ original: FocusSnapshot) -> Bool {
-    guard let now = try? captureFocus() else { return false }
-    return now.pid == original.pid && CFEqual(now.element, original.element) && !now.secure
+    if let failure = pasted.failure { return result(.failed, failure) }
+    return verifyInsertion(current, expected: expected, method: "clipboard paste", postedAt: pasted.postedAt)
 }
 
 /// How long the staged text stays on the clipboard after ⌘V, for the app to read it, and the longest
