@@ -1,0 +1,163 @@
+[
+  {
+    "id": "short-hello",
+    "wav": "short-hello.wav",
+    "spoken": "hello there",
+    "cleanup": "Hello there.",
+    "seconds": 0.86
+  },
+  {
+    "id": "short-thanks",
+    "wav": "short-thanks.wav",
+    "spoken": "thanks for the update",
+    "cleanup": "Thanks for the update.",
+    "seconds": 1.38
+  },
+  {
+    "id": "short-ready",
+    "wav": "short-ready.wav",
+    "spoken": "the build is ready",
+    "cleanup": "The build is ready.",
+    "seconds": 1.08
+  },
+  {
+    "id": "long-plan",
+    "wav": "long-plan.wav",
+    "spoken": "i want to move the planning meeting to next week because several people are traveling and we need everyone in the room to decide on the budget",
+    "cleanup": "I want to move the planning meeting to next week because several people are traveling and we need everyone in the room to decide on the budget.",
+    "seconds": 6.96
+  },
+  {
+    "id": "long-report",
+    "wav": "long-report.wav",
+    "spoken": "please send me the quarterly report once the numbers have been reviewed and make sure the summary page mentions the main risks",
+    "cleanup": "Please send me the quarterly report once the numbers have been reviewed, and make sure the summary page mentions the main risks.",
+    "seconds": 6.38
+  },
+  {
+    "id": "numbers-order",
+    "wav": "numbers-order.wav",
+    "spoken": "order number four seven two one shipped on march third",
+    "cleanup": "Order number 4721 shipped on March 3rd.",
+    "seconds": 3.1
+  },
+  {
+    "id": "numbers-price",
+    "wav": "numbers-price.wav",
+    "spoken": "the total comes to one hundred twenty five dollars and fifty cents",
+    "cleanup": "The total comes to $125.50.",
+    "seconds": 3.91
+  },
+  {
+    "id": "numbers-time",
+    "wav": "numbers-time.wav",
+    "spoken": "the call starts at three thirty in the afternoon",
+    "cleanup": "The call starts at 3:30 in the afternoon.",
+    "seconds": 2.59
+  },
+  {
+    "id": "names-meet",
+    "wav": "names-meet.wav",
+    "spoken": "i will meet Maria Gonzalez and Peter Nakamura at the Lakeside Cafe",
+    "cleanup": "I will meet Maria Gonzalez and Peter Nakamura at the Lakeside Cafe.",
+    "seconds": 4.04
+  },
+  {
+    "id": "names-cc",
+    "wav": "names-cc.wav",
+    "spoken": "please copy Oliver Brennan and Priya Raman on that email",
+    "cleanup": "Please copy Oliver Brennan and Priya Raman on that email.",
+    "seconds": 3.25
+  },
+  {
+    "id": "list-shopping",
+    "wav": "list-shopping.wav",
+    "spoken": "we need eggs milk bread and butter",
+    "cleanup": "We need eggs, milk, bread, and butter.",
+    "seconds": 1.96
+  },
+  {
+    "id": "list-tasks",
+    "wav": "list-tasks.wav",
+    "spoken": "today i have to write the notes review the draft and call the printer",
+    "cleanup": "Today I have to write the notes, review the draft, and call the printer.",
+    "seconds": 3.51
+  },
+  {
+    "id": "question-when",
+    "wav": "question-when.wav",
+    "spoken": "when does the next train leave for the city",
+    "cleanup": "When does the next train leave for the city?",
+    "seconds": 2.24
+  },
+  {
+    "id": "question-help",
+    "wav": "question-help.wav",
+    "spoken": "could you help me find the latest version of the schedule",
+    "cleanup": "Could you help me find the latest version of the schedule?",
+    "seconds": 2.83
+  },
+  {
+    "id": "filler-think",
+    "wav": "filler-think.wav",
+    "spoken": "um so i think we should uh start with the smaller task first you know",
+    "cleanup": "So I think we should start with the smaller task first.",
+    "seconds": 3.76
+  },
+  {
+    "id": "filler-like",
+    "wav": "filler-like.wav",
+    "spoken": "well like the plan is basically to finish the draft today",
+    "cleanup": "The plan is to finish the draft today.",
+    "seconds": 3.24
+  },
+  {
+    "id": "punct-quote",
+    "wav": "punct-quote.wav",
+    "spoken": "she said the meeting is cancelled and then added see you tomorrow",
+    "cleanup": "She said, \"The meeting is cancelled,\" and then added, \"See you tomorrow.\"",
+    "seconds": 3.27
+  },
+  {
+    "id": "punct-semicolon",
+    "wav": "punct-semicolon.wav",
+    "spoken": "the first option is cheaper however the second option is faster",
+    "cleanup": "The first option is cheaper; however, the second option is faster.",
+    "seconds": 3.52
+  },
+  {
+    "id": "punct-address",
+    "wav": "punct-address.wav",
+    "spoken": "dear team thank you for your hard work this week",
+    "cleanup": "Dear team, thank you for your hard work this week.",
+    "seconds": 2.52
+  },
+  {
+    "id": "mixed-status",
+    "wav": "mixed-status.wav",
+    "spoken": "the server restarted at nine fifteen and all services are healthy again",
+    "cleanup": "The server restarted at 9:15 and all services are healthy again.",
+    "seconds": 3.89
+  },
+  {
+    "id": "mixed-thanks",
+    "wav": "mixed-thanks.wav",
+    "spoken": "i really appreciate your help with the move on saturday",
+    "cleanup": "I really appreciate your help with the move on Saturday.",
+    "seconds": 3.07
+  },
+  {
+    "id": "short-done",
+    "wav": "short-done.wav",
+    "spoken": "that is all for now",
+    "cleanup": "That is all for now.",
+    "seconds": 1.21
+  },
+  {
+    "id": "short-agenda",
+    "wav": "short-agenda.wav",
+    "spoken": "let us review the agenda",
+    "cleanup": "Let us review the agenda.",
+    "seconds": 1.61
+  }
+]

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Test double for Murmur.exe: implements the three test hooks (spec/test-hooks.md) with just enough behaviour to run the
+       driver and run-exit.ps1 end to end before the real app exists. Never ships. Reuses the driver's Win32 helpers. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>Murmur</AssemblyName>
+    <RootNamespace>Murmur.Harness.Driver</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Driver\Native.cs" />
+  </ItemGroup>
+</Project>
