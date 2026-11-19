@@ -89,7 +89,7 @@ public sealed class HttpModelTransport : IModelDownloadTransport
         first.CancelAfter(IdleTimeout);
         using var response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, first.Token).ConfigureAwait(false);
         onResponse((int)response.StatusCode);
-        await using var body = await response.Content.ReadAsStreamAsync(first.Token).ConfigureAwait(false);
+        await using var body = await response.Content.ReadAsStreamAsync(stop.Token).ConfigureAwait(false);
         var buffer = new byte[81920];
         while (true)
         {
