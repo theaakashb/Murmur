@@ -1,0 +1,197 @@
+{
+  "settings" : [
+    {
+      "key" : "automaticInsertion",
+      "mac" : true,
+      "type" : "bool"
+    },
+    {
+      "key" : "cleanupCorrections",
+      "mac" : true,
+      "type" : "bool"
+    },
+    {
+      "key" : "cleanupFillers",
+      "mac" : true,
+      "type" : "bool"
+    },
+    {
+      "key" : "cleanupLists",
+      "mac" : true,
+      "type" : "bool"
+    },
+    {
+      "key" : "cleanupPolish",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "cleanupProfessional",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "cleanupPunctuation",
+      "mac" : true,
+      "type" : "bool"
+    },
+    {
+      "key" : "cleanupRoute",
+      "mac" : "local",
+      "type" : "string"
+    },
+    {
+      "key" : "cleanupScreenContext",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "cleanupSpokenCommands",
+      "mac" : true,
+      "type" : "bool"
+    },
+    {
+      "key" : "dictationIndicator",
+      "mac" : "notch",
+      "type" : "string",
+      "windows" : "bottom"
+    },
+    {
+      "key" : "dictionarySuggestionsDismissed",
+      "mac" : [
+
+      ],
+      "type" : "stringList"
+    },
+    {
+      "key" : "historyMode",
+      "mac" : "on",
+      "type" : "string"
+    },
+    {
+      "key" : "inputDeviceUID",
+      "mac" : "",
+      "type" : "string"
+    },
+    {
+      "key" : "intelligentLeadingSpace",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "keepRecordings",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "learningEnabled",
+      "mac" : true,
+      "type" : "bool"
+    },
+    {
+      "key" : "learningRequiresReadableField",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "liveWords",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "liveWordsOnCloud",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "meetingIndicator",
+      "mac" : "notch",
+      "type" : "string",
+      "windows" : "tray"
+    },
+    {
+      "key" : "meetingPanelCollapsed",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "meetingPanelTopRight",
+      "mac" : [
+
+      ],
+      "type" : "doubleList"
+    },
+    {
+      "key" : "modelDirectory",
+      "mac" : "",
+      "type" : "string"
+    },
+    {
+      "key" : "openAtLoginDefaulted",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "pasteLastShortcut",
+      "mac" : "",
+      "type" : "string",
+      "windows" : "ctrl-win-shift-v"
+    },
+    {
+      "key" : "pressToToggle",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "recordingSounds",
+      "mac" : true,
+      "type" : "bool"
+    },
+    {
+      "key" : "retention",
+      "mac" : "30-days",
+      "type" : "string"
+    },
+    {
+      "key" : "settingsSection",
+      "mac" : 0,
+      "type" : "int"
+    },
+    {
+      "key" : "shortcut",
+      "mac" : "right-option",
+      "type" : "string",
+      "windows" : "right-ctrl"
+    },
+    {
+      "key" : "showDetailedSettingsInfo",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "showInDock",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "showMenuBar",
+      "mac" : true,
+      "type" : "bool"
+    },
+    {
+      "key" : "sidebarCollapsed",
+      "mac" : false,
+      "type" : "bool"
+    },
+    {
+      "key" : "updateChecksEnabled",
+      "mac" : true,
+      "type" : "bool"
+    },
+    {
+      "key" : "voiceEditShortcut",
+      "mac" : "same",
+      "type" : "string"
+    }
+  ]
+}
