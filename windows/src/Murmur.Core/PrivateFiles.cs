@@ -10,8 +10,26 @@ public static class PrivateFiles
     const UnixFileMode DirectoryMode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
     const UnixFileMode FileUnixMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
 
-    /// <summary>TODO(M2): restrict <paramref name="path"/> to the current user with an ACL on Windows (Unix modes do not apply there). Intentionally empty until then.</summary>
-    static void HardenWindowsAcl(string path) { }
+    /// <summary>
+    /// Windows: a protected DACL (no inheritance from parents) granting full control to the current user and SYSTEM only.
+    /// On a folder the entries are inheritable, so files created inside inherit them; a file gets the same two entries directly.
+    /// </summary>
+    static void HardenWindowsAcl(string path)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var user = System.Security.Principal.WindowsIdentity.GetCurrent().User ?? throw new StoreError("Cannot determine the current user");
+        var system = new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.LocalSystemSid, null);
+        var folder = Directory.Exists(path);
+        var inherit = folder ? System.Security.AccessControl.InheritanceFlags.ContainerInherit | System.Security.AccessControl.InheritanceFlags.ObjectInherit : System.Security.AccessControl.InheritanceFlags.None;
+        void Fill(System.Security.AccessControl.FileSystemSecurity security)
+        {
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            foreach (var sid in new[] { user, system })
+                security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(sid, System.Security.AccessControl.FileSystemRights.FullControl, inherit, System.Security.AccessControl.PropagationFlags.None, System.Security.AccessControl.AccessControlType.Allow));
+        }
+        if (folder) { var security = new System.Security.AccessControl.DirectorySecurity(); Fill(security); new DirectoryInfo(path).SetAccessControl(security); }
+        else { var security = new System.Security.AccessControl.FileSecurity(); Fill(security); new FileInfo(path).SetAccessControl(security); }
+    }
 
     static bool IsLink(string path) => new FileInfo(path).LinkTarget is not null;
 
