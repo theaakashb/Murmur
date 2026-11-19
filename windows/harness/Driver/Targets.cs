@@ -36,14 +36,22 @@ abstract class Target
     protected virtual void Prepare() { }
 
     public IntPtr Hwnd => new IntPtr(Window!.Current.NativeWindowHandle);
+    public string FocusLog = "";
     public bool Focus()
     {
         var ok = Native.Focus(Hwnd);
+        FocusLog = $"native focus {ok}";
         if (!ok && Editor is not null)
         {
             // Last resort: click the middle of the window (activates it by real input; the editor is re-focused through UIA below).
-            try { var r = Window!.Current.BoundingRectangle; Native.Click((int)(r.X + r.Width / 2), (int)(r.Y + r.Height / 2)); } catch (Exception) { }
+            Native.MakeTopmost(Hwnd);
+            try
+            {
+                var r = Window!.Current.BoundingRectangle; Native.Click((int)(r.X + r.Width / 2), (int)(r.Y + r.Height / 2));
+                FocusLog += $"; clicked ({(int)(r.X + r.Width / 2)},{(int)(r.Y + r.Height / 2)}) in rect {r}";
+            } catch (Exception e) { FocusLog += "; click failed: " + e.Message; }
             Thread.Sleep(300); ok = Native.GetForegroundWindow() == Hwnd;
+            FocusLog += $"; fg now {Native.ForegroundProcess()}";
         }
         try { Editor?.SetFocus(); } catch (Exception) { /* some editors refuse; the window focus stays */ }
         return ok;
@@ -148,13 +156,27 @@ sealed class CodeTarget : Target
         var exe = Path.Combine(Environment.GetEnvironmentVariable("LOCALAPPDATA")!, @"Programs\Microsoft VS Code\Code.exe");
         var user = Path.Combine(Dir, "data", "User"); Directory.CreateDirectory(user);
         File.WriteAllText(Path.Combine(user, "settings.json"),
-            "{\"editor.accessibilitySupport\":\"on\",\"editor.experimentalEditContextEnabled\":false,\"workbench.startupEditor\":\"none\",\"telemetry.telemetryLevel\":\"off\",\"update.mode\":\"none\"," +
+            "{\"chat.disableAIFeatures\":true,\"workbench.secondarySideBar.defaultVisibility\":\"hidden\",\"editor.accessibilitySupport\":\"on\",\"workbench.startupEditor\":\"none\",\"telemetry.telemetryLevel\":\"off\",\"update.mode\":\"none\"," +
             "\"window.restoreWindows\":\"none\",\"security.workspace.trust.enabled\":false,\"workbench.tips.enabled\":false,\"editor.wordWrap\":\"on\"," +
             "\"editor.quickSuggestions\":{\"other\":false,\"comments\":false,\"strings\":false},\"editor.suggestOnTriggerCharacters\":false,\"editor.acceptSuggestionOnEnter\":\"off\"}");
         Process.Start(new ProcessStartInfo(exe, $"--user-data-dir=\"{Path.Combine(Dir, "data")}\" --extensions-dir=\"{Path.Combine(Dir, "ext")}\" --disable-extensions --disable-gpu --new-window --force-renderer-accessibility") { UseShellExecute = true });
     }
     protected override AutomationElement? FindWindow() => TopWindow(n => n.EndsWith("Visual Studio Code"));
-    protected override void Prepare() { Native.Chord(Native.VK_CONTROL, 'N'); Thread.Sleep(1500); } // new untitled file
+    protected override void Prepare()
+    {
+        // Recent VS Code builds open a sign-in welcome modal on a fresh profile; decline it so it cannot take the keystrokes.
+        // It is a two-step flow (sign in, then theme); the exact labels may change, so this is best effort and the editor check decides.
+        string[] labels = { "Continue without Signing In", "Get Started" };
+        for (int step = 0; step < 3; step++)
+        {
+            var skip = Wait(() => Window!.FindAll(TreeScope.Descendants, Condition.TrueCondition).Cast<AutomationElement>()
+                .FirstOrDefault(e => labels.Any(l => (e.Current.Name ?? "").StartsWith(l, StringComparison.OrdinalIgnoreCase)) && e.TryGetCurrentPattern(InvokePattern.Pattern, out _)), step == 0 ? 6 : 2);
+            if (skip is null) break;
+            ((InvokePattern)skip.GetCurrentPattern(InvokePattern.Pattern)).Invoke(); Thread.Sleep(1000);
+        }
+        Focus();
+        Native.Chord(Native.VK_CONTROL, 'N'); Thread.Sleep(1500); // new untitled file
+    }
     protected override AutomationElement? FindEditor(AutomationElement w) =>
-        Editable(w, e => e.Current.ClassName == "native-edit-context" || (e.Current.Name ?? "").Contains("ditor", StringComparison.OrdinalIgnoreCase));
+        Editable(w, e => (e.Current.Name ?? "").StartsWith("Untitled", StringComparison.OrdinalIgnoreCase) && e.Current.ControlType == ControlType.Edit); // the untitled file's input, never the chat box
 }
