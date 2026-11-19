@@ -1,0 +1,22 @@
+{
+  "closing" : [
+    "!",
+    ",",
+    ".",
+    ":",
+    ";",
+    "?"
+  ],
+  "fileName" : "cues.json",
+  "leadWords" : [
+    "insert",
+    "paste"
+  ],
+  "maxPhraseLength" : 60,
+  "maxTextLength" : 4000,
+  "reserved" : [
+    "here",
+    "insert",
+    "paste"
+  ]
+}
