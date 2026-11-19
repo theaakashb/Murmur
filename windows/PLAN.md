@@ -165,6 +165,11 @@ Required in v1. The Mac watches the field after a paste for up to 60 s, polls ev
 - **Clock alignment:** process loopback delivers no packets while the target is silent. Port `SystemAudioTap`'s silence fill so the Them stream stays aligned with Me, using the device clock and `AUDCLNT_BUFFERFLAGS_SILENT`.
 - **Process tree limits:** a call in a browser tab means capturing the whole browser tree; new Teams plays audio from `msedgewebview2.exe` children of `ms-teams.exe`, which the tree mode covers **(verify on the user's PC)**. Re-resolve targets on refresh like `refreshProcesses()`.
 - **Chunks, store, notes, export:** `MeetingStreamFeed`, `MeetingStore`, `MeetingNotes`, `MeetingExport` port to Core unchanged in behavior, including crash recovery of `<stream>-<start ms>.wav` chunks.
+- **Markdown export escaping (required; main `deb36d9`, PR #96).** Transcript and model text come from other people, so no link, image, HTML or new line may survive the Markdown export.
+  - `MeetingExport.escape` (`MeetingExport.swift:61-66`) joins new lines with a space, escapes `\` first, then each of `` * _ < [ ] ( ) ! & ` ``, and prefixes a leading `# > - + |` with `\`.
+  - Port it exactly. Swift's `.newlines` set includes U+0085, U+2028 and U+2029, not only `\r` and `\n`. Add those to the golden cases.
+  - Check case to port: `check_meetings.swift:307`, "links, images and new lines are escaped".
+- **Unreadable meeting purge** skips links, as in "Required: a restore never redirects dictations" in [spec/settings.md](spec/settings.md) (`MeetingStore.swift:63-64`).
 - **Notes routes:** None or Custom Provider (Apple Intelligence has no Windows equivalent). Corpus checks reuse `meeting-notes-corpus.json` and the held-out set.
 
 ## Insertion
