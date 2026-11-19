@@ -60,8 +60,8 @@ struct MeetingStore {
     }
     /// Damaged files still hold meeting text, so they expire by their modification date.
     func purgeUnreadable(cutoff: Date) throws {
-        let files = (try? FileManager.default.contentsOfDirectory(at: unreadable, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
-        for url in files where ((try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantFuture) <= cutoff {
+        let files = FileLinks.isLink(unreadable) ? [] : (try? FileManager.default.contentsOfDirectory(at: unreadable, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        for url in files where !FileLinks.isLink(url) && ((try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantFuture) <= cutoff {
             try FileManager.default.removeItem(at: url)
         }
     }

@@ -57,10 +57,11 @@ enum MeetingExport {
         return sections.joined(separator: "\n\n")
     }
     /// Transcript text is data: a line that starts like Markdown structure stays plain text.
+    /// Transcript and model text come from other people: no link, image, HTML or new line may survive.
     static func escape(_ text: String) -> String {
-        var out = text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "*", with: "\\*")
-            .replacingOccurrences(of: "_", with: "\\_").replacingOccurrences(of: "<", with: "\\<")
-        if let first = out.first, "#>-+|`".contains(first) { out = "\\" + out }
+        var out = text.components(separatedBy: .newlines).joined(separator: " ").replacingOccurrences(of: "\\", with: "\\\\")
+        for mark in ["*", "_", "<", "[", "]", "(", ")", "!", "&", "`"] { out = out.replacingOccurrences(of: mark, with: "\\" + mark) }
+        if let first = out.first, "#>-+|".contains(first) { out = "\\" + out }
         return out
     }
     static func fileName(_ meeting: Meeting) -> String {
