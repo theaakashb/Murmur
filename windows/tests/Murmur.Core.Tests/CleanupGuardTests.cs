@@ -631,7 +631,12 @@ public class CleanupGuardTests
     public void AdversarialOutputsAreRejected()
     {
         var adversarial = AdversarialCases().Concat(SpokenAdversarial()).ToList();
-        Assert.True(adversarial.Count > 2000, "the corpus mutations were built");
+        // The ported mutations build exactly the outputs check_cleanup.swift builds (golden_cleanup_guard.swift runs the Swift ones).
+        var golden = CleanupGolden.Load("cleanup_guard").GetProperty("mutations").EnumerateArray()
+            .Select(m => (m.GetProperty("label").GetString(), m.GetProperty("raw").GetString(), m.GetProperty("out").GetString())).ToList();
+        Assert.NotEmpty(golden);
+        Assert.Equal(golden, adversarial.Where(a => a.Label.Contains(' ') && CleanupPipelineTests.Corpus.Any(e => a.Label.StartsWith(e.Id + " ", StringComparison.Ordinal)))
+            .Select(a => ((string?)a.Label, (string?)a.Raw, (string?)a.Output)));
         Assert.Empty(adversarial.Where(a => Check(a.Raw, a.Output, a.Options).IsPass).Select(a => a.Label));
         // Polish keeps rejecting answers, injected text and fact changes; so do professional and spoken commands.
         var enabled = adversarial.Where(a => a.Options.AnyEnabled).ToList();

@@ -17,6 +17,21 @@ struct Export: Encodable {
     /// Scalar ranges ("start-end" hex) where ICU's \w, \p{L} and \p{N} match, and where ICU's \b skips a character
     /// (Grapheme_Extend or Cf): .NET regex sees UTF-16 units and its own Unicode tables, so the port builds these classes itself.
     var icuWord: String, icuIgnorable: String, icuLetter: String, icuNumber: String
+    /// Non-ASCII scalars (hex) that a case-insensitive ICU pattern matches with ASCII letters (their case folding): "17f" -> "s",
+    /// "fb06" -> "st". .NET case-insensitivity uses simple folding only, so the port spells these out in pattern literals.
+    var icuFolds: [String: String]
+}
+
+func folds() -> [String: String] {
+    var out: [String: String] = [:]
+    for v in UInt32(0x80)...0x10FFFF {
+        guard let sc = Unicode.Scalar(v) else { continue }
+        let s = String(sc), f = s.folding(options: .caseInsensitive, locale: nil)
+        guard !f.isEmpty, f.unicodeScalars.allSatisfy({ ("a"..."z").contains($0) }) else { continue }
+        let r = try! NSRegularExpression(pattern: "^" + f + "$", options: .caseInsensitive)
+        if r.firstMatch(in: s, range: NSRange(location: 0, length: (s as NSString).length)) != nil { out[String(v, radix: 16)] = f }
+    }
+    return out
 }
 
 func pattern(_ r: NSRegularExpression) -> Pattern {
@@ -53,7 +68,7 @@ func scalarRanges(_ regex: String) -> String {
         emailFrame: pattern(RuleCleaner.emailFrame), signOff: pattern(RuleCleaner.signOff),
         correctionOpening: CleanupSections.correctionOpening,
         icuWord: scalarRanges(#"^\w$"#), icuIgnorable: scalarRanges(#"^[\p{Grapheme_Extend}\p{Cf}]$"#),
-        icuLetter: scalarRanges(#"^\p{L}$"#), icuNumber: scalarRanges(#"^\p{N}$"#))
+        icuLetter: scalarRanges(#"^\p{L}$"#), icuNumber: scalarRanges(#"^\p{N}$"#), icuFolds: folds())
     let enc = JSONEncoder()
     enc.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
     print(String(decoding: try enc.encode(e), as: UTF8.self))

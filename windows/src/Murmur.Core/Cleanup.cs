@@ -13,13 +13,44 @@ namespace Murmur.Core;
 public static class CleanupSections
 {
     /// <summary>The rule engine's cues, plus "wait" and "instead", which also open a sentence that repairs the one before it.
-    /// An NSRegularExpression pattern; match it with <see cref="OpensWithCorrection"/>.</summary>
+    /// The Swift regex pattern ("^(a|b|...)\b"); match it with <see cref="OpensWithCorrection"/>.</summary>
     public static readonly string CorrectionOpening = RuleCleaner.Data.CorrectionOpening;
-    static readonly Regex Opening = RuleCleaner.IcuRegex(CorrectionOpening, RegexOptions.IgnoreCase);
-    static readonly Regex SpokenList = RuleCleaner.IcuRegex(@"\bfirst\b[\s\S]*\bsecond\b", RegexOptions.IgnoreCase);
+
+    // Swift's String.range(of:options: [.regularExpression, .caseInsensitive]) is not NSRegularExpression (observed on macOS 27):
+    // it matches Characters, "\b" is a plain change between word and non-word Characters (so U+200B and U+00AD are boundaries,
+    // a combining mark is not), and case-insensitive means equal lowercase ("ſ" is not "s", the Kelvin sign is "k").
+    // Both patterns used with it here are literal words, so they are matched directly rather than through a regex engine.
+    static readonly string[][] Openings = OpeningAlternatives();
+
+    static string[][] OpeningAlternatives()
+    {
+        if (!CorrectionOpening.StartsWith("^(", StringComparison.Ordinal) || !CorrectionOpening.EndsWith(@")\b", StringComparison.Ordinal))
+            throw new InvalidDataException("unexpected correctionOpening pattern");
+        return CorrectionOpening[2..^3].Split('|').Select(a => SwiftText.Characters(SwiftText.Lowercased(a)).ToArray()).ToArray();
+    }
+
+    static bool IsWord(List<string> c, int k) => k >= 0 && k < c.Count && (SwiftText.IsLetter(c[k]) || SwiftText.IsNumber(c[k]) || c[k] == "_");
+    static bool Boundary(List<string> c, int k) => IsWord(c, k - 1) != IsWord(c, k);
+    static bool WordAt(List<string> c, int k, string[] word) =>
+        k + word.Length <= c.Count && word.Select((w, n) => SwiftText.CharEquals(SwiftText.Lowercased(c[k + n]), w)).All(x => x)
+        && Boundary(c, k) && Boundary(c, k + word.Length);
 
     /// <summary>Swift <c>sentence.range(of: correctionOpening, options: [.regularExpression, .caseInsensitive]) != nil</c>.</summary>
-    public static bool OpensWithCorrection(string sentence) => Opening.IsMatch(sentence);
+    public static bool OpensWithCorrection(string sentence)
+    {
+        var c = SwiftText.Characters(sentence);
+        return Openings.Any(a => WordAt(c, 0, a));
+    }
+
+    static readonly string[] First = ["f", "i", "r", "s", "t"], Second = ["s", "e", "c", "o", "n", "d"];
+
+    /// <summary>Swift <c>text.range(of: #"\bfirst\b[\s\S]*\bsecond\b"#, options: [.regularExpression, .caseInsensitive]) != nil</c>.</summary>
+    static bool HasSpokenList(string text)
+    {
+        var c = SwiftText.Characters(text);
+        int first = Enumerable.Range(0, c.Count).FirstOrDefault(k => WordAt(c, k, First), -1);
+        return first >= 0 && Enumerable.Range(first + First.Length, Math.Max(0, c.Count - first - First.Length)).Any(k => WordAt(c, k, Second));
+    }
 
     static int WordCount(string s) => Strings.Split(s, SwiftText.IsWhitespace).Count;
 
@@ -29,7 +60,7 @@ public static class CleanupSections
         int size = target ?? CleanupSectioning.DefaultTarget;
         int words = WordCount(text);
         // An email frame stays whole too, so its greeting and sign-off are laid out together.
-        if (!(words >= size * 3 / 2) || RuleCleaner.EmailLayout(text) is not null || SpokenList.IsMatch(text)) return [text];
+        if (!(words >= size * 3 / 2) || RuleCleaner.EmailLayout(text) is not null || HasSpokenList(text)) return [text];
         var sections = new List<string>();
         var current = ""; int count = 0;
         // ponytail: sentence end = terminal punctuation then space; a cut inside "e.g. this" only costs context.
@@ -89,9 +120,9 @@ public static class CleanupPipeline
         var r = CleanupText.Tokenize(raw); var o = CleanupText.Tokenize(cleaned);
         var rw = Enumerable.Range(0, r.Count).Where(k => r[k].Kind == TokenKind.Word).ToList();
         var ow = Enumerable.Range(0, o.Count).Where(k => o[k].Kind == TokenKind.Word).ToList();
-        var (mr, mo) = CleanupGuard.Align(rw.Select(k => r[k].Lower).ToList(), ow.Select(k => o[k].Lower).ToList());
+        var (mr, mo) = CleanupGuard.Align(rw.Select(k => Strings.Key(r[k].Lower)).ToList(), ow.Select(k => Strings.Key(o[k].Lower)).ToList());
         var pair = mr.OrderBy(x => x).Zip(mo.OrderBy(x => x)).ToDictionary(p => p.First, p => p.Second);
-        var termWords = (terms ?? []).SelectMany(t => CleanupGuard.Words(t).Select(w => w.Lower)).ToHashSet();
+        var termWords = (terms ?? []).SelectMany(t => CleanupGuard.Words(t).Select(w => w.Key)).ToHashSet();
         var used = new HashSet<int>(mo); var respelled = new HashSet<int>();
         for (int k = 0; k < rw.Count; k++)
         {
@@ -102,7 +133,7 @@ public static class CleanupPipeline
             for (int x = k + 1; x < rw.Count; x++) if (pair.TryGetValue(x, out var v)) { high = v; break; }
             for (int j = low; j < Math.Max(low, high); j++)
             {
-                if (used.Contains(j) || !termWords.Contains(o[ow[j]].Lower) || CleanupText.Similarity(r[rw[k]].Lower, o[ow[j]].Lower) < 0.5) continue;
+                if (used.Contains(j) || !termWords.Contains(Strings.Key(o[ow[j]].Lower)) || CleanupText.Similarity(r[rw[k]].Lower, o[ow[j]].Lower) < 0.5) continue;
                 pair[k] = j; used.Add(j); respelled.Add(k);
                 break;
             }

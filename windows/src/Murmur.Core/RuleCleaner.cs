@@ -53,6 +53,7 @@ public sealed partial class RuleCleaner : ICleaner
         public string IcuIgnorable { get; set; } = "";
         public string IcuLetter { get; set; } = "";
         public string IcuNumber { get; set; } = "";
+        public Dictionary<string, string> IcuFolds { get; set; } = new();
     }
 
     internal static readonly RulesData Data = SharedData.Load<RulesData>("rule_cleaner");
@@ -129,7 +130,7 @@ public sealed partial class RuleCleaner : ICleaner
                 {
                     int? wb = CleanupText.PrevNonSpace(t, pp) is { } x && t[x].Kind == TokenKind.Word ? x : null;
                     int? wa = CleanupText.NextNonSpace(t, nn) is { } y && t[y].Kind == TokenKind.Word ? y : null;
-                    if (wb is { } b && wa is { } a && t[b].Lower == t[a].Lower && !mask[b])
+                    if (wb is { } b && wa is { } a && SwiftText.CharEquals(t[b].Lower, t[a].Lower) && !mask[b])
                     {
                         // Restart across a hesitation: "Let's, um, let's go" keeps the second copy.
                         lo = b; hi = nn; capitalize = CleanupText.IsSentenceStart(t, b);
@@ -187,7 +188,7 @@ public sealed partial class RuleCleaner : ICleaner
         {
             var mask = CleanupText.QuotedMask(t);
             if (t[i].Kind != TokenKind.Word || mask[i] || !StutterWords.Contains(t[i].Lower)
-                || CleanupText.NextWord(t, i + 1) is not { } k || t[k].Lower != t[i].Lower) { i++; continue; }
+                || CleanupText.NextWord(t, i + 1) is not { } k || !SwiftText.CharEquals(t[k].Lower, t[i].Lower)) { i++; continue; }
             var between = t.GetRange(i + 1, k - i - 1);
             if (!between.All(x => x.Kind == TokenKind.Space || x.IsComma) || between.Count(x => x.IsComma) > 1) { i++; continue; }
             var start = CleanupText.IsSentenceStart(t, i);
@@ -275,7 +276,7 @@ public sealed partial class RuleCleaner : ICleaner
             int offset = prefix.Count;
             if (!(offset + 3 < mask.Length) || mask[offset] || mask[offset + 3]) continue;
             if (Category(tokens, 0) is not { } category || !InsteadCategories.Contains(category)
-                || category != Category(tokens, 3) || tokens[0].Lower == tokens[3].Lower) continue;
+                || category != Category(tokens, 3) || SwiftText.CharEquals(tokens[0].Lower, tokens[3].Lower)) continue;
             var sentence = Enumerable.Reverse(prefix).TakeWhile(x => !x.IsTerminal).ToList();
             // Multiple alternatives, negations and subordinate clauses leave replacement scope unclear.
             if (sentence.Any(x => x.Kind == TokenKind.Word && (Category([x], 0) == category || CleanupText.IsNegation(x.Lower) || InsteadBlockers.Contains(x.Lower)))) continue;
@@ -393,7 +394,7 @@ public sealed partial class RuleCleaner : ICleaner
             {
                 int rk = 0;
                 while (rk < repair.Count && IsNumberWord(t, repair[rk])) rk++;
-                if (rk < repair.Count && t[repair[rk]].Lower == t[lastW].Lower)
+                if (rk < repair.Count && SwiftText.CharEquals(t[repair[rk]].Lower, t[lastW].Lower))
                 {
                     int s = window.Count - 2;
                     while (s > 0 && IsNumberWord(t, window[s - 1])) s--;
@@ -401,7 +402,7 @@ public sealed partial class RuleCleaner : ICleaner
                 }
             }
             // Rule A: same-category swap ("Tuesday, sorry, Thursday"); number runs move together.
-            if (from is null && Category(t, lastW) is { } cat && cat == Category(t, r) && t[lastW].Lower != t[r].Lower)
+            if (from is null && Category(t, lastW) is { } cat && cat == Category(t, r) && !SwiftText.CharEquals(t[lastW].Lower, t[r].Lower))
             {
                 int s = window.Count - 1;
                 if (cat == "number") while (s > 0 && IsNumberWord(t, window[s - 1])) s--;
@@ -416,7 +417,7 @@ public sealed partial class RuleCleaner : ICleaner
             // Rule B: repair restarts a short phrase with the same anchor word ("at the office, I mean at home").
             if (from is null && Anchors.Contains(t[r].Lower) && repair.Count <= 6)
             {
-                int j = window.FindLastIndex(x => t[x].Lower == t[r].Lower);
+                int j = window.FindLastIndex(x => SwiftText.CharEquals(t[x].Lower, t[r].Lower));
                 if (j >= 0)
                 {
                     int span = window.Count - j;
@@ -554,9 +555,10 @@ public sealed partial class RuleCleaner : ICleaner
     }
 
     internal static Regex IcuRegex(string pattern, RegexOptions options = RegexOptions.None) =>
-        new(Icu.Translate(pattern), options | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(2));
+        new(TranslateIcu(pattern, options), options | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(2));
 
-    internal static string TranslateIcu(string pattern) => Icu.Translate(pattern);
+    internal static string TranslateIcu(string pattern, RegexOptions options = RegexOptions.None) =>
+        Icu.Translate(pattern, options.HasFlag(RegexOptions.IgnoreCase) || pattern.StartsWith("(?i)", StringComparison.Ordinal));
 
     /// <summary>NSRegularExpression (ICU) patterns on .NET. A nested class, so its tables exist before any RuleCleaner regex field is built.</summary>
     static class Icu
@@ -626,12 +628,48 @@ public sealed partial class RuleCleaner : ICleaner
         /// <summary>Translates an NSRegularExpression pattern to .NET: <c>\x{H}</c> escapes; <c>\b</c> with ICU's boundary rule; and
         /// <c>\p{L}</c>, <c>\p{N}</c> (bare or in a non-negated class) with ICU's tables, astral scalars included, since .NET regex
         /// sees UTF-16 units. <c>\s</c> (White_Space in both), lookarounds and <c>$</c> mean the same in both for these patterns.</summary>
-        internal static string Translate(string pattern)
+        // ICU's case-insensitive matching folds fully: "s" also matches "ſ", "st" matches "ﬆ", "ss" matches "ß". .NET folds one
+        // UTF-16 unit at a time and leaves some out, so literal letters of a case-insensitive pattern list ICU's folds explicitly.
+        static readonly (string Scalar, string Fold)[] Folds = Data.IcuFolds.Select(kv => (U(Convert.ToInt32(kv.Key, 16)), kv.Value)).OrderBy(x => x.Item1, StringComparer.Ordinal).ToArray();
+
+        static string FoldLetter(char c)
+        {
+            var variants = Folds.Where(f => f.Fold.Length == 1 && f.Fold[0] == char.ToLowerInvariant(c)).Select(f => f.Scalar).ToList();
+            return variants.Count == 0 ? c.ToString() : $"(?:{c}|{string.Join("|", variants)})";
+        }
+
+        /// <summary>A run of literal ASCII letters, each possibly spelled by a fold scalar ("best" also as "be" + "ﬆ").</summary>
+        static string LetterRun(string run, int i)
+        {
+            if (i == run.Length) return "";
+            var options = new List<string> { FoldLetter(run[i]) + LetterRun(run, i + 1) };
+            foreach (var (scalar, fold) in Folds)
+                if (fold.Length > 1 && i + fold.Length <= run.Length && string.Compare(run, i, fold, 0, fold.Length, StringComparison.OrdinalIgnoreCase) == 0)
+                    options.Add(scalar + LetterRun(run, i + fold.Length));
+            return options.Count == 1 ? options[0] : $"(?:{string.Join("|", options)})";
+        }
+
+        internal static string Translate(string pattern, bool ignoreCase)
         {
             var sb = new StringBuilder();
             for (int i = 0; i < pattern.Length; i++)
             {
                 char c = pattern[i];
+                if (c == '(' && i + 1 < pattern.Length && pattern[i + 1] == '?')
+                {
+                    // A group's option letters ("(?i)", "(?-i:") are syntax, not literals.
+                    int k = i + 2;
+                    while (k < pattern.Length && (char.IsAsciiLetter(pattern[k]) || pattern[k] == '-')) k++;
+                    sb.Append(pattern, i, k - i); i = k - 1; continue;
+                }
+                if (ignoreCase && char.IsAsciiLetter(c))
+                {
+                    int j = i;
+                    while (j < pattern.Length && char.IsAsciiLetter(pattern[j])) j++;
+                    // A quantifier binds to the last letter alone.
+                    if (j < pattern.Length && j - i > 1 && pattern[j] is '?' or '*' or '+' or '{') j--;
+                    sb.Append(LetterRun(pattern[i..j], 0)); i = j - 1; continue;
+                }
                 if (c == '\\' && i + 1 < pattern.Length)
                 {
                     char n = pattern[i + 1];
@@ -656,6 +694,7 @@ public sealed partial class RuleCleaner : ICleaner
                     if (body.StartsWith('^') && (letter || number)) throw new NotSupportedException(@"negated class with \p{L} or \p{N}");
                     body = Regex.Replace(body, @"\\x\{([0-9A-Fa-f]{1,4})\}", m => U(Convert.ToInt32(m.Groups[1].Value, 16))); // BMP only inside a class.
                     if (body.Contains(@"\x{")) throw new NotSupportedException(@"astral \x{} in a class");
+                    if (ignoreCase && Regex.Replace(body, @"\\p\{\w+\}|\\.", "").Any(char.IsAsciiLetter)) throw new NotSupportedException("letters in a case-insensitive class");
                     body = body.Replace(@"\p{L}", LetterBmp).Replace(@"\p{N}", NumberBmp);
                     var astral = string.Join("|", new[] { letter ? LetterAstral : "", number ? NumberAstral : "" }.Where(x => x.Length > 0));
                     sb.Append(astral.Length == 0 ? $"[{body}]" : $"(?:[{body}]|{astral})");

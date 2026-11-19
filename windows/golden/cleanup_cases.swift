@@ -64,6 +64,13 @@ enum GoldenCases {
         "1. First item\n2. Second item\n- bullet", "٣ ١٢ ½ ² 一二三 Ⅳ ①", "email@example.com https://example.org/path?q=1 #hashtag @handle",
         "\u{200B}zero\u{200D}width\u{FEFF} i\u{200B} think", "ß straße İstanbul ﬁsh", "Σίσυφος ΣΑΣ", "x\u{301}i went", "i 𝐀i went",
         "Paint it red. 𝐁lue instead.", "Meet on 𝐌onday. Thursday instead.", "Call 𝒜lex. Sorry, Bob.", "write an email to 𝒜lex saying hi, thanks, 𝒦im",
+        "write an email to Sam saying hi, be\u{FB06} regards, Kim", "write an email to Sam saying hi, \u{212A}ind regards, Kim", "WRITE AN EMAIL TO SAM SAYING HI",
+        "Meet Tuesday. \u{17F}orry, Thursday.", "Meet Tuesday. SORRY, Thursday.", "Meet Tuesday. \u{130} mean, Thursday.", "Meet Tuesday. \u{131} mean, Thursday.",
+        "Meet on Monday. Thur\u{17F}day instead.", "plea\u{17F}e write an email to Sam \u{17F}aying hi", "Meet Zoë today", "Meet Zoe\u{301} today.",
+        "\u{FB01}rst " + String(repeating: "we plan the work and we ship it. ", count: 25) + "second we rest.",
+        "First\u{AD} " + String(repeating: "we plan the work and we ship it. ", count: 25) + "SECOND\u{200B} we rest.",
+        "First\u{301} " + String(repeating: "we plan the work and we ship it. ", count: 25) + "second we rest.",
+        "We met today. \u{17F}orry, Monday. We met today. SORRY, Monday. We met today. No\u{200B} Monday. We met today. Wait\u{301} Monday. We met today. Instead\u{AD} Monday. We met again.",
         "Order 𝟑 boxes. No, 4.", "pay \u{FF13}\u{FF10} dollars, no, 40", "the café, sorry, the bar", "call Zoe\u{301}. Actually, Bob.",
         "um so i think i\u{2019}m ready, i mean, i\u{2019}ll go", "Meet Zoë on Tuesday, sorry, Thursday.", "Pay José 200 dollars, no, 300 dollars.",
         "write an email to Zoë saying the plan is fine, thanks, Ægir", "hashtag 東京 and at the rate Zoë",
@@ -74,6 +81,12 @@ enum GoldenCases {
             + String(repeating: "we reviewed the plan and agreed on the next steps for the team. ", count: 14),
         "First, " + String(repeating: "We should um, ship the build on Friday after the review. ", count: 30) + "Second, call Sam.",
         String(repeating: "Sorry about the delay.  Wait, the build is green!  ", count: 40) + "Instead, ship it now? Scratch that, ship it Monday.",
+    ]
+
+    /// Pairs whose two sides spell a word with different but canonically equivalent scalars (NFC and NFD).
+    static let canonicalPairs: [(String, String)] = [
+        ("Meet Zoë today", "Meet Zoe\u{301} today."), ("Meet Zoe\u{301} today", "Meet Zoë today."), ("call José now", "Call Jose\u{301} now."),
+        ("ship the cafe\u{301} menu, sorry, the bar menu", "Ship the bar menu."), ("Ask Zoë, no, Zoe\u{301}.", "Ask Zoe\u{301}."),
     ]
 
     /// Corpus inputs and labels, check_cleanup.swift literals and the edges.
