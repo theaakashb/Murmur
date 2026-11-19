@@ -43,13 +43,8 @@ sealed class Asr : IDisposable
     public Asr(string dir, string? vocabularyPath, string? lexiconPath)
     {
         raw = new OfflineRecognizer(Config(dir, "greedy_search", null, null));
-        HashSet<string>? lexicon = null;
-        if (lexiconPath is not null)
-        {
-            try { lexicon = new HashSet<string>(File.ReadLines(lexiconPath).Select(BoostFilter.Fold), StringComparer.Ordinal); } catch (Exception) { VocabularyError = true; }
-        }
-        // shortcut: with no lexicon every word counts as ordinary, so only spelling-equal and alias replacements survive; the bundled word list replaces this.
-        isCommonWord = lexicon is null ? _ => true : w => lexicon.Contains(w);
+        // BoostFilter keeps a replacement only when a replaced word is not ordinary: the bundled English lexicon (Core) decides. --lexicon is accepted and ignored.
+        isCommonWord = Lexicon.English.IsCommonWord;
         aliases = [];
         if (vocabularyPath is null) return;
         string? folder = null;
