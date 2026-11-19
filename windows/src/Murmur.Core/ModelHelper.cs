@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Threading.Channels;
 
 namespace Murmur.Core;
 
@@ -23,6 +24,53 @@ public static class ModelHelper
     {
         if (string.IsNullOrWhiteSpace(line)) return null;
         try { return JsonNode.Parse(line) as JsonObject; } catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException) { return null; }
+    }
+
+    public static string? StringField(JsonObject? answer, string name) =>
+        answer?[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+
+    /// <summary>Runs a display-only live helper until capture ends. The caller bounds the incoming audio queue.</summary>
+    public static async Task StreamAsync(string helper, string folder, ChannelReader<float[]> samples, Action<string> onPartial, CancellationToken ct)
+    {
+        if (ct.IsCancellationRequested) return;
+        using var process = new Process { StartInfo = StartInfo(helper, [folder, "--stream", AudioFormat.SampleRate.ToString(System.Globalization.CultureInfo.InvariantCulture)], redirectInput: true) };
+        try { process.Start(); }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { return; }
+        process.ErrorDataReceived += static (_, _) => { };
+        process.BeginErrorReadLine();
+        using var stopping = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var kill = stopping.Token.Register(() => Kill(process));
+
+        async Task Write()
+        {
+            try
+            {
+                var input = process.StandardInput.BaseStream;
+                await foreach (var block in samples.ReadAllAsync(stopping.Token).ConfigureAwait(false))
+                {
+                    var bytes = new byte[block.Length * sizeof(float)];
+                    Buffer.BlockCopy(block, 0, bytes, 0, bytes.Length);
+                    await input.WriteAsync(bytes, stopping.Token).ConfigureAwait(false);
+                }
+                process.StandardInput.Close();
+            }
+            catch (Exception e) when (e is IOException or InvalidOperationException or OperationCanceledException) { Kill(process); }
+        }
+
+        var writer = Write();
+        try
+        {
+            var pending = new List<byte>();
+            while (await ReadLineAsync(process.StandardOutput.BaseStream, pending, stopping.Token).ConfigureAwait(false) is { } line)
+                if (StringField(Answer(line), "partial") is { } text && !stopping.IsCancellationRequested) onPartial(text);
+        }
+        catch (Exception e) when (e is IOException or OperationCanceledException) { }
+        finally
+        {
+            stopping.Cancel();
+            await writer.ConfigureAwait(false);
+            await process.WaitForExitAsync().ConfigureAwait(false);
+        }
     }
 
     public static ProcessStartInfo StartInfo(string helper, IEnumerable<string> arguments, bool redirectInput)
@@ -48,6 +96,7 @@ public static class ModelHelper
             int newline = pending.IndexOf((byte)'\n');
             if (newline >= 0)
             {
+                if (newline > OutputLimit) return null;
                 var line = Encoding.UTF8.GetString(pending.GetRange(0, newline).ToArray());
                 pending.RemoveRange(0, newline + 1);
                 return line.TrimEnd('\r');

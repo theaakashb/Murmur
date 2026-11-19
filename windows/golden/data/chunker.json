@@ -1,0 +1,28 @@
+{
+  "cuts": [
+    {"energies":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"expected":131,"frames":1},
+    {"energies":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"expected":100,"frames":1}
+  ],
+  "joins": [
+    {"expected":"Hello there. General Kenobi.","sentenceEnds":[true,false],"texts":["Hello there","General Kenobi."]},
+    {"expected":"we were going I think to the store.","sentenceEnds":[false,false],"texts":["we were going","I think to the store."]},
+    {"expected":"Done. Next one? Yes","sentenceEnds":[true,true,true,false],"texts":["Done."," ","Next one?","Yes"]},
+    {"expected":"It works. The next one.","sentenceEnds":[false,false],"texts":["It works.","The next one."]},
+    {"expected":"appears in the Windows and doors.","sentenceEnds":[true,false],"texts":["appears in the.","Windows and doors."]},
+    {"expected":"to value the mysterious qualities","sentenceEnds":[false,false],"texts":["to value","The mysterious qualities"]},
+    {"expected":"It works. The next one.","sentenceEnds":[true,false],"texts":["It works.","The next one."]},
+    {"expected":"It works. Finally done.","sentenceEnds":[false,false],"texts":["It works.","Finally done."]},
+    {"expected":"I think so. The plan works.","sentenceEnds":[true,false],"texts":["I think so.","The plan works."]},
+    {"expected":"Wait... so what?","sentenceEnds":[false,false],"texts":["Wait...","So what?"]}
+  ],
+  "pauses": [
+    {"cut":10,"energies":[1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1],"expected":5},
+    {"cut":2,"energies":[1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1],"expected":0}
+  ],
+  "repairs": [
+    {"expected":["Route calls through OpenRouter,","then deploy."],"words":["Route calls through open.","Router, then deploy.","open router","OpenRouter"]},
+    {"expected":["Deploy it to Kubernetes","today."],"words":["Deploy it to Cooper.","Netties today.","coopernetties","Kubernetes"]},
+    {"expected":null,"words":["Ask about it.","Then go.","open router","OpenRouter"]},
+    {"expected":null,"words":["","open router","open router","OpenRouter"]}
+  ]
+}

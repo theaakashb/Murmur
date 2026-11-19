@@ -143,6 +143,11 @@ internal sealed class SettingsWindow : Window
         cleanupRow = new ModelRow(s, s.CleanupSlot, controller, () => Content.XamlRoot, go => { LocalCleanupRunner.Shared.Shutdown(); go(); }, UpdateModelRoutes);
         page.Children.Add(new TextBlock { Text = "Speech recognition", Opacity = 0.7, FontSize = 12 });
         page.Children.Add(speechRow.Panel);
+        page.Children.Add(new TextBlock { Text = "Live words", Opacity = 0.7, FontSize = 12 });
+        var liveWordsRow = new ModelRow(s, s.LiveWordsSlot, controller, () => Content.XamlRoot, go => go(), UpdateModelRoutes);
+        page.Children.Add(liveWordsRow.Panel);
+        Toggle("Show live words while speaking", Prefs.LiveWords);
+        Toggle("Show live words on cloud routes", Prefs.LiveWordsOnCloud);
         page.Children.Add(new TextBlock { Text = "Cleanup", Opacity = 0.7, FontSize = 12 });
         page.Children.Add(cleanupRow.Panel);
     }

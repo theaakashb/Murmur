@@ -1,12 +1,12 @@
 using System.Text.Json;
+using System.Threading.Channels;
 using Murmur.Core;
 
 namespace Murmur.App;
 
 /// <summary>
 /// The local transcription route: the sherpa-onnx helper (Murmur.Speech) kept warm through <see cref="WarmRunner"/>, with the one-shot helper as the fallback
-/// when the warm process cannot answer. The Mac's flow (Controller.swift transcribe/runTranscription/launchRunner) minus chunking.
-/// shortcut: no ChunkJob. Windows has no chunker in the recorders yet, so a dictation is transcribed whole after release; add chunks with the long-recording work.
+/// when the warm process cannot answer.
 /// </summary>
 internal sealed class LocalTranscriber : IDisposable
 {
@@ -70,21 +70,83 @@ internal sealed class LocalTranscriber : IDisposable
         return Verify() ? HelperLaunch.Make(ModelDirectory, vocabulary) : null;
     }
 
-    /// <summary>Starts the helper in the background so the model load overlaps the recording.</summary>
-    public void Prepare()
+    public ChunkJob StartChunks(string wavPath, CancellationToken ct)
     {
-        if (!HelperPresent) return;
-        _ = Task.Run(() => { if (Launch() is { } launch) return warm.PrepareAsync(HelperPath, launch); return Task.CompletedTask; });
+        var helper = HelperPath;
+        var preparing = Task.Run(async () =>
+        {
+            try
+            {
+                var launch = Launch();
+                if (launch is not null) await warm.PrepareAsync(helper, launch, ct).ConfigureAwait(false);
+                return launch;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or StoreError) { return null; }
+        });
+        return new ChunkJob(async (samples, boundary, cancellation) =>
+        {
+            if (await preparing.ConfigureAwait(false) is not { } launch) return null;
+            if (!boundary)
+            {
+                // The Windows helper can hallucinate on a quiet tail after a cut.
+                if (AudioFormat.ShouldSkipForSilence(SecondPeak(samples)))
+                    return """{"text":""}""";
+                var line = await warm.TranscribeAsync(samples, helper, launch, cancellation).ConfigureAwait(false);
+                if (ModelHelper.StringField(ModelHelper.Answer(line), "text") is not null)
+                    TestEvents.Emit("chunk-transcribed");
+                return line;
+            }
+            if (!launch.HasVocabulary) return null;
+            // The boundary protocol takes a WAV path. Give it the retry folder's ACL and lifetime.
+            var clip = Path.Combine(Path.GetDirectoryName(wavPath)!, Guid.NewGuid().ToString("N") + ".wav");
+            try
+            {
+                PrivateFiles.Write(WAVAudio.EncodePCM16(samples, AudioFormat.SampleRate), clip);
+                return await warm.BoundaryAsync(clip, helper, launch, cancellation).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or StoreError) { return null; }
+            finally
+            {
+                try { File.Delete(clip); }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            }
+        }, ct);
+    }
+
+    public void StartLiveWords(ChannelReader<float[]> samples, Action<string> onPartial, CancellationToken ct)
+    {
+        if (!HelperPresent || s.LiveWordsSlot is not { Manifest: { } manifest, Downloader.Target: { } folder } ||
+            !ModelHelper.HasModelFiles(folder)) return;
+        var helper = HelperPath;
+        _ = Task.Run(async () =>
+        {
+            try { ModelVerificationCache.Shared.Verify(folder, manifest); }
+            catch (Exception e) when (e is RetentionError or IOException or UnauthorizedAccessException) { return; }
+            await ModelHelper.StreamAsync(helper, folder, samples, onPartial, ct).ConfigureAwait(false);
+        });
+    }
+
+    static float SecondPeak(float[] samples)
+    {
+        const int window = 1600; // 100 ms at 16 kHz
+        float first = 0, second = 0;
+        for (int i = 0; i < samples.Length; i += window)
+        {
+            float peak = 0;
+            foreach (var sample in samples.AsSpan(i, Math.Min(window, samples.Length - i)))
+                peak = Math.Max(peak, Math.Abs(sample));
+            if (peak >= first) { second = first; first = peak; }
+            else second = Math.Max(second, peak);
+        }
+        return samples.Length <= window ? first : second;
     }
 
     /// <summary>Transcribes the recording. The warm helper gets the 16 kHz samples in memory (the recorder's own conversion); if it cannot answer, one one-shot helper reads the retry WAV, which is in the device's format.</summary>
-    public async Task<(CloudTranscriptionOutcome Outcome, CloudTranscriptionDetail Detail)> TranscribeAsync(float[] samples, string wavPath, CancellationToken ct)
+    public async Task<(CloudTranscriptionOutcome Outcome, CloudTranscriptionDetail Detail)> TranscribeAsync(float[] samples, string wavPath, ChunkJob? chunks, CancellationToken ct)
     {
         // The cloud pre-check's level: the second-highest 100 ms peak, so a lone click does not make silence count as speech. The Mac has no local pre-check, but this model
         // answers digital silence with a word ("Yeah."), so Windows skips silent clips before the helper.
-        var blocks = new List<float>();
-        for (int i = 0; i < samples.Length; i += 1600) blocks.Add(samples.Skip(i).Take(1600).Max(x => Math.Abs(x)));
-        float peak = blocks.OrderDescending().Skip(1).FirstOrDefault(blocks.Count > 0 ? blocks.Max() : 0);
+        float peak = SecondPeak(samples);
         var detail = new CloudTranscriptionDetail { ClipSeconds = samples.Length / (double)AudioFormat.SampleRate, SilencePeak = peak, Precheck = Precheck.Passed };
         if (AudioFormat.ShouldSkipForSilence(peak, detail.ClipSeconds))
         {
@@ -92,12 +154,20 @@ internal sealed class LocalTranscriber : IDisposable
             return (new CloudTranscriptionOutcome.NoSpeech(true), detail);
         }
         var failed = (new CloudTranscriptionOutcome.Failed(FailureMessage, true), detail);
-        if (!HelperPresent || await Task.Run(Launch).ConfigureAwait(false) is not { } launch) return failed;
-        var line = await warm.TranscribeAsync(samples, HelperPath, launch, ct).ConfigureAwait(false);
+        var text = chunks is null ? null : await chunks.Result.ConfigureAwait(false);
         if (ct.IsCancellationRequested) return (new CloudTranscriptionOutcome.Cancelled(), detail);
-        line ??= await ModelHelper.RunOnceAsync(HelperPath, launch, wavPath, ct).ConfigureAwait(false);
-        if (ct.IsCancellationRequested) return (new CloudTranscriptionOutcome.Cancelled(), detail);
-        if (ModelHelper.Answer(line)?["text"]?.GetValue<string>() is not { } text) return failed;
+        if (text is null)
+        {
+            if (!HelperPresent || await Task.Run(Launch).ConfigureAwait(false) is not { } launch) return failed;
+            var line = chunks is null
+                ? await warm.TranscribeAsync(samples, HelperPath, launch, ct).ConfigureAwait(false)
+                : await warm.TranscribeAsync(wavPath, HelperPath, launch, ct).ConfigureAwait(false);
+            if (ct.IsCancellationRequested) return (new CloudTranscriptionOutcome.Cancelled(), detail);
+            line ??= await ModelHelper.RunOnceAsync(HelperPath, launch, wavPath, ct).ConfigureAwait(false);
+            if (ct.IsCancellationRequested) return (new CloudTranscriptionOutcome.Cancelled(), detail);
+            text = ModelHelper.StringField(ModelHelper.Answer(line), "text");
+            if (text is null) return failed;
+        }
         // The model answered but heard nothing; audio stays until the retry window ends.
         if (!text.Any(char.IsLetterOrDigit)) return (new CloudTranscriptionOutcome.NoSpeech(false), detail);
         return (new CloudTranscriptionOutcome.Transcript(text), detail);
