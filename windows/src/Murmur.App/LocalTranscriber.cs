@@ -26,9 +26,6 @@ internal sealed class LocalTranscriber : IDisposable
     /// <summary>Beside Murmur.exe in Speech\ (the published Murmur.Speech folder); MURMUR_SPEECH_HELPER overrides it for tests and the harness.</summary>
     public string HelperPath => Environment.GetEnvironmentVariable("MURMUR_SPEECH_HELPER") is { Length: > 0 } over ? over : Path.Combine(appDirectory, "Speech", "MurmurSpeech.exe");
 
-    /// <summary>Set by whichever work bundles the English word list; until then dictionary boosting stays off (see <see cref="Launch"/>).</summary>
-    string LexiconFile => Path.Combine(appDirectory, "Speech", "english-words.txt");
-
     readonly object verifyGate = new();
     volatile bool damaged;
     /// <summary>True after a launch found the pinned model failing its checksums; cleared when the files verify again.</summary>
@@ -52,12 +49,10 @@ internal sealed class LocalTranscriber : IDisposable
 
     string VocabularyFile => Path.Combine(s.Locations.Dictionary, "parakeet-vocabulary.json");
 
-    /// <summary>The launch for the current model folder and dictionary. Dictionary boosting needs the word list: BoostFilter keeps a replacement only when a replaced word is not ordinary,
-    /// and without the list every word is ordinary, so the vocabulary would cost a second decode for nothing. Rewrites the vocabulary file only when its content changed.</summary>
+    /// <summary>The launch for the current model folder and dictionary. The speech helper holds the English lexicon (Core) for BoostFilter, so no word-list file is passed. Rewrites the vocabulary file only when its content changed.</summary>
     HelperLaunch? Launch()
     {
-        string? vocabulary = null, lexicon = null;
-        if (File.Exists(LexiconFile))
+        string? vocabulary = null;
         {
             try
             {
@@ -66,13 +61,13 @@ internal sealed class LocalTranscriber : IDisposable
                 {
                     var json = JsonSerializer.SerializeToUtf8Bytes(new { terms = terms.Select(t => t.Aliases is null ? (object)new { text = t.Text } : new { text = t.Text, aliases = t.Aliases }) });
                     if (PrivateFiles.Read(VocabularyFile) is not { } current || !current.AsSpan().SequenceEqual(json)) PrivateFiles.Write(json, VocabularyFile);
-                    vocabulary = VocabularyFile; lexicon = LexiconFile;
+                    vocabulary = VocabularyFile;
                 }
                 else if (File.Exists(VocabularyFile)) File.Delete(VocabularyFile);
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { vocabulary = null; lexicon = null; }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { vocabulary = null; }
         }
-        return Verify() ? HelperLaunch.Make(ModelDirectory, vocabulary, lexicon) : null;
+        return Verify() ? HelperLaunch.Make(ModelDirectory, vocabulary) : null;
     }
 
     /// <summary>Starts the helper in the background so the model load overlaps the recording.</summary>

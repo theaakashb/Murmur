@@ -11,7 +11,10 @@ param(
     [string]$AppExe = '',
     [switch]$LocalAsr,       # transcribe with the local speech helper instead of the fake provider; cleanup still uses the fake. Needs -ModelDir and a published Murmur.Speech
     [string]$ModelDir = '',  # folder with encoder/decoder/joiner .int8.onnx and tokens.txt (used with -LocalAsr)
-    [string]$SpeechHelper = ''  # path to MurmurSpeech.exe (used with -LocalAsr)
+    [string]$SpeechHelper = '',  # path to MurmurSpeech.exe (used with -LocalAsr)
+    [switch]$LocalOnly,      # key-free: local transcription AND local cleanup, no fake-provider calls. Side-loads the pinned models from -ModelSource into the run's data\Models
+    [switch]$SeedDictionary, # with -LocalOnly: also write a dictionary (the fixtures' names plus the ordinary word "quarterly") so the speech helper runs with --vocabulary
+    [string]$ModelSource = 'C:\src\w-integrate\models'  # speech\ (4 pinned files) and cleanup\ (the pinned GGUF); never committed
 )
 $ErrorActionPreference = 'Stop'
 $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -77,6 +80,24 @@ try {
         customAPIModel = 'fake-cleanup'; customTranscriptionModel = 'fake-asr'; customAPIReasoningEffort = ''
         automaticInsertion = $true; historyMode = 'on'; shortcut = 'right-ctrl'
     }
+    if ($LocalOnly) {
+        # Folder names are ModelFacts.Directory: <repo name>-<rev7> under <data root>\Models. Only the pinned files are copied; the app verifies them against the pins.
+        $models = Join-Path $data 'Models'
+        $speechDir = Join-Path $models 'sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming-8c3a10f'
+        $cleanupDir = Join-Path $models 'vedu-scribe-0.8b-0000000'
+        New-Item -ItemType Directory -Force $speechDir, $cleanupDir | Out-Null
+        foreach ($f in 'encoder.int8.onnx', 'decoder.int8.onnx', 'joiner.int8.onnx', 'tokens.txt') { Copy-Item (Join-Path $ModelSource "speech\$f") $speechDir }
+        Copy-Item (Join-Path $ModelSource 'cleanup\vedu-scribe-0.8b-Q8_0.gguf') $cleanupDir
+        $settings.transcriptionRoute = 'local'; $settings.cleanupChoice = 'local-model'
+        foreach ($k in 'customAPIBaseURL', 'customTranscriptionAPIBaseURL', 'customAPIModel', 'customTranscriptionModel', 'customAPIReasoningEffort') { $settings.Remove($k) }
+    }
+    if ($SeedDictionary) {
+        $dict = Join-Path $data 'dictionary'; New-Item -ItemType Directory -Force $dict | Out-Null
+        $entries = foreach ($t in 'Maria Gonzalez', 'Peter Nakamura', 'Oliver Brennan', 'Priya Raman', 'Lakeside Cafe', 'quarterly') {
+            [ordered]@{ createdAt = 800000000.0; enabled = $true; id = [guid]::NewGuid().ToString().ToUpper(); preferred = $t; source = 'manual'; variants = @() } }
+        # No BOM: the app's JSON reader rejects one.
+        [IO.File]::WriteAllText((Join-Path $dict 'dictionary.json'), (@{ version = 1; entries = @($entries) } | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding $false))
+    }
     if ($LocalAsr) {
         if (-not (Test-Path (Join-Path $ModelDir 'encoder.int8.onnx')) -or -not (Test-Path $SpeechHelper)) { throw '-LocalAsr needs -ModelDir (model folder) and -SpeechHelper (MurmurSpeech.exe)' }
         $settings.transcriptionRoute = 'local'; $settings.modelDirectory = $ModelDir
@@ -118,7 +139,8 @@ try {
         $line = "Provider: $($tr.Count) transcription and $($ch.Count) cleanup requests; $empty transcription requests had no audio."
         Add-Content "$run\summary.txt" "`n$line"; Write-Host $line
         # Local ASR: the provider must have seen no transcription request (the helper did that work) and one cleanup request per dictation.
-        if ($LocalAsr) { if ($tr.Count -ne 0 -or $ch.Count -lt $Count) { $driverExit = 1 } }
+        if ($LocalOnly) { if ($tr.Count -ne 0 -or $ch.Count -ne 0) { $driverExit = 1 } }
+        elseif ($LocalAsr) { if ($tr.Count -ne 0 -or $ch.Count -lt $Count) { $driverExit = 1 } }
         elseif ($tr.Count -lt $Count -or $empty -gt 0) { $driverExit = 1 }
     } catch { Write-Host "Could not read provider log: $_"; $driverExit = 1 }
 }
@@ -126,6 +148,8 @@ finally {
     Remove-Task 'MurmurHarnessDriver'; Remove-Task 'MurmurHarnessApp'
     if ($fake) { Stop-Process -Id $fake.Id -Force -ErrorAction SilentlyContinue }
     Stop-Leftovers
+    # The side-loaded copies are 1.5 GB per run; the run keeps everything else.
+    if ($LocalOnly) { Remove-Item (Join-Path $data 'Models') -Recurse -Force -ErrorAction SilentlyContinue }
 }
 Write-Host "Results: $run\results.json   Summary: $run\summary.txt   Screenshots: $run\screenshot-*.png"
 if (Test-Path "$run\summary.txt") { Get-Content "$run\summary.txt" | Select-Object -First 12 | Out-Host }
