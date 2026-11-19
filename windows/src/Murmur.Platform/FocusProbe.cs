@@ -14,7 +14,7 @@ public sealed record FocusInfo(int ProcessId, string ProcessName, nint WindowHan
 /// Focused element through UI Automation (COM). Works across processes only from the logged-in desktop session.
 /// UIA calls into the target app and can block while it hangs: call from a worker thread, not the hook or UI thread.
 /// </summary>
-public static class FocusProbe
+public static partial class FocusProbe
 {
     const int ProcessIdProp = 30002, ControlTypeProp = 30003, IsPasswordProp = 30019, NativeWindowHandleProp = 30020, ValueValueProp = 30045, TextPatternId = 10014;
     const int MaxText = 100_000;
@@ -28,6 +28,14 @@ public static class FocusProbe
         [PreserveSig] int ElementFromHandle(nint hwnd, out IUIAutomationElement element);
         [PreserveSig] int ElementFromPoint(long point, out IUIAutomationElement element);
         [PreserveSig] int GetFocusedElement(out IUIAutomationElement element);
+        [PreserveSig] int GetRootElementBuildCache(nint cache, out IUIAutomationElement root);
+        [PreserveSig] int ElementFromHandleBuildCache(nint hwnd, nint cache, out IUIAutomationElement element);
+        [PreserveSig] int ElementFromPointBuildCache(long point, nint cache, out IUIAutomationElement element);
+        [PreserveSig] int GetFocusedElementBuildCache(nint cache, out IUIAutomationElement element);
+        [PreserveSig] int CreateTreeWalker(nint condition, out IUIAutomationTreeWalker walker);
+        [PreserveSig] int get_ControlViewWalker(out IUIAutomationTreeWalker walker);
+        [PreserveSig] int get_ContentViewWalker(out IUIAutomationTreeWalker walker);
+        [PreserveSig] int get_RawViewWalker(out IUIAutomationTreeWalker walker);
     }
 
     [ComImport, Guid("d22108aa-8ac5-49a5-837b-37bbb3d7591e"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
