@@ -1,0 +1,39 @@
+{
+  "comment": "Models only the Windows app downloads, in the same shape as module-one/models/artifact-pins.json (ModelManifest reads both). Entries here are STAGED, not published: the repository is a placeholder and the revision is 40 zeros until the files are uploaded; ModelDownloader refuses a staged entry. When the user uploads the GGUF files, replace repository and revision with the real values, drop \"staged\", and move the entry into artifact-pins.json if the Mac should see it too.",
+  "models": {
+    "pending-upload/vedu-scribe-0.8b-gguf": {
+      "comment": "Vedu Scribe 0.8B (heyvedu/vedu-scribe-0.8b@7dced58) converted to GGUF by module-one/cleanup/convert_gguf.py (mlx-lm 0.32.2, llama.cpp c7fc509). Q8_0 is the default list; F16 is the fallback if Q8_0 misses the quality bar (windows/PLAN.md, Local cleanup model). Local files, not uploaded.",
+      "staged": true,
+      "platform": "windows",
+      "revision": "0000000000000000000000000000000000000000",
+      "files": [
+        {
+          "rfilename": "vedu-scribe-0.8b-F16.gguf",
+          "size": 1516744416,
+          "lfs": {
+            "sha256": "ed7194d335da98aeb0ad962a990cb96e87b1af8119b36ef7825d1609a3d5b208",
+            "size": 1516744416
+          }
+        },
+        {
+          "rfilename": "vedu-scribe-0.8b-Q8_0.gguf",
+          "size": 811843296,
+          "lfs": {
+            "sha256": "3d7ac022d65de8d47d93e6b02f646e70ce5b87423feab38f3b2fd6008f087690",
+            "size": 811843296
+          }
+        }
+      ],
+      "batch_files": [
+        "vedu-scribe-0.8b-Q8_0.gguf"
+      ],
+      "f16_files": [
+        "vedu-scribe-0.8b-F16.gguf"
+      ],
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0"
+      }
+    }
+  }
+}

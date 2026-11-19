@@ -12,6 +12,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Murmur.Core\Murmur.Core.csproj" />
+    <!-- Built so LocalCleanupTests can start it as the helper process; found by path at run time, not referenced. -->
+    <ProjectReference Include="..\FakeCleanupHelper\FakeCleanupHelper.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <!-- Shared with the Mac: read in place, never copied into windows/. -->
   <ItemGroup>

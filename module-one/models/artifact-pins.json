@@ -1756,6 +1756,96 @@
         "url": "https://www.apache.org/licenses/LICENSE-2.0"
       },
       "repository_bytes": 560833591
+    },
+    "csukuangfj2/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming": {
+      "revision": "8c3a10fb13408c7a7054f6898958bf1c64a8d6c7",
+      "platform": "windows",
+      "files": [
+        {
+          "rfilename": "decoder.int8.onnx",
+          "size": 7257753,
+          "lfs": {
+            "sha256": "a5e223392c90e75f8144cdb5eb95af7625db389e39edef2bd1a9c872b3298fe6",
+            "size": 7257753
+          }
+        },
+        {
+          "rfilename": "encoder.int8.onnx",
+          "size": 654040552,
+          "lfs": {
+            "sha256": "6716910b7a0833997fec7a410494c995d70124001a0e9b66d6370d6aced577e0",
+            "size": 654040552
+          }
+        },
+        {
+          "rfilename": "joiner.int8.onnx",
+          "size": 1735860,
+          "lfs": {
+            "sha256": "869f43f7d24595c55581ad3bf249a935fb8a71389fbdaa7504b9f46f93140f8a",
+            "size": 1735860
+          }
+        },
+        {
+          "rfilename": "tokens.txt",
+          "size": 8952,
+          "git_blob_sha1": "50918f5e313e1cf846cf77dfd5b4489c9c7f0b76"
+        }
+      ],
+      "batch_files": [
+        "decoder.int8.onnx",
+        "encoder.int8.onnx",
+        "joiner.int8.onnx",
+        "tokens.txt"
+      ],
+      "license": {
+        "name": "NVIDIA Open Model License",
+        "url": "https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/"
+      }
+    },
+    "csukuangfj2/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-streaming-560ms": {
+      "revision": "7551fd26fc810cc1e4e043e608db4d13b59be31e",
+      "platform": "windows",
+      "files": [
+        {
+          "rfilename": "decoder.int8.onnx",
+          "size": 7257777,
+          "lfs": {
+            "sha256": "34fea72425d2506600772ba191a6d3f99c0710abdb68d9a3dc89fa8cb2aa473a",
+            "size": 7257777
+          }
+        },
+        {
+          "rfilename": "encoder.int8.onnx",
+          "size": 654046389,
+          "lfs": {
+            "sha256": "e566c3f014598a41724f2df028779a2d4cf7943cbefa324964f6a72e8ee255fb",
+            "size": 654046389
+          }
+        },
+        {
+          "rfilename": "joiner.int8.onnx",
+          "size": 1735860,
+          "lfs": {
+            "sha256": "869f43f7d24595c55581ad3bf249a935fb8a71389fbdaa7504b9f46f93140f8a",
+            "size": 1735860
+          }
+        },
+        {
+          "rfilename": "tokens.txt",
+          "size": 8952,
+          "git_blob_sha1": "50918f5e313e1cf846cf77dfd5b4489c9c7f0b76"
+        }
+      ],
+      "batch_files": [
+        "decoder.int8.onnx",
+        "encoder.int8.onnx",
+        "joiner.int8.onnx",
+        "tokens.txt"
+      ],
+      "license": {
+        "name": "NVIDIA Open Model License",
+        "url": "https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/"
+      }
     }
   }
 }
