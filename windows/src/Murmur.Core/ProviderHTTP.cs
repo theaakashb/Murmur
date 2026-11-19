@@ -238,12 +238,11 @@ public static class ProviderErrorClassifier
     /// report errors raised mid-generation that way). <paramref name="now"/> null is the current time.</summary>
     public static ProviderError Classify(ProviderID provider, HttpResult result, DateTimeOffset? now = null)
     {
-        var status = result.Status;
+        long status = result.Status;
         if (status is >= 200 and < 300)
         {
             if (ErrorBody.NumericCode(result.Body) is not long code || code < 400) return ProviderError.Server(provider, null);
-            if (code > int.MaxValue) return ProviderError.Server(provider, null);
-            status = (int)code;
+            status = code;
         }
         var retryAfter = ParseRetryAfter(result.Header("Retry-After"), now ?? DateTimeOffset.UtcNow);
         return status switch
@@ -260,12 +259,34 @@ public static class ProviderErrorClassifier
         };
     }
 
-    static readonly Regex Decimal = new(@"^[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
-    static readonly Regex Hex = new(@"^([+-]?)0[xX]([0-9a-fA-F]*)(?:\.([0-9a-fA-F]*))?(?:[pP]([+-]?[0-9]+))?$", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
-    static readonly Regex HttpDate = new(@"^([A-Za-z]{3}), ([0-9]{1,2}) ([A-Za-z]{3}) ([0-9]{4}) ([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2}) (GMT|UTC)$",
-                                         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
-    static readonly string[] Months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-    static readonly string[] Weekdays = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+    static readonly Regex Decimal = new(@"^[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\z", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+    static readonly Regex Hex = new(@"^([+-]?)0[xX]([0-9a-fA-F]*)(?:\.([0-9a-fA-F]*))?(?:[pP]([+-]?[0-9]+))?\z", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+    // DateFormatter "EEE, dd MMM yyyy HH:mm:ss zzz" (en_US_POSIX) as macOS parses it: the weekday must be a weekday name but is not checked
+    // against the date, the comma is optional, full names are accepted, and the zone is GMT/UTC, a GMT or numeric offset, or a US abbreviation.
+    static readonly Regex HttpDate = new(@"^([A-Za-z]+),? ([0-9]{1,2}) ([A-Za-z]+) ([0-9]{1,4}) ([0-9]{1,2}):([0-9]{2}):([0-9]{2}) (.+)\z",
+                                         RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+    static readonly Regex Offset = new(@"^(?:GMT|UTC)?([+-])([0-9]{1,2})(?::?([0-9]{2}))?\z", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
+    static readonly string[] Months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+    static readonly string[] Weekdays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    static readonly Dictionary<string, int> ZoneHours = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["GMT"] = 0, ["UTC"] = 0, ["UT"] = 0, ["EST"] = -5, ["EDT"] = -4, ["CST"] = -6, ["CDT"] = -5, ["MST"] = -7, ["MDT"] = -6, ["PST"] = -8, ["PDT"] = -7,
+    };
+
+    static int NameIndex(string[] names, string token)
+    {
+        var t = token.ToLowerInvariant();
+        return Array.FindIndex(names, n => n == t || (t.Length == 3 && n.StartsWith(t, StringComparison.Ordinal)));
+    }
+
+    static TimeSpan? Zone(string zone)
+    {
+        if (ZoneHours.TryGetValue(zone, out var hours)) return TimeSpan.FromHours(hours);
+        var m = Offset.Match(zone);
+        if (!m.Success) return null;
+        var span = new TimeSpan(int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture), m.Groups[3].Success ? int.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture) : 0, 0);
+        return m.Groups[1].Value == "-" ? -span : span;
+    }
 
     /// <summary><c>Retry-After</c> as delta-seconds or an HTTP-date, in seconds; null when absent, unparsable, negative or not finite.</summary>
     public static double? ParseRetryAfter(string? value, DateTimeOffset now)
@@ -274,13 +295,13 @@ public static class ProviderErrorClassifier
         if (string.IsNullOrEmpty(raw)) return null;
         if (SwiftDouble(raw) is double seconds) return double.IsFinite(seconds) && seconds >= 0 && seconds < long.MaxValue ? seconds : null;
         var m = HttpDate.Match(raw);
-        if (!m.Success || !Weekdays.Contains(m.Groups[1].Value.ToLowerInvariant())) return null;
-        var month = Array.IndexOf(Months, m.Groups[3].Value.ToLowerInvariant()) + 1;
+        if (!m.Success || NameIndex(Weekdays, m.Groups[1].Value) < 0 || Zone(m.Groups[8].Value) is not TimeSpan zone) return null;
+        var month = NameIndex(Months, m.Groups[3].Value);
         int Part(int i) => int.Parse(m.Groups[i].Value, CultureInfo.InvariantCulture);
-        if (month == 0) return null;
+        if (month < 0 || Part(4) < 1 || Part(5) > 23 || Part(6) > 59 || Part(7) > 59 || zone.Duration() > TimeSpan.FromHours(14)) return null;
         try
         {
-            var date = new DateTimeOffset(Part(4), month, Part(2), Part(5), Part(6), Part(7), TimeSpan.Zero);
+            var date = new DateTimeOffset(Part(4), month + 1, Part(2), Part(5), Part(6), Part(7), zone);
             return Math.Max(0, (date - now).TotalSeconds);
         }
         catch (ArgumentOutOfRangeException) { return null; }
@@ -307,8 +328,8 @@ public static class ErrorBody
 {
     public static long? NumericCode(byte[] data)
     {
-        if (Json.Object(data) is not JsonElement root || !root.TryGetProperty("error", out var error) || error.ValueKind != JsonValueKind.Object
-            || !error.TryGetProperty("code", out var code)) return null;
+        if (Json.Object(data) is not JsonElement root || !Json.TryGet(root, "error", out var error) || error.ValueKind != JsonValueKind.Object
+            || !Json.TryGet(error, "code", out var code)) return null;
         return Json.SwiftInt(code) ?? (code.ValueKind == JsonValueKind.String ? Json.SwiftIntString(code.GetString()!) : null);
     }
 }
@@ -356,13 +377,22 @@ internal static class Json
         s.Length > 0 && s.Skip(s[0] is '+' or '-' ? 1 : 0).All(char.IsAsciiDigit) && s.Length > (s[0] is '+' or '-' ? 1 : 0)
             && long.TryParse(s, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var v) ? v : null;
 
+    /// <summary>A member of an object; with duplicate names the first wins, as in JSONSerialization.</summary>
+    public static bool TryGet(JsonElement obj, string name, out JsonElement value)
+    {
+        foreach (var p in obj.EnumerateObject())
+            if (p.NameEquals(name)) { value = p.Value; return true; }
+        value = default;
+        return false;
+    }
+
     public static string? String(JsonElement obj, string name) =>
-        obj.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        TryGet(obj, name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
     /// <summary><c>value as? [[String: Any]]</c>: an array whose elements are all objects.</summary>
     public static List<JsonElement>? Objects(JsonElement obj, string name)
     {
-        if (!obj.TryGetProperty(name, out var v) || v.ValueKind != JsonValueKind.Array) return null;
+        if (!TryGet(obj, name, out var v) || v.ValueKind != JsonValueKind.Array) return null;
         var items = v.EnumerateArray().ToList();
         return items.All(i => i.ValueKind == JsonValueKind.Object) ? items : null;
     }
