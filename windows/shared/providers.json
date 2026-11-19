@@ -1,0 +1,27 @@
+{
+  "audioFormat" : {
+    "minimumSpeechSeconds" : 0.3,
+    "sampleRate" : 16000,
+    "silencePeak" : 0.01
+  },
+  "murmurCloud" : {
+    "cleanupDeadline" : 45,
+    "cleanupModel" : "murmur-cleanup",
+    "defaultHost" : "api.murmurdictation.com",
+    "purchaseAvailable" : false,
+    "transcriptionModel" : "murmur-transcribe"
+  },
+  "openAI" : {
+    "defaultTimeout" : 120,
+    "logprobThreshold" : -1,
+    "maximumTimeout" : 300,
+    "minLoudWindows" : 3,
+    "noSpeechThreshold" : 0.6,
+    "ollamaDefault" : "http://localhost:11434",
+    "uploadLimitBytes" : 25000000
+  },
+  "providerLimits" : {
+    "maxOutputTokens" : 8192,
+    "validationDeadline" : 15
+  }
+}
