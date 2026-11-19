@@ -1,6 +1,24 @@
 {
   "about": "Swift files ported to C#: the C# files that port each one and the SHA-256 of the Swift file the port matches. Maintained with windows/tools/check_parity.py --update; see windows/CONTRIBUTING.md.",
   "ported": {
+    "app/Cleanup.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Cleanup.cs"
+      ],
+      "sha256": "817472f9888df6f8b3e957e6ca781c9ac1648cda38e759918eabfed8067b29bd"
+    },
+    "app/CleanupGuard.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/CleanupGuard.cs"
+      ],
+      "sha256": "ffd0880cee14671c487f89510381e39ae1678786704644ade0de49e9585431ea"
+    },
+    "app/CleanupPrompt.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/CleanupPrompt.cs"
+      ],
+      "sha256": "3bca29e27743d613439b9c95a465bb5b6b90e77272f3d0370d9494ad6112bd48"
+    },
     "app/CleanupText.swift": {
       "csharp": [
         "windows/src/Murmur.Core/CleanupText.cs",
@@ -31,6 +49,13 @@
         "windows/src/Murmur.Core/PrivateFiles.cs"
       ],
       "sha256": "3e6a9a35b8a819b5aa49b7b8146bd5a6d65e5108642ba9c23cde5bef171c5765"
+    },
+    "app/RuleCleaner.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/RuleCleaner.cs",
+        "windows/src/Murmur.Core/RuleCleaner.Commands.cs"
+      ],
+      "sha256": "3e51b3237f87fa2f3de56f5706c35c22c95bb3ae93372cefacb740c34b13c7fe"
     },
     "app/VoiceCues.swift": {
       "csharp": [

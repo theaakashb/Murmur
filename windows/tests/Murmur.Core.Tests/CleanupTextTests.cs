@@ -124,3 +124,18 @@ public class CleanupTextTests
         Assert.Equal(1 - 3.0 / 7, CleanupText.Similarity("kitten", "sitting"));
     }
 }
+
+public class SwiftTextTrimTests
+{
+    // Every scalar in macOS Foundation's CharacterSet.whitespacesAndNewlines is trimmed; nothing else is.
+    [Fact]
+    public void TrimsFoundationWhitespaceSet()
+    {
+        int[] foundation = [0x9, 0xA, 0xB, 0xC, 0xD, 0x20, 0x85, 0xA0, 0x1680, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006,
+            0x2007, 0x2008, 0x2009, 0x200A, 0x200B, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000];
+        foreach (var v in foundation)
+            Assert.Equal("x", Murmur.Core.SwiftText.TrimWhitespaceAndNewlines(char.ConvertFromUtf32(v) + "x" + char.ConvertFromUtf32(v)));
+        foreach (var v in new[] { 0x200C, 0x200D, 0xFEFF, 0x180E })
+            Assert.Equal(3, Murmur.Core.SwiftText.TrimWhitespaceAndNewlines(char.ConvertFromUtf32(v) + "x" + char.ConvertFromUtf32(v)).Length);
+    }
+}
