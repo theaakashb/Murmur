@@ -70,6 +70,10 @@ enum GoldenCases {
         String(repeating: "We should ship the build on Friday after the review. ", count: 30),
         String(repeating: "um so the plan is, like, fine and we ship it on Monday, sorry, Tuesday. ", count: 12),
         String(repeating: "word ", count: 400),
+        String(repeating: "we reviewed the plan and agreed on the next steps for the team. ", count: 14) + "We ship on Friday. Actually no, on Monday. "
+            + String(repeating: "we reviewed the plan and agreed on the next steps for the team. ", count: 14),
+        "First, " + String(repeating: "We should um, ship the build on Friday after the review. ", count: 30) + "Second, call Sam.",
+        String(repeating: "Sorry about the delay.  Wait, the build is green!  ", count: 40) + "Instead, ship it now? Scratch that, ship it Monday.",
     ]
 
     /// Corpus inputs and labels, check_cleanup.swift literals and the edges.
