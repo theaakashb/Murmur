@@ -5,6 +5,7 @@
     <Project Path="src/Murmur.App/Murmur.App.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/FakeCleanupHelper/FakeCleanupHelper.csproj" />
     <Project Path="tests/Murmur.Core.Tests/Murmur.Core.Tests.csproj" />
     <Project Path="tests/Murmur.Platform.Tests/Murmur.Platform.Tests.csproj" />
   </Folder>
