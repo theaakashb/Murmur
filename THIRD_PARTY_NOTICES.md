@@ -40,6 +40,12 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 - Header: "Copyright (c) 2015 - 2019 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception." License: https://swift.org/LICENSE.txt
 - Release duty: ship the Apache-2.0 text with the Windows app and state that the file was modified (translated to C#).
 
+### sherpa-onnx and ONNX Runtime (local speech helper)
+
+- `windows/src/Murmur.Speech` uses sherpa-onnx 2.0.1 (k2-fsa, Apache-2.0, https://github.com/k2-fsa/sherpa-onnx) through the `org.k2fsa.sherpa.onnx` NuGet packages. The nuspec and the repository LICENSE at v2.0.1 declare Apache-2.0.
+- The runtime packages bundle ONNX Runtime 1.28.2 (Microsoft, MIT, https://github.com/microsoft/onnxruntime). The packages carry no license file, so the MIT license is not yet checked from the package. Check it before release.
+- The Parakeet Unified ONNX conversion stays under the NVIDIA Open Model License, recorded below.
+
 ### LLamaSharp and llama.cpp (local cleanup helper)
 
 - `windows/src/Murmur.Cleanup` uses LLamaSharp 0.30.0 (MIT, https://github.com/SciSharp/LLamaSharp) and its `LLamaSharp.Backend.Cpu` 0.30.0 native libraries. These are built from llama.cpp and ggml (MIT, https://github.com/ggml-org/llama.cpp).
