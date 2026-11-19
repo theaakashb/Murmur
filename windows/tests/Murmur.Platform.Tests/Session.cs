@@ -28,6 +28,7 @@ public sealed class InputFactAttribute : FactAttribute
     public InputFactAttribute()
     {
         if (!SessionFactAttribute.Interactive) Skip = "Needs the interactive desktop session (not SSH); run windows/tests/Murmur.Platform.Tests/run-session1.cmd";
+        else if (Environment.GetEnvironmentVariable("CI") == "true") Skip = "Hosted CI runners have a desktop but no reliable target app for injected input; run-session1.cmd and the exit harness cover it";
         else if (!(GetCursorPos(out var p) && SetCursorPos((int)(p & 0xFFFFFFFF), (int)(p >> 32)))) Skip = "The desktop does not accept input (locked, or console not attached to a display)";
     }
 }
