@@ -7,10 +7,23 @@ Status: Phase 1 (planning). No Windows code exists yet. This plan was written on
 Updated 2026-11-19 (overnight autonomous run).
 
 - **M1:** done. Core text engine, golden parity, CI green on Linux and Windows.
-- **M2:** in progress on `windows`.
-  - Merged: the platform layer, settings/history/retention/backup/modes, and providers/routes.
-  - Running: the Processing port, the WinUI app and controller, and the automated exit harness.
-  - Build host: VM `murmur-win` (Windows 11 23H2, no audio devices). Simulated input works in its console session.
+- **M2:** in progress on `windows` (head `525235d`).
+  - Merged:
+    - the platform layer;
+    - settings, history, retention, backup and modes;
+    - providers and routes;
+    - Processing, Observation and AIEngine;
+    - the WinUI tray app.
+  - The app runs dictations through `ProcessingCoordinator`, and recording starts at key down.
+  - Tests on the VM: 21,854 core and 17 platform pass. A synthetic dictation into Notepad passed with the clipboard restored.
+  - Running: the exit harness worker.
+  - Next: merge the harness, run `windows/harness/run-exit.ps1` on the VM, fix failures, then report the M2 exit.
+  - Known gaps:
+    - No lexicon until the bundled word list lands.
+    - Settings and History buttons haven't been clicked in tests yet.
+    - The leading-space rule assumes the caret is at the end.
+    - Writing-mode engines arrive in M4.
+  - Paused 03:45 PST: Claude's 5-hour window was at 18%, under the 20% guardrail. It resumes after the 04:10 PST reset.
 - **VM settings changed:** clipboard history (HKCU `Software\Microsoft\Clipboard\EnableClipboardHistory` = 1), approved 2026-11-19. It was already 1, so the write changed nothing; the console session reports history on and cloud sync (roaming) off. To revert: set it to 0.
 - **M3:** queued. It starts when the M2 synthetic exit passes.
 - **Needs user:**
