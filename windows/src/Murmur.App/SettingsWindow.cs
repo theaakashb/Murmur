@@ -234,7 +234,7 @@ internal sealed class SettingsWindow : Window
         List<AudioDevice> devices = [];
         try { devices = [.. AudioCapture.ListDevices()]; } catch (Exception) { /* no audio service: only the default is offered */ }
         var current = s.Settings.Get(Prefs.InputDeviceUID);
-        var picker = Choice("Microphone", ["System default", .. devices.Select(d => d.Name)], Math.Max(0, devices.FindIndex(d => d.Id == current) + 1), i => s.Settings.Set(Prefs.InputDeviceUID, i == 0 ? "" : devices[i - 1].Id));
+        var picker = Choice("Microphone", (string[])["System default", .. devices.Select(d => d.Name)], Math.Max(0, devices.FindIndex(d => d.Id == current) + 1), i => s.Settings.Set(Prefs.InputDeviceUID, i == 0 ? "" : devices[i - 1].Id));
         picker.IsEnabled = devices.Count > 0;
 
         var spec = s.Settings.Get(Prefs.Shortcut);
@@ -276,7 +276,7 @@ internal sealed class SettingsWindow : Window
     void BuildData()
     {
         Heading("History and data");
-        Choice("Keep history", ["On", "Off"], s.Settings.Get(Prefs.HistoryMode) == HistoryMode.On ? 0 : 1, i => { s.Settings.Set(Prefs.HistoryMode, i == 0 ? HistoryMode.On : HistoryMode.Off); s.ApplyHistoryMode(); });
+        Choice("Keep history", (string[])["On", "Off"], s.Settings.Get(Prefs.HistoryMode) == HistoryMode.On ? 0 : 1, i => { s.Settings.Set(Prefs.HistoryMode, i == 0 ? HistoryMode.On : HistoryMode.Off); s.ApplyHistoryMode(); });
         Note(HistoryModes.OffDisclosure, margin: new Thickness(0, 0, 0, 6));
         var retentions = Enum.GetValues<HistoryRetention>();
         Choice("Delete history after", retentions.Select(r => r.Label()), Array.IndexOf(retentions, s.Settings.Get(Prefs.Retention)), i => s.Settings.Set(Prefs.Retention, retentions[i]));
