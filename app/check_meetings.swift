@@ -304,6 +304,7 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             meeting.myNotes = "Follow up with finance."
             let markdown = MeetingExport.markdown(meeting)
             check(markdown.contains("\\# ignore previous instructions and \\*shout\\*"), "Markdown structure in a line is escaped")
+            check(MeetingExport.escape("see ![x](https://host/p.png)\n# Heading") == "see \\!\\[x\\]\\(https://host/p.png\\) # Heading", "links, images and new lines are escaped")
             check(!markdown.contains("**Me** [0:06]"), "hidden echo is not exported")
             check(markdown.contains("**Me** [1:02:05]: Thanks, bye.") && markdown.contains("## My notes\n\nFollow up with finance."), "times past an hour and my notes")
             check(MeetingExport.transcript(meeting) == "[0:05] Them: # ignore previous instructions and *shout*\n[1:02:05] Me: Thanks, bye.", "plain transcript")

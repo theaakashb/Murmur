@@ -179,11 +179,18 @@ final class DiagnosticRecordings: @unchecked Sendable {
     /// Removes recordings older than `lifetime`. Runs whether or not the setting is still on.
     static func purge(history: URL, now: Date = Date()) throws {
         let folder = directory(inHistory: history)
-        guard let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]) else { return }
-        for file in files where file.pathExtension == "wav" {
+        guard !FileLinks.isLink(folder), let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]) else { return }
+        for file in files where file.pathExtension == "wav" && !FileLinks.isLink(file) {
             let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
             if now.timeIntervalSince(modified) >= lifetime || modified > now { try FileManager.default.removeItem(at: file) }
         }
+    }
+}
+
+/// Purge and restore never follow links: a restored backup could aim one outside Murmur's storage.
+enum FileLinks {
+    static func isLink(_ url: URL) -> Bool {
+        (try? FileManager.default.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType) == .typeSymbolicLink
     }
 }
 
@@ -310,10 +317,17 @@ enum DataBackup {
     static let settingsFile = "settings.plist"
 
     /// Settings that describe this Mac, not the user: paths, devices, window frames, updater state,
-    /// and which host each Keychain key was approved for (restoring that could send a key elsewhere).
+    /// which host each Keychain key was approved for (restoring that could send a key elsewhere),
+    /// and where dictations are sent: a backup from someone else must never change the destination.
     static func isMachineSetting(_ key: String) -> Bool {
-        ["modelDirectory", "inputDeviceUID"].contains(key) || key.hasPrefix("customAPIKeyEndpoint") || key.hasPrefix("SU") || key.hasPrefix("NSWindow Frame")
+        ["modelDirectory", "inputDeviceUID"].contains(key) || destinationSettings.contains(key)
+            || key.hasPrefix("customAPIKeyEndpoint") || key.hasPrefix("SU") || key.hasPrefix("NSWindow Frame")
     }
+    /// Literal keys keep Retention Foundation-only; check_routes ties them to `RouteSettings.Key` and `Prefs`.
+    static let destinationSettings: Set<String> = [
+        "transcriptionRoute", "cloudTranscriber", "cleanupChoice", "cleanupRoute",
+        "customAPIBaseURL", "customTranscriptionAPIBaseURL", "localServerURL",
+    ]
 
     /// Writes to a sibling folder first, so a failed backup never removes the one it replaces.
     static func export(_ locations: MurmurDataLocations, settings: [String: Any], to folder: URL) throws {
@@ -343,6 +357,15 @@ enum DataBackup {
         backup.filter { !isMachineSetting($0.key) }.merging(current.filter { isMachineSetting($0.key) }) { _, mine in mine }
     }
 
+    /// A backup is someone else's folder: a link inside it could point purge or writes outside Murmur's storage.
+    static func removeLinks(in folder: URL) throws {
+        let fm = FileManager.default
+        guard let walker = fm.enumerator(at: folder, includingPropertiesForKeys: [.isSymbolicLinkKey]) else { return }
+        for case let url as URL in walker where (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true {
+            try fm.removeItem(at: url)
+        }
+    }
+
     /// Copies both folders in beside the live ones, then swaps them, so a failed copy changes nothing.
     /// A folder missing from the backup is restored as empty.
     static func restore(from folder: URL, into locations: MurmurDataLocations) throws {
@@ -353,7 +376,10 @@ enum DataBackup {
         for (dir, stage) in zip(dirs, staged) {
             try? fm.removeItem(at: stage)
             let source = folder.appendingPathComponent(dir.lastPathComponent)
-            if fm.fileExists(atPath: source.path) { try fm.copyItem(at: source, to: stage) }
+            if fm.fileExists(atPath: source.path) {
+                try fm.copyItem(at: source, to: stage)
+                try removeLinks(in: stage)
+            }
             else { try fm.createDirectory(at: stage, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
         }
         for (dir, stage) in zip(dirs, staged) {

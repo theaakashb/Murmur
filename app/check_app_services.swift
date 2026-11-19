@@ -230,6 +230,24 @@ func checkBackup() throws {
     check(fm.fileExists(atPath: live.history.appendingPathComponent("h.json").path), "restore recreates missing history")
     check(!(try fm.contentsOfDirectory(atPath: live.history.deletingLastPathComponent().path)).contains { $0.hasPrefix(".restore-") }, "restore leaves no staging folders")
     check((try? DataBackup.readSettings(from: root)) == nil, "a folder without settings.plist is refused")
+    let routed = DataBackup.merged(backup: ["cleanupChoice": "custom-api", "customAPIBaseURL": "https://other.example/v1", "transcriptionRoute": "custom"],
+                                   current: ["cleanupChoice": "local-rules"])
+    check(routed["cleanupChoice"] as? String == "local-rules" && routed["customAPIBaseURL"] == nil && routed["transcriptionRoute"] == nil,
+          "restore never changes where dictations are sent")
+
+    // A backup's nested link must not survive restore, and purge must not follow one.
+    let outside = root.appendingPathComponent("outside"), old = Date(timeIntervalSinceNow: -400 * 24 * 3600)
+    try fm.createDirectory(at: outside, withIntermediateDirectories: true)
+    let victim = outside.appendingPathComponent("keep.wav")
+    try Data("x".utf8).write(to: victim); try fm.setAttributes([.modificationDate: old], ofItemAtPath: victim.path)
+    try fm.createSymbolicLink(at: folder.appendingPathComponent("history/unreadable"), withDestinationURL: outside)
+    try DataBackup.restore(from: folder, into: live)
+    check(!fm.fileExists(atPath: live.history.appendingPathComponent("unreadable").path), "restore drops links inside the backup")
+    let recordings = DiagnosticRecordings.directory(inHistory: live.history)
+    try? fm.removeItem(at: recordings)
+    try fm.createSymbolicLink(at: recordings, withDestinationURL: outside)
+    try DiagnosticRecordings.purge(history: live.history)
+    check(fm.fileExists(atPath: victim.path), "recording purge does not follow a linked folder")
 }
 
 func checkUpdates() {

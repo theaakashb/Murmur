@@ -256,8 +256,8 @@ struct HistoryStore {
         for entry in try expired(retention: retention, now: now) { try delete(entry) }
         try removePendingFiles()
         guard let cutoff = retention.cutoff(now: now) else { return }
-        let files = (try? FileManager.default.contentsOfDirectory(at: unreadableDirectory, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
-        for file in files where ((try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantFuture) <= cutoff {
+        let files = FileLinks.isLink(unreadableDirectory) ? [] : (try? FileManager.default.contentsOfDirectory(at: unreadableDirectory, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        for file in files where !FileLinks.isLink(file) && ((try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantFuture) <= cutoff {
             try FileManager.default.removeItem(at: file)
         }
     }

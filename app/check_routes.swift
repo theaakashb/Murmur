@@ -141,6 +141,9 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
 
         let stored = defaults.dictionaryRepresentation().values.map { "\($0)" }.joined()
         check(!stored.contains(secret), "no key in UserDefaults")
+        typealias K = RouteSettings.Key
+        check(Set([K.transcription, K.legacyCloudTranscriber, K.cleanup, K.customAPIBaseURL, K.customTranscriptionAPIBaseURL, K.legacyServerURL, Prefs.cleanupRoute.key])
+                == DataBackup.destinationSettings, "every destination setting stays on this Mac when restoring")
         print("\(passes) checks passed, \(failures) failed")
         if failures > 0 { exit(1) }
     }
