@@ -103,7 +103,7 @@ public static class MurmurCloudCleanupFormat
     {
         if (result.Status is < 200 or >= 300) throw new ProviderException(ProviderErrorClassifier.Classify(ProviderID.MurmurCloud, result));
         if (Json.Object(result.Body) is not JsonElement obj) throw new ProviderException(ProviderError.MalformedResponse(ProviderID.MurmurCloud));
-        if (obj.TryGetProperty("error", out _)) throw new ProviderException(ProviderErrorClassifier.Classify(ProviderID.MurmurCloud, result));
+        if (Json.TryGet(obj, "error", out _)) throw new ProviderException(ProviderErrorClassifier.Classify(ProviderID.MurmurCloud, result));
         return Json.String(obj, "text") ?? throw new ProviderException(ProviderError.MalformedResponse(ProviderID.MurmurCloud));
     }
 }

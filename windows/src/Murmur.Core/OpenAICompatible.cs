@@ -65,7 +65,7 @@ public static class OpenAITranscriptionFormat
     {
         if (result.Status is < 200 or >= 300) throw new ProviderException(ProviderErrorClassifier.Classify(provider, result));
         if (Json.Object(result.Body) is not JsonElement obj) throw new ProviderException(ProviderError.MalformedResponse(provider));
-        if (obj.TryGetProperty("error", out _)) throw new ProviderException(ProviderErrorClassifier.Classify(provider, result));
+        if (Json.TryGet(obj, "error", out _)) throw new ProviderException(ProviderErrorClassifier.Classify(provider, result));
         if (Json.String(obj, "text") is not string text) throw new ProviderException(ProviderError.MalformedResponse(provider));
         if (Json.Objects(obj, "segments") is not List<JsonElement> raw) return new TranscriptionResult(text);
         var segments = new List<(string Text, bool Silent, bool Unsure)>();
@@ -101,7 +101,7 @@ public static class OpenAITranscriptionFormat
         return new TranscriptionResult(SwiftText.TrimWhitespaceAndNewlines(kept), details, tail < 0 ? NoSpeechReason.InsufficientLoudness : null);
     }
 
-    static double? Number(JsonElement obj, string name) => obj.TryGetProperty(name, out var v) ? Json.SwiftDouble(v) : null;
+    static double? Number(JsonElement obj, string name) => Json.TryGet(obj, name, out var v) ? Json.SwiftDouble(v) : null;
 }
 
 /// <summary>OpenAI-style <c>POST …/chat/completions</c>, shared by the custom cleanup endpoint and local servers.</summary>
@@ -141,17 +141,17 @@ public static class OpenAIChatFormat
     {
         if (result.Status is < 200 or >= 300) throw new ProviderException(ProviderErrorClassifier.Classify(provider, result));
         if (Json.Object(result.Body) is not JsonElement obj) throw new ProviderException(ProviderError.MalformedResponse(provider));
-        if (obj.TryGetProperty("error", out _)) throw new ProviderException(ProviderErrorClassifier.Classify(provider, result));
+        if (Json.TryGet(obj, "error", out _)) throw new ProviderException(ProviderErrorClassifier.Classify(provider, result));
         if (Json.Objects(obj, "choices") is not { Count: > 0 } choices) throw new ProviderException(ProviderError.MalformedResponse(provider));
         var first = choices[0];
-        if (first.TryGetProperty("error", out _)) throw new ProviderException(ProviderError.Server(provider, null));
+        if (Json.TryGet(first, "error", out _)) throw new ProviderException(ProviderError.Server(provider, null));
         switch (Json.String(first, "finish_reason"))
         {
             case null or "stop": break;
             case "content_filter": throw new ProviderException(ProviderError.ContentBlocked(provider));
             default: throw new ProviderException(ProviderError.MalformedResponse(provider));
         }
-        if (!first.TryGetProperty("message", out var message) || message.ValueKind != JsonValueKind.Object || Json.String(message, "content") is not string content)
+        if (!Json.TryGet(first, "message", out var message) || message.ValueKind != JsonValueKind.Object || Json.String(message, "content") is not string content)
             throw new ProviderException(ProviderError.MalformedResponse(provider));
         return WithoutLeadingReasoning(content);
     }

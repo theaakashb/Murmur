@@ -108,7 +108,7 @@ public sealed record ProviderError
     public ProviderID? Provider { get; private init; }
     public double? RetryAfter { get; private init; }
     public int? LimitBytes { get; private init; }
-    public int? Status { get; private init; }
+    public long? Status { get; private init; }
     /// <summary>"host:port" taken from the configured base URL, never from request content.</summary>
     public string? Address { get; private init; }
     public OnDeviceModelUnavailable? Unavailable { get; private init; }
@@ -121,12 +121,12 @@ public sealed record ProviderError
     public static ProviderError Network(ProviderID p) => new() { Case = ProviderErrorKind.Network, Provider = p };
     public static ProviderError Timeout(ProviderID p) => new() { Case = ProviderErrorKind.Timeout, Provider = p };
     public static ProviderError PayloadTooLarge(ProviderID p, int? limitBytes) => new() { Case = ProviderErrorKind.PayloadTooLarge, Provider = p, LimitBytes = limitBytes };
-    public static ProviderError Server(ProviderID p, int? status) => new() { Case = ProviderErrorKind.Server, Provider = p, Status = status };
+    public static ProviderError Server(ProviderID p, long? status) => new() { Case = ProviderErrorKind.Server, Provider = p, Status = status };
     public static ProviderError MalformedResponse(ProviderID p) => new() { Case = ProviderErrorKind.MalformedResponse, Provider = p };
     /// <summary>The provider's safety or moderation filter declined the input.</summary>
     public static ProviderError ContentBlocked(ProviderID p) => new() { Case = ProviderErrorKind.ContentBlocked, Provider = p };
     /// <summary>Other 4xx, e.g. an unknown model or a bad parameter.</summary>
-    public static ProviderError Rejected(ProviderID p, int status) => new() { Case = ProviderErrorKind.Rejected, Provider = p, Status = status };
+    public static ProviderError Rejected(ProviderID p, long status) => new() { Case = ProviderErrorKind.Rejected, Provider = p, Status = status };
     /// <summary>Missing key or an invalid local setting; no request was sent.</summary>
     public static ProviderError InvalidConfiguration(ProviderID p) => new() { Case = ProviderErrorKind.InvalidConfiguration, Provider = p };
     /// <summary>Connection refused by a user-run model server: nothing is listening at <paramref name="address"/>.</summary>
@@ -168,7 +168,7 @@ public sealed record ProviderError
                 case ProviderErrorKind.Timeout: return $"{name} didn't respond in time.";
                 case ProviderErrorKind.PayloadTooLarge:
                     return LimitBytes is int limit ? $"The recording is too large for {name} (limit {limit / 1_000_000} MB)." : $"The request is too large for {name}.";
-                case ProviderErrorKind.Server: return Status is int status ? $"{name} had a server problem (HTTP {status})." : $"{name} had a server problem.";
+                case ProviderErrorKind.Server: return Status is long status ? $"{name} had a server problem (HTTP {status})." : $"{name} had a server problem.";
                 case ProviderErrorKind.MalformedResponse: return $"{name} returned a response Murmur couldn't use.";
                 case ProviderErrorKind.ContentBlocked: return $"{name} declined to process this dictation (content filter).";
                 case ProviderErrorKind.Rejected when Provider == ProviderID.MurmurCloud: return $"{name} rejected the request (HTTP {Status}).";
