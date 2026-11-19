@@ -11,7 +11,7 @@
           "rfilename": "vedu-scribe-0.8b-F16.gguf",
           "size": 1516744416,
           "lfs": {
-            "sha256": "ed7194d335da98aeb0ad962a990cb96e87b1af8119b36ef7825d1609a3d5b208",
+            "sha256": "632abde139c754775e578b8c086e77c89a8553b60d8ce53556a70f8afdd29de8",
             "size": 1516744416
           }
         },
@@ -19,7 +19,7 @@
           "rfilename": "vedu-scribe-0.8b-Q8_0.gguf",
           "size": 811843296,
           "lfs": {
-            "sha256": "3d7ac022d65de8d47d93e6b02f646e70ce5b87423feab38f3b2fd6008f087690",
+            "sha256": "6859e09e41502d2c1665b9462b2f9f37c7e485ebddd14185813f22a89554c708",
             "size": 811843296
           }
         }
