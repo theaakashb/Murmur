@@ -31,7 +31,6 @@ public class ModelDownloadTests
         Assert.Equal($"https://huggingface.co/{Repository}/resolve/{Revision}/enc.mlmodelc/weights/weight.bin", manifest.ResolveUrl(manifest.Files[2])!.AbsoluteUri);
         Assert.EndsWith("/a%20b/c%23d.bin", manifest.ResolveUrl(new ModelManifestFile("a b/c#d.bin", 1, "", ModelHashAlgorithm.Sha256))!.AbsoluteUri);
         Assert.Equal("http://localhost:8080/Example/tiny-model/resolve/" + Revision + "/config.json", manifest.ResolveUrl(manifest.Files[0], "http://localhost:8080/")!.AbsoluteUri);
-        Assert.False(manifest.Staged);
     }
 
     [Fact]
@@ -126,28 +125,17 @@ public class ModelDownloadTests
     }
 
     [Fact]
-    public void TheStagedCleanupModelCannotBeDownloaded()
+    public void TheCleanupModelIsPinnedToTheUpload()
     {
-        var facts = ModelFacts.LocalCleanup;
-        var manifest = facts.Manifest(BundledModels.Pins(ModelPinsSource.WindowsModels)!);
-        Assert.True(manifest.Staged);
-        Assert.Equal("pending-upload/vedu-scribe-0.8b-gguf", manifest.Repository);
+        var manifest = ModelFacts.LocalCleanup.Manifest(BundledModels.Pins(ModelPinsSource.WindowsModels)!);
+        Assert.Equal("clouddevaakash/vedu-scribe-0.8b-gguf", manifest.Repository);
+        Assert.Equal("edf275972c822fb7787226a89afa4282feb74ec4", manifest.Revision);
         Assert.Equal("vedu-scribe-0.8b-Q8_0.gguf", manifest.Files.Single().Rfilename);
         Assert.Equal(811_843_296, manifest.TotalBytes);
         Assert.Equal("6859e09e41502d2c1665b9462b2f9f37c7e485ebddd14185813f22a89554c708", manifest.Files.Single().Checksum);
-        var f16 = new ModelManifest(BundledModels.Pins(ModelPinsSource.WindowsModels)!, facts.Repository, "f16_files");
-        Assert.Equal(1_516_744_416, f16.TotalBytes);
-        Assert.Equal("632abde139c754775e578b8c086e77c89a8553b60d8ce53556a70f8afdd29de8", f16.Files.Single().Checksum);
         Assert.True(manifest.License.IsPinned && manifest.License.Declarations.Single().Name == "Apache-2.0");
-        using var temp = new TempDir();
-        var transport = new FakeTransport();
-        var downloader = new ModelDownloader(manifest, temp.Combine("m"), transport, freeSpace: _ => null);
-        Assert.Equal(ModelDownloadError.NotPublished, Fails(() => downloader.Install()));
-        Assert.Empty(transport.Requests);
-        Assert.Equal(ModelStatus.Failed(ModelDownloadError.NotPublished), downloader.Status());
-        Assert.False(Directory.Exists(temp.Combine("m")) || Directory.Exists(downloader.StagingDirectory));
-        // Neither Windows-only entry is in the shared pins the Mac reads.
-        Assert.DoesNotContain("pending-upload", File.ReadAllText(PinsPath));
+        // The Mac runs the MLX checkpoint; the GGUF stays out of the shared pins it reads.
+        Assert.DoesNotContain("vedu-scribe-0.8b-gguf", File.ReadAllText(PinsPath));
     }
 
     [Fact]
@@ -159,7 +147,7 @@ public class ModelDownloadTests
         var live = ModelManifest.Load(PinsPath, ModelFacts.LiveWords.Repository);
         Assert.Equal(System.IO.Path.Combine(root, "Models", "sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-streaming-560ms-7551fd2"), ModelFacts.LiveWords.Directory(root, live));
         var cleanup = ModelFacts.LocalCleanup.Manifest(BundledModels.Pins(ModelPinsSource.WindowsModels)!);
-        Assert.Equal(System.IO.Path.Combine(root, "Models", "vedu-scribe-0.8b-0000000"), ModelFacts.LocalCleanup.Directory(root, cleanup));
+        Assert.Equal(System.IO.Path.Combine(root, "Models", "vedu-scribe-0.8b-edf2759"), ModelFacts.LocalCleanup.Directory(root, cleanup));
     }
 
     // MARK: install
@@ -423,7 +411,7 @@ public class ModelDownloadTests
     public void MessagesNameNoFileOrUrl()
     {
         ModelDownloadError[] all = [ModelDownloadError.Network, ModelDownloadError.DiskFull, ModelDownloadError.ChecksumMismatch, ModelDownloadError.HttpStatus(500), ModelDownloadError.Cancelled,
-                                    ModelDownloadError.InvalidManifest, ModelDownloadError.UnsafePath, ModelDownloadError.FileSystem, ModelDownloadError.Busy, ModelDownloadError.NotPublished];
+                                    ModelDownloadError.InvalidManifest, ModelDownloadError.UnsafePath, ModelDownloadError.FileSystem, ModelDownloadError.Busy];
         foreach (var error in all)
         {
             var message = error.UserMessage;

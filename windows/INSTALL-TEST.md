@@ -32,10 +32,7 @@ It's a folder of about 360 MB with `Murmur.exe`, `Speech\MurmurSpeech.exe` and `
 ## 3. Models
 
 - **Speech model:** Settings > Models > Parakeet Unified English 0.6B > Download. The license appears before anything downloads. The app verifies every file against its pinned checksum.
-- **Cleanup model:** the row shows "Not published yet", because the cleanup model isn't on Hugging Face until you approve the upload. Until then, side-load the staged file:
-  - Copy `vedu-scribe-0.8b-Q8_0.gguf` (811,843,296 bytes, SHA-256 `6859e09e41502d2c1665b9462b2f9f37c7e485ebddd14185813f22a89554c708`) into `%LOCALAPPDATA%\Murmur\Models\vedu-scribe-0.8b-0000000\`.
-  - Restart Murmur. The row then reads "Downloaded", and the app verifies the file against the pinned checksum.
-  - The coordinator can copy it over SSH. The file is in `~/murmur-m3/hf-stage/vedu-scribe-0.8b-gguf/` on the Mac.
+- **Cleanup model:** Settings > Models > Vedu Scribe 0.8B > Download (812 MB, Apache-2.0). It's pinned to `clouddevaakash/vedu-scribe-0.8b-gguf` at revision `edf27597`, and the app verifies its SHA-256 (`6859e09e…`).
 - "Local (this PC)" and "Local model (this PC)" are enabled only once their models are installed and verified.
 
 ## Part A: 20 dictations, cloud route (M2 exit)
@@ -67,8 +64,7 @@ It's a folder of about 360 MB with `Murmur.exe`, `Speech\MurmurSpeech.exe` and `
 1. Quit Murmur from the tray. Start it with `harness\real-mic\start-bench.cmd` instead. If Murmur isn't in the default folder, pass the path to `Murmur.exe` as an argument. That uses a separate data folder (`%LOCALAPPDATA%\Murmur-bench`), so your own History stays clean, and keeps each recording for the comparison.
 2. In that instance's Settings:
    - choose Local (this PC) for transcription and Local model (this PC) for cleanup;
-   - for the cleanup model, side-load it into `%LOCALAPPDATA%\Murmur-bench\Models\vedu-scribe-0.8b-0000000\` as in step 3;
-   - download the speech model again or copy the folder from `%LOCALAPPDATA%\Murmur\Models\`.
+   - download both models in that instance's Settings > Models, or copy their folders from `%LOCALAPPDATA%\Murmur\Models\` into `%LOCALAPPDATA%\Murmur-bench\Models\`.
 3. In Notepad, dictate the five scripts in `harness/real-mic/scripts.tsv` in order (short-1, short-2, medium-1, medium-2, long-1). Read each one in a single hold, at a normal pace:
    - short ones: about 5 seconds;
    - medium ones: about 30 seconds;

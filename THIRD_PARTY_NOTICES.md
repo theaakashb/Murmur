@@ -63,7 +63,7 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 - Apache-2.0.
 - **Modified:** converted from the MLX checkpoint `heyvedu/vedu-scribe-0.8b@7dced58`, a fine-tune of `Qwen/Qwen3.5-0.8B`. Steps: dequantize, repack, requantize to Q8_0, and edit the header to 24 layers (`module-one/cleanup/convert_gguf.py`).
 - These are not the original weights, and HeyVedu and the Qwen team have not endorsed them.
-- The hosted copy needs the Apache-2.0 text and this modification notice. It is staged locally until the user approves the upload.
+- Hosted at https://huggingface.co/clouddevaakash/vedu-scribe-0.8b-gguf (revision `edf275972c822fb7787226a89afa4282feb74ec4`), with the Apache-2.0 text and this modification notice. The Windows app downloads it from there, pinned by revision and SHA-256.
 
 ## Downloaded at run time, not bundled
 

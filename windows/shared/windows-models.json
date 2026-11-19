@@ -1,20 +1,11 @@
 {
-  "comment": "Models only the Windows app downloads, in the same shape as module-one/models/artifact-pins.json (ModelManifest reads both). Entries here are STAGED, not published: the repository is a placeholder and the revision is 40 zeros until the files are uploaded; ModelDownloader refuses a staged entry. When the user uploads the GGUF files, replace repository and revision with the real values, drop \"staged\", and move the entry into artifact-pins.json if the Mac should see it too.",
+  "comment": "Models only the Windows app downloads, in the same shape as module-one/models/artifact-pins.json (ModelManifest reads both). The Mac runs Vedu Scribe through MLX from artifact-pins.json, so this GGUF entry stays Windows-only.",
   "models": {
-    "pending-upload/vedu-scribe-0.8b-gguf": {
-      "comment": "Vedu Scribe 0.8B (heyvedu/vedu-scribe-0.8b@7dced58) converted to GGUF by module-one/cleanup/convert_gguf.py (mlx-lm 0.32.2, llama.cpp c7fc509). Q8_0 is the default list; F16 is the fallback if Q8_0 misses the quality bar (windows/PLAN.md, Local cleanup model). Local files, not uploaded.",
-      "staged": true,
+    "clouddevaakash/vedu-scribe-0.8b-gguf": {
+      "comment": "Vedu Scribe 0.8B (heyvedu/vedu-scribe-0.8b@7dced58) converted to GGUF Q8_0 by module-one/cleanup/convert_gguf.py (mlx-lm 0.32.2, llama.cpp c7fc509, 24-layer header). Uploaded 2026-11-19 to clouddevaakash/vedu-scribe-0.8b-gguf; size and SHA-256 checked against the Hugging Face API.",
       "platform": "windows",
-      "revision": "0000000000000000000000000000000000000000",
+      "revision": "edf275972c822fb7787226a89afa4282feb74ec4",
       "files": [
-        {
-          "rfilename": "vedu-scribe-0.8b-F16.gguf",
-          "size": 1516744416,
-          "lfs": {
-            "sha256": "632abde139c754775e578b8c086e77c89a8553b60d8ce53556a70f8afdd29de8",
-            "size": 1516744416
-          }
-        },
         {
           "rfilename": "vedu-scribe-0.8b-Q8_0.gguf",
           "size": 811843296,
@@ -26,9 +17,6 @@
       ],
       "batch_files": [
         "vedu-scribe-0.8b-Q8_0.gguf"
-      ],
-      "f16_files": [
-        "vedu-scribe-0.8b-F16.gguf"
       ],
       "license": {
         "name": "Apache-2.0",

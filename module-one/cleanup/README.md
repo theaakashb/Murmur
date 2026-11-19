@@ -25,12 +25,12 @@ the MLX values dequantized, renamed and repacked. It is not the original file.
    for byte (the script re-reads the result and compares all tensors). Murmur never uses the multi-token-prediction layer.
    `convert_gguf.py` writes only the patched files: Q8_0 SHA-256 `6859e09e41502d2c1665b9462b2f9f37c7e485ebddd14185813f22a89554c708`.
 
-## Staging for Hugging Face
+## Published copy
 
-`~/murmur-m3/hf-stage/vedu-scribe-0.8b-gguf/` (outside the repo, never committed) holds what would be uploaded: the
-patched GGUF, `README.md` (model card: base model, modification statement, conversion steps, SHA-256, prompt format)
-and `LICENSE` (Apache-2.0 text, fetched from apache.org because the source checkpoint ships none). Nothing is uploaded
-until the owner says so; after upload, pin the repository revision and SHA-256 in `artifact-pins.json`.
+The Q8_0 file is published at https://huggingface.co/clouddevaakash/vedu-scribe-0.8b-gguf, revision `edf275972c822fb7787226a89afa4282feb74ec4`.
+- It is 811,843,296 bytes, SHA-256 `6859e09e41502d2c1665b9462b2f9f37c7e485ebddd14185813f22a89554c708`.
+- The repository also holds a model card (base model, modification statement, conversion steps, prompt format) and the Apache-2.0 `LICENSE`.
+- The Windows app pins it in `windows/shared/windows-models.json`. The Mac keeps running the MLX checkpoint from `artifact-pins.json`.
 
 ## Checking a build
 
