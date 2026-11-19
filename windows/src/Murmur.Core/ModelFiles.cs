@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace Murmur.Core;
 
-/// <summary>The one place that finds the pins manifest. Windows: <c>artifact-pins.json</c> is copied beside Murmur.exe by the app build; the Windows-only manifest is embedded in Murmur.Core.</summary>
+/// <summary>The one place that finds the pins manifest. Windows: <c>artifact-pins.json</c> must be copied beside Murmur.exe by the app build (not wired yet: until it is, <see cref="Pins"/> returns null for <see cref="ModelPinsSource.ArtifactPins"/>); the Windows-only manifest is embedded in Murmur.Core.</summary>
 public static class BundledModels
 {
     /// <summary>Overridable for tests and for a portable layout.</summary>

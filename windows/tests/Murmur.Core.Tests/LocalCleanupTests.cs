@@ -121,8 +121,9 @@ public class LocalCleanupTests
         public string Helper { get; } = LocalCleanupTests.Helper();
         public Fixtures()
         {
-            // The apphost needs to find the runtime that runs the tests.
-            if (Environment.GetEnvironmentVariable("DOTNET_ROOT") is null && Environment.ProcessPath is { } host) Environment.SetEnvironmentVariable("DOTNET_ROOT", Path.GetDirectoryName(host));
+            // The apphost needs to find the runtime that runs the tests: <root>/shared/Microsoft.NETCore.App/<version>/ is three folders below the dotnet root.
+            if (Environment.GetEnvironmentVariable("DOTNET_ROOT") is null)
+                Environment.SetEnvironmentVariable("DOTNET_ROOT", Path.GetFullPath(Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), "..", "..", "..")));
         }
         public LocalCleanupRunner Runner(double startup = 20, double request = 5, double idle = 60) => new(Helper, Dir.Path, startup, request, idle);
         public int Pid() => int.Parse(File.ReadAllText(Dir.Combine("pid")).Trim());
