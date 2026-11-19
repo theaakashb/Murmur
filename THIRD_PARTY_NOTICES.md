@@ -51,6 +51,13 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 - `windows/src/Murmur.Cleanup` uses LLamaSharp 0.30.0 (MIT, https://github.com/SciSharp/LLamaSharp) and its `LLamaSharp.Backend.Cpu` 0.30.0 native libraries. These are built from llama.cpp and ggml (MIT, https://github.com/ggml-org/llama.cpp).
 - Release duty: ship both MIT texts with the Windows app. Before release, check the copyright lines against each project's LICENSE at the pinned versions; they are not yet checked.
 
+### SCOWL English word list (bundled in the Windows app)
+
+- `windows/shared/lexicon/english-scowl-60.txt.gz`: 88,210 lowercase American English words from SCOWL (Spell Checker Oriented Word Lists) by Kevin Atkinson, https://github.com/en-wl/wordlist, release `rel-2026.02.25`, size 60. It stands in for the spell checker the Mac uses to tell ordinary words from names.
+- License: the SCOWL notice in `windows/shared/lexicon/LICENSE` (permission to use, copy, modify, distribute and sell, provided the copyright notice and permission notice appear in all copies and supporting documentation; provided "as is"). The AU, UKACD and WordNet terms in the upstream `Copyright` file do not apply to this list, which is American, size 60 and drawn from none of those parts. Checked November 19, 2026.
+- **Modified:** words with capital letters, abbreviations and special categories removed, then sorted and gzipped (`windows/tools/lexicon/`). Provenance, SHA-256 and measurements: `windows/shared/lexicon/README.md`.
+- Release duty: ship `windows/shared/lexicon/LICENSE` with the Windows app.
+
 ### Vedu Scribe 0.8B, GGUF (downloaded at run time on Windows)
 
 - Apache-2.0.
