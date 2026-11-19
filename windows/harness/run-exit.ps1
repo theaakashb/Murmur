@@ -14,7 +14,7 @@ param(
     [string]$SpeechHelper = '',  # path to MurmurSpeech.exe (used with -LocalAsr)
     [switch]$LocalOnly,      # key-free: local transcription AND local cleanup, no fake-provider calls. Side-loads the pinned models from -ModelSource into the run's data\Models
     [switch]$SeedDictionary, # with -LocalOnly: also write a dictionary (the fixtures' names plus the ordinary word "quarterly") so the speech helper runs with --vocabulary
-    [string]$ModelSource = 'C:\src\w-integrate\models'  # speech\ (4 pinned files) and cleanup\ (the pinned GGUF); never committed
+    [string]$ModelSource = 'C:\src\models'  # speech\ (4 pinned files) and cleanup\ (the pinned GGUF); never committed
 )
 $ErrorActionPreference = 'Stop'
 $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
