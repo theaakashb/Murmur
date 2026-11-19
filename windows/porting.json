@@ -1,6 +1,12 @@
 {
   "about": "Swift files ported to C#, including the check_*.swift files whose assertions became C# tests (check_modes: only its CleanupTypes/Tone assertions so far): the C# files that port each one and the SHA-256 of the Swift file the port matches. Maintained with windows/tools/check_parity.py --update; see windows/CONTRIBUTING.md.",
   "ported": {
+    "app/AudioFormat.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/AudioFormat.cs"
+      ],
+      "sha256": "23e0223dece88f206f2a8a9369186e04da985e65e053127aa3a6b29d8845e66d"
+    },
     "app/Cleanup.swift": {
       "csharp": [
         "windows/src/Murmur.Core/Cleanup.cs"
@@ -32,6 +38,18 @@
       ],
       "sha256": "01c4751444e8fe6489e21258c7b21d2a13a71e0168048f97b0c5c2bc2642ed9b"
     },
+    "app/CloudAudio.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/CloudAudio.cs"
+      ],
+      "sha256": "3fbc27ef3178ac4e5bb277c34b0964c763e53d6105514f091dee7be013b10e24"
+    },
+    "app/Credentials.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Credentials.cs"
+      ],
+      "sha256": "2e248e27ffd8d112fb091208c40129ed0bc30b52a4fa691b4f42ce189eef9681"
+    },
     "app/Delivery.swift": {
       "csharp": [
         "windows/src/Murmur.Core/Delivery.cs"
@@ -56,11 +74,29 @@
       ],
       "sha256": "f7f1a94c42dbf4362744825296045cca23a65444f0e0d9c1bd6e71c5f90a28b3"
     },
+    "app/KeyCheck.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/KeyCheck.cs"
+      ],
+      "sha256": "079f5a75747a33af5f1e03c8a511e66c7c290f58281edc47201c84983d779e2a"
+    },
     "app/Learning.swift": {
       "csharp": [
         "windows/src/Murmur.Core/Learning.cs"
       ],
       "sha256": "7bfb7525872b010748a490e9ec2b253aecf9a706cffad5928fd3a7f710aa9b26"
+    },
+    "app/MurmurCloud.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/MurmurCloud.cs"
+      ],
+      "sha256": "ec9535468a61497fd4817840f92cf8a18ae3487035515122cde1449d9113792c"
+    },
+    "app/OpenAICompatible.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/OpenAICompatible.cs"
+      ],
+      "sha256": "dae97d8eaf12c14d97c543d1516fffc72e889155e9a5df3a76166bf195b32c5c"
     },
     "app/PrivateFiles.swift": {
       "csharp": [
@@ -68,11 +104,29 @@
       ],
       "sha256": "3e6a9a35b8a819b5aa49b7b8146bd5a6d65e5108642ba9c23cde5bef171c5765"
     },
+    "app/ProviderHTTP.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/ProviderHTTP.cs"
+      ],
+      "sha256": "4eac3dbf7dd32595ef9127fef4c5c54a8b506ce55d70b16a88134ef9658fe198"
+    },
+    "app/ProviderTypes.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/ProviderTypes.cs"
+      ],
+      "sha256": "49831534e9ca28fa3a9a5b63747ac9fa287d30ba7f82c59251e5be0ad4791f5c"
+    },
     "app/Retention.swift": {
       "csharp": [
         "windows/src/Murmur.Core/Retention.cs"
       ],
       "sha256": "1c162413effd88cd753d8699e9e1905b306bc0d793e1789e14b9c561c52418eb"
+    },
+    "app/Routes.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Routes.cs"
+      ],
+      "sha256": "66af16d34287842c830323d364283b7ff0288e63f9c9e4dc22af2d77695247b0"
     },
     "app/RuleCleaner.swift": {
       "csharp": [
@@ -154,6 +208,18 @@
       ],
       "sha256": "717850149816a377d9b291c2377dcbf73a2a229e47acbaa2ee21f46673437a2b"
     },
+    "app/check_http.py": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/ProviderHttpTests.cs"
+      ],
+      "sha256": "e11ee8a38a2d8b78c94752bbc81d386aefc28c08181a2bc1f6f50859c78933c9"
+    },
+    "app/check_http.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/ProviderHttpTests.cs"
+      ],
+      "sha256": "5cdc24ddb4c9a198e1ef53c051d5608d86336b62ffb976c43566540e16098137"
+    },
     "app/check_modes.swift": {
       "csharp": [
         "windows/tests/Murmur.Core.Tests/CleanupTextTests.cs",
@@ -161,6 +227,18 @@
         "windows/tests/Murmur.Core.Tests/SettingsTests.cs"
       ],
       "sha256": "b662dd5786cf8e7aa1427b1c57569a7216a9f4a0d914600bc818fb6a931dc9a3"
+    },
+    "app/check_providers.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/ProvidersTests.cs"
+      ],
+      "sha256": "214213d7998b2d683d9ce35864791c787e0371762908202c578ec3ae083c0704"
+    },
+    "app/check_routes.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/RoutesTests.cs"
+      ],
+      "sha256": "d56eddc9ac1a2bc5a6ef68bbb3d7c72fff28f7da2b2d139ae0449c026f49ef6c"
     },
     "app/check_voice_cues.swift": {
       "csharp": [

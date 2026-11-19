@@ -6,13 +6,6 @@ namespace Murmur.Core;
 /// <see cref="ICleanupProvider"/>. Raw values "local" and "cloud".</summary>
 public enum CleanupRoute { Local, Cloud }
 
-/// <summary>Belongs to app/Retention.swift. The 24-hour retry-audio window; user text that names it is built from <see cref="Text"/>.</summary>
-public static class RetryWindow
-{
-    public static readonly TimeSpan Lifetime = TimeSpan.FromHours(24);
-    public static readonly string Text = $"{(int)Lifetime.TotalHours} hours";
-}
-
 /// <summary>Belongs to app/LocalCleanup.swift (M3).</summary>
 public static class LocalCleanupIdentity
 {
