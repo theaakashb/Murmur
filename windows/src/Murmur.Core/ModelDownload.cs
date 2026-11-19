@@ -183,33 +183,52 @@ public sealed class ModelDownloader
         return DiskStatus(hash: false, () => false);
     }
 
+    internal ModelStatus? ActiveStatus { get { lock (gate) return active; } }
+
     /// <summary>Full size + checksum check of the installed model. Does not change <see cref="Status"/> state.</summary>
     public ModelStatus VerifyInstalled(Func<bool>? isCancelled = null) => DiskStatus(hash: true, isCancelled ?? (() => false));
 
     /// <summary>Requests cancellation; <see cref="Install"/> throws <see cref="ModelDownloadError.Cancelled"/> at the next chunk. Already-verified staged files are kept so a later install can skip them; <see cref="Remove"/> discards them.</summary>
-    public void Cancel() { lock (gate) { if (running) cancelRequested = true; } }
+    public void Cancel() { lock (gate) { if (active is not null) cancelRequested = true; } }
 
     /// <summary>Runs <see cref="Install"/> on a worker thread. <paramref name="completion"/> gets null on success; callbacks arrive on that thread.</summary>
-    public void Start(Action<ModelDownloadProgress>? progress, Action<ModelDownloadError?> completion) =>
-        Task.Run(() =>
+    public void Start(Action<ModelDownloadProgress>? progress, Action<ModelDownloadError?> completion)
+    {
+        // Reserve the operation before queuing it so Cancel also works before the worker starts.
+        bool started = TryBeginInstall(progress);
+        _ = Task.Run(() =>
         {
+            if (!started) { completion(ModelDownloadError.Busy); return; }
             ModelDownloadError? result = null;
-            try { Install(progress); } catch (ModelDownloadException e) { result = e.Error; } catch (Exception) { result = ModelDownloadError.FileSystem; }
+            try { RunInstall(); } catch (ModelDownloadException e) { result = e.Error; }
             completion(result);
         });
+    }
 
     /// <summary>Downloads (or resumes) the pinned files, verifies all of them, then installs atomically.
     /// Throws <see cref="ModelDownloadException"/>. An existing target is replaced only after every file verifies.</summary>
     public void Install(Action<ModelDownloadProgress>? progress = null)
     {
+        if (!TryBeginInstall(progress)) throw new ModelDownloadException(ModelDownloadError.Busy);
+        RunInstall();
+    }
+
+    bool TryBeginInstall(Action<ModelDownloadProgress>? progress)
+    {
         lock (gate)
         {
-            if (running) throw new ModelDownloadException(ModelDownloadError.Busy);
+            if (running) return false;
             running = true; cancelRequested = false; lastFailure = null; progressCallback = progress; lastPublished = null;
             active = ModelStatus.Downloading(new(0, Manifest.TotalBytes));
+            return true;
         }
+    }
+
+    void RunInstall()
+    {
         try
         {
+            CheckCancelled();
             PerformInstall();
             Finish(null);
         }
@@ -227,13 +246,19 @@ public sealed class ModelDownloader
         lock (gate)
         {
             if (running) throw new ModelDownloadException(ModelDownloadError.Busy);
+            running = true;
             lastFailure = null;
         }
-        foreach (var path in new[] { Target, StagingDirectory })
+        try
         {
-            if (!Directory.Exists(path) && !File.Exists(path) && !FileLinks.IsLink(path)) continue;
-            try { DeleteEntry(path); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { throw new ModelDownloadException(ModelDownloadError.FileSystem); }
+            foreach (var path in new[] { Target, StagingDirectory })
+            {
+                if (!Directory.Exists(path) && !File.Exists(path) && !FileLinks.IsLink(path)) continue;
+                DeleteEntry(path);
+            }
         }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { throw new ModelDownloadException(ModelDownloadError.FileSystem); }
+        finally { lock (gate) running = false; }
     }
 
     bool IsCancelled { get { lock (gate) return cancelRequested; } }

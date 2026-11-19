@@ -20,11 +20,11 @@ public sealed class ModelFlow(ModelSlot slot, IModelFlowDialogs dialogs)
     public Func<string?> RemoveGate { get; init; } = () => null;
     /// <summary>After the state shows the download starting.</summary>
     public Action WillDownload { get; init; } = () => { };
-    /// <summary>Also show the downloader's byte progress as it arrives (otherwise the owner samples it).</summary>
+    /// <summary>Post sampled download and verification progress to the owner, up to ten times a second.</summary>
     public bool PushProgress { get; init; }
     /// <summary>Null error means success.</summary>
     public Action<ModelDownloadError?> DidDownload { get; init; } = _ => { };
-    /// <summary>Runs the removal after the user confirmed; release what holds the files first, then call <c>go</c>.</summary>
+    /// <summary>On a worker thread, release what holds the files after confirmation, then call <c>go</c>.</summary>
     public Action<Action> Release { get; init; } = go => go();
     public Action DidRemove { get; init; } = () => { };
     /// <summary>Raised after every change to the slot's state, on the UI thread when <see cref="Post"/> marshals there.</summary>
@@ -43,15 +43,35 @@ public sealed class ModelFlow(ModelSlot slot, IModelFlowDialogs dialogs)
         if (!dialogs.ConfirmDownload(text.Title, text.Body)) return;
         // A dictation may have started while the dialog was open.
         if (DownloadGate() is { } late) { Update(s => s.Message = late); return; }
-        Update(s => { s.InFlight = true; s.Message = ""; });
+        Update(s => { s.InFlight = true; s.Message = ""; s.Status = ModelStatus.Downloading(new(0, downloader.DownloadSize)); });
         WillDownload();
-        Update(s => s.Status = ModelStatus.Downloading(new(0, downloader.DownloadSize)));
         var facts = Slot.Facts;
-        downloader.Start(PushProgress ? progress => Post(() => { if (Slot.InFlight) Update(s => s.Status = ModelStatus.Downloading(progress)); }) : null, error => Post(() =>
+        var pending = 0;
+        var finished = false;
+        var progress = PushProgress ? new Timer(_ =>
         {
-            Update(s => { s.InFlight = false; s.Status = downloader.Status(); s.Message = facts.CompletionMessage(error); });
-            DidDownload(error);
-        }));
+            if (downloader.ActiveStatus is null || Interlocked.Exchange(ref pending, 1) != 0) return;
+            Post(() =>
+            {
+                try
+                {
+                    if (!finished && downloader.ActiveStatus is { } latest && latest != Slot.Status)
+                        Update(s => s.Status = latest);
+                }
+                finally { Interlocked.Exchange(ref pending, 0); }
+            });
+        }, null, 100, 100) : null;
+        downloader.Start(null, error =>
+        {
+            if (progress is not null) progress.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            var status = downloader.Status();
+            Post(() =>
+            {
+                finished = true;
+                Update(s => { s.InFlight = false; s.Status = status; s.Message = facts.CompletionMessage(error); });
+                DidDownload(error);
+            });
+        });
     }
 
     public void Cancel() => Slot.Downloader?.Cancel();
@@ -64,12 +84,28 @@ public sealed class ModelFlow(ModelSlot slot, IModelFlowDialogs dialogs)
         var facts = Slot.Facts;
         if (!dialogs.ConfirmRemove(facts.RemoveTitle, facts.RemoveBody(downloader.Target, downloader.DownloadSize))) return;
         if (RemoveGate() is { } late) { Update(s => s.Message = late); return; }
-        Release(() =>
+        Update(s => { s.InFlight = true; s.Message = ""; });
+        _ = Task.Run(() =>
         {
-            try { downloader.Remove(); Update(s => s.Message = facts.Removed); }
-            catch (ModelDownloadException e) { Update(s => s.Message = e.Error.UserMessage); }
-            Update(s => s.Status = downloader.Status());
-            DidRemove();
+            void Complete(ModelDownloadError? error)
+            {
+                var status = downloader.Status();
+                Post(() =>
+                {
+                    Update(s => { s.InFlight = false; s.Status = status; s.Message = error?.UserMessage ?? facts.Removed; });
+                    DidRemove();
+                });
+            }
+
+            try
+            {
+                Release(() =>
+                {
+                    downloader.Remove();
+                    Complete(null);
+                });
+            }
+            catch (Exception e) { Complete(ModelDownloadError.FromWrite(e)); }
         });
     }
 }
