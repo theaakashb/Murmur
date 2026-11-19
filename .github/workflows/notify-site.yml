@@ -4,6 +4,7 @@ name: Notify website of release
 on:
   release:
     types: [published]
+permissions: {} # the job uses only SITE_DISPATCH_TOKEN, never GITHUB_TOKEN
 jobs:
   notify:
     if: ${{ !github.event.release.prerelease }}
