@@ -7,7 +7,7 @@ Status: Phase 1 (planning). No Windows code exists yet. This plan was written on
 - Native C#/.NET app in this repo under `windows/`. The Mac app stays Swift.
 - V1 is a full port: hold-to-talk dictation, cleanup and its routes, Murmur Cloud, dictionary and learning, writing modes, voice edit, History and retention, settings, local speech recognition at launch, and meeting capture (microphone plus system audio, call detection, speaker separation).
 - Insertion is paste only: clipboard plus Ctrl+V, with a paste-last-dictation hotkey. No typing fallback and no "couldn't confirm" badge (matches the Mac after PR #94).
-- Signing: Azure Trusted Signing or an Authenticode certificate, bought by the user. Real testing on the user's Windows PC; a Windows VM can serve CI and signing.
+- Signing: Azure Artifact Signing (formerly Trusted Signing) or an Authenticode certificate, bought by the user. Real testing on the user's Windows PC; a Windows VM can serve CI and signing.
 - Decided after Phase 1 review (2026-11-18): the same local cleanup model and the same speech model as the Mac; a bundled English word list as the lexicon; Right Ctrl hold-to-talk and Ctrl+Win+V paste-last; Windows 11 22H2+ x64 first, ARM64 later; website matching for modes is required in v1; learning from edits is required; GitHub releases only; an in-app updater is required.
 - Same product rules as the Mac: replace, don't keep fallbacks; transcription routes stay fixed on failure; the guarded local cleanup fallback stays; never log transcripts, audio, keys or response bodies.
 
@@ -112,7 +112,7 @@ Plan:
 2. **Engine:** sherpa-onnx's .NET package (`org.k2fsa.sherpa.onnx`, current 2.0.1; runtime packages exist for win-x64, win-arm64 and osx-arm64) with ONNX Runtime on the CPU. GPU providers only if CPU latency misses the target **(verify which providers the Windows packages ship)**. Because osx-arm64 natives exist, the helper and its protocol can be developed and benchmarked on this Mac too.
 3. **Pins:** add the chosen builds to `module-one/models/artifact-pins.json` with revision, sizes and SHA-256 per file, so `verify_artifacts.py` and the `ModelDownload` port check them unchanged. Download from the pinned Hugging Face revision, never bundled; show the NVIDIA license before download, as on the Mac.
 4. **Live words** (`--stream`): the int8 streaming build (560 ms first; 240 ms if it feels slow), display only, never inserted, as on the Mac.
-5. **Dictionary boosting:** sherpa-onnx supports hotwords for transducer models with `modified_beam_search`, in streaming and non-streaming mode, per its docs; whether that covers the NeMo transducer path used for Parakeet is not documented **(verify in the M3 spike)**. The output goes through the ported `BoostFilter`, so only non-ordinary words can change, as on the Mac. If hotwords don't work for this model, the next candidate is porting FluidAudio's CTC rescoring (Apache-2.0) over an ONNX `parakeet-tdt_ctc-110m`; the decision comes back to the user with measurements. Post-transcription dictionary respelling (`Dictionary.swift`) applies either way.
+5. **Dictionary boosting:** sherpa-onnx's offline NeMo transducer recognizer (`sherpa-onnx/csrc/offline-recognizer-transducer-nemo-impl.h`, master, read 2026-11-18) accepts `modified_beam_search` with a hotwords file and `hotwords_score`, including TDT models. So hotwords are the first approach; how well they bias Parakeet Unified toward dictionary names is measured in the M3 spike. The output goes through the ported `BoostFilter`, so only non-ordinary words can change, as on the Mac. If hotwords don't work for this model, the next candidate is porting FluidAudio's CTC rescoring (Apache-2.0) over the ONNX `csukuangfj/sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000-int8` (exists on Hugging Face); the decision comes back to the user with measurements. Post-transcription dictionary respelling (`Dictionary.swift`) applies either way.
 6. **Timed words** (`{"timed":…}`) for speaker splitting: sherpa-onnx returns token timestamps for transducer results **(verify for this model)**.
 7. **Speaker separation** (`--diarize`): sherpa-onnx offline diarization (pyannote segmentation-3.0, MIT, plus a speaker-embedding model and clustering). This is not the Mac's community-1 + VBx pipeline; the app-side speaker checks still apply, and the threshold is tuned on real meetings.
 
@@ -127,11 +127,16 @@ What exists (checked 2026-11-18):
 
 Plan:
 
+Why llama.cpp over ONNX Runtime GenAI: there is a written, tested-by-someone conversion path from this exact MLX checkpoint to GGUF, and LLamaSharp lists Qwen3.5 support. ONNX Runtime GenAI's support for Qwen3.5's hybrid linear-attention layers was not evaluated; it stays an option only if llama.cpp fails.
+
+"Same weights" has a limit: no full-precision Vedu Scribe checkpoint is published, only the MLX 4/8-bit one. Dequantizing it gives exactly the values the Mac computes with; an F16 GGUF keeps them; Q8_0 re-quantizes them, so its outputs can drift slightly from the Mac's.
+
 1. **Convert ourselves, reproducibly.** A script in `module-one/cleanup/` runs the same three steps at pinned tool versions on this Mac and writes F16 and Q8_0 GGUF files. If our Q8_0 matches the third-party file's SHA-256, that confirms both conversions; either way we ship our own build, not a stranger's file.
 2. **Host:** the GGUF is a modified Apache-2.0 work, so it can be redistributed with the license and a modification notice. It needs a host with immutable revisions: a Hugging Face repository under the user's account, or a GitHub release asset in this repo (under the 2 GB asset limit). User decision.
 3. **Runtime:** `Murmur.Cleanup` hosts LLamaSharp on the CPU backend first, with the Mac's exact settings: system message `Clean up this dictation.`, the `[tone: …]` and vocabulary header, at most 12 terms, thinking off (`enable_thinking: false`), temperature 0, the same input-token cap (400) and output cap, input limit 4,000 characters (`LocalCleanup.swift:27`). The local model stays on the strict guard (`Processing.swift:287`).
-4. **Validation:** run `cleanup-corpus.json` through the Mac's MLX helper and the Windows GGUF helper with greedy decoding, compare outputs case by case, and report exact-match rate and guard outcomes; add a local-model section to `CLEANUP_BENCHMARK.md`. Bar: guard pass rate and corpus results within a small, stated margin of the Mac's; any difference is listed, not hidden. Pick Q8_0 if it meets the bar, otherwise F16 (about 1.6 GB).
-5. **Pins and notices:** add the GGUF to `artifact-pins.json`; add LLamaSharp, llama.cpp and the model's modification notice to `THIRD_PARTY_NOTICES.md`.
+4. **Prompt and token parity:** build the ChatML string ourselves (system, user, assistant with an empty `<think></think>` block) instead of relying on llama.cpp's embedded chat template to honor `enable_thinking: false`. A test tokenizes the same inputs with the MLX tokenizer and the GGUF tokenizer and compares token IDs, since the 400-token `too-long` cutoff depends on the counts matching.
+5. **Validation:** run `cleanup-corpus.json` through the Mac's MLX helper and the Windows GGUF helper with greedy decoding, compare outputs case by case, and report exact-match rate and guard outcomes; add a local-model section to `CLEANUP_BENCHMARK.md`. Bar: guard pass rate and corpus results within a small, stated margin of the Mac's; any difference is listed, not hidden. Pick Q8_0 if it meets the bar, otherwise F16 (about 1.6 GB).
+6. **Pins and notices:** add the GGUF to `artifact-pins.json`; add LLamaSharp, llama.cpp and the model's modification notice to `THIRD_PARTY_NOTICES.md`.
 
 ## Website matching for modes
 
@@ -182,7 +187,7 @@ Required in v1. The Mac watches the field after a paste for up to 60 s, polls ev
 - New workflow `.github/workflows/windows.yml`, path filters: `windows/**`, `app/*.json`, the ported Swift files, and the workflow itself.
 - Jobs: `core` on `ubuntu-latest` (build `Murmur.Core`, run tests against the committed golden files); `golden` on `macos-latest` (regenerate the differential golden file and fail if it differs from the committed one); `app` on `windows-latest` (build the solution, run tests, publish an unsigned self-contained build as an artifact).
 - Pin actions by commit SHA, as `secrets.yml` does. No secrets in pull-request jobs.
-- Release workflow (M6): runs on a tag, builds, signs with Azure Trusted Signing (or signtool with a hardware-backed cert on the user's VM), packs with Velopack, uploads to a draft GitHub release. Publishing stays manual.
+- Release workflow (M6): runs on a tag, builds, signs with Azure Artifact Signing (or signtool with a hardware-backed cert on the user's VM), packs with Velopack, uploads to a draft GitHub release. Publishing stays manual.
 
 ## Updates and releases
 
@@ -200,12 +205,14 @@ Required in v1. The Mac watches the field after a paste for up to 60 s, polls ev
 **Living next to the Mac release.** The Mac's Sparkle feed is `https://github.com/theaakashb/Murmur/releases/latest/download/appcast.xml` (`app/UPDATES.md`, `app/tools/package_update.sh:13-15`), so **whatever release GitHub marks "latest" must contain `appcast.xml`**. Two release patterns:
 
 - **Joint release** (Mac and Windows ship the same version): one tag `vX.Y.Z` with `Murmur-<build>.zip`, `appcast.xml` and the Windows assets, uploaded with `vpk upload github --tag vX.Y.Z --merge`. Marked latest as today.
-- **Windows-only release:** tag `windows-vX.Y.Z`, never marked latest (`gh release edit --latest=false` after upload), so the Mac feed keeps pointing at the last Mac release. The Windows client's `GithubSource` must find the newest release that carries `releases.win.json` even when it isn't "latest" **(verify GithubSource's release selection; if it only reads the latest release, Windows-only releases also re-attach the current Mac assets so "latest" stays valid for both)**.
+- **Windows-only release:** tag `windows-vX.Y.Z`, published with "Set as latest" unchecked (or `gh release edit --latest=false`), so the Mac feed keeps pointing at the last Mac release.
+
+Why this works, from Velopack's source (`velopack/velopack` branch `develop`, read 2026-11-18): the client's `GithubSource.GetReleases` lists `/releases?per_page=10` ordered by publish date, skipping prereleases unless opted in, and `GitBase.GetReleaseFeed` collects the assets of **every** listed release that has `releases.{channel}.json`. It never reads `/releases/latest`, so "latest" doesn't matter to Windows. Limit: only the 10 most recently published releases are searched; a Windows release followed by more than 10 Mac-only releases is no longer seen, which only matters if a Windows client still needs it. `vpk upload github` creates a draft and publishes without setting `make_latest` (`src/vpk/Velopack.Deployment/GitHub.cs`), so the latest choice is made by hand when publishing. Older Mac builds with the pre-Sparkle GitHub checker (introduced in `5f5c0f8`, present in `v0.2.0`) list `/releases?per_page=30` and skip tags that don't parse as SemVer with an optional `v`, so `windows-v…` tags are not offered to them as Mac updates (read from that commit's code, not run).
 
 **Release flow** (M6, `.github/workflows/windows-release.yml`, run manually on a tag):
 
 1. Build and test on `windows-latest`; `dotnet publish` self-contained, x64.
-2. `vpk download github` fetches the previous release so a delta can be built.
+2. `vpk download github` fetches the previous Windows release so a delta can be built; it lists all releases (`GetAll`), not just latest.
 3. `vpk pack --packId MurmurApp --packVersion X.Y.Z …` with `--azureTrustedSignFile` (Azure Artifact Signing) or `--signParams` (signtool with a certificate on the user's VM). Every timestamped.
 4. `vpk upload github --tag … --merge` to a **draft** release. Publishing (and the "latest" choice above) stays a manual step by the user, as on the Mac.
 5. `appcast.xml` and the Mac ZIP are still produced by the Mac flow; the Windows flow never rewrites them.
@@ -258,6 +265,8 @@ Answered 2026-11-18 (see "Decisions already made"): local cleanup model, speech 
 1. **Where to host the converted cleanup GGUF:** a Hugging Face repository under the user's account, or a GitHub release asset in this repo?
 2. **Parakeet Unified ONNX license:** the sherpa-onnx conversion carries NVIDIA's model card but no license of its own. Accept the NVIDIA Open Model License as governing (as for the Mac's Core ML conversion), or ask the maintainer first?
 3. **Signing:** Azure Artifact Signing or a certificate, and which account or VM holds it.
+4. **Paste-last default conflict:** Windows 11 appears to use Win+Ctrl+V for the Quick Settings sound-output panel **(verify on the user's PC)**. If it does, Ctrl+Win+V would clash. Alternatives: Ctrl+Win+Shift+V, or Ctrl+Alt+V (but Ctrl+Alt acts as AltGr on some layouts). Keep Ctrl+Win+V if it turns out free?
+5. **Right Ctrl on newer laptops:** many 2024+ laptops replace Right Ctrl with the Copilot key (it sends Win+Shift+F23). Those users need the custom-shortcut setting; should the welcome guide detect a missing Right Ctrl and ask for a key?
 
 ## Risks
 
