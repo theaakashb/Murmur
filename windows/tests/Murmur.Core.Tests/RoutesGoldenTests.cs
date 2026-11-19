@@ -219,19 +219,18 @@ public class RoutesGoldenTests
         if (ProviderGolden.Str(c, "savedAt") is string savedAt) { try { CustomAPIKeyBinding.Save(Key, savedAt, defaults, store, provider); } catch (ProviderException) { } }
         else store.Save(Key, provider);
         var readAt = S(c, "readAt");
-        static string Describe(Func<APIKey?> read)
+        // "read" records a provider error as "invalid: <kind>"; "readKey" as Swift prints the error itself, its user message.
+        static string Describe(Func<APIKey?> read, bool message)
         {
             try { return read() == ProviderGolden.Key ? "key" : "nil"; }
             catch (CredentialException e) { return e.Error.Description; }
-            catch (ProviderException e) { return "invalid: " + e.Error.Kind; }
+            catch (ProviderException e) { return message ? e.Error.UserMessage : "invalid: " + e.Error.Kind; }
         }
-        Assert.Equal(S(c, "read"), Describe(() => CustomAPIKeyBinding.Read(readAt, defaults, store, provider)));
+        Assert.Equal(S(c, "read"), Describe(() => CustomAPIKeyBinding.Read(readAt, defaults, store, provider), false));
         Assert.Equal(ProviderGolden.Str(c, "stored"), defaults.Get(CustomAPIKeyBinding.PreferenceFor(provider)) as string);
         Assert.Equal(ProviderGolden.Bool(c, "needsConfirmation"), CustomAPIKeyBinding.NeedsConfirmation(readAt, defaults, provider));
         var routes = new RouteSettings { CustomAPIBaseURL = readAt, CustomTranscriptionAPIBaseURL = readAt };
-        // Swift prints the error itself ("\(error)"), which is the ProviderError's user message.
-        var viaRoutes = Describe(() => CustomAPIKeyBinding.ReadKey(provider, routes, defaults, store));
-        Assert.Equal(S(c, "readKey"), viaRoutes.StartsWith("invalid: ") ? ProviderError.InvalidConfiguration(ProviderID.LocalServer).UserMessage : viaRoutes);
+        Assert.Equal(S(c, "readKey"), Describe(() => CustomAPIKeyBinding.ReadKey(provider, routes, defaults, store), true));
     }
 
     static readonly Dictionary<string, TransportError> Failures = new()
