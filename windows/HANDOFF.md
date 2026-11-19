@@ -104,11 +104,11 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 
 | # | Agent ID | Worktree / branch | Assignment | Last known state |
 | --- | --- | --- | --- | --- |
-| 1 | `73cf71a2-227a-460f-aec8-28072dc6d481` | `/Users/aakash/.paseo/worktrees/01wxcxve/windows-ui-fluent` / `windows-ui-fluent` | Fluent redesign of Settings, History, the bubble and the tray. Add `Bubble.SetPartial`. Fix the **download freeze** with a regression test. | Before-screenshots done. Building the redesign. Will ask "need desktop" for the after-screenshots and a 6-dictation harness run. |
+| 1 | `73cf71a2-227a-460f-aec8-28072dc6d481` | `.../windows-m4-learning` / `windows-m4-learning` (from `c8dd54f`) | First: a VM Release build of `c8dd54f`, because the merge resolution isn't compiled on Windows yet. Then the M4 learning observer (UIA read-back, scoped keystrokes, Settings › Learning text). | Assigned 2026-11-19. Its Fluent UI and download fix merged as `c8dd54f`. |
 | 2 | `a7240d06-07ff-4539-90ca-6957ec171740` | `.../windows-m4-sites` / `windows-m4-sites` (from `8535cb1`) | M4 website matching for modes (UIA browser URL reader, wiring, Settings note, browser matrix on the VM). | Assigned 2026-11-19. Its M3 live work merged as `8535cb1`. |
 | 3 | `660ac734-9568-4346-b5eb-fe8e342b5f42` | `.../windows-m4-core` / `windows-m4-core` | Core ports: EditPrompt, MurmurCloudEdit, VoiceEdit (logic), EditTrigger/EditShortcut, Tips, Insights, ProfessionalHint, WelcomeGuide, with tests and golden files. | Running; no report yet. |
 
-**Desktop:** worker 1 holds it. Worker 2 queues next for the Edge probe.
+**Desktop:** worker 2 holds it for the Edge/Chrome probes. Its console session rejected SetCursorPos, so it may be locked; ask the user if it is. Worker 1 is next.
 
 **Coordinator:** agent `f9e7f4a7-3580-4cf3-a339-f14b44fbf5d9`, which took over from `37717132` on 2026-11-19.
 
@@ -124,7 +124,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 
 ## Open bugs
 
-- **The app freezes while downloading a model** (user-reported on the PC). Assigned to worker 1. Must be fixed before M6.
+- **The app freezes while downloading a model:** fix merged in `c8dd54f`. Progress is now sampled at 10 Hz with one pending UI update, and status and removal work run off the dispatcher. Verified on the VM with a synthetic transfer. Still to confirm: a real download on the user's PC.
 - **Golden check "hang": not a bug.** A full `generate.sh --check` takes about 15 minutes, and longer under load; all 21 generators pass. Run it per generator name.
 - **Notepad paste on the unattended PC:** passed 1 of 3 runs in the earlier smoke test. The user's own real-mic run in Notepad worked. Watch for it, but it's not reproduced with a person present.
 - **Hotwords:** one correct made-up name was respelled in the spike (`Kestrelmoor`). Boosting is on when the dictionary has entries. The CTC rescoring alternative is still open.
