@@ -2,8 +2,8 @@ using H.NotifyIcon;
 using H.NotifyIcon.Core;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.UI;
 
@@ -12,6 +12,7 @@ namespace Murmur.App;
 /// <summary>Starts in the tray with no main window. One instance per data folder.</summary>
 public partial class App : Application
 {
+    internal static TitleBarTheme CaptionTheme { get; private set; } = TitleBarTheme.UseDefaultAppMode;
     static Mutex? single;
     AppServices? services;
     Controller? controller;
@@ -22,6 +23,15 @@ public partial class App : Application
 
     public App()
     {
+        // The visual test override is available only with a throwaway data root.
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MURMUR_DATA_DIR")))
+        {
+            switch (Environment.GetEnvironmentVariable("MURMUR_THEME"))
+            {
+                case "light": RequestedTheme = ApplicationTheme.Light; CaptionTheme = TitleBarTheme.Light; break;
+                case "dark": RequestedTheme = ApplicationTheme.Dark; CaptionTheme = TitleBarTheme.Dark; break;
+            }
+        }
         InitializeComponent();
         UnhandledException += (_, e) => { e.Handled = true; CrashLog.Write(e.Exception); TestEvents.Emit("error", ("stage", "app"), ("reason", "unhandled")); };
     }
@@ -51,18 +61,20 @@ public partial class App : Application
         bubble = new Bubble(queue);
         controller = new Controller(services, bubble);
 
-        var menu = new MenuFlyout();
-        menu.Items.Add(Item("Settings", OpenSettings));
-        menu.Items.Add(Item("History", OpenHistory));
-        menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(Item("Quit Murmur", Quit));
+        var menu = new TrayMenu(OpenSettings, OpenHistory, Quit);
+        var showMenu = new XamlUICommand();
+        showMenu.ExecuteRequested += (_, _) => menu.Show();
         tray = new TaskbarIcon
         {
             ToolTipText = "Murmur",
-            ContextFlyout = menu,
-            ContextMenuMode = ContextMenuMode.PopupMenu,
-            MenuActivation = PopupActivationMode.All,
+            LeftClickCommand = showMenu,
+            RightClickCommand = showMenu,
             IconSource = new GeneratedIconSource { Text = "M", Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Colors.White), Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(255, 77, 111, 240)), FontSize = 36 },
+        };
+        tray.TrayIcon.MessageWindow.KeyboardEventReceived += (_, e) =>
+        {
+            if (e.KeyboardEvent is KeyboardEvent.ContextMenu or KeyboardEvent.KeySelect)
+                queue.TryEnqueue(() => menu.Show(fromKeyboard: true));
         };
         tray.ForceCreate();
         TestEvents.Emit("ready");
@@ -71,13 +83,6 @@ public partial class App : Application
         var launchArgs = Environment.GetCommandLineArgs();
         if (launchArgs.Contains("--settings")) OpenSettings();
         if (launchArgs.Contains("--history")) OpenHistory();
-    }
-
-    static MenuFlyoutItem Item(string text, Action action)
-    {
-        var command = new XamlUICommand();
-        command.ExecuteRequested += (_, _) => action();
-        return new MenuFlyoutItem { Text = text, Command = command };
     }
 
     void OpenSettings()
