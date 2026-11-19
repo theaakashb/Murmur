@@ -2,10 +2,6 @@
 // Each entry names the Swift file it belongs to; the coordinator replaces it with that file's port and deletes it here.
 namespace Murmur.Core;
 
-/// <summary>Belongs to app/Processing.swift. Where cleanup runs: <c>Local</c> is the RuleCleaner, <c>Cloud</c> is through an
-/// <see cref="ICleanupProvider"/>. Raw values "local" and "cloud".</summary>
-public enum CleanupRoute { Local, Cloud }
-
 /// <summary>Belongs to app/LocalCleanup.swift (M3).</summary>
 public static class LocalCleanupIdentity
 {
