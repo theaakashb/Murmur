@@ -17,13 +17,13 @@ the MLX values dequantized, renamed and repacked. It is not the original file.
    `c7fc5094179bf8a9c73c18593db714f8da41a402`; the script checks both pins) dequantizes the checkpoint to bfloat16,
    undoes mlx-lm's Qwen3.5 load-time changes and runs llama.cpp's `convert_hf_to_gguf.py` for F16 and Q8_0. Its output
    is reproducible: all 320 Q8_0 tensors equal those of the third-party `sumitsah35/vedu-scribe-0.8b-gguf@4b72e79`.
-2. `module-one/cleanup/patch_gguf_layers.py GGUF_PY_DIR IN OUT` rewrites the header to 24 layers. The converter writes
+2. `module-one/cleanup/patch_gguf_layers.py GGUF_PY_DIR IN OUT`, which `convert_gguf.py` runs as its last step, rewrites the header to 24 layers. The converter writes
    `qwen35.block_count = 25` and `nextn_predict_layers = 1` because the config lists one multi-token-prediction layer,
    but the checkpoint has no such tensors. The llama.cpp bundled with LLamaSharp 0.30.0 refuses that file
    (`missing tensor 'blk.24.attn_norm.weight'`, then a wrong-length `recurrent_layers` array). The patch sets
    `block_count = 24`, `nextn_predict_layers = 0`, drops the last `recurrent_layers` entry and copies every tensor byte
    for byte (the script re-reads the result and compares all tensors). Murmur never uses the multi-token-prediction layer.
-   Ship the patched files; the unpatched ones do not load in the app.
+   `convert_gguf.py` writes only the patched files: Q8_0 SHA-256 `6859e09e41502d2c1665b9462b2f9f37c7e485ebddd14185813f22a89554c708`.
 
 ## Staging for Hugging Face
 
