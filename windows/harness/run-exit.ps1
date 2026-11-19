@@ -13,10 +13,12 @@ param(
     [string]$ModelDir = '',  # folder with encoder/decoder/joiner .int8.onnx and tokens.txt (used with -LocalAsr)
     [string]$SpeechHelper = '',  # path to MurmurSpeech.exe (used with -LocalAsr)
     [switch]$LocalOnly,      # key-free: local transcription AND local cleanup, no fake-provider calls. Side-loads the pinned models from -ModelSource into the run's data\Models
+    [switch]$LiveWords,      # with -LocalOnly: also load the pinned streaming model from speech-live\
     [switch]$SeedDictionary, # with -LocalOnly: also write a dictionary (the fixtures' names plus the ordinary word "quarterly") so the speech helper runs with --vocabulary
     [string]$ModelSource = 'C:\src\models'  # speech\ (4 pinned files) and cleanup\ (the pinned GGUF); never committed
 )
 $ErrorActionPreference = 'Stop'
+if ($LiveWords -and -not $LocalOnly) { throw '-LiveWords requires -LocalOnly' }
 # Keep the caller's PATH first (a dotnet outside Program Files), then add the saved machine and user paths for SSH sessions.
 $env:Path = ($env:Path, [Environment]::GetEnvironmentVariable('Path', 'Machine'), [Environment]::GetEnvironmentVariable('Path', 'User')) -join ';'
 $dotnetRoot = if ($env:DOTNET_ROOT) { "set DOTNET_ROOT=$env:DOTNET_ROOT" } else { 'rem default .NET location' }
@@ -90,6 +92,12 @@ try {
         New-Item -ItemType Directory -Force $speechDir, $cleanupDir | Out-Null
         foreach ($f in 'encoder.int8.onnx', 'decoder.int8.onnx', 'joiner.int8.onnx', 'tokens.txt') { Copy-Item (Join-Path $ModelSource "speech\$f") $speechDir }
         Copy-Item (Join-Path $ModelSource 'cleanup\vedu-scribe-0.8b-Q8_0.gguf') $cleanupDir
+        if ($LiveWords) {
+            $liveDir = Join-Path $models 'sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-streaming-560ms-7551fd2'
+            New-Item -ItemType Directory -Force $liveDir | Out-Null
+            foreach ($f in 'encoder.int8.onnx', 'decoder.int8.onnx', 'joiner.int8.onnx', 'tokens.txt') { Copy-Item (Join-Path $ModelSource "speech-live\$f") $liveDir }
+            $settings.liveWords = $true
+        }
         $settings.transcriptionRoute = 'local'; $settings.cleanupChoice = 'local-model'
         foreach ($k in 'customAPIBaseURL', 'customTranscriptionAPIBaseURL', 'customAPIModel', 'customTranscriptionModel', 'customAPIReasoningEffort') { $settings.Remove($k) }
     }

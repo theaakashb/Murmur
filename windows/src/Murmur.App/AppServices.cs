@@ -17,6 +17,7 @@ internal sealed class AppServices
     public LocalTranscriber Local { get; }
     /// <summary>The downloadable models under <c>&lt;data root&gt;\Models</c> (one slot each; Settings shows them, the helpers read them).</summary>
     public ModelSlot SpeechSlot { get; }
+    public ModelSlot LiveWordsSlot { get; }
     public ModelSlot CleanupSlot { get; }
     public HistoryRouter<HistoryEntry> History { get; private set; } = null!;
     /// <summary>Null when the dictionary or ledger can't be read: only cleanup and the dictionary stop, and dictations are held in History (app/Controller.swift:348-351).</summary>
@@ -39,8 +40,9 @@ internal sealed class AppServices
         Credentials = testing ? new InMemoryCredentialStore() : new CredentialAdapter(new CredentialManagerStore());
         Processor = new CoordinatorProcessor(() => Processing);
         SpeechSlot = ModelSlot.Create(ModelFacts.Batch, Root);
+        LiveWordsSlot = ModelSlot.Create(ModelFacts.LiveWords, Root);
         CleanupSlot = ModelSlot.Create(ModelFacts.LocalCleanup, Root);
-        foreach (var slot in new[] { SpeechSlot, CleanupSlot }) if (slot.Downloader is { } downloader) slot.Status = downloader.Status();
+        foreach (var slot in new[] { SpeechSlot, LiveWordsSlot, CleanupSlot }) if (slot.Downloader is { } downloader) slot.Status = downloader.Status();
         ConfigureCleanupRunner();
         Local = new LocalTranscriber(this);
         ReopenData();

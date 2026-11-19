@@ -11,10 +11,38 @@ internal interface IRecorder
     Exception? Failure { get; }
 }
 
+/// <summary>Retains the key-down blocks until the controller accepts the session and chooses its consumers.</summary>
+internal sealed class RecordingFeed
+{
+    readonly object gate = new();
+    List<float[]>? early = [];
+    Action<float[]>? handler;
+
+    public void Push(float[] samples)
+    {
+        lock (gate)
+        {
+            if (early is not null) early.Add(samples);
+            else handler?.Invoke(samples);
+        }
+    }
+
+    public void Attach(Action<float[]>? consume)
+    {
+        lock (gate)
+        {
+            if (consume is not null && early is not null)
+                foreach (var samples in early) consume(samples);
+            early = null;
+            handler = consume;
+        }
+    }
+}
+
 internal sealed class MicRecorder(AudioCapture capture) : IRecorder
 {
-    public static IRecorder Start(string? deviceId, string wavPath, Action<float> onLevel) =>
-        new MicRecorder(AudioCapture.Start(string.IsNullOrEmpty(deviceId) ? null : deviceId, wavPath, onLevel: onLevel));
+    public static IRecorder Start(string? deviceId, string wavPath, Action<float> onLevel, Action<float[]> onSamples) =>
+        new MicRecorder(AudioCapture.Start(string.IsNullOrEmpty(deviceId) ? null : deviceId, wavPath, onSamples: onSamples, onLevel: onLevel));
     public AudioCaptureResult Stop() => capture.Stop();
     public Exception? Failure => capture.Failure;
 }
@@ -32,6 +60,7 @@ internal sealed class SyntheticRecorder : IRecorder
     readonly AudioConverter converter;
     readonly FileStream file;
     readonly Action<float> onLevel;
+    readonly Action<float[]> onSamples;
     readonly List<float> samples = [];
     readonly Thread thread;
     readonly string wavPath;
@@ -40,11 +69,11 @@ internal sealed class SyntheticRecorder : IRecorder
 
     public Exception? Failure => null;
 
-    public static IRecorder Start(string folder, string wavPath, Action<float> onLevel) => new SyntheticRecorder(folder, wavPath, onLevel);
+    public static IRecorder Start(string folder, string wavPath, Action<float> onLevel, Action<float[]> onSamples) => new SyntheticRecorder(folder, wavPath, onLevel, onSamples);
 
-    SyntheticRecorder(string folder, string wavPath, Action<float> onLevel)
+    SyntheticRecorder(string folder, string wavPath, Action<float> onLevel, Action<float[]> onSamples)
     {
-        this.wavPath = wavPath; this.onLevel = onLevel;
+        this.wavPath = wavPath; this.onLevel = onLevel; this.onSamples = onSamples;
         byte[] wav;
         try { wav = File.ReadAllBytes(File.ReadAllText(Path.Combine(folder, "next.txt")).Trim()); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
@@ -105,6 +134,7 @@ internal sealed class SyntheticRecorder : IRecorder
         foreach (var s in block) peak = Math.Max(peak, Math.Abs(s));
         lock (samples) samples.AddRange(block);
         onLevel(peak);
+        onSamples(block);
     }
 
     void Run()
