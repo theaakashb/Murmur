@@ -62,6 +62,11 @@ The raw transcript is written to History before cleanup (Controller.swift:970-97
 ## 9. Guard and fallback
 
 - Rejection reasons: CleanupTypes.swift:154-169. Trusted mode (polish/professional with `trustModel`) rejects only empty output, answer phrases, output longer than 2×+10, and truncation. Everything else gets the strict checks: answer and assistant phrases, added markdown, edited quotes, length ratio, word edit distance, numbers added or dropped, negation count, names added or dropped, inserted-word limits (CleanupGuard.swift:458-1006, Cleanup.swift:97-120). Local models are always strict (Processing.swift:287).
+- **Trusted routes and screen context (main `800dc99`, PR #96):**
+  - The guard judges against the transcript section only (`Processing.swift:336-339`, `cloudClean` at :340), so screen context never widens what it accepts.
+  - On a trusted route (polish or professional on a cloud or custom model), though, the guard holds only malfunctions. It therefore does not stop words taken from screen context reaching the paste.
+  - The defense there is the prompt's data-only tags (`CleanupPrompt`, already ported). The full guard is deliberately not applied: a History replay (Nov 2026) found it would hold 23% of good polish written with context.
+  - M2's `Processing` port must keep exactly this behavior, with no extra screen-context guard on trusted routes and no relaxed guard elsewhere. The Settings copy for screen context must say that on trusted routes words from the screen can appear in the paste.
 - On rejection or provider error (Processing.swift:12-22, 288-300): first try the model's punctuation on the locally cleaned text if it passes the punctuation-only guard; else local rules; else the dictionary-applied text. A dictation is never held. Tone is applied last (Processing.swift:174-179). If only fillers were heard, nothing is inserted and no error is shown (Controller.swift:1128-1133).
 
 ## 10. Insert (paste only)

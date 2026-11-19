@@ -129,4 +129,29 @@ Windows root: `%LOCALAPPDATA%\Murmur\`, separate from the Velopack install folde
 ## Delete All and backup
 
 - Delete All (`Retention.swift:242-256`, `Controller+History.swift:115-137`) removes history, dictionary, retry-audio, chunks, all credentials, `dictionarySuggestionsDismissed` and `tips.*`. Settings, routes, modes and models stay.
-- Backup (`Retention.swift:314-343`) writes settings (without machine-specific keys: model directory, input device, key endpoints, updater and window keys), history and dictionary to a user-chosen folder, never keys or audio. Restore keeps this machine's values for the excluded keys. Windows writes `settings.json` instead of `settings.plist`, so a Mac backup does not restore on Windows in v1.
+- Backup (`Retention.swift:314-390`) writes settings (without machine-specific keys), history and dictionary to a user-chosen folder, never keys or audio. Restore keeps this machine's values for the excluded keys. Windows writes `settings.json` instead of `settings.plist`, so a Mac backup does not restore on Windows in v1.
+
+### Required: a restore never redirects dictations or touches files outside the data folder
+
+From main `a4abc4c` (PR #96). M2 must implement all of it.
+
+- **Destination settings are machine settings.** `DataBackup.isMachineSetting` (`Retention.swift:322`) also excludes `destinationSettings` (`Retention.swift:327`): `transcriptionRoute`, `cloudTranscriber`, `cleanupChoice`, `cleanupRoute`, `customAPIBaseURL`, `customTranscriptionAPIBaseURL`, `localServerURL`.
+  - These join the existing exclusions: `modelDirectory`, `inputDeviceUID`, `customAPIKeyEndpoint*`, updater keys and window frames.
+  - A restored backup, possibly from someone else, can never change where audio or text is sent.
+  - `DataBackup.merged` (`Retention.swift:356`) keeps this machine's values for all of them, and drops the backup's value when this machine has none.
+  - Windows uses the same key set, including the legacy names, so the lists stay identical.
+- **Links inside a backup are removed before restore.** `DataBackup.removeLinks` (`Retention.swift:361`) walks the staged copy and deletes every link, and `restore` calls it after copying (`Retention.swift:381`).
+  - On Windows a link means any reparse point (`FileAttributes.ReparsePoint`): symbolic links, junctions and mount points. A junction can redirect a folder just as a symlink can.
+- **Purges never follow links** (`FileLinks.isLink`, `Retention.swift:191`). These purges skip a folder that is a link, and skip any entry that is a link:
+  - the History unreadable purge (`History.swift:259-260`);
+  - the meeting unreadable purge (`MeetingStore.swift:63-64`);
+  - the diagnostic recordings purge (`Retention.swift:180`).
+  
+  The same rule applies on Windows to every purge, retention sweep and Delete All. Delete All removes a link itself, never what it points to. Nothing outside `%LOCALAPPDATA%\Murmur\` is ever deleted.
+- **Check cases to port:**
+  - `check_app_services.swift:233-250`:
+    - "restore never changes where dictations are sent";
+    - "restore drops links inside the backup";
+    - "recording purge does not follow a linked folder".
+  - `check_routes.swift:144-146`: "every destination setting stays on this Mac when restoring". This ties `destinationSettings` to the route keys, so a new route key can't be missed.
+  - Windows adds a junction case next to each symlink case.
