@@ -68,4 +68,6 @@ internal static class Native
         if (scan != 0 && GetKeyNameTextW((scan << 16) | (extended ? 1 << 24 : 0), sb, sb.Capacity) > 0) return sb.ToString();
         return $"Key 0x{vk:X2}";
     }
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    internal static extern int MessageBoxW(IntPtr owner, string text, string caption, uint type);
 }
