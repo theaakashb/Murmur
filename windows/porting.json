@@ -1,4 +1,18 @@
 {
   "about": "Swift files ported to C#: the C# files that port each one and the SHA-256 of the Swift file the port matches. Maintained with windows/tools/check_parity.py --update; see windows/CONTRIBUTING.md.",
-  "ported": {}
+  "ported": {
+    "app/CleanupText.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/CleanupText.cs",
+        "windows/src/Murmur.Core/SwiftText.cs"
+      ],
+      "sha256": "7077ea74d97710531f33180ff698e0a8d6c2d198647930076427e116c221ecd2"
+    },
+    "app/CleanupTypes.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/CleanupTypes.cs"
+      ],
+      "sha256": "01c4751444e8fe6489e21258c7b21d2a13a71e0168048f97b0c5c2bc2642ed9b"
+    }
+  }
 }
