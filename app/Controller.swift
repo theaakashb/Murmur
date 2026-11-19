@@ -223,7 +223,7 @@ enum ScreenRequest: Equatable {
     private var tapThread: TapThread?
     let prestart = PreStart()
     /// Recording continues this long after release so the last word survives.
-    nonisolated private static let releaseTail: TimeInterval = 0.4
+    nonisolated private static let releaseTail: TimeInterval = 0.2
     /// Uptime of the last hold's key-release event, stamped on the tap thread and consumed by the main
     /// thread's finish, so timing and the tail start at the release, not when a busy main thread got to it.
     nonisolated private static let holdRelease = ReleaseStamp()
@@ -664,6 +664,8 @@ enum ScreenRequest: Equatable {
         if action == .start, session.state == .listening { startLiveWords() }
         if session.state != .listening { stopLiveWords() }
         if wasListening, action == .finish || (action == .cancel && listener?.cancelIsExplicit == true) { cue(.stop) }
+        // Show processing at release, not after the release tail, so the stop feels immediate.
+        if wasListening, action == .finish, session.state == .processing { setPhase(.processing, "Finishing recording…") }
         if action == .start, session.state == .listening, sessionTranscriber == nil, let capture, let audio = session.audio { attachChunks(capture, audio: audio) }
         if action == .cancel {
             destination = nil

@@ -26,10 +26,12 @@ private struct VoiceBubbles: View {
                         // Read the microphone every frame (the published level updates every 0.15 s);
                         // the square root lifts quiet speech so the bars react to it.
                         let voice = reduceMotion ? controller.voiceLevel : controller.liveVoiceLevel()
-                        let level = phase == .listening ? voice.squareRoot() * wobble
-                            : phase == .processing ? (reduceMotion ? 0.35 : (sin(t * 4 - Double(index)) + 1) / 2 * 0.45) : 0.15
+                        let level = phase == .listening ? voice.squareRoot() * wobble : phase == .processing ? 0 : 0.15
+                        // Processing: still dots with a highlight sweeping across them, not the moving wave.
+                        let sweep = phase == .processing && !reduceMotion ? exp(-pow((t * 0.8).truncatingRemainder(dividingBy: 1) * 7 - Double(index) * 1.2 - 0.6, 2)) : 1
                         Color.clear.frame(width: 9, height: 13 + 27 * level * Self.weights[index])
                             .modifier(VoiceDotGlass(opaque: reduceTransparency || contrast == .increased, ink: ink))
+                            .opacity(phase == .processing ? 0.35 + 0.65 * sweep : 1)
                             .frame(width: 14, height: 40)
                     }
                 }

@@ -91,7 +91,7 @@ import AVFoundation
             try file.write(from: buffer)
         }
         let held = AppController.samples16k(undoAudio) ?? []
-        // The resampler drops under 20 ms at the edges, well inside the 0.4 s release tail.
+        // The resampler drops under 20 ms at the edges, well inside the 0.2 s release tail.
         precondition(abs(held.count - 16_000) < 500 && held.contains { abs($0) > 0.3 }, "a second at 48 kHz becomes about 16,000 samples")
         precondition(AppController.samples16k(URL(fileURLWithPath: "/nonexistent.wav")) == nil, "an unreadable file holds nothing")
         print("Controller probe ownership checks passed (multi-buffer copy, private mode, original preserved, failed-copy cleanup).")
