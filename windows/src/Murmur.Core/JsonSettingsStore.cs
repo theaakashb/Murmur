@@ -99,6 +99,8 @@ public sealed class JsonSettingsStore : ISettingsStore
         this.path = Path.GetFullPath(path);
         PrivateFiles.PrepareDirectory(Path.GetDirectoryName(this.path)!);
         var data = PrivateFiles.Read(this.path);
+        // A file saved by Notepad or PowerShell can start with a UTF-8 byte order mark; it is still the same JSON.
+        if (data is [0xEF, 0xBB, 0xBF, ..]) data = data[3..];
         var parsed = data is null ? null : SettingsJson.TryParse(data);
         values = parsed ?? [];
         if (data is not null && parsed is null)

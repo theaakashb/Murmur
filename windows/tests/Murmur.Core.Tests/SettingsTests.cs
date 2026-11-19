@@ -196,3 +196,21 @@ public class SettingsTests
         Assert.Throws<StoreError>(() => new JsonSettingsStore(Path.Combine(folder, "settings.json")));
     }
 }
+
+public class JsonSettingsStoreBomTests
+{
+    [Fact]
+    public void ReadsAFileWithAByteOrderMark()
+    {
+        var dir = Directory.CreateTempSubdirectory("murmur-bom-").FullName;
+        try
+        {
+            var path = Path.Combine(dir, "settings.json");
+            File.WriteAllBytes(path, [0xEF, 0xBB, 0xBF, .. System.Text.Encoding.UTF8.GetBytes("{\"transcriptionRoute\":\"cloud\"}")]);
+            var store = new Murmur.Core.JsonSettingsStore(path);
+            Assert.Null(store.MovedAsideTo);
+            Assert.Equal("cloud", store.Get("transcriptionRoute"));
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+}
