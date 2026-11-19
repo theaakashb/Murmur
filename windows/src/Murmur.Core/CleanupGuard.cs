@@ -25,6 +25,10 @@ public static partial class CleanupGuard
         public bool EndAfter;
         public bool Capitalized => Strings.FirstIsUppercase(Text);
         public bool IsName => Capitalized && !SentenceStart && Lower != "i" && !Strings.HasPrefix(Lower, "i'");
+        string? key;
+        /// <summary><see cref="Lower"/> in canonical decomposition: Swift compares and hashes strings by canonical equivalence,
+        /// so the guard compares these keys.</summary>
+        internal string Key => key ??= Strings.Key(Lower);
     }
 
     internal sealed class GuardData
@@ -301,7 +305,7 @@ public static partial class CleanupGuard
                     static bool Interregnum(string w) => InterregnumWords.Contains(w) || CleanupText.Hesitations.Contains(w);
                     // Restated means the same word, an inflection of it, or the same kind of word ("Friday" -> "Monday").
                     static bool Restates(string x, string y) =>
-                        x == y || CommonPrefix(x, y) >= 4
+                        SwiftText.CharEquals(x, y) || CommonPrefix(x, y) >= 4
                         || new[] { RuleCleaner.Weekdays, RuleCleaner.MonthsAndMay, RuleCleaner.RelativeTimes, RuleCleaner.Colors }.Any(k => k.Contains(x) && k.Contains(y))
                         || (CleanupText.NumberValue(x) is not null && CleanupText.NumberValue(y) is not null);
                     bool Recurs(string w)
@@ -435,7 +439,7 @@ public static partial class CleanupGuard
             for (int x = clauseLo; x < clauseHi && !shared; x++)
             {
                 if (GrammarWords.Contains(Word(x))) continue;
-                for (int q = repairLo; q < repairHi; q++) if (Word(q) == Word(x) || CommonPrefix(Word(q), Word(x)) >= 4) { shared = true; break; }
+                for (int q = repairLo; q < repairHi; q++) if (SwiftText.CharEquals(Word(q), Word(x)) || CommonPrefix(Word(q), Word(x)) >= 4) { shared = true; break; }
             }
             if (!(clauseHi > clauseLo) || !(repairEnd + 1 - end >= clauseHi - clauseLo)
                 || !(Count(clauseLo, clauseHi, Number) <= Count(end, repairEnd + 1, Number)) || !(Count(clauseLo, clauseHi, Name) <= Count(end, repairEnd + 1, Name))
@@ -458,19 +462,19 @@ public static partial class CleanupGuard
     public static (HashSet<int> Cued, HashSet<int> Restated, List<(int Lo, int Hi)> Cuts) ReplacedSentences(List<Word> r)
     {
         var starts = Enumerable.Range(0, r.Count).Where(k => k == 0 || r[k].SentenceStart).Append(r.Count).ToList();
-        HashSet<string> Content(int lo, int hi) => Enumerable.Range(lo, hi - lo).Select(k => r[k].Lower)
+        HashSet<string> Content(int lo, int hi) => Enumerable.Range(lo, hi - lo).Select(k => r[k].Key)
             .Where(w => !GrammarWords.Contains(w) && !CleanupText.Hesitations.Contains(w)).Select(w => SwiftText.Prefix(w, 5)).ToHashSet();
         var cued = new HashSet<int>(); var restated = new HashSet<int>(); var cuts = new List<(int, int)>();
         for (int k = 0; k < starts.Count - 2; k++)
         {
             int firstLo = starts[k], firstHi = starts[k + 1], secondLo = starts[k + 1], secondHi = starts[k + 2];
             int open = secondLo;
-            while (open < secondHi && CleanupText.Hesitations.Contains(r[open].Lower)) open++;
+            while (open < secondHi && CleanupText.Hesitations.Contains(r[open].Key)) open++;
             // Cues may stack ("Actually, I mean …").
             int after = open;
             while (true)
             {
-                var cue = SentenceRepairCues.FirstOrDefault(c => after + c.Count < secondHi && Enumerable.Range(0, c.Count).All(x => r[after + x].Lower == c[x]));
+                var cue = SentenceRepairCues.FirstOrDefault(c => after + c.Count < secondHi && Enumerable.Range(0, c.Count).All(x => r[after + x].Key == c[x]));
                 if (cue is null) break;
                 after += cue.Count;
             }
@@ -482,7 +486,7 @@ public static partial class CleanupGuard
                 continue;
             }
             int firstCount = firstHi - firstLo, secondCount = secondHi - secondLo;
-            bool sameOpening = firstCount >= 2 && secondCount >= 2 && r[firstLo].Lower == r[secondLo].Lower && r[firstLo + 1].Lower == r[secondLo + 1].Lower;
+            bool sameOpening = firstCount >= 2 && secondCount >= 2 && r[firstLo].Key == r[secondLo].Key && r[firstLo + 1].Key == r[secondLo + 1].Key;
             if (sameOpening || (was.Count >= 2 && shared * 5 >= was.Count * 3)) restated.UnionWith(Enumerable.Range(firstLo, firstCount));
         }
         return (cued, restated, cuts);
@@ -512,7 +516,7 @@ public static partial class CleanupGuard
         // Judge the comma form of a split cue ("Tuesday. No, Wednesday." -> "Tuesday, no, Wednesday").
         raw = RuleCleaner.MergeSplitCues(raw);
         var r = Words(raw); var o = Words(cleaned);
-        var a = r.Select(w => w.Lower).ToList(); var b = o.Select(w => w.Lower).ToList();
+        var a = r.Select(w => w.Key).ToList(); var b = o.Select(w => w.Key).ToList();
         // A sentence the next one replaces is not substance either. Only a cued replacement frees its negations.
         var replaced = ReplacedSentences(r);
         var cued = CorrectionWindow(raw, loose: true); cued.UnionWith(replaced.Cued);
@@ -657,8 +661,8 @@ public static partial class CleanupGuard
                 spanStart = null;
                 if (inner.Length == 0 || Strings.Contains(cleaned, inner)) continue;
                 // A correction may drop a whole quoted reparandum; partial edits are never allowed.
-                var outSet = outWords.Select(w => w.Lower).ToHashSet();
-                if (options.Corrections && CorrectionWindow(raw).Count > 0 && Words(inner).All(w => !outSet.Contains(w.Lower))) continue;
+                var outSet = outWords.Select(w => w.Key).ToHashSet();
+                if (options.Corrections && CorrectionWindow(raw).Count > 0 && Words(inner).All(w => !outSet.Contains(w.Key))) continue;
                 return Fail(CleanupFailureReason.QuoteEdited);
             }
         }
@@ -681,7 +685,7 @@ public static partial class CleanupGuard
         if (outLen < rawLen * minRatio - 10 || outLen > rawLen * maxRatio + 10) return Fail(CleanupFailureReason.LengthRatio);
 
         // Word-level edit distance (insertions + deletions in an LCS alignment), by option.
-        var a = rawWords.Select(w => w.Lower).ToList(); var b = outWords.Select(w => w.Lower).ToList();
+        var a = rawWords.Select(w => w.Key).ToList(); var b = outWords.Select(w => w.Key).ToList();
         var (matchedRaw, matchedOut) = Align(a, b);
         int deletions = a.Count - matchedRaw.Count, insertions = b.Count - matchedOut.Count;
         double maxEdit = 0.15;
@@ -760,14 +764,14 @@ public static partial class CleanupGuard
         bool FillerDeletable(int i)
         {
             var w = rawWords[i];
-            if (CleanupText.Hesitations.Contains(w.Lower)) return true;
-            if (w.Lower == "like") return (w.CommaBefore || w.SentenceStart) && w.CommaAfter;
-            if (w.Lower == "you" && i + 1 < a.Count && a[i + 1] == "know")
+            if (CleanupText.Hesitations.Contains(w.Key)) return true;
+            if (w.Key == "like") return (w.CommaBefore || w.SentenceStart) && w.CommaAfter;
+            if (w.Key == "you" && i + 1 < a.Count && a[i + 1] == "know")
             {
                 var know = rawWords[i + 1];
                 return (w.CommaBefore && (know.CommaAfter || know.EndAfter || i + 2 == a.Count)) || (w.SentenceStart && know.CommaAfter);
             }
-            if (w.Lower == "know" && i > 0 && a[i - 1] == "you") return FillerDeletable(i - 1);
+            if (w.Key == "know" && i > 0 && a[i - 1] == "you") return FillerDeletable(i - 1);
             return false;
         }
         bool hasListMarkers = markerValues.Count > 0;
@@ -850,22 +854,22 @@ public static partial class CleanupGuard
         var rawNumbers = new Dictionary<string, int>(); var outNumbers = new Dictionary<string, int>(); var allowedNumberDrops = new Dictionary<string, int>();
         for (int i = 0; i < rawWords.Count; i++)
         {
-            if (CleanupText.NumberValue(rawWords[i].Lower) is not { } v) continue;
+            if (CleanupText.NumberValue(rawWords[i].Key) is not { } v) continue;
             Increment(rawNumbers, v);
             if (PronounOne(i) || DropAllowed(i) || (IsMarkerWord(i) && markerValues.Contains(v) && !matchedRaw.Contains(i))) Increment(allowedNumberDrops, v);
         }
-        foreach (var w in outWords) if (CleanupText.NumberValue(w.Lower) is { } v) Increment(outNumbers, v);
+        foreach (var w in outWords) if (CleanupText.NumberValue(w.Key) is { } v) Increment(outNumbers, v);
         foreach (var (v, c) in outNumbers) if (c > rawNumbers.GetValueOrDefault(v)) return Fail(CleanupFailureReason.NumberAdded);
         foreach (var (v, c) in rawNumbers) if (outNumbers.GetValueOrDefault(v) < c - allowedNumberDrops.GetValueOrDefault(v)) return Fail(CleanupFailureReason.NumberDropped);
 
         // Negation: count may not rise, and may drop only inside a correction.
-        int rawNeg = rawWords.Count(w => CleanupText.IsNegation(w.Lower));
-        int outNeg = outWords.Count(w => CleanupText.IsNegation(w.Lower));
-        int negInWindow = Enumerable.Range(0, rawWords.Count).Count(i => DropAllowed(i) && CleanupText.IsNegation(rawWords[i].Lower));
+        int rawNeg = rawWords.Count(w => CleanupText.IsNegation(w.Key));
+        int outNeg = outWords.Count(w => CleanupText.IsNegation(w.Key));
+        int negInWindow = Enumerable.Range(0, rawWords.Count).Count(i => DropAllowed(i) && CleanupText.IsNegation(rawWords[i].Key));
         if (outNeg > rawNeg || outNeg < rawNeg - negInWindow) return Fail(CleanupFailureReason.NegationChanged);
 
         var rawSet = a.ToHashSet();
-        var termWords = allowedTerms.SelectMany(t => Words(t).Select(w => w.Lower)).ToHashSet();
+        var termWords = allowedTerms.SelectMany(t => Words(t).Select(w => w.Key)).ToHashSet();
         // Cleanup never inserts words: every unaligned output word must be a supplied dictionary term.
         // A correction may restate a word from its corrected span in a new position; such a word consumes that unmatched raw word.
         var consumedRaw = new HashSet<int>(matchedRaw);
@@ -903,54 +907,54 @@ public static partial class CleanupGuard
         for (int j = 0; j < outWords.Count; j++)
         {
             var w = outWords[j];
-            if (matchedOut.Contains(j) || termWords.Contains(w.Lower)) continue;
-            if (First(Enumerable.Range(0, rawWords.Count), x => window.Contains(x) && !consumedRaw.Contains(x) && a[x] == w.Lower) is { } i0) { consumedRaw.Add(i0); continue; }
+            if (matchedOut.Contains(j) || termWords.Contains(w.Key)) continue;
+            if (First(Enumerable.Range(0, rawWords.Count), x => window.Contains(x) && !consumedRaw.Contains(x) && a[x] == w.Key) is { } i0) { consumedRaw.Add(i0); continue; }
             // A negative contraction may complete one speech recognition truncated in the same place, with the same auxiliary.
-            if (First(Gap(j), x => !consumedRaw.Contains(x) && CleanupText.TruncatedNegations.TryGetValue(a[x], out var c) && c.Contains(w.Lower)) is { } i1) { consumedRaw.Add(i1); continue; }
-            if (w.IsName && !rawSet.Contains(w.Lower))
+            if (First(Gap(j), x => !consumedRaw.Contains(x) && CleanupText.TruncatedNegations.TryGetValue(a[x], out var c) && c.Contains(w.Key)) is { } i1) { consumedRaw.Add(i1); continue; }
+            if (w.IsName && !rawSet.Contains(w.Key))
             {
                 // Polish and Professional: a name may respell one lowercase raw word in its place (similarity 0.7 or soundsLike).
                 // A capitalized antonym is not a respelling ("include" -> "Exclude").
                 if (!options.Polish || First(Gap(j), x => !consumedRaw.Contains(x) && !rawWords[x].IsName && !GrammarWords.Contains(a[x])
-                        && !IsPronoun(a[x]) && CleanupText.NumberValue(a[x]) is null && !CleanupText.IsNegation(a[x]) && !PolarityFlip(a[x], w.Lower)
-                        && (CleanupText.Similarity(a[x], w.Lower) >= 0.7 || soundsLike(Letters(a[x]), Letters(w.Lower)))) is not { } i2) return Fail(CleanupFailureReason.NameAdded);
+                        && !IsPronoun(a[x]) && CleanupText.NumberValue(a[x]) is null && !CleanupText.IsNegation(a[x]) && !PolarityFlip(a[x], w.Key)
+                        && (CleanupText.Similarity(a[x], w.Key) >= 0.7 || soundsLike(Letters(rawWords[x].Lower), Letters(w.Lower)))) is not { } i2) return Fail(CleanupFailureReason.NameAdded);
                 consumedRaw.Add(i2); continue;
             }
             // Professional: a number or negation never moves; a new one replaces one in its own gap.
-            if (options.Professional && CleanupText.NumberValue(w.Lower) is { } v)
+            if (options.Professional && CleanupText.NumberValue(w.Key) is { } v)
             {
                 // Same value and same form: "one" never becomes "first", nor "12pm" "12am" or "1" "1st".
-                if (First(Gap(j), x => !consumedRaw.Contains(x) && CleanupText.NumberValue(a[x]) == v && Form(a[x]) == Form(w.Lower)) is not { } i3) return Fail(CleanupFailureReason.NumberAdded);
+                if (First(Gap(j), x => !consumedRaw.Contains(x) && CleanupText.NumberValue(a[x]) == v && Form(a[x]) == Form(w.Key)) is not { } i3) return Fail(CleanupFailureReason.NumberAdded);
                 consumedRaw.Add(i3); continue;
             }
-            if (options.Professional && CleanupText.IsNegation(w.Lower))
+            if (options.Professional && CleanupText.IsNegation(w.Key))
             {
                 // Only within the not/n't family ("don't" -> "doesn't", "not" -> "won't"); never/no/nothing stay exact.
-                if (First(Gap(j), x => !consumedRaw.Contains(x) && CleanupText.IsNegation(a[x]) && (a[x] == w.Lower || (NotFamily(a[x]) && NotFamily(w.Lower)))) is not { } i4) return Fail(CleanupFailureReason.NegationChanged);
+                if (First(Gap(j), x => !consumedRaw.Contains(x) && CleanupText.IsNegation(a[x]) && (a[x] == w.Key || (NotFamily(a[x]) && NotFamily(w.Key)))) is not { } i4) return Fail(CleanupFailureReason.NegationChanged);
                 consumedRaw.Add(i4); continue;
             }
             // Professional may reorder locally: a moved word consumes its raw copy within one kept word of its gap,
             // only next to "and"/"or" with a pronoun conjunct ("me and John" -> "John and I").
             int jj = j;
-            if (options.Professional && First(NearGap(j), x => !consumedRaw.Contains(x) && a[x] == w.Lower && (Pairs(a, x) || Pairs(b, jj))) is { } i5) { consumedRaw.Add(i5); continue; }
+            if (options.Professional && First(NearGap(j), x => !consumedRaw.Contains(x) && a[x] == w.Key && (Pairs(a, x) || Pairs(b, jj))) is { } i5) { consumedRaw.Add(i5); continue; }
             if (options.Polish) { polishInserted.Add(j); continue; }
             return Fail(CleanupFailureReason.InsertedWords);
         }
         var outNameCounts = new Dictionary<string, int>();
-        foreach (var w in outWords) Increment(outNameCounts, w.Lower);
+        foreach (var w in outWords) Increment(outNameCounts, w.Key);
         var rawNameCounts = new Dictionary<string, int>(); var allowedNameDrops = new Dictionary<string, int>();
         for (int i = 0; i < rawWords.Count; i++)
         {
             if (!rawWords[i].IsName) continue;
-            Increment(rawNameCounts, rawWords[i].Lower);
-            if (DropAllowed(i) || restarts.Contains(i)) Increment(allowedNameDrops, rawWords[i].Lower);
+            Increment(rawNameCounts, rawWords[i].Key);
+            if (DropAllowed(i) || restarts.Contains(i)) Increment(allowedNameDrops, rawWords[i].Key);
         }
         foreach (var (n, c) in rawNameCounts)
         {
             if (!(outNameCounts.GetValueOrDefault(n) < c - allowedNameDrops.GetValueOrDefault(n))) continue;
             if (termWords.Count == 0) return Fail(CleanupFailureReason.NameDropped);
             // A dictionary respelling may replace a misheard name.
-            if (!outWords.Any(w => termWords.Contains(w.Lower))) return Fail(CleanupFailureReason.NameDropped);
+            if (!outWords.Any(w => termWords.Contains(w.Key))) return Fail(CleanupFailureReason.NameDropped);
         }
 
         // Every deleted word must be explained by an enabled option, or by a dictionary respelling. Each unaligned term word must
@@ -959,7 +963,7 @@ public static partial class CleanupGuard
         for (int j = 0; j < outWords.Count; j++)
         {
             var w = outWords[j];
-            if (matchedOut.Contains(j) || !termWords.Contains(w.Lower)) continue;
+            if (matchedOut.Contains(j) || !termWords.Contains(w.Key)) continue;
             var target = Spelled(w.Lower);
             var gap = Gap(j).ToList();
             (int Lo, int Hi)? replaced = null;
@@ -971,8 +975,8 @@ public static partial class CleanupGuard
                 {
                     if (start + length > gapHi) continue;
                     if (Enumerable.Range(start, length).Any(consumedRaw.Contains)) continue;
-                    var heard = Spelled(string.Concat(Enumerable.Range(start, length).Select(x => a[x])));
-                    if (heard == target || CleanupText.Similarity(heard, target) >= 0.5 || soundsLike(heard, target)) { replaced = (start, start + length); break; }
+                    var heard = Spelled(string.Concat(Enumerable.Range(start, length).Select(x => rawWords[x].Lower)));
+                    if (SwiftText.CharEquals(heard, target) || CleanupText.Similarity(heard, target) >= 0.5 || soundsLike(heard, target)) { replaced = (start, start + length); break; }
                 }
             }
             if (replaced is not { } rep) return Fail(CleanupFailureReason.InsertedWords);
@@ -1004,7 +1008,7 @@ public static partial class CleanupGuard
             var deleted = new HashSet<int>(unexplained);
             foreach (var j in inserted)
             {
-                var w = outWords[j].Lower;
+                var w = outWords[j].Key;
                 if (First(Gap(j), x => deleted.Contains(x) && !rawWords[x].IsName && PolishSwap(a[x], w)) is { } i) { deleted.Remove(i); continue; }
                 if (!GrammarWords.Contains(w)) return Fail(CleanupFailureReason.InsertedWords);
             }
@@ -1066,15 +1070,15 @@ public static partial class CleanupGuard
                     Enumerable.Range(fromLo, fromHi - fromLo).Any(x => !GrammarWords.Contains(a[x]) && !Filler(x) && Enumerable.Range(toLo, toHi - toLo).Any(y => CleanupText.Similarity(a[x], b[y]) >= 0.5));
                 if (Crosses(rbLo, i, j + 1, oaHi) || Crosses(i + 1, raHi, obLo, j)) return Fail(CleanupFailureReason.NumberAdded);
             }
-            var inserted = polishInserted.Select(x => outWords[x].Lower).ToList();
+            var inserted = polishInserted.Select(x => outWords[x].Key).ToList();
             if (inserted.Count > Math.Max(4, a.Count / 4)) return Fail(CleanupFailureReason.InsertedWords);
             if (pairedOut.Count > 0 && polishInserted.Any(x => x < pairedOut[0] || x > pairedOut[^1])) return Fail(CleanupFailureReason.InsertedWords);
             // Names keep their order ("Alice paid Bob" never becomes "Bob paid Alice"), counting a capitalized sentence start that is
             // not a grammar word. Every occurrence counts, whatever its case.
-            var nameSet = rawWords.Where(w => w.IsName || (w.Capitalized && !GrammarWords.Contains(w.Lower))).Select(w => w.Lower).ToHashSet();
-            var rawNames = rawWords.Select(w => w.Lower).Where(nameSet.Contains).ToList();
+            var nameSet = rawWords.Where(w => w.IsName || (w.Capitalized && !GrammarWords.Contains(w.Key))).Select(w => w.Key).ToHashSet();
+            var rawNames = rawWords.Select(w => w.Key).Where(nameSet.Contains).ToList();
             int rest = 0;
-            foreach (var n in outWords.Select(w => w.Lower).Where(nameSet.Contains))
+            foreach (var n in outWords.Select(w => w.Key).Where(nameSet.Contains))
             {
                 int k = rawNames.IndexOf(n, rest);
                 if (k < 0) return Fail(CleanupFailureReason.NameDropped);
@@ -1123,7 +1127,7 @@ public static partial class CleanupGuard
                 int person = PersonIndex(a[i]);
                 if (person >= 0)
                 {
-                    if (Enumerable.Range(0, outWords.Count).Any(x => !matchedOut.Contains(x) && Persons[person].Contains(outWords[x].Lower))) continue;
+                    if (Enumerable.Range(0, outWords.Count).Any(x => !matchedOut.Contains(x) && Persons[person].Contains(outWords[x].Key))) continue;
                     return Fail(CleanupFailureReason.UnexplainedDeletion);
                 }
                 // The same word elsewhere is a move, not a replacement, and moves are limited above.
@@ -1189,6 +1193,13 @@ internal static class Strings
     public static bool FirstIsLowercase(string s) => First(s) is { } c && SwiftText.IsLowercase(c);
     public static bool FirstIsLetter(string s) => First(s) is { } c && SwiftText.IsLetter(c);
     public static bool FirstIsNumber(string s) => First(s) is { } c && SwiftText.IsNumber(c);
+
+    /// <summary>A string's canonical decomposition (NFD): equal keys are canonically equivalent strings, as Swift's <c>==</c> and hashing treat them.</summary>
+    public static string Key(string s)
+    {
+        foreach (var ch in s) if (ch > 0x7F) return string.Concat(SwiftText.CanonicalDecomposition(s).Select(char.ConvertFromUtf32));
+        return s;
+    }
 
     // Ordinal search equals Swift's when both strings are ASCII without "\r" (each char is then its own Character).
     static bool Simple(string s) { foreach (var c in s) if (c > 0x7F || c == '\r') return false; return true; }

@@ -65,7 +65,7 @@ func outcome(_ o: CleanupOutcome, _ out: String) -> String {
         pairList.append((e.input, try cleaner.clean(e.input, options: e.options), e.options))
         pairList.append((e.input, e.input, e.options))
     }
-    for (raw, out) in GoldenCases.checkPairs { pairList.append((raw, out, nil)) }
+    for (raw, out) in GoldenCases.checkPairs + GoldenCases.canonicalPairs { pairList.append((raw, out, nil)) }
     for s in GoldenCases.edges { pairList.append((s, s, nil)); pairList.append((s, try cleaner.clean(s, options: .standard), nil)) }
     var seen = Set<String>()
     var pairs: [String] = []
