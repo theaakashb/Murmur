@@ -50,15 +50,16 @@ static class WavReader
         return rate == Rate ? mono : Resample(mono, rate);
     }
 
-    // shortcut: linear interpolation without a low-pass filter; the app always records at 16 kHz, so this only serves odd files.
+    // shortcut: a box filter (mean over each output sample's span) rather than a windowed-sinc low-pass; the app resamples properly before the warm helper and only the one-shot fallback reads device-rate files.
     static float[] Resample(float[] input, int rate)
     {
         var output = new float[(int)((long)input.Length * Rate / rate)];
         double step = (double)rate / Rate;
         for (int i = 0; i < output.Length; i++)
         {
-            double at = i * step; int k = (int)at; double f = at - k;
-            output[i] = k + 1 < input.Length ? (float)(input[k] * (1 - f) + input[k + 1] * f) : input[^1];
+            double from = i * step, to = Math.Min(from + step, input.Length), sum = 0;
+            for (int k = (int)from; k < to; k++) sum += input[k] * (Math.Min(k + 1, to) - Math.Max(k, from));
+            output[i] = (float)(sum / (to - from));
         }
         return output;
     }
