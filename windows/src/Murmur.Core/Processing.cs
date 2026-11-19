@@ -19,6 +19,7 @@ namespace Murmur.Core;
 
 /// <summary>Where cleanup runs. <c>Local</c> is the RuleCleaner. <c>Cloud</c> means "through an <see cref="ICleanupProvider"/>":
 /// a custom OpenAI-compatible endpoint, Murmur Cloud or the managed local model (see <see cref="CleanupChoice"/>). Raw values "local", "cloud".</summary>
+[System.Text.Json.Serialization.JsonConverter(typeof(CamelCaseEnumConverter<CleanupRoute>))]
 public enum CleanupRoute { Local, Cloud }
 
 /// <summary>What the controller does with a finished transcript.</summary>
@@ -381,7 +382,7 @@ public sealed class ProcessingCoordinator
         try { messages = TransformPrompt.Build(kind, text, terms, instructions: instructions); }
         catch (RegexMatchTimeoutException) { return null; }
         string output;
-        try { output = await provider.CleanupAsync(messages, cancellationToken); }
+        try { output = await provider.CleanupAsync(messages, cancellationToken).ConfigureAwait(false); }
         catch (Exception) { return null; } // Swift try?: any failure falls back to ordinary cleanup.
         try
         {
