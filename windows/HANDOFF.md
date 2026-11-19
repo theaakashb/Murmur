@@ -92,7 +92,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - Synthetic WER: 9.02% ONNX vs 8.20% Core ML.
   - Cleanup parity with MLX: 399/400, with equal guard results.
   - The user accepted the quality by ear.
-  - Being finished by worker 2 below: live words and chunked transcription.
+  - Live words and chunked transcription merged as `8535cb1` (VM key-free harness 20/20, 29.65 s fixture 10.3 s → 8.1 s release-to-paste). Not yet checked: real mic, cloud-route preview, Settings download flow in the live UI.
 - **M4: started.** Worker 3 is porting the core logic. The platform and UI parts haven't started:
   - website matching from the browser address bar through UI Automation;
   - the voice edit UI;
@@ -105,10 +105,12 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 | # | Agent ID | Worktree / branch | Assignment | Last known state |
 | --- | --- | --- | --- | --- |
 | 1 | `73cf71a2-227a-460f-aec8-28072dc6d481` | `/Users/aakash/.paseo/worktrees/01wxcxve/windows-ui-fluent` / `windows-ui-fluent` | Fluent redesign of Settings, History, the bubble and the tray. Add `Bubble.SetPartial`. Fix the **download freeze** with a regression test. | Before-screenshots done. Building the redesign. Will ask "need desktop" for the after-screenshots and a 6-dictation harness run. |
-| 2 | `a7240d06-07ff-4539-90ca-6957ec171740` | `.../windows-m3-live` / `windows-m3-live` | Live words (`--stream` into the bubble) and chunked transcription (Chunker/ChunkJob port). | Committed `ba027ea` (clean). Currently holds the VM desktop for its last harness runs; will say "desktop free". |
+| 2 | `a7240d06-07ff-4539-90ca-6957ec171740` | `.../windows-m4-sites` / `windows-m4-sites` (from `8535cb1`) | M4 website matching for modes (UIA browser URL reader, wiring, Settings note, browser matrix on the VM). | Assigned 2026-11-19. Its M3 live work merged as `8535cb1`. |
 | 3 | `660ac734-9568-4346-b5eb-fe8e342b5f42` | `.../windows-m4-core` / `windows-m4-core` | Core ports: EditPrompt, MurmurCloudEdit, VoiceEdit (logic), EditTrigger/EditShortcut, Tips, Insights, ProfessionalHint, WelcomeGuide, with tests and golden files. | Running; no report yet. |
 
-**Desktop handoff:** when worker 2 says "desktop free", tell worker 1 "desktop is yours".
+**Desktop:** worker 1 holds it. Worker 2 queues next for the Edge probe.
+
+**Coordinator:** agent `f9e7f4a7-3580-4cf3-a339-f14b44fbf5d9`, which took over from `37717132` on 2026-11-19.
 
 **Before merging each branch:**
 1. Check the diff stays within the worker's file ownership: `git diff --name-only fdc05dc <branch>`.
