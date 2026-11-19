@@ -17,5 +17,6 @@
   <ItemGroup>
     <None Include="..\..\..\app\cleanup-corpus.json" Link="data\cleanup-corpus.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\golden\data\*.json" LinkBase="golden" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\golden\lexicon.txt" Link="golden\lexicon.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
