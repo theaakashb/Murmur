@@ -13,6 +13,36 @@
         "windows/src/Murmur.Core/CleanupTypes.cs"
       ],
       "sha256": "01c4751444e8fe6489e21258c7b21d2a13a71e0168048f97b0c5c2bc2642ed9b"
+    },
+    "app/Dictionary.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Dictionary.cs"
+      ],
+      "sha256": "573e936db26c694ea44af30841cc3df6111bd41e769ece5e77573fe17387a122"
+    },
+    "app/Learning.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Learning.cs"
+      ],
+      "sha256": "7bfb7525872b010748a490e9ec2b253aecf9a706cffad5928fd3a7f710aa9b26"
+    },
+    "app/PrivateFiles.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/PrivateFiles.cs"
+      ],
+      "sha256": "3e6a9a35b8a819b5aa49b7b8146bd5a6d65e5108642ba9c23cde5bef171c5765"
+    },
+    "app/VoiceCues.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/VoiceCues.cs"
+      ],
+      "sha256": "25309a7176c49970b34c25690ef6d09f12dbf26e8a6061b5bc7aa20773d1d96d"
+    },
+    "module-one/models/Runner/Sources/ModelBench/BoostFilter.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/BoostFilter.cs"
+      ],
+      "sha256": "b4ddac5da74930a7beb9b8e4a9db60319803ac9c977fa1fdf3c8bbf584445c25"
     }
   }
 }
