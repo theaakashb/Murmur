@@ -8,7 +8,7 @@ Status: Phase 1 (planning). No Windows code exists yet. This plan was written on
 - V1 is a full port: hold-to-talk dictation, cleanup and its routes, Murmur Cloud, dictionary and learning, writing modes, voice edit, History and retention, settings, local speech recognition at launch, and meeting capture (microphone plus system audio, call detection, speaker separation).
 - Insertion is paste only: clipboard plus Ctrl+V, with a paste-last-dictation hotkey. No typing fallback and no "couldn't confirm" badge (matches the Mac after PR #94).
 - Signing: Azure Artifact Signing (formerly Trusted Signing) or an Authenticode certificate, bought by the user. Real testing on the user's Windows PC; a Windows VM can serve CI and signing.
-- Decided after Phase 1 review (2026-11-18): the same local cleanup model and the same speech model as the Mac; a bundled English word list as the lexicon; Right Ctrl hold-to-talk and Ctrl+Win+V paste-last; Windows 11 22H2+ x64 first, ARM64 later; website matching for modes is required in v1; learning from edits is required; GitHub releases only; an in-app updater is required.
+- Decided after Phase 1 review (2026-11-18): the same local cleanup model and the same speech model as the Mac; a bundled English word list as the lexicon; Right Ctrl hold-to-talk and Ctrl+Win+Shift+V paste-last (Win+Ctrl+V is likely taken by Windows 11's sound-output panel), with the welcome guide detecting a missing Right Ctrl (Copilot-key laptops) and offering to pick another key; the cleanup GGUF hosted in a Hugging Face repository under the user's account (files and pin prepared here; creating or uploading needs the user's go-ahead); NVIDIA's Open Model License treated as governing the Parakeet ONNX conversion; Azure Trusted Signing (now named Azure Artifact Signing); Windows 11 22H2+ x64 first, ARM64 later; website matching for modes is required in v1; learning from edits is required; GitHub releases only; an in-app updater is required.
 - Same product rules as the Mac: replace, don't keep fallbacks; transcription routes stay fixed on failure; the guarded local cleanup fallback stays; never log transcripts, audio, keys or response bodies.
 
 ## Source of truth
@@ -24,7 +24,7 @@ The Swift code is the spec. The Windows app reproduces its behavior, not its str
 
 ```
 windows/
-  Murmur.Windows.sln
+  Murmur.Windows.slnx
   Directory.Build.props        shared settings: net10.0, nullable, warnings as errors
   src/Murmur.Core/             net10.0, no Windows APIs: everything Foundation-only on the Mac
   src/Murmur.App/              net10.0-windows: WinUI 3 shell plus the Windows platform layer
@@ -63,7 +63,7 @@ Recommendation: **WinUI 3** (Windows App SDK), unpackaged, self-contained.
 
 | Subsystem | Mac source of truth | Windows approach |
 | --- | --- | --- |
-| Hold-to-talk shortcut | `Shortcut.swift` (`ShortcutMachine`: hold, double-press toggle, short-tap cancel), event tap thread | Same state machine in Core. Input from `WH_KEYBOARD_LL` hook on its own thread (needed for modifier-only keys and key-up). Presets differ: Right Alt is AltGr on many layouts, so the default is Right Ctrl hold-to-talk (decided). |
+| Hold-to-talk shortcut | `Shortcut.swift` (`ShortcutMachine`: hold, double-press toggle, short-tap cancel), event tap thread | Same state machine in Core. Input from `WH_KEYBOARD_LL` hook on its own thread (needed for modifier-only keys and key-up). Presets differ: Right Alt is AltGr on many layouts, so the default is Right Ctrl hold-to-talk (decided); the welcome guide detects a keyboard without Right Ctrl (Copilot key) and asks for another key. |
 | Recording | `Capture.swift`, `Session.swift`, `AudioFormat.swift` | WASAPI shared-mode capture via NAudio, converted to 16 kHz mono Float32. Same min-length, silence and chunking rules (`Chunker`). |
 | Local ASR | `ModelHelper.swift`, `ModelBench.swift`, `ModelFiles/ModelFlow/ModelManifest/ModelDownload.swift`, `artifact-pins.json` | `Murmur.Speech` on sherpa-onnx. See "Speech recognition". |
 | Cloud transcription | `Routes.swift`, `CloudAudio.swift`, `OpenAICompatible.swift`, `MurmurCloud.swift`, `ProviderHTTP.swift` | `HttpClient` port in Core. Same endpoints, payloads, validation, redirect, size and timeout rules. No dictionary prompt. |
@@ -104,7 +104,7 @@ What exists (checked 2026-11-18 through the Hugging Face and GitHub APIs):
 
 - sherpa-onnx's own model release (`k2-fsa/sherpa-onnx`, tag `asr-models`) ships `sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming.tar.bz2` and int8 streaming builds at 240, 560 and 1120 ms chunks (about 501 MB each).
 - The same files are on Hugging Face under `csukuangfj2/` (the sherpa-onnx maintainer's account): `…-int8-non-streaming` at revision `8c3a10fb13408c7a7054f6898958bf1c64a8d6c7` (encoder 654 MB, decoder, joiner, `tokens.txt`), a full-precision `…-non-streaming` at `e69c9fb5322532e9995b116b6f1e4b34ab0c4b13` (2.4 GB of encoder weights), and `…-int8-streaming-560ms` at `7551fd26fc810cc1e4e043e608db4d13b59be31e`.
-- The upstream model is under the NVIDIA Open Model License (Hugging Face tag `license:other`), as THIRD_PARTY_NOTICES already records for the Mac. The sherpa-onnx repositories declare no license of their own and carry NVIDIA's model card files, so treat the NVIDIA license as governing **(verify the conversion's terms with the maintainer before shipping)**.
+- The upstream model is under the NVIDIA Open Model License (Hugging Face tag `license:other`), as THIRD_PARTY_NOTICES already records for the Mac. The sherpa-onnx repositories declare no license of their own and carry NVIDIA's model card files. Decided: the NVIDIA license governs the conversion, as for the Mac's Core ML conversion.
 
 Plan:
 
@@ -132,7 +132,7 @@ Why llama.cpp over ONNX Runtime GenAI: there is a written, tested-by-someone con
 "Same weights" has a limit: no full-precision Vedu Scribe checkpoint is published, only the MLX 4/8-bit one. Dequantizing it gives exactly the values the Mac computes with; an F16 GGUF keeps them; Q8_0 re-quantizes them, so its outputs can drift slightly from the Mac's.
 
 1. **Convert ourselves, reproducibly.** A script in `module-one/cleanup/` runs the same three steps at pinned tool versions on this Mac and writes F16 and Q8_0 GGUF files. If our Q8_0 matches the third-party file's SHA-256, that confirms both conversions; either way we ship our own build, not a stranger's file.
-2. **Host:** the GGUF is a modified Apache-2.0 work, so it can be redistributed with the license and a modification notice. It needs a host with immutable revisions: a Hugging Face repository under the user's account, or a GitHub release asset in this repo (under the 2 GB asset limit). User decision.
+2. **Host:** the GGUF is a modified Apache-2.0 work, so it can be redistributed with the license and a modification notice. Decided: a Hugging Face repository under the user's account, pinned by revision like every other model. The files, model card and pin are prepared here; the repository is created and uploaded only after the user says so.
 3. **Runtime:** `Murmur.Cleanup` hosts LLamaSharp on the CPU backend first, with the Mac's exact settings: system message `Clean up this dictation.`, the `[tone: …]` and vocabulary header, at most 12 terms, thinking off (`enable_thinking: false`), temperature 0, the same input-token cap (400) and output cap, input limit 4,000 characters (`LocalCleanup.swift:27`). The local model stays on the strict guard (`Processing.swift:287`).
 4. **Prompt and token parity:** build the ChatML string ourselves (system, user, assistant with an empty `<think></think>` block) instead of relying on llama.cpp's embedded chat template to honor `enable_thinking: false`. A test tokenizes the same inputs with the MLX tokenizer and the GGUF tokenizer and compares token IDs, since the 400-token `too-long` cutoff depends on the counts matching.
 5. **Validation:** run `cleanup-corpus.json` through the Mac's MLX helper and the Windows GGUF helper with greedy decoding, compare outputs case by case, and report exact-match rate and guard outcomes; add a local-model section to `CLEANUP_BENCHMARK.md`. Bar: guard pass rate and corpus results within a small, stated margin of the Mac's; any difference is listed, not hidden. Pick Q8_0 if it meets the bar, otherwise F16 (about 1.6 GB).
@@ -173,19 +173,53 @@ Required in v1. The Mac watches the field after a paste for up to 60 s, polls ev
 - **Privacy:** staged dictations must stay out of Windows clipboard history (Win+V) and cloud clipboard sync. Set the `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory = 0` and `CanUploadToCloudClipboard = 0` formats on our item **(verify behavior on Windows 11)**. This has no Mac counterpart and is a hard requirement.
 - Refuse to paste into a focused password element (UI Automation `IsPassword`), matching the Mac's Secure Input refusal.
 - **Limit:** a normal-integrity app cannot send input to an elevated window (UIPI). Paste into an admin terminal will fail; report it as a content-free failure rather than running Murmur elevated.
-- Paste-last-dictation hotkey: same behavior as the Mac's ⌃⌘V path; default Ctrl+Win+V (decided).
+- Paste-last-dictation hotkey: same behavior as the Mac's ⌃⌘V path; default Ctrl+Win+Shift+V (decided).
 
-## Shared-spec strategy
+## Keeping the two apps in step
 
-1. **Corpora in place:** `Murmur.Core.Tests` reads `../../../app/*.json` through `<None Include=… CopyToOutputDirectory>` links, so the Mac and Windows always test against the same file. Changing a corpus case changes both platforms' expectations in one commit.
-2. **Ported checks:** each `check_<module>.swift` becomes `<Module>Tests.cs` with the same cases in the same order and a header comment naming the Swift file and the commit it was ported from.
-3. **Differential check (M1):** a small Foundation-only Swift tool runs `RuleCleaner`, `CleanupGuard` and `Dictionary` over a list of inputs (corpus plus generated edge cases: non-ASCII, emoji, very long, punctuation-only) and writes JSON. The baseline must come from macOS, since Linux Swift uses swift-corelibs-foundation, whose regex, case folding and Unicode handling can differ from the Mac's on exactly these inputs. The tool runs on a Mac (this one, or a `macos-latest` runner) and its output is committed as a synthetic golden file, regenerated whenever a ported Swift file changes. The C# tests compare against that file case by case. Linux Swift runs are a convenience check only. Synthetic text only.
-4. **Drift guard:** CI on any change to the ported Swift files or the corpora runs both the Swift checks (Linux) and the C# tests, so a Mac behavior change without a matching Windows change fails visibly. The port-tracking table lives in `spec/porting-status.md` (created in M1).
+Decided 2026-11-18: Mac and Windows stay separate native apps kept in step. Changes are built and tested on the Mac first, then ported. Three kinds of code, handled differently (details and the per-PR checklist: [CONTRIBUTING.md](CONTRIBUTING.md)):
+
+- **Data, written once:** corpora, golden outputs, word lists, prompts, the settings key/default table, writing-mode presets. Both apps should load the same files.
+- **Logic, ported:** C# files mirroring the Swift files one to one, checked against golden outputs.
+- **UI and platform plumbing, rewritten:** from the specs in `spec/`, checked by hand on Windows.
+
+### Shared data
+
+On this branch the Mac code is not changed to read shared files. Instead the direction is reversed for now: small Swift generators (`windows/shared/export_*.swift`) compile against the Mac sources and export their constants to `windows/shared/*.json`, which `Murmur.Core` embeds and reads. The Swift constants stay the source of truth, and nothing is hand-copied into C#.
+
+The corpora are read in place (`app/cleanup-corpus.json`, `app/meeting-notes-corpus.json`, `app/meeting-notes-heldout.json`).
+
+**Later, as a separate Mac PR for the user to approve:** move these Swift constants into the shared JSON files so the Mac loads them too, then delete the export generators.
+
+| Swift source | Constants |
+| --- | --- |
+| `CleanupText.swift` | functionWords, hesitations, negation sets and stems, truncatedNegations, cardinals, ordinals, abbreviations, titles |
+| `CleanupGuard.swift` | assistantPhrases, answerPhrases, polishFillers, polishFillerPairs, grammarWords, droppableGrammarWords, modals, persons, correction and repair cue lists, noQuantified, ordinalPhraseNouns |
+| `RuleCleaner.swift` | stutterWords, commaKeepers, cuePatterns, weekdays, months, relativeTimes, colors, list cues, cardinal/ordinal words, markCommands, atPhrases, command blockers, domainEndings, spoken and Indian scales, emailFrame, signOff |
+| `Learning.swift` | negations, negatingPrefixes, numberWords, antonyms, contextualWords, inflectionSuffixes, and the similarity thresholds |
+| `Dictionary.swift`, `VoiceCues.swift` | commandPhrases, length limits, leadWords, reserved, closing |
+| `CleanupPrompt.swift`, `EditPrompt.swift`, `MeetingNotes.swift`, `module-one/cleanup/Runner/.../main.swift` | prompt texts and tails, edit limits, meeting-notes lexicons (stopwords, cues, units), the local cleanup system line and header |
+| `Settings.swift`, `Routes.swift`, `Retention.swift`, others listed in [spec/settings.md](spec/settings.md) | settings keys and defaults (exported as `windows/shared/settings.json` when settings are ported in M2) |
+| `WritingModes.swift` | presets (M4) |
+| `CallApps.swift` | call-app catalog, with a Windows process-name column added (M5) |
+
+Thresholds and timings (`AudioFormat.swift`, `Shortcut.swift`, `Observation.swift`) could move too, but they're single numbers. They stay as constants ported by hand unless the Mac PR decides otherwise.
+
+### Parity contract
+
+- **Golden files:** `windows/golden/golden_*.swift` run the Swift logic over the corpora plus synthetic edge cases (non-ASCII, emoji, long and punctuation-only text) and write `windows/golden/data/*.json`. The C# tests compare case by case. Golden files are generated on macOS only, since Linux Swift's Foundation can differ on exactly those inputs.
+- **Lexicon in golden runs:** where the Mac uses `NSSpellChecker`, generators and C# tests inject the same fixed synthetic word list. The golden files then test the logic, not the two lexicons. The bundled Windows word list is tested separately.
+- **Three checks, all failing on drift:**
+  1. `windows/golden/generate.sh --check` (macOS) fails when a Mac change alters golden or shared output that wasn't regenerated.
+  2. `dotnet test` (Linux and Windows) fails when the C# output disagrees with golden.
+  3. `windows/tools/check_parity.py` fails when a ported Swift file changed since its port. It compares against the SHA-256 recorded in `windows/porting.json`.
+- **Where they run:** the Mac's `app/check.sh` runs checks 1 and 3 as `windows_parity`, and CI (`.github/workflows/windows.yml`) runs all three.
+- **Consequence:** a Mac PR that changes ported behavior fails CI until it is ported, or until the port is knowingly deferred.
 
 ## CI
 
-- New workflow `.github/workflows/windows.yml`, path filters: `windows/**`, `app/*.json`, the ported Swift files, and the workflow itself.
-- Jobs: `core` on `ubuntu-latest` (build `Murmur.Core`, run tests against the committed golden files); `golden` on `macos-latest` (regenerate the differential golden file and fail if it differs from the committed one); `app` on `windows-latest` (build the solution, run tests, publish an unsigned self-contained build as an artifact).
+- Workflow `.github/workflows/windows.yml`. It triggers on `windows/**`, `app/**` and the workflow itself: `app/**` was added to the approved `windows/**` scope because the parity contract must fail on Mac-side changes. `windows/porting.json` records which Swift file each port matches.
+- Jobs: `core` on `ubuntu-latest` and `windows-latest` (C# tests; the parity hash check on Linux); `golden` on `macos-latest` (`generate.sh --check`). `app` on `windows-latest` (build the solution, run tests, publish an unsigned self-contained build as an artifact).
 - Pin actions by commit SHA, as `secrets.yml` does. No secrets in pull-request jobs.
 - Release workflow (M6): runs on a tag, builds, signs with Azure Artifact Signing (or signtool with a hardware-backed cert on the user's VM), packs with Velopack, uploads to a draft GitHub release. Publishing stays manual.
 
@@ -237,7 +271,7 @@ Each milestone ends with a local commit on a branch, CI green, and a short repor
 
 | # | Milestone | Exit criteria |
 | --- | --- | --- |
-| M1 | Core text engine | Solution and CI skeleton. `Murmur.Core` ports CleanupText, RuleCleaner, CleanupGuard, Dictionary, Learning, Processing (text parts), BoostFilter. Tests pass on Linux and Windows CI, including all 426 cleanup-corpus cases and the ported checks; the Swift differential check matches on every generated case. Runs entirely from this Mac. |
+| M1 | Core text engine | Solution, CI and parity tooling. `Murmur.Core` ports CleanupTypes, CleanupText, CleanupGuard, RuleCleaner, Cleanup, CleanupPrompt, Dictionary, Learning, VoiceCues, PrivateFiles (behavior) and BoostFilter; their data constants come from `windows/shared/`. Exit: `dotnet test` passes with every golden case matching the Mac's output, including all 426 cleanup-corpus cases through `RuleCleaner` and `CleanupPipeline`; ported `check_*` assertions pass; `generate.sh --check` and `check_parity.py` pass. Runs entirely from this Mac. `Processing` moves to M2: its check needs the provider and route files ported there. |
 | M2 | Dictation shell, cloud route | WinUI tray app, bubble, hold-to-talk hook, WASAPI recording, Murmur Cloud and Custom Provider transcription and cleanup, paste insertion with clipboard-history exclusion, credentials, settings file, History with retention. Exit: on the user's PC, 20 real dictations into Notepad, a browser, Teams/Slack and VS Code with no lost clipboard and no transcript in Win+V history. |
 | M3 | Local ASR and local cleanup | `Murmur.Speech` with Parakeet Unified ONNX (pinned, verified download), warm runner, chunking, live words, hotword spike result. `Murmur.Cleanup` with our Vedu Scribe GGUF. Exit: WER and latency on the user's PC for 5/30/120 s real dictations next to the Mac's on the same recordings; cleanup corpus comparison against the Mac's MLX output written up in `CLEANUP_BENCHMARK.md`. The conversion and corpus comparison can start on this Mac before M2. |
 | M4 | Modes, voice edit, learning | Writing modes with app and website matching, voice edit, learning (UI Automation read-back plus scoped keystrokes), voice cues, tips, welcome guide. Exit: ported checks pass; the browser test matrix filled in; learning verified on readable and unreadable fields on the user's PC. |
@@ -252,21 +286,14 @@ Each milestone ends with a local commit on a branch, CI green, and a short repor
 
 ## What is needed from the user
 
-1. Approval to install the .NET SDK on this Mac (for M1), and, for the cleanup conversion, a Python virtual environment with pinned mlx-lm and llama.cpp's converter (outside the repo).
-2. Approval to add `.github/workflows/windows.yml` (it runs on GitHub-hosted Windows runners; public repos run them free).
+1. Done: .NET SDK 10.0.404 installed to `~/.dotnet` and a Python virtual environment at `~/.venvs/murmur-convert` (packages added when the conversion runs).
+2. Approved: `.github/workflows/windows.yml`, scoped to `windows/**`.
 3. For M2 onward: a way to run builds on the Windows PC, such as a Paseo host or SSH on the PC, with a GitHub checkout, the .NET SDK and the Windows App SDK prerequisites. Real dictation and meeting tests are done by the user on that PC.
-4. For M6: the signing choice (Azure Artifact Signing account or a certificate) and a VM to hold signing access, if signing should not run on GitHub-hosted runners.
-5. Answers to the open questions below.
+4. For M6: the Azure Trusted Signing account, and a VM to hold signing access if signing should not run on GitHub-hosted runners.
 
 ## Open questions
 
-Answered 2026-11-18 (see "Decisions already made"): local cleanup model, speech model, lexicon, default shortcuts, minimum OS, website matching, learning, distribution, updater. Remaining:
-
-1. **Where to host the converted cleanup GGUF:** a Hugging Face repository under the user's account, or a GitHub release asset in this repo?
-2. **Parakeet Unified ONNX license:** the sherpa-onnx conversion carries NVIDIA's model card but no license of its own. Accept the NVIDIA Open Model License as governing (as for the Mac's Core ML conversion), or ask the maintainer first?
-3. **Signing:** Azure Artifact Signing or a certificate, and which account or VM holds it.
-4. **Paste-last default conflict:** Windows 11 appears to use Win+Ctrl+V for the Quick Settings sound-output panel **(verify on the user's PC)**. If it does, Ctrl+Win+V would clash. Alternatives: Ctrl+Win+Shift+V, or Ctrl+Alt+V (but Ctrl+Alt acts as AltGr on some layouts). Keep Ctrl+Win+V if it turns out free?
-5. **Right Ctrl on newer laptops:** many 2024+ laptops replace Right Ctrl with the Copilot key (it sends Win+Shift+F23). Those users need the custom-shortcut setting; should the welcome guide detect a missing Right Ctrl and ask for a key?
+All Phase 1 questions are answered (see "Decisions already made").
 
 ## Risks
 

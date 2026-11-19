@@ -47,7 +47,7 @@ Derived from the Swift app at commit `c70cdb1`. References are `app/<file>:<line
 | openAtLoginDefaulted | bool | false | Start at login set on first launch | Settings.swift:77, main.swift:28-29 | same, with `HKCU\…\Run` |
 | dictionarySuggestionsDismissed | [string] | [] | Dismissed suggestion words; removed by Delete All | Settings.swift:79 | same |
 | shortcut | string | `right-option` | Dictation key preset or `custom:KEYCODE:FLAGS:KEY` | Controller+Settings.swift:8, Shortcut.swift:113-116 | Windows presets and VK codes; default `right-ctrl` |
-| pasteLastShortcut | string | Mac fixed ⌃⌘V | Paste last dictation | Shortcut.swift:245 | new key on Windows, default `ctrl-win-v` |
+| pasteLastShortcut | string | Mac fixed ⌃⌘V | Paste last dictation | Shortcut.swift:245 | new key on Windows, default `ctrl-win-shift-v` |
 | voiceEditShortcut | string | `same` | Voice edit key; `same` = dictation key with a selection | Controller+Settings.swift:9, EditTrigger.swift:13-14 | same semantics |
 | modelDirectory | path | computed under the user cache folder | Batch model folder | Controller+Settings.swift:10, ModelText.swift:97-100 | `%LOCALAPPDATA%\Murmur\Models\<model>-<rev>` |
 | transcriptionRoute | `local`/`cloud`/`murmur-cloud` | `local` | Transcription route | Routes.swift:20-26, 117-118 | same |

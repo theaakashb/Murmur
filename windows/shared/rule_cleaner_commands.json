@@ -1,0 +1,93 @@
+{
+  "atPhrases" : [
+    [
+      "at",
+      "the",
+      "rate"
+    ],
+    [
+      "at",
+      "sign"
+    ]
+  ],
+  "markCommands" : [
+    {
+      "mark" : "\n\n",
+      "words" : [
+        "new",
+        "paragraph"
+      ]
+    },
+    {
+      "mark" : "\n",
+      "words" : [
+        "new",
+        "line"
+      ]
+    },
+    {
+      "mark" : "?",
+      "words" : [
+        "question",
+        "mark"
+      ]
+    },
+    {
+      "mark" : "!",
+      "words" : [
+        "exclamation",
+        "mark"
+      ]
+    },
+    {
+      "mark" : "!",
+      "words" : [
+        "exclamation",
+        "point"
+      ]
+    },
+    {
+      "mark" : ".",
+      "words" : [
+        "full",
+        "stop"
+      ]
+    },
+    {
+      "mark" : ".",
+      "words" : [
+        "period"
+      ]
+    },
+    {
+      "mark" : ",",
+      "words" : [
+        "comma"
+      ]
+    },
+    {
+      "mark" : ":",
+      "words" : [
+        "colon"
+      ]
+    },
+    {
+      "mark" : ";",
+      "words" : [
+        "semicolon"
+      ]
+    },
+    {
+      "mark" : "-",
+      "words" : [
+        "hyphen"
+      ]
+    },
+    {
+      "mark" : "—",
+      "words" : [
+        "dash"
+      ]
+    }
+  ]
+}
