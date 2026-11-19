@@ -8,5 +8,6 @@
   <!-- Data exported from the Swift source of truth by windows/shared/export_*.swift. -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\shared\*.json" LogicalName="shared/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\shared\lexicon\english-scowl-60.txt.gz" LogicalName="shared/lexicon/english-scowl-60.txt.gz" />
   </ItemGroup>
 </Project>
