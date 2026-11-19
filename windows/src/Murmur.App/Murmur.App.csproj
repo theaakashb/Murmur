@@ -7,6 +7,8 @@
     <UseWinUI>true</UseWinUI>
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Users install no runtime (PLAN.md): ship .NET with the app, as the helpers already do. -->
+    <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <Platforms>x64</Platforms>
     <InvariantGlobalization>false</InvariantGlobalization>
@@ -32,6 +34,8 @@
     <Helper Include="..\Murmur.Cleanup\Murmur.Cleanup.csproj" Folder="Cleanup" />
   </ItemGroup>
   <Target Name="PublishHelpers" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <!-- A fresh clone has no win-x64 restore for the helpers yet; restore with the same properties first (a separate evaluation, hence the extra property). -->
+    <MSBuild Projects="@(Helper)" Targets="Restore" Properties="Configuration=$(Configuration);Platform=AnyCPU;RuntimeIdentifier=win-x64;SelfContained=true;MurmurHelperRestore=true" BuildInParallel="false" />
     <MSBuild Projects="@(Helper)" Targets="Publish" Properties="Configuration=$(Configuration);Platform=AnyCPU;RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$([System.IO.Path]::GetFullPath('$(OutDir)', '$(MSBuildProjectDirectory)'))%(Helper.Folder)\" BuildInParallel="false" />
   </Target>
   <Target Name="CopyHelpersToPublish" AfterTargets="Publish">
