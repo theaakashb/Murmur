@@ -2,6 +2,21 @@
 
 Status: Phase 1 (planning). No Windows code exists yet. This plan was written on a Mac; nothing in it has been built or run on Windows. Claims about Windows APIs and third-party libraries are marked **(verify)** where they have not been checked against the installed version.
 
+## Status
+
+Updated 2026-11-19 (overnight autonomous run).
+
+- **M1:** done. Core text engine, golden parity, CI green on Linux and Windows.
+- **M2:** in progress on `windows`.
+  - Merged: the platform layer, settings/history/retention/backup/modes, and providers/routes.
+  - Running: the Processing port, the WinUI app and controller, and the automated exit harness.
+  - Build host: VM `murmur-win` (Windows 11 23H2, no audio devices). Simulated input works in its console session.
+- **M3:** queued. It starts when the M2 synthetic exit passes.
+- **Needs user:**
+  - The real-mic confirmation run with a real key.
+  - The Hugging Face upload of the cleanup GGUF.
+  - Whether to enable clipboard history on the VM, if the harness finds it off.
+
 ## Decisions already made
 
 - Native C#/.NET app in this repo under `windows/`. The Mac app stays Swift.
