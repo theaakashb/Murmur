@@ -17,6 +17,7 @@ Updated 2026-11-19 (overnight autonomous run).
     - No lexicon until the bundled word list lands.
     - Settings buttons untested by automation.
     - Leading space assumes the caret is at the end.
+- **M3 quality acceptance (user judgment, not a measured WER), 2026-11-19:** the user tested local dictation by ear on the Star Labs PC and judged its quality equal to the Mac's. The five-script real-speech WER comparison (INSTALL-TEST.md Part B) is skipped at the user's request.
 - **M3:** synthetic exit passed 2026-11-19 (head `bcc04ca`).
   - **Key-free harness on the VM:** 20/20, with local Parakeet ONNX transcription and local Vedu Scribe Q8_0 cleanup. The provider received 0 requests, and every hard check passed.
     - Release-to-paste on the VM's emulated CPU: min 1.6 s, median 2.5 s, max 8.3 s. The first dictation loads both models.
@@ -31,8 +32,7 @@ Updated 2026-11-19 (overnight autonomous run).
     - The VM takes 1.3 s per request.
   - **Settings:** a Models section with license, download, progress and remove. The local routes are enabled only when the models are installed and verified.
   - **Still open for M3 as planned:**
-    - Real dictations of 5, 30 and 120 s on the user's PC, next to the Mac.
-    - Live words in the bubble.
+      - Live words in the bubble.
     - Chunked transcription during recording.
 - **M2 real-mic: confirmed by the user, 2026-11-19.** Real-microphone dictations on the Star Labs PC with Murmur Cloud worked in Notepad and in other apps. The user hasn't named the other apps yet; ask if the exit record needs them.
 - **Bug, must be fixed before M6:** the app freezes while the transcription model downloads. Likely cause: download, hash or file work on the UI thread, or a synchronous wait on it. The fix covers both model downloads:
