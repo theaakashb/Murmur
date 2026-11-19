@@ -1,0 +1,388 @@
+{
+  "answerPhrases" : [
+    "sure,",
+    "sure!",
+    "sure.",
+    "certainly",
+    "of course",
+    "here's",
+    "here is",
+    "here are",
+    "i'm sorry, but",
+    "great question",
+    "absolutely",
+    "the answer is",
+    "let me know if",
+    "transcript:",
+    "as an ai",
+    "as a language model",
+    "i'm an ai",
+    "i am an ai",
+    "i hope this helps",
+    "hope this helps",
+    "happy to help",
+    "i'd be happy",
+    "i would be happy",
+    "i can't help",
+    "i cannot help",
+    "<transcript",
+    "</transcript",
+    "cleaned transcript"
+  ],
+  "assistantPhrases" : [
+    "as an ai",
+    "as a language model",
+    "i'm an ai",
+    "i am an ai",
+    "i hope this helps",
+    "hope this helps",
+    "happy to help",
+    "i'd be happy",
+    "i would be happy",
+    "i can't help",
+    "i cannot help",
+    "<transcript",
+    "</transcript",
+    "cleaned transcript"
+  ],
+  "commaRequiredCues" : [
+    [
+      "actually"
+    ],
+    [
+      "no"
+    ],
+    [
+      "sorry"
+    ]
+  ],
+  "correctionCues" : [
+    [
+      "scratch",
+      "that"
+    ],
+    [
+      "no",
+      "wait"
+    ],
+    [
+      "wait",
+      "no"
+    ],
+    [
+      "i",
+      "mean"
+    ],
+    [
+      "i",
+      "meant"
+    ],
+    [
+      "or",
+      "rather"
+    ],
+    [
+      "sorry"
+    ],
+    [
+      "actually"
+    ],
+    [
+      "no"
+    ],
+    [
+      "actually",
+      "no"
+    ]
+  ],
+  "declarativeAfterCue" : [
+    "business",
+    "is",
+    "it",
+    "to",
+    "was",
+    "well"
+  ],
+  "droppableGrammarWords" : [
+    "a",
+    "about",
+    "also",
+    "am",
+    "an",
+    "are",
+    "as",
+    "at",
+    "be",
+    "been",
+    "being",
+    "by",
+    "did",
+    "do",
+    "does",
+    "for",
+    "from",
+    "going",
+    "gonna",
+    "had",
+    "has",
+    "have",
+    "in",
+    "into",
+    "is",
+    "just",
+    "more",
+    "most",
+    "of",
+    "off",
+    "on",
+    "out",
+    "really",
+    "so",
+    "than",
+    "that",
+    "the",
+    "then",
+    "there",
+    "these",
+    "this",
+    "those",
+    "to",
+    "too",
+    "up",
+    "very",
+    "was",
+    "were",
+    "with"
+  ],
+  "explicitRepairCues" : [
+    [
+      "no",
+      "i",
+      "mean"
+    ],
+    [
+      "no",
+      "i",
+      "meant"
+    ],
+    [
+      "scratch",
+      "that"
+    ],
+    [
+      "actually",
+      "no"
+    ],
+    [
+      "let",
+      "me",
+      "start",
+      "again"
+    ]
+  ],
+  "looseCorrectionCues" : [
+    [
+      "scratch",
+      "that"
+    ],
+    [
+      "no",
+      "wait"
+    ],
+    [
+      "wait",
+      "no"
+    ],
+    [
+      "i",
+      "mean"
+    ],
+    [
+      "i",
+      "meant"
+    ],
+    [
+      "or",
+      "rather"
+    ],
+    [
+      "actually",
+      "no"
+    ]
+  ],
+  "meaningfulLikeAfter" : [
+    "feel",
+    "feels",
+    "felt",
+    "he",
+    "i",
+    "i'd",
+    "it",
+    "it's",
+    "just",
+    "look",
+    "looked",
+    "looks",
+    "people",
+    "seems",
+    "she",
+    "sounds",
+    "that's",
+    "they",
+    "they'd",
+    "to",
+    "we",
+    "we'd",
+    "who",
+    "would",
+    "you",
+    "you'd"
+  ],
+  "modals" : [
+    "can",
+    "could",
+    "may",
+    "might",
+    "must",
+    "shall",
+    "should",
+    "will",
+    "would"
+  ],
+  "noQuantified" : [
+    "body",
+    "doubt",
+    "idea",
+    "longer",
+    "matter",
+    "more",
+    "one",
+    "problem",
+    "way"
+  ],
+  "ordinalPhraseNouns" : [
+    "aid",
+    "chance",
+    "chances",
+    "impression",
+    "impressions",
+    "nature",
+    "opinion",
+    "thought",
+    "thoughts"
+  ],
+  "persons" : [
+    [
+      "i",
+      "i'd",
+      "i'll",
+      "i'm",
+      "i've",
+      "me",
+      "mine",
+      "my"
+    ],
+    [
+      "you",
+      "you'd",
+      "you'll",
+      "you're",
+      "you've",
+      "your",
+      "yours"
+    ],
+    [
+      "he",
+      "he's",
+      "him",
+      "his"
+    ],
+    [
+      "her",
+      "hers",
+      "she",
+      "she's"
+    ],
+    [
+      "it",
+      "it's",
+      "its"
+    ],
+    [
+      "our",
+      "ours",
+      "us",
+      "we",
+      "we're",
+      "we've"
+    ],
+    [
+      "their",
+      "theirs",
+      "them",
+      "they",
+      "they're",
+      "they've"
+    ]
+  ],
+  "polishFillerPairs" : [
+    [
+      "i",
+      "mean"
+    ],
+    [
+      "you",
+      "know"
+    ]
+  ],
+  "polishFillers" : [
+    "basically",
+    "literally",
+    "yeah",
+    "yep",
+    "yup"
+  ],
+  "sentenceRepairCues" : [
+    [
+      "actually"
+    ],
+    [
+      "no"
+    ],
+    [
+      "wait"
+    ],
+    [
+      "sorry"
+    ],
+    [
+      "i",
+      "mean"
+    ],
+    [
+      "i",
+      "meant"
+    ],
+    [
+      "scratch",
+      "that"
+    ],
+    [
+      "rather"
+    ],
+    [
+      "or",
+      "rather"
+    ],
+    [
+      "let",
+      "me",
+      "rephrase"
+    ],
+    [
+      "let",
+      "me",
+      "start"
+    ]
+  ]
+}
