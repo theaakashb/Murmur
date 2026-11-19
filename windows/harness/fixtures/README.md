@@ -7,7 +7,7 @@
 - **Format:** 16 kHz, mono, PCM 16-bit WAV. About 2.3 MB in total; the longest clip is 7 s.
 - **Content:** a short phrase, long sentences, numbers (order number, price, time), names, lists, questions, filler-heavy speech ("um so I think we should uh ..."), punctuation-dependent speech (quotes, semicolon, greeting) and mixed cases. All text is invented.
 
-`phrases.tsv` is the source (`id`, spoken text, expected cleanup, tab separated). `generate.sh` rebuilds the WAVs and `manifest.json` on a Mac; the WAVs are committed so the VM needs no Mac.
+`phrases.tsv` is the source (`id`, spoken text, expected cleanup, tab separated). `generate.sh` rebuilds the WAVs and `manifest.json` on a Mac, and the output is deterministic. The WAVs are not committed, because the repository commits no audio (`.gitignore`, CONTRIBUTING.md). Copy them to the test machine before a run: `tar cf - *.wav | ssh <host> "cd /d <checkout>\windows\harness\fixtures && tar xf -"`.
 
 `manifest.json` entries:
 
