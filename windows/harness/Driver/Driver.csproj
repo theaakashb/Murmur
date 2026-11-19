@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Session-1 UI driver for the exit harness. WPF is referenced only for System.Windows.Automation (UI Automation client);
+       WinForms only for screenshots. No NuGet packages. The 19041 TFM exposes the WinRT clipboard-history API. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>Murmur.Harness.Driver</RootNamespace>
+    <AssemblyName>Driver</AssemblyName>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\pages\textarea.html" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
