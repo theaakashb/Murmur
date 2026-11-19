@@ -66,8 +66,7 @@ internal sealed class AppServices
         PrivateFiles.PrepareDirectory(Locations.Dictionary);
         store = new HistoryStore(Locations.History);
         History = new HistoryRouter<HistoryEntry>(new HistoryDisk<HistoryEntry>(store.Save, () => store.Entries(), store.Delete), Settings.Get(Prefs.HistoryMode).PersistsTranscripts());
-        // shortcut: no lexicon until the bundled English word list lands (PLAN "Dictionary correction and lexicon"); respelling then skips the lexicon guard, as Swift does with nil.
-        Processing = new ProcessingCoordinator(Locations.Dictionary, Settings);
+        Processing = new ProcessingCoordinator(Locations.Dictionary, Settings, Lexicon.English.IsCommonWord);
     }
 
     /// <summary>Retention purge, retry audio older than 24 hours, and the transient chunks folder (spec/settings.md).</summary>
