@@ -35,7 +35,12 @@ Updated 2026-11-19 (overnight autonomous run).
     - Live words in the bubble.
     - Chunked transcription during recording.
     - The cleanup model is downloadable only after the Hugging Face upload.
-- **Next:** the real-mic run on the Star Labs PC (`starlabs-server-pc`, not reachable yet), following `windows/INSTALL-TEST.md`. CI publishes the unsigned build as the `Murmur-windows-x64-unsigned` artifact.
+- **Star Labs PC** (Paseo host `srv_XXiOqPoelqaJ`, Windows 11 Pro 26200, Ryzen 9 5900X, 32 GB):
+  - Installed at `T:\Paseo Project\Murmur\` (`app`, `src` at `ac2a0ad`, `tools\dotnet` SDK 10.0.404, `cache`). The app is self-contained and starts without a separate .NET.
+  - No-mic smoke test with the harness: Edge passed every run (264–279 ms against the fake provider). Notepad passed 1 of 3 runs; the other two were `unverified` with empty read-back. The Notepad platform test couldn't bring Notepad to the foreground.
+  - Likely cause: the unattended desktop (lock or foreground rules while the user is away). Recheck during the user's run.
+  - Waiting on the user: plug in a microphone, then run `windows/INSTALL-TEST.md`. VS Code is not installed there.
+  - CI publishes the unsigned build as the `Murmur-windows-x64-unsigned` artifact.
 - **Needs user:**
   - The real-mic confirmation, on M2 and on local M3.
   - Approve the Hugging Face upload of `~/murmur-m3/hf-stage/vedu-scribe-0.8b-gguf/` (Q8_0, SHA-256 `6859e09e…`).
