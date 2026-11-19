@@ -354,7 +354,7 @@ internal sealed class Controller : IDisposable
         };
         try { s.History.Save(entry); }
         catch (Exception) { Fail(ss, "history", "save-failed", $"Could not save the transcript. Audio is saved for retry for up to {RetryWindow.Text}."); return; }
-        TryDelete(ss.WavPath);
+        KeepOrDelete(ss.WavPath, entry.Id);
         bubble.ShowProcessing("Cleaning up...");
 
         var cleanupStart = Stopwatch.GetTimestamp();
@@ -481,6 +481,19 @@ internal sealed class Controller : IDisposable
     }
 
     static void TryDelete(string path) { try { File.Delete(path); } catch (Exception) { } }
+
+    /// <summary>Test hook MURMUR_KEEP_RECORDINGS (spec/test-hooks.md): keeps the recording as diagnostics\recordings\HISTORY-ID.wav for engine comparisons; otherwise deletes it.</summary>
+    void KeepOrDelete(string wavPath, string historyId)
+    {
+        if (Environment.GetEnvironmentVariable("MURMUR_KEEP_RECORDINGS") is not { Length: > 0 }) { TryDelete(wavPath); return; }
+        try
+        {
+            var folder = Path.Combine(s.Root, "diagnostics", "recordings");
+            PrivateFiles.PrepareDirectory(folder);
+            File.Move(wavPath, Path.Combine(folder, historyId + ".wav"));
+        }
+        catch (Exception) { TryDelete(wavPath); }
+    }
 
     public void Dispose()
     {

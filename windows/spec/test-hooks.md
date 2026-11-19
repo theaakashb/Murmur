@@ -7,6 +7,7 @@ The Windows app has three test-only hooks, used by `windows/harness/`. Each one 
 | `MURMUR_DATA_DIR` | Replaces `%LOCALAPPDATA%\Murmur` as the data root. Settings, History, retry audio and diagnostics all live there, and the real data folder is never touched. |
 | `MURMUR_SYNTHETIC_AUDIO` | A folder path. Replaces the microphone at recording start: the app reads `<folder>\next.txt`, which holds one absolute WAV path, and streams that WAV's samples in real time through the same conversion, level and retry-WAV path as the microphone. When the file runs out it sends silence until release. A missing `next.txt` or WAV fails the recording like "no microphone". |
 | (with `MURMUR_SYNTHETIC_AUDIO`) | The keyboard hook also accepts injected key events. Otherwise it ignores them, so Murmur's own Ctrl+V never triggers anything. The harness needs this to drive Right Ctrl with `SendInput`. |
+| `MURMUR_KEEP_RECORDINGS` | `1` keeps each recording after its transcript is saved, as `<data dir>\diagnostics\recordings\<history id>.wav`, in the device's own format. Without it the recording is deleted. It exists so the real-mic test can run both the Windows and the Mac speech engines on identical audio. These files hold the user's voice: they stay on that PC unless the user copies them. |
 | `MURMUR_TEST_EVENTS` | `1` writes content-free events, one JSON object per line, to `<data dir>\diagnostics\events.jsonl`. |
 
 **Events.** Each event has `t` (ISO time) and `event`, from this list:
