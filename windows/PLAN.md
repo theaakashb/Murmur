@@ -11,11 +11,11 @@ Updated 2026-11-19 (overnight autonomous run).
   - Merged: the platform layer, settings/history/retention/backup/modes, and providers/routes.
   - Running: the Processing port, the WinUI app and controller, and the automated exit harness.
   - Build host: VM `murmur-win` (Windows 11 23H2, no audio devices). Simulated input works in its console session.
+- **VM settings changed:** clipboard history (HKCU `Software\Microsoft\Clipboard\EnableClipboardHistory` = 1), approved 2026-11-19. It was already 1, so the write changed nothing; the console session reports history on and cloud sync (roaming) off. To revert: set it to 0.
 - **M3:** queued. It starts when the M2 synthetic exit passes.
 - **Needs user:**
   - The real-mic confirmation run with a real key.
   - The Hugging Face upload of the cleanup GGUF.
-  - Whether to enable clipboard history on the VM, if the harness finds it off.
 
 ## Decisions already made
 
