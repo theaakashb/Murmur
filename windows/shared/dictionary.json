@@ -1,0 +1,22 @@
+{
+  "commandPhrases" : [
+    "at sign",
+    "at the rate",
+    "colon",
+    "comma",
+    "dash",
+    "exclamation mark",
+    "exclamation point",
+    "full stop",
+    "hyphen",
+    "new line",
+    "new paragraph",
+    "period",
+    "question mark",
+    "semicolon"
+  ],
+  "fileName" : "dictionary.json",
+  "maxLength" : 100,
+  "maxNearMatches" : 10,
+  "maxVariantWords" : 6
+}
