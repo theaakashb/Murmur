@@ -42,8 +42,6 @@ These came from Mac fixes merged before their files were ported. Port each one w
 | M2 | `check_app_services.swift:233-236` | restore never changes where dictations are sent | spec/settings.md |
 | M2 | `check_app_services.swift:238-245` | restore drops links inside the backup (add a junction case) | spec/settings.md |
 | M2 | `check_app_services.swift:246-250` | recording purge does not follow a linked folder (add a junction case) | spec/settings.md |
-| M2 | `check_routes.swift:144-146` | every destination setting stays on this Mac when restoring | spec/settings.md |
-| M2 | `Processing.swift:336-339` (no check) | trusted routes don't run the full guard on screen-context words | spec/pipeline.md §9 |
 | M5 | `check_meetings.swift:307` | links, images and new lines are escaped (add U+0085/U+2028/U+2029) | PLAN.md "Meeting capture" |
 
 CI fails when the C# output differs from the golden files, or when a ported Swift file changed without `porting.json` being updated. Stale golden or shared files fail `app/check.sh windows_parity` on the dev Mac (hosted macOS runners are older than the Mac that makes them).
