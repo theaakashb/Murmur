@@ -24,7 +24,8 @@ sealed class ClipboardWatcher : IDisposable
         try { formats = Native.FormatNamesOpen().ToArray(); text = Native.ReadTextOpen(); } finally { Native.Close(); }
         var kind = text is null ? "no-text"
             : text == Sentinel ? "sentinel"
-            : DictationTexts.Any(d => d.Length > 0 && text.Contains(d, StringComparison.Ordinal)) ? "dictation"
+            // The app marks its staged item with this format; text matching alone misses items whose final text differs from the manifest.
+            : formats.Contains("Murmur.ClipboardOwner") || DictationTexts.Any(d => d.Length > 0 && text.Contains(d, StringComparison.Ordinal)) ? "dictation"
             : "other-text";
         Add(new ClipChange(DateTime.UtcNow, formats, kind));
     }

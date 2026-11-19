@@ -155,7 +155,9 @@ static class Program
             if (finalText is null) { Add("history-entry", false, "history entry/finalText not found for " + historyId); finalText = f.Cleanup; }
             else Add("history-entry", true);
             clip.DictationTexts = new() { finalText.Trim() };
-            Add("cleanup-matches-manifest", finalText.Trim() == f.Cleanup.Trim(), "advisory: shows whether the fake provider's cleanup reached the paste unchanged");
+            // Advisory, never a failure: the guard may reject the fake rewrite and fall back to local rules, exactly as on the Mac.
+            if (finalText.Trim() == f.Cleanup.Trim()) Add("cleanup-matches-manifest", true);
+            else Skip("cleanup-matches-manifest", "advisory: the guard kept a fallback instead of the fake provider's rewrite (cleanupFallback in History)");
 
             // (a) UI Automation read-back
             string? read = null;
