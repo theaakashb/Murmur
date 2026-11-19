@@ -104,7 +104,7 @@ Legacy accounts (`customAPI`, `openrouter`, `cerebras`, `localServer`) are not p
 
 Mac root: `~/Library/Application Support/Dictation/` (`Retention.swift:217-222`), folders 0700, private files 0600 written atomically (`PrivateFiles.swift:5-27`, `History.swift:189-200`).
 
-Windows root: `%LOCALAPPDATA%\Murmur\`. The root gets a protected DACL granting only the current user and SYSTEM; files inherit it. Atomic replace through a temp file in the same folder plus `File.Replace`/`File.Move(overwrite)`.
+Windows root: `%LOCALAPPDATA%\Murmur\`, separate from the Velopack install folder `%LOCALAPPDATA%\MurmurApp\`; uninstall leaves it (PLAN "Packaging"). The root gets a protected DACL granting only the current user and SYSTEM; files inherit it. Atomic replace through a temp file in the same folder plus `File.Replace`/`File.Move(overwrite)`.
 
 | path | contents | Mac ref | retention |
 | --- | --- | --- | --- |

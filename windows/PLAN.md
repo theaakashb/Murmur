@@ -129,20 +129,21 @@ Plan:
 
 1. **Corpora in place:** `Murmur.Core.Tests` reads `../../../app/*.json` through `<None Include=… CopyToOutputDirectory>` links, so the Mac and Windows always test against the same file. Changing a corpus case changes both platforms' expectations in one commit.
 2. **Ported checks:** each `check_<module>.swift` becomes `<Module>Tests.cs` with the same cases in the same order and a header comment naming the Swift file and the commit it was ported from.
-3. **Differential check (M1):** a small Foundation-only Swift tool, built by `app/check.sh` on Linux CI, runs `RuleCleaner`, `CleanupGuard` and `Dictionary` over a list of inputs (corpus plus generated edge cases: non-ASCII, emoji, very long, punctuation-only) and writes JSON. The C# test compares its own output case by case. Synthetic text only.
+3. **Differential check (M1):** a small Foundation-only Swift tool runs `RuleCleaner`, `CleanupGuard` and `Dictionary` over a list of inputs (corpus plus generated edge cases: non-ASCII, emoji, very long, punctuation-only) and writes JSON. The baseline must come from macOS, since Linux Swift uses swift-corelibs-foundation, whose regex, case folding and Unicode handling can differ from the Mac's on exactly these inputs. The tool runs on a Mac (this one, or a `macos-latest` runner) and its output is committed as a synthetic golden file, regenerated whenever a ported Swift file changes. The C# tests compare against that file case by case. Linux Swift runs are a convenience check only. Synthetic text only.
 4. **Drift guard:** CI on any change to the ported Swift files or the corpora runs both the Swift checks (Linux) and the C# tests, so a Mac behavior change without a matching Windows change fails visibly. The port-tracking table lives in `spec/porting-status.md` (created in M1).
 
 ## CI
 
 - New workflow `.github/workflows/windows.yml`, path filters: `windows/**`, `app/*.json`, the ported Swift files, and the workflow itself.
-- Jobs: `core` on `ubuntu-latest` (build `Murmur.Core`, run tests, run the Swift differential tool); `app` on `windows-latest` (build the solution, run tests, publish an unsigned self-contained build as an artifact).
+- Jobs: `core` on `ubuntu-latest` (build `Murmur.Core`, run tests against the committed golden files); `golden` on `macos-latest` (regenerate the differential golden file and fail if it differs from the committed one); `app` on `windows-latest` (build the solution, run tests, publish an unsigned self-contained build as an artifact).
 - Pin actions by commit SHA, as `secrets.yml` does. No secrets in pull-request jobs.
 - Release workflow (M6): runs on a tag, builds, signs with Azure Trusted Signing (or signtool with a hardware-backed cert on the user's VM), packs with Velopack, uploads to a draft GitHub release. Publishing stays manual.
 
 ## Packaging, signing, updates
 
-- **Velopack**: per-user install to `%LOCALAPPDATA%`, no admin prompt, delta updates from GitHub releases, signed setup and binaries. MSIX was considered: it gives clean install/uninstall and is needed for some APIs (package identity), but nothing here needs identity, MSIX adds Store-style restrictions on file and registry virtualization, and sideloading still needs signing. Velopack is the simpler path **(verify Velopack works with unpackaged WinUI 3 self-contained)**.
+- **Velopack**: per-user install, no admin prompt, delta updates from GitHub releases, signed setup and binaries. MSIX was considered: it gives clean install/uninstall and is needed for some APIs (package identity), but nothing here needs identity, MSIX adds Store-style restrictions on file and registry virtualization, and sideloading still needs signing. Velopack is the simpler path **(verify Velopack works with unpackaged WinUI 3 self-contained)**.
 - **Signing:** Azure Trusted Signing is cheaper and avoids handling a hardware token; it requires an identity-validated Azure account (individual developers were eligible in some regions only; **verify eligibility for the user**). Without EV reputation, SmartScreen warnings fade only as downloads build reputation either way.
+- **Install folder vs data folder:** Velopack installs to `%LOCALAPPDATA%\<packId>\` and deletes that folder on uninstall **(verify)**. The pack id is therefore `MurmurApp` (install at `%LOCALAPPDATA%\MurmurApp\`) and user data lives separately in `%LOCALAPPDATA%\Murmur\`. Decision: uninstall never deletes History, the dictionary, the ledger or settings, as on the Mac; Delete All Data in Settings is the way to remove them. The data folder's protected DACL never touches the install tree.
 - **Start at login:** a `HKCU\…\Run` entry, toggled in Settings.
 
 ## Minimum OS and architecture
@@ -179,12 +180,13 @@ Each milestone ends with a local commit on a branch, CI green, and a short repor
 ## Open questions
 
 1. **Local cleanup model.** The Mac's "Local model" cleanup runs Vedu Scribe 0.8B on MLX. Options: (a) leave it out of Windows v1; Faithful and Strict still run locally, and Custom Provider already supports a local server such as Ollama or LM Studio on loopback; (b) port it through llama.cpp or ONNX Runtime GenAI, which needs a converted, pinned model and its own measured guard results. Recommendation: (a), since it removes a native LLM runtime from v1 and the loopback route exists.
-2. **ASR model.** Accept Parakeet TDT 0.6B v2 (English) or v3 (multilingual) instead of the Mac's unified model, chosen by measurement on the user's PC?
+2. **ASR model.** Accept Parakeet TDT 0.6B v2 (English) or v3 (multilingual) instead of the Mac's unified model, chosen by measurement on the user's PC? For reference, `MODEL_BENCHMARK.md` measured v2 against Unified on the Mac (Core ML, read speech, one small sample): 1.93% vs 1.34% WER, 42 vs 29 word errors out of 2,172, similar speed. So v2 is somewhat worse on that sample; the ONNX int8 build may differ again.
 3. **Lexicon.** The Mac uses `NSSpellChecker` ("is this an ordinary English word"), which guards learning and respelling. Windows options: the Windows Spell Checking API (`ISpellCheckerFactory`), which depends on the installed English language pack and differs from the Mac's; or a bundled English word list (e.g. SCOWL, permissive license) that behaves the same on every PC and in CI. Recommendation: bundled word list, for deterministic tests; it will still differ from the Mac's lexicon at the edges.
 4. **Default shortcuts.** Right Alt can't be the default (AltGr on many keyboard layouts). Proposal: Right Ctrl hold-to-talk, Ctrl+Win+V for paste-last. Also, Fn is not visible to Windows on most keyboards.
 5. **Minimum OS and architecture.** Windows 11 22H2+ x64 for v1, ARM64 later?
 6. **Browser site matching for modes.** Reading the URL from browser address bars through UI Automation works on Chrome and Edge in practice but is undocumented and can break with browser updates **(verify)**. Accept app-only matching in v1 if it proves unreliable?
-7. **Distribution.** GitHub releases only for v1 (no Microsoft Store, no winget until later)?
+7. **Learning from typed edits.** When a field can't be read through accessibility, the Mac learns corrections by following keystrokes through a listen-only tap (nothing typed is stored). On Windows that means a global keyboard hook that sees typed text after each dictation, which is a larger privacy surface. Port it, or learn only from fields UI Automation can read? Recommendation: UI Automation only in v1.
+8. **Distribution.** GitHub releases only for v1 (no Microsoft Store, no winget until later)?
 
 ## Risks
 
