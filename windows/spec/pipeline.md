@@ -42,7 +42,7 @@ The raw transcript is written to History before cleanup (Controller.swift:970-97
 ## 6. Dictionary and voice cues
 
 - `DictionaryStore.apply` runs first in every style (Processing.swift:112-119, Dictionary.swift:247-285): whole-word variant phrases to the preferred spelling, longest first; phonetic matching for unfamiliar single words of 5+ letters when a lexicon is available. Limits: 100 characters, 6 words per variant (Dictionary.swift:89-90). Learned variants that are ordinary words are skipped (Dictionary.swift:214-236).
-- Lexicon `isCommonWord` = `NSSpellChecker`, English, no misspelling found (Controller+Dictionary.swift:85-93). Windows choice: PLAN open question 3. It must be callable from any thread on Windows.
+- Lexicon `isCommonWord` = `NSSpellChecker`, English, no misspelling found (Controller+Dictionary.swift:85-93). Windows: a bundled English word list (PLAN subsystem map). It must be callable from any thread on Windows.
 - Voice cues match on the raw transcript first; each stretch between cues is processed on its own and cue expansions skip cleanup (Processing.swift:5-6, 131-134).
 
 ## 7. Mode
@@ -87,7 +87,7 @@ The raw transcript is written to History before cleanup (Controller.swift:970-97
 - After a successful insertion that is not a cue expansion, when learning is on (Controller.swift:1168-1169, Controller+Learning.swift:35).
 - Watch the field up to 60 s, until focus leaves or the next insertion (Observation.swift:54, Controller+Learning.swift:7-9); poll every 0.25 s, settle after 2 s of stable text. The Mac falls back to following keystrokes through a listen-only tap when the field can't be read; nothing typed is stored.
 - Edits pass `CorrectionFilter` (Learning.swift:39-70): structure check, meaning guards, respelling similarity (0.75, or 0.5 with a phonetic match), lexicon guard. One settled fix promotes (Learning.swift:364); the user sees a "learned" notice with Undo. Editing a History entry also learns (Controller+History.swift:34-45).
-- **Windows:** read-back through UI Automation; whether to port the keystroke fallback is a user decision (PLAN open question 7).
+- **Windows:** read-back through UI Automation; the keystroke fallback is ported, scoped to the paste target for a bounded time and never stored (PLAN "Learning from edits").
 
 ## 13. Voice edit
 
