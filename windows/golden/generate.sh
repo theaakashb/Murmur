@@ -15,6 +15,11 @@ build="${TMPDIR:-/tmp}/murmur-golden"; mkdir -p "$build" "$here/golden/data"
 sources=()
 for f in "$here"/golden/golden_*.swift "$here"/shared/export_*.swift; do [ -e "$f" ] && sources+=("$f"); done
 failed=0
+# Golden output depends on the Mac's Swift runtime and ICU, so the toolchain that made the committed files is recorded.
+toolchain="macOS $(sw_vers -productVersion), $(swift --version 2>&1 | sed -n 's/.*\(Apple Swift version [^ ]*\).*/\1/p' | head -1)"
+if [ $check = 1 ] && [ "$(cat "$here/golden/toolchain.txt" 2>/dev/null)" != "$toolchain" ]; then
+  echo "note: committed files were made with '$(cat "$here/golden/toolchain.txt" 2>/dev/null)', this is '$toolchain'; a difference may come from the OS, not a code change" >&2
+fi
 for src in "${sources[@]}"; do
   base="${src##*/}"; name="${base#golden_}"; name="${name#export_}"; name="${name%.swift}"
   if [ $# -gt 0 ] && [[ " $* " != *" $name "* ]]; then continue; fi
@@ -31,4 +36,5 @@ for src in "${sources[@]}"; do
     mv "$build/${base%.swift}.json" "$target"; echo "wrote ${target#$here/}"
   fi
 done
+[ $check = 1 ] || [ $# -gt 0 ] || echo "$toolchain" > "$here/golden/toolchain.txt"
 exit $failed

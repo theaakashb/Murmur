@@ -203,23 +203,29 @@ The corpora are read in place (`app/cleanup-corpus.json`, `app/meeting-notes-cor
 | `WritingModes.swift` | presets (M4) |
 | `CallApps.swift` | call-app catalog, with a Windows process-name column added (M5) |
 
+Found while porting M1, for the same Mac PR:
+- Word lists defined inside Swift functions can't be exported. This covers prepositions, tenses, determiners and opposite prefixes in `CleanupGuard.swift` and `RuleCleaner.swift`. They are copied into the C# by hand, and the golden files check them. They should become `static let`s.
+- `Learning.swift`'s private `inflectionSuffixes` is read from the source line by a regex in `export_learning.swift`. Making it internal removes that.
+
 Thresholds and timings (`AudioFormat.swift`, `Shortcut.swift`, `Observation.swift`) could move too, but they're single numbers. They stay as constants ported by hand unless the Mac PR decides otherwise.
 
 ### Parity contract
 
+- **Golden toolchain:** golden output depends on the Mac's Swift runtime and ICU. `windows/golden/toolchain.txt` records the macOS and Swift versions that made the committed files. GitHub's newest macOS runner (macOS 26) is older than the dev Mac (macOS 27), so `generate.sh --check` runs on the dev Mac through `app/check.sh windows_parity`, not in CI.
 - **Golden files:** `windows/golden/golden_*.swift` run the Swift logic over the corpora plus synthetic edge cases (non-ASCII, emoji, long and punctuation-only text) and write `windows/golden/data/*.json`. The C# tests compare case by case. Golden files are generated on macOS only, since Linux Swift's Foundation can differ on exactly those inputs.
 - **Lexicon in golden runs:** where the Mac uses `NSSpellChecker`, generators and C# tests inject the same fixed synthetic word list. The golden files then test the logic, not the two lexicons. The bundled Windows word list is tested separately.
 - **Three checks, all failing on drift:**
-  1. `windows/golden/generate.sh --check` (macOS) fails when a Mac change alters golden or shared output that wasn't regenerated.
+  1. `windows/golden/generate.sh --check` (dev Mac) fails when a Mac change alters golden or shared output that wasn't regenerated.
   2. `dotnet test` (Linux and Windows) fails when the C# output disagrees with golden.
   3. `windows/tools/check_parity.py` fails when a ported Swift file changed since its port. It compares against the SHA-256 recorded in `windows/porting.json`.
-- **Where they run:** the Mac's `app/check.sh` runs checks 1 and 3 as `windows_parity`, and CI (`.github/workflows/windows.yml`) runs all three.
+- **Where they run:** the Mac's `app/check.sh` runs checks 1 and 3 as `windows_parity`. CI (`.github/workflows/windows.yml`) runs checks 2 and 3.
+- **Check files are tracked too:** `windows/porting.json` lists the `check_*.swift` files whose assertions were ported, so a new or changed Mac assertion fails check 3 until it's ported.
 - **Consequence:** a Mac PR that changes ported behavior fails CI until it is ported, or until the port is knowingly deferred.
 
 ## CI
 
 - Workflow `.github/workflows/windows.yml`. It triggers on `windows/**`, `app/**` and the workflow itself: `app/**` was added to the approved `windows/**` scope because the parity contract must fail on Mac-side changes. `windows/porting.json` records which Swift file each port matches.
-- Jobs: `core` on `ubuntu-latest` and `windows-latest` (C# tests; the parity hash check on Linux); `golden` on `macos-latest` (`generate.sh --check`). `app` on `windows-latest` (build the solution, run tests, publish an unsigned self-contained build as an artifact).
+- Jobs: `core` on `ubuntu-latest` and `windows-latest` (C# tests; the parity hash check on Linux). There is no macOS job; see "Golden toolchain". `app` on `windows-latest` (build the solution, run tests, publish an unsigned self-contained build as an artifact).
 - Pin actions by commit SHA, as `secrets.yml` does. No secrets in pull-request jobs.
 - Release workflow (M6): runs on a tag, builds, signs with Azure Artifact Signing (or signtool with a hardware-backed cert on the user's VM), packs with Velopack, uploads to a draft GitHub release. Publishing stays manual.
 
@@ -272,7 +278,7 @@ Each milestone ends with a local commit on a branch, CI green, and a short repor
 | # | Milestone | Exit criteria |
 | --- | --- | --- |
 | M1 | Core text engine | Solution, CI and parity tooling. `Murmur.Core` ports CleanupTypes, CleanupText, CleanupGuard, RuleCleaner, Cleanup, CleanupPrompt, Dictionary, Learning, VoiceCues, PrivateFiles (behavior) and BoostFilter; their data constants come from `windows/shared/`. Exit: `dotnet test` passes with every golden case matching the Mac's output, including all 426 cleanup-corpus cases through `RuleCleaner` and `CleanupPipeline`; ported `check_*` assertions pass; `generate.sh --check` and `check_parity.py` pass. Runs entirely from this Mac. `Processing` moves to M2: its check needs the provider and route files ported there. |
-| M2 | Dictation shell, cloud route | WinUI tray app, bubble, hold-to-talk hook, WASAPI recording, Murmur Cloud and Custom Provider transcription and cleanup, paste insertion with clipboard-history exclusion, credentials, settings file, History with retention. Exit: on the user's PC, 20 real dictations into Notepad, a browser, Teams/Slack and VS Code with no lost clipboard and no transcript in Win+V history. |
+| M2 | Dictation shell, cloud route | Port `Processing` with the provider and route files. A `RegexMatchTimeoutException` from `CleanupGuard.Check`/`CleanupPipeline.Judge` must take the guard-rejection path (local rules), never lose a dictation; Swift has no such failure. `Murmur.App` overrides `InvariantGlobalization` (set for the core in `Directory.Build.props`) if WinUI needs culture data. WinUI tray app, bubble, hold-to-talk hook, WASAPI recording, Murmur Cloud and Custom Provider transcription and cleanup, paste insertion with clipboard-history exclusion, credentials, settings file, History with retention. Exit: on the user's PC, 20 real dictations into Notepad, a browser, Teams/Slack and VS Code with no lost clipboard and no transcript in Win+V history. |
 | M3 | Local ASR and local cleanup | `Murmur.Speech` with Parakeet Unified ONNX (pinned, verified download), warm runner, chunking, live words, hotword spike result. `Murmur.Cleanup` with our Vedu Scribe GGUF. Exit: WER and latency on the user's PC for 5/30/120 s real dictations next to the Mac's on the same recordings; cleanup corpus comparison against the Mac's MLX output written up in `CLEANUP_BENCHMARK.md`. The conversion and corpus comparison can start on this Mac before M2. |
 | M4 | Modes, voice edit, learning | Writing modes with app and website matching, voice edit, learning (UI Automation read-back plus scoped keystrokes), voice cues, tips, welcome guide. Exit: ported checks pass; the browser test matrix filled in; learning verified on readable and unreadable fields on the user's PC. |
 | M5 | Meetings | Process-loopback capture with silence fill, call detection and offer, meeting store, notes via Custom Provider, export, speaker separation. Exit: a real 30-minute Teams or Zoom call on the user's PC with aligned Me/Them, crash recovery tested by killing the process, notes corpus checks pass. |

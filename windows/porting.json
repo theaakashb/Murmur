@@ -1,5 +1,5 @@
 {
-  "about": "Swift files ported to C#: the C# files that port each one and the SHA-256 of the Swift file the port matches. Maintained with windows/tools/check_parity.py --update; see windows/CONTRIBUTING.md.",
+  "about": "Swift files ported to C#, including the check_*.swift files whose assertions became C# tests (check_modes: only its CleanupTypes/Tone assertions so far): the C# files that port each one and the SHA-256 of the Swift file the port matches. Maintained with windows/tools/check_parity.py --update; see windows/CONTRIBUTING.md.",
   "ported": {
     "app/Cleanup.swift": {
       "csharp": [
@@ -62,6 +62,41 @@
         "windows/src/Murmur.Core/VoiceCues.cs"
       ],
       "sha256": "25309a7176c49970b34c25690ef6d09f12dbf26e8a6061b5bc7aa20773d1d96d"
+    },
+    "app/check_boost_filter.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/BoostFilterTests.cs"
+      ],
+      "sha256": "7e4c4b69e47788366a752d05f6bfec190e5ff8a1fa0042d47764e5c69468ed56"
+    },
+    "app/check_cleanup.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/CleanupGuardTests.cs",
+        "windows/tests/Murmur.Core.Tests/RuleCleanerTests.cs",
+        "windows/tests/Murmur.Core.Tests/CleanupPipelineTests.cs",
+        "windows/golden/cleanup_cases.swift"
+      ],
+      "sha256": "46f773bb1881cae3ab749bbdcc84f07cbd8d10fb2ef49dd6f5f5a9e6dd54c9a2"
+    },
+    "app/check_dictionary.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/DictionaryTests.cs",
+        "windows/tests/Murmur.Core.Tests/LearningTests.cs",
+        "windows/tests/Murmur.Core.Tests/PrivateFilesTests.cs"
+      ],
+      "sha256": "441b217263f7861a28e6008e8b67848d3ea72b1ee0d1bdb8051495630bc495c2"
+    },
+    "app/check_modes.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/CleanupTextTests.cs"
+      ],
+      "sha256": "b662dd5786cf8e7aa1427b1c57569a7216a9f4a0d914600bc818fb6a931dc9a3"
+    },
+    "app/check_voice_cues.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/VoiceCuesTests.cs"
+      ],
+      "sha256": "3501435fb787cb4e7d5b0c2cb91fae2f0701d123d381d14f985fc90132fccb3b"
     },
     "module-one/models/Runner/Sources/ModelBench/BoostFilter.swift": {
       "csharp": [
