@@ -8,7 +8,10 @@ param(
     [string]$OutBase = 'C:\src',
     [int]$Count = 20,
     [switch]$SkipAppBuild,   # also implied by -AppExe
-    [string]$AppExe = ''
+    [string]$AppExe = '',
+    [switch]$LocalAsr,       # transcribe with the local speech helper instead of the fake provider; cleanup still uses the fake. Needs -ModelDir and a published Murmur.Speech
+    [string]$ModelDir = '',  # folder with encoder/decoder/joiner .int8.onnx and tokens.txt (used with -LocalAsr)
+    [string]$SpeechHelper = ''  # path to MurmurSpeech.exe (used with -LocalAsr)
 )
 $ErrorActionPreference = 'Stop'
 $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -74,6 +77,10 @@ try {
         customAPIModel = 'fake-cleanup'; customTranscriptionModel = 'fake-asr'; customAPIReasoningEffort = ''
         automaticInsertion = $true; historyMode = 'on'; shortcut = 'right-ctrl'
     }
+    if ($LocalAsr) {
+        if (-not (Test-Path (Join-Path $ModelDir 'encoder.int8.onnx')) -or -not (Test-Path $SpeechHelper)) { throw '-LocalAsr needs -ModelDir (model folder) and -SpeechHelper (MurmurSpeech.exe)' }
+        $settings.transcriptionRoute = 'local'; $settings.modelDirectory = $ModelDir
+    }
     $settings | ConvertTo-Json | Set-Content (Join-Path $data 'settings.json') -Encoding UTF8
     # An elevated SSH session creates the run folder owned by Administrators; the unelevated app must own its data folder to make it private.
     & icacls $run /setowner (whoami) /T /C /Q | Out-Null
@@ -85,6 +92,7 @@ try {
         "set MURMUR_DATA_DIR=$data"
         "set MURMUR_SYNTHETIC_AUDIO=$synth"
         'set MURMUR_TEST_EVENTS=1'
+        $(if ($LocalAsr) { "set MURMUR_SPEECH_HELPER=$SpeechHelper" })
         "`"$AppExe`""
     ) | Set-Content $launcher -Encoding ASCII
     Start-InSession1 'MurmurHarnessApp' 'cmd.exe' "/c `"$launcher`""
@@ -109,7 +117,9 @@ try {
         $empty = @($tr | Where-Object { $_.audioBytes -le 0 }).Count
         $line = "Provider: $($tr.Count) transcription and $($ch.Count) cleanup requests; $empty transcription requests had no audio."
         Add-Content "$run\summary.txt" "`n$line"; Write-Host $line
-        if ($tr.Count -lt $Count -or $empty -gt 0) { $driverExit = 1 }
+        # Local ASR: the provider must have seen no transcription request (the helper did that work) and one cleanup request per dictation.
+        if ($LocalAsr) { if ($tr.Count -ne 0 -or $ch.Count -lt $Count) { $driverExit = 1 } }
+        elseif ($tr.Count -lt $Count -or $empty -gt 0) { $driverExit = 1 }
     } catch { Write-Host "Could not read provider log: $_"; $driverExit = 1 }
 }
 finally {
