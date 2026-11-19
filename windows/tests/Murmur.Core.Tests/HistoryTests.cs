@@ -200,7 +200,7 @@ public class HistoryTests
         var outside = TempDirs.New("outside"); Directory.CreateDirectory(outside);
         var entry = Entry();
         File.WriteAllBytes(Path.Combine(outside, entry.Id + ".json"), StoreJson.Encode(entry));
-        try { File.CreateSymbolicLink(Path.Combine(root, entry.Id + ".json"), Path.Combine(outside, entry.Id + ".json")); } catch (Exception e) when (e is UnauthorizedAccessException or IOException) { return; }
+        try { File.CreateSymbolicLink(Path.Combine(root, entry.Id + ".json"), Path.Combine(outside, entry.Id + ".json")); } catch (Exception e) when (OperatingSystem.IsWindows() && e is UnauthorizedAccessException or IOException) { return; }
         Assert.Empty(store.Entries());
         Assert.True(File.Exists(Path.Combine(outside, entry.Id + ".json")), "a linked entry is neither read nor moved");
 

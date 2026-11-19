@@ -18,7 +18,8 @@ internal static class Links
             process.WaitForExit();
             return process.ExitCode == 0 && Directory.Exists(link);
         }
-        catch (Exception e) when (e is UnauthorizedAccessException or IOException) { return false; }
+        // Only Windows without the symlink privilege may skip; anywhere else a link that cannot be made is a failed test, not a pass.
+        catch (Exception e) when (OperatingSystem.IsWindows() && e is UnauthorizedAccessException or IOException) { return false; }
     }
 
     /// <summary>The two variants: symlink on every platform, junction on Windows only (Windows-only cases run nowhere else).</summary>

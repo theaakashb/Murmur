@@ -3,7 +3,7 @@ import Foundation
 
 // Golden outputs of History.swift's entry model over synthetic entries: the JSON Swift writes (so Windows files stay interchangeable),
 // the wording of each status, the outcome line, AfterPaste.trimmingAppended (including a seeded run of random word lists, which
-// pins how ties in the word difference are broken), and the quarantine notice. One case per line. Run from the repository root.
+// pins how ties in the word difference are broken: Swift's linear-space Myers), and the quarantine notice. One case per line. Run from the repository root.
 struct EntryCase: Encodable {
     var label: String, json: String
     var needsAttention: Bool, statusLabel: String?, statusNote: String?, outcomeNote: String?
@@ -68,27 +68,9 @@ func lines<T: Encodable>(_ name: String, _ items: [T]) -> String {
         var seed: UInt64 = 20_260_101
         func next(_ bound: Int) -> Int { seed = seed &* 6364136223846793005 &+ 1442695040888963407; return Int((seed >> 33) % UInt64(bound)) }
         let alphabet = ["a", "b", "c", "d"]
-        // Which of several equally short edit scripts Swift's word difference reports is a detail of the standard library that the C# port does not
-        // reproduce; so the random cases keep only the pairs with exactly one shortest edit script, where every correct algorithm must agree.
-        func scripts(_ a: [String], _ b: [String]) -> Set<String> {
-            var lcs = Array(repeating: Array(repeating: 0, count: b.count + 1), count: a.count + 1)
-            for i in stride(from: a.count - 1, through: 0, by: -1) { for j in stride(from: b.count - 1, through: 0, by: -1) {
-                lcs[i][j] = a[i] == b[j] ? lcs[i + 1][j + 1] + 1 : max(lcs[i + 1][j], lcs[i][j + 1])
-            } }
-            var found = Set<String>()
-            func walk(_ i: Int, _ j: Int, _ removed: [Int], _ inserted: [Int]) {
-                if i == a.count && j == b.count { found.insert("\(removed)|\(inserted)"); return }
-                if i < a.count && j < b.count && a[i] == b[j] && lcs[i][j] == lcs[i + 1][j + 1] + 1 { walk(i + 1, j + 1, removed, inserted) }
-                if i < a.count && lcs[i][j] == lcs[i + 1][j] { walk(i + 1, j, removed + [i], inserted) }
-                if j < b.count && lcs[i][j] == lcs[i][j + 1] { walk(i, j + 1, removed, inserted + [j]) }
-            }
-            walk(0, 0, [], [])
-            return found
-        }
-        for _ in 0..<600 {
+        for _ in 0..<300 {
             let saidWords = (0..<next(8)).map { _ in alphabet[next(alphabet.count)] }
             let typedWords = (0..<next(9)).map { _ in alphabet[next(alphabet.count)] }
-            if scripts(saidWords, typedWords).count > 1 { continue }
             let said = saidWords.joined(separator: " "), typed = typedWords.joined(separator: " ")
             trim(said, typed)
         }
