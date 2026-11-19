@@ -1,5 +1,6 @@
 // The Windows model facts (wording, pins, folders), ModelSlot and ModelFlow. The layouts and gates that come from the Swift code are compared in ModelTextGoldenTests.
 using System.Text;
+using System.Threading.Channels;
 using Murmur.Core;
 using static Murmur.Core.Tests.ModelTestSupport;
 
@@ -89,7 +90,7 @@ public class ModelTextTests
         Assert.Contains("Example License", dialogs.Shown[0].Body);
         Assert.True(gateCalls == 2, "the gate is checked again after the dialog");
         Assert.True(slot.Status == ModelStatus.Ready && !slot.InFlight && slot.Message == "The model is downloaded and verified. Murmur is ready to dictate.");
-        Assert.True(changes >= 3);
+        Assert.True(changes >= 2);
         Assert.Equal(fixture.Contents[0].Bytes, File.ReadAllBytes(System.IO.Path.Combine(slot.Downloader.Target, "config.json")));
         Assert.Equal([ModelRowAction.Remove], slot.Row.Actions);
     }
@@ -122,11 +123,17 @@ public class ModelTextTests
         var slot = TinySlot(temp.Path, transport, out _);
         slot.Downloader!.Install();
         slot.Status = slot.Downloader.Status();
-        var order = new List<string>();
         var dialogs = new Dialogs();
-        var flow = new ModelFlow(slot, dialogs) { Release = go => { order.Add("release"); go(); order.Add("went"); }, DidRemove = () => order.Add("removed") };
+        var removed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var existedAtRelease = false;
+        var flow = new ModelFlow(slot, dialogs)
+        {
+            Release = go => { existedAtRelease = Directory.Exists(slot.Downloader.Target); go(); },
+            DidRemove = () => removed.SetResult()
+        };
         flow.Remove();
-        Assert.Equal(["release", "removed", "went"], order);
+        await removed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(existedAtRelease);
         Assert.Equal("The model was removed.", slot.Message);
         Assert.Equal(ModelStatus.NotDownloaded, slot.Status);
         Assert.False(Directory.Exists(slot.Downloader.Target));
@@ -139,20 +146,53 @@ public class ModelTextTests
         new ModelFlow(slot, new Dialogs()) { RemoveGate = () => ModelGate.RemoveRefusal(isBusy: false, preview: false, downloading: true) }.Remove();
         Assert.Equal("Cancel the download before removing the model.", slot.Message);
         Assert.True(Directory.Exists(slot.Downloader.Target));
-        await Task.CompletedTask;
     }
 
     [Fact]
-    public async Task ProgressAndCompletionGoThroughPost()
+    public async Task SlowDownloadDoesNotBlockAndCoalescesProgressThroughPost()
     {
         using var temp = new TempDir();
-        var transport = new FakeTransport();
-        var slot = TinySlot(temp.Path, transport, out _);
-        var done = new TaskCompletionSource<ModelDownloadError?>();
-        var posted = 0;
-        new ModelFlow(slot, new Dialogs()) { Post = a => { Interlocked.Increment(ref posted); a(); }, DidDownload = e => done.SetResult(e), PushProgress = true }.Download();
-        await done.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        Assert.True(posted > 2, "worker-thread callbacks are marshalled");
+        using var release = new ManualResetEventSlim();
+        var fetching = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var transport = new FakeTransport { ChunkSize = 4096 };
+        var fixture = new Fixture { Contents = [new("large.bin", new byte[16 * 1024 * 1024], true)] };
+        fixture.Serve(transport);
+        transport.OnChunk = (_, delivered) =>
+        {
+            if (delivered != 1024 * 1024) return;
+            fetching.TrySetResult(Environment.CurrentManagedThreadId);
+            if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
+        };
+        var slot = new ModelSlot(ModelFacts.Batch with { Repository = Repository }, Encoding.UTF8.GetBytes(fixture.Json()), temp.Path, transport);
+        var posts = Channel.CreateUnbounded<Action>();
+        var done = new TaskCompletionSource<ModelDownloadError?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var flow = new ModelFlow(slot, new Dialogs())
+        {
+            Post = action => posts.Writer.TryWrite(action),
+            DidDownload = error => done.SetResult(error),
+            PushProgress = true
+        };
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try
+        {
+            int caller = await Task.Factory.StartNew(() =>
+            {
+                flow.Download();
+                return Environment.CurrentManagedThreadId;
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).WaitAsync(timeout.Token);
+            Assert.NotEqual(caller, await fetching.Task.WaitAsync(timeout.Token));
+            var update = await posts.Reader.ReadAsync(timeout.Token);
+            Assert.Equal(0, slot.Status.Progress!.Value.BytesDone);
+            await Task.Delay(350, timeout.Token);
+            Assert.False(posts.Reader.TryPeek(out _));
+            update();
+            Assert.Equal(1024 * 1024, slot.Status.Progress!.Value.BytesDone);
+            flow.Cancel();
+        }
+        finally { release.Set(); }
+        while (!done.Task.IsCompleted) (await posts.Reader.ReadAsync(timeout.Token))();
+        Assert.Equal(ModelDownloadError.Cancelled, await done.Task);
+        Assert.False(Directory.Exists(slot.Downloader!.Target));
     }
 
     [Fact]
