@@ -32,11 +32,29 @@
       ],
       "sha256": "01c4751444e8fe6489e21258c7b21d2a13a71e0168048f97b0c5c2bc2642ed9b"
     },
+    "app/Delivery.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Delivery.cs"
+      ],
+      "sha256": "d84f1e65ab17d4fff20e0453173ec0a65cfd9ddcb3bf5a645d7b57e35d48e354"
+    },
     "app/Dictionary.swift": {
       "csharp": [
         "windows/src/Murmur.Core/Dictionary.cs"
       ],
       "sha256": "573e936db26c694ea44af30841cc3df6111bd41e769ece5e77573fe17387a122"
+    },
+    "app/History.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/History.cs"
+      ],
+      "sha256": "f3eff9b8d243a1c30186f061eabea33fedec937a633c842418b44616681ea263"
+    },
+    "app/HistoryRouter.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/HistoryRouter.cs"
+      ],
+      "sha256": "f7f1a94c42dbf4362744825296045cca23a65444f0e0d9c1bd6e71c5f90a28b3"
     },
     "app/Learning.swift": {
       "csharp": [
@@ -50,6 +68,12 @@
       ],
       "sha256": "3e6a9a35b8a819b5aa49b7b8146bd5a6d65e5108642ba9c23cde5bef171c5765"
     },
+    "app/Retention.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Retention.cs"
+      ],
+      "sha256": "1c162413effd88cd753d8699e9e1905b306bc0d793e1789e14b9c561c52418eb"
+    },
     "app/RuleCleaner.swift": {
       "csharp": [
         "windows/src/Murmur.Core/RuleCleaner.cs",
@@ -57,11 +81,43 @@
       ],
       "sha256": "3e51b3237f87fa2f3de56f5706c35c22c95bb3ae93372cefacb740c34b13c7fe"
     },
+    "app/Session.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Session.cs"
+      ],
+      "sha256": "fcd9618b8c1d7061d185abf882acf3973d35a018d33404ddf4254adddd423895"
+    },
+    "app/Settings.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Settings.cs",
+        "windows/src/Murmur.Core/JsonSettingsStore.cs"
+      ],
+      "sha256": "0860f7c917f89b70671c0709dbe3bc1b0fc2ea50680ef6f7dd9013512c1de809"
+    },
+    "app/Shortcut.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/ShortcutMachine.cs"
+      ],
+      "sha256": "fb269e130b6293df75d41c07d6bbef22a0dcd879629e66e1896b28a6c0e189e0"
+    },
     "app/VoiceCues.swift": {
       "csharp": [
         "windows/src/Murmur.Core/VoiceCues.cs"
       ],
       "sha256": "25309a7176c49970b34c25690ef6d09f12dbf26e8a6061b5bc7aa20773d1d96d"
+    },
+    "app/WritingModes.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/WritingModes.cs"
+      ],
+      "sha256": "0bd45ec9354204633b3e1e69f236940d0a5523c52469452cb565f485262bc69b"
+    },
+    "app/check_app_services.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/RetentionTests.cs",
+        "windows/tests/Murmur.Core.Tests/BackupTests.cs"
+      ],
+      "sha256": "bc924b3c45ca50f2cd4085d0afc99d29a2d37a5732dfcc40034c4d2400c61210"
     },
     "app/check_boost_filter.swift": {
       "csharp": [
@@ -78,6 +134,12 @@
       ],
       "sha256": "46f773bb1881cae3ab749bbdcc84f07cbd8d10fb2ef49dd6f5f5a9e6dd54c9a2"
     },
+    "app/check_delivery.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/DeliveryTests.cs"
+      ],
+      "sha256": "9d2e0b3d62640b9aab141e18098f5bd3b237b6b3d85ad65d0e0a9b90e3fde4e5"
+    },
     "app/check_dictionary.swift": {
       "csharp": [
         "windows/tests/Murmur.Core.Tests/DictionaryTests.cs",
@@ -86,9 +148,17 @@
       ],
       "sha256": "441b217263f7861a28e6008e8b67848d3ea72b1ee0d1bdb8051495630bc495c2"
     },
+    "app/check_history.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/HistoryTests.cs"
+      ],
+      "sha256": "717850149816a377d9b291c2377dcbf73a2a229e47acbaa2ee21f46673437a2b"
+    },
     "app/check_modes.swift": {
       "csharp": [
-        "windows/tests/Murmur.Core.Tests/CleanupTextTests.cs"
+        "windows/tests/Murmur.Core.Tests/CleanupTextTests.cs",
+        "windows/tests/Murmur.Core.Tests/WritingModesTests.cs",
+        "windows/tests/Murmur.Core.Tests/SettingsTests.cs"
       ],
       "sha256": "b662dd5786cf8e7aa1427b1c57569a7216a9f4a0d914600bc818fb6a931dc9a3"
     },
