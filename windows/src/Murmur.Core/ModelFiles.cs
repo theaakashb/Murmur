@@ -4,14 +4,14 @@ using System.Reflection;
 
 namespace Murmur.Core;
 
-/// <summary>The one place that finds the pins manifest. Windows: <c>artifact-pins.json</c> must be copied beside Murmur.exe by the app build (not wired yet: until it is, <see cref="Pins"/> returns null for <see cref="ModelPinsSource.ArtifactPins"/>); the Windows-only manifest is embedded in Murmur.Core.</summary>
+/// <summary>The one place that finds the pins manifest. Windows: <c>artifact-pins.json</c> is copied beside Murmur.exe by the Murmur.App build; the Windows-only manifest is embedded in Murmur.Core.</summary>
 public static class BundledModels
 {
     /// <summary>Overridable for tests and for a portable layout.</summary>
     public static string PinsPath { get; set; } = Path.Combine(AppContext.BaseDirectory, "artifact-pins.json");
 
-    /// <summary>The cleanup helper (Murmur.Cleanup, built from windows/src/Murmur.Cleanup) beside Murmur.exe. Swift: <c>Bundle.main.url(forAuxiliaryExecutable:)</c>.</summary>
-    public static string CleanupHelperPath { get; set; } = Path.Combine(AppContext.BaseDirectory, "Murmur.Cleanup.exe");
+    /// <summary>The cleanup helper (Murmur.Cleanup, built from windows/src/Murmur.Cleanup) in Cleanup\ beside Murmur.exe. Swift: <c>Bundle.main.url(forAuxiliaryExecutable:)</c>.</summary>
+    public static string CleanupHelperPath { get; set; } = Path.Combine(AppContext.BaseDirectory, "Cleanup", LocalCleanupIdentity.HelperName);
 
     /// <summary>The bytes of the manifest a model's pins live in; null when the file is missing.</summary>
     public static byte[]? Pins(ModelPinsSource source)

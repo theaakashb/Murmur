@@ -11,7 +11,7 @@ namespace Murmur.Core;
 public static class LocalCleanupIdentity
 {
     public const string ModelName = "Vedu Scribe 0.8B";
-    /// <summary>Murmur.Cleanup.exe, beside Murmur.exe (the Mac's helper is LocalCleanupRunner).</summary>
+    /// <summary>Murmur.Cleanup.exe, in Cleanup\ beside Murmur.exe (the Mac's helper is LocalCleanupRunner).</summary>
     public const string HelperName = "Murmur.Cleanup.exe";
     /// <summary>Recorded in History: the pinned repository and the first 7 characters of its revision (artifact-pins.json). The Windows GGUF is the same weights, so the id is the Mac's.</summary>
     public const string ModelID = "heyvedu/vedu-scribe-0.8b@7dced58";
@@ -91,7 +91,7 @@ public sealed class LocalCleanupRunner
 {
     public static LocalCleanupRunner Shared { get; } = new();
 
-    /// <summary>The cleanup helper; Murmur.Cleanup.exe beside Murmur.exe unless the app sets it.</summary>
+    /// <summary>The cleanup helper; Cleanup\Murmur.Cleanup.exe beside Murmur.exe unless the app sets it.</summary>
     public static string HelperPath { get; set; } = BundledModels.CleanupHelperPath;
 
     static string? modelDirectory;
