@@ -22,9 +22,13 @@ internal sealed class SettingsWindow : Window
         Title = "Murmur Settings";
         AppWindow.Resize(new Windows.Graphics.SizeInt32(760, 800));
         Content = new ScrollViewer { Content = page };
-        BuildTranscription(); BuildCleanup(); BuildProvider(); BuildKeys(); BuildRecording(); BuildInsertion(); BuildData();
+        BuildTranscription(); BuildCleanup(); BuildModels(); BuildProvider(); BuildKeys(); BuildRecording(); BuildInsertion(); BuildData();
         page.Children.Add(status);
+        UpdateModelRoutes();
     }
+
+    readonly Dictionary<object, RadioButton> modelRoutes = [];
+    ModelRow? speechRow, cleanupRow;
 
     RouteSettings Routes => RouteSettings.Load(s.Settings);
     void SaveRoutes(Func<RouteSettings, RouteSettings> change) { change(Routes).Save(s.Settings); foreach (var refresh in refreshNotes) refresh(); }
@@ -75,11 +79,11 @@ internal sealed class SettingsWindow : Window
     // ---- routes ----
 
     static readonly (TranscriptionRoute Route, string Label)[] TranscriptionChoices = [(TranscriptionRoute.Local, "Local (this PC)"), (TranscriptionRoute.Cloud, "Custom Provider"), (TranscriptionRoute.MurmurCloud, "Murmur Cloud")];
-    static readonly (CleanupChoice Choice, string Label)[] CleanupChoices = [(CleanupChoice.LocalRules, "Local rules"), (CleanupChoice.LocalModel, "Local model (arrives in M3)"), (CleanupChoice.CustomAPI, "Custom Provider"), (CleanupChoice.MurmurCloud, "Murmur Cloud")];
+    static readonly (CleanupChoice Choice, string Label)[] CleanupChoices = [(CleanupChoice.LocalRules, "Local rules"), (CleanupChoice.LocalModel, "Local model (this PC)"), (CleanupChoice.CustomAPI, "Custom Provider"), (CleanupChoice.MurmurCloud, "Murmur Cloud")];
 
     string TranscriptionNote(TranscriptionRoute route)
     {
-        if (route == TranscriptionRoute.Local) return "Audio stays on this PC. Local speech recognition arrives in M3, so dictation needs a cloud route until then.";
+        if (route == TranscriptionRoute.Local) return s.Local.ModelFilesPresent ? "Audio stays on this PC. Parakeet Unified runs on this PC without the network." : "Audio stays on this PC. Download the speech model under Models below to use this.";
         var plan = RoutePlan.Make(Routes with { Transcription = route }, true, s.Key);
         return DisclosureText.Summary(plan, ProcessingStage.Transcription)
             ?? (route == TranscriptionRoute.Cloud ? "Sends each recording to the address you enter below. Nothing is sent until you enter an address and a model." : "Sends each recording to Murmur Cloud.");
@@ -88,7 +92,7 @@ internal sealed class SettingsWindow : Window
     string CleanupNote(CleanupChoice choice)
     {
         if (choice == CleanupChoice.LocalRules) return "Text stays on this PC.";
-        if (choice == CleanupChoice.LocalModel) return "The local cleanup model arrives in M3.";
+        if (choice == CleanupChoice.LocalModel) return LocalCleanupRunner.InstalledStatus() is null ? "Text stays on this PC. One fixed prompt: screen context and rewrite presets are not used." : "Text stays on this PC. Needs the cleanup model under Models below.";
         var plan = RoutePlan.Make(Routes with { Cleanup = choice }, true, s.Key);
         return DisclosureText.Summary(plan, ProcessingStage.Cleanup)
             ?? (choice == CleanupChoice.CustomAPI ? "Sends the transcript text to the address you enter below. Nothing is sent until you enter an address and a model." : "Sends the transcript text to Murmur Cloud.");
@@ -101,6 +105,7 @@ internal sealed class SettingsWindow : Window
         {
             var radio = new RadioButton { Content = label, GroupName = "transcription", IsChecked = Routes.Transcription == route };
             radio.Checked += (_, _) => SaveRoutes(r => r with { Transcription = route });
+            if (route == TranscriptionRoute.Local) modelRoutes[route] = radio;
             page.Children.Add(radio);
             Note(live: () => TranscriptionNote(route));
         }
@@ -111,12 +116,12 @@ internal sealed class SettingsWindow : Window
         Heading("Cleanup");
         foreach (var (choice, label) in CleanupChoices)
         {
-            var radio = new RadioButton { Content = label, GroupName = "cleanup", IsChecked = Routes.Cleanup == choice, IsEnabled = choice != CleanupChoice.LocalModel };
+            var radio = new RadioButton { Content = label, GroupName = "cleanup", IsChecked = Routes.Cleanup == choice };
+            if (choice == CleanupChoice.LocalModel) modelRoutes[choice] = radio;
             radio.Checked += (_, _) => SaveRoutes(r => r with { Cleanup = choice });
             page.Children.Add(radio);
             Note(live: () => CleanupNote(choice));
         }
-        Note("In this build every cleanup choice runs the local rules; model cleanup arrives with the processing port.", margin: new Thickness(0, 0, 0, 6));
         Toggle("Remove filler words", Prefs.CleanupFillers);
         Toggle("Apply spoken corrections", Prefs.CleanupCorrections);
         Toggle("Format spoken lists", Prefs.CleanupLists);
@@ -126,6 +131,36 @@ internal sealed class SettingsWindow : Window
         Toggle("Professional (model routes only)", Prefs.CleanupProfessional);
         Toggle("Use screen context (model routes only)", Prefs.ScreenContext);
         Note("With Polish or Professional on a Custom Provider or Murmur Cloud, words from the screen can appear in the pasted text.", margin: new Thickness(0, 0, 0, 6));
+    }
+
+    // ---- models ----
+
+    void BuildModels()
+    {
+        Heading("Models");
+        Note("Downloaded once, checked against pinned checksums, and kept on this PC. Delete all data keeps them.", margin: new Thickness(0, 0, 0, 6));
+        speechRow = new ModelRow(s, s.SpeechSlot, controller, () => Content.XamlRoot, go => { s.Local.Release(); go(); }, UpdateModelRoutes);
+        cleanupRow = new ModelRow(s, s.CleanupSlot, controller, () => Content.XamlRoot, go => { LocalCleanupRunner.Shared.Shutdown(); go(); }, UpdateModelRoutes);
+        page.Children.Add(new TextBlock { Text = "Speech recognition", Opacity = 0.7, FontSize = 12 });
+        page.Children.Add(speechRow.Panel);
+        page.Children.Add(new TextBlock { Text = "Cleanup", Opacity = 0.7, FontSize = 12 });
+        page.Children.Add(cleanupRow.Panel);
+    }
+
+    /// <summary>Enables "Local (this PC)" and "Local model" only while their files are installed and pass the pinned checksums. Hashing runs off the UI thread (once per launch, then cached).</summary>
+    void UpdateModelRoutes()
+    {
+        _ = Task.Run(() =>
+        {
+            var speech = s.Local.HelperPresent && s.Local.ModelFilesPresent && s.Local.Verify();
+            var cleanup = LocalCleanupRunner.InstalledStatus() is null && (LocalCleanupRunner.Verifier?.Invoke() ?? false);
+            s.UI.TryEnqueue(() =>
+            {
+                modelRoutes[TranscriptionRoute.Local].IsEnabled = speech;
+                modelRoutes[CleanupChoice.LocalModel].IsEnabled = cleanup;
+                foreach (var refresh in refreshNotes) refresh();
+            });
+        });
     }
 
     void BuildProvider()

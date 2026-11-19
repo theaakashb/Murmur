@@ -8,7 +8,7 @@ using LLama.Sampling;
 // Managed local cleanup helper, the Windows counterpart of module-one/cleanup/Runner (LocalCleanupRunner):
 // one JSON object per line on stdin, one reply per line on stdout.
 //   {"id":1,"text":"...","tone":"formal"|"casual","terms":["..."]}  ->  {"id":1,"text":"..."} | {"id":1,"error":"too-long"|"failed"}
-// No networking, no transcript logging. A fresh context per request. argv[0] is the verified GGUF path.
+// No networking, no transcript logging. A fresh context per request. argv[0] is the verified model folder (its .gguf is loaded) or the GGUF itself.
 // The app owns cancellation by terminating this process.
 
 if (args.Length < 1) return 2;
@@ -38,10 +38,12 @@ static string Chatml(string prompt) =>
 
 if (Environment.GetEnvironmentVariable("MURMUR_CLEANUP_DEBUG") != "1") NativeLogConfig.llama_log_set((_, _) => { });
 
+// The app passes the model folder (as the Mac's runner does); the folder holds exactly the pinned GGUF.
+var modelPath = Directory.Exists(args[0]) ? Directory.EnumerateFiles(args[0], "*.gguf").FirstOrDefault() ?? args[0] : args[0];
 LLamaWeights weights;
-try { weights = LLamaWeights.LoadFromFile(new ModelParams(args[0]) { ContextSize = 2048, GpuLayerCount = 0 }); }
+try { weights = LLamaWeights.LoadFromFile(new ModelParams(modelPath) { ContextSize = 2048, GpuLayerCount = 0 }); }
 catch (Exception e) { if (Environment.GetEnvironmentVariable("MURMUR_CLEANUP_DEBUG") == "1") Console.Error.WriteLine(e); Send(new { ready = false }); return 3; }
-var contextParams = new ModelParams(args[0]) { ContextSize = 2048, GpuLayerCount = 0 };
+var contextParams = new ModelParams(modelPath) { ContextSize = 2048, GpuLayerCount = 0 };
 
 if (args.Length > 1 && args[1] == "--tokenize")   // Parity test aid: prints token IDs of each stdin line (JSON string) for plain and templated text.
 {

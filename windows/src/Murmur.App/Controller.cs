@@ -194,8 +194,11 @@ internal sealed class Controller : IDisposable
         {
             if (!s.Local.HelperPresent) return StartFailed("local-helper-missing", "The speech helper is missing. Reinstall Murmur.");
             if (!s.Local.ModelFilesPresent) return StartFailed("local-model-missing", "The speech model is not installed yet. Download it in Settings, or pick a Custom Provider or Murmur Cloud.");
+            if (s.Local.ModelDamaged) return StartFailed("local-model-damaged", "The speech model failed its checksum check. Remove it in Settings and download it again.");
             s.Local.Prepare();
         }
+        // Load the cleanup model while the user speaks, so that cost is not inside the dictation.
+        (plan.Cleaner as LocalModelCleanupProvider)?.Prewarm();
 
         // The recorder was started from the hook thread at key down; a UUID per recording, created exclusively by the recorder.
         var pre = early ?? StartEarly();
@@ -487,6 +490,7 @@ internal sealed class Controller : IDisposable
         hook.Dispose();
         try { session?.Recorder?.Stop(); } catch (Exception) { }
         s.Local.Dispose();
+        LocalCleanupRunner.Shared.Shutdown();
         s.Paste.FlushRestore();
     }
 }
