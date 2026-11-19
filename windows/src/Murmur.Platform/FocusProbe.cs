@@ -14,7 +14,7 @@ public sealed record FocusInfo(int ProcessId, string ProcessName, nint WindowHan
 /// Focused element through UI Automation (COM). Works across processes only from the logged-in desktop session.
 /// UIA calls into the target app and can block while it hangs: call from a worker thread, not the hook or UI thread.
 /// </summary>
-public static class FocusProbe
+public static partial class FocusProbe
 {
     const int ProcessIdProp = 30002, ControlTypeProp = 30003, IsPasswordProp = 30019, NativeWindowHandleProp = 30020, ValueValueProp = 30045, TextPatternId = 10014;
     const int MaxText = 100_000;
