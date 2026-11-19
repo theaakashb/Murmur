@@ -33,7 +33,7 @@ public partial class App : Application
         {
             // Mac parity: transcripts are never stored in a folder Murmur can't make private (PrivateFiles). Say so instead of crashing.
             CrashLog.Write(e);
-            Native.MessageBoxW(IntPtr.Zero, "Murmur can't make its data folder private, so it won't store dictations there. Make sure your Windows account owns the folder:\n\n" + (Environment.GetEnvironmentVariable("MURMUR_DATA_DIR") is { Length: > 0 } d ? d : MurmurDataLocations.Root), "Murmur", 0x10);
+            Native.MessageBoxW(IntPtr.Zero, "Murmur can't make its data folder private, so it won't store dictations there. Make sure your Windows account owns the folder:\n\n" + (Environment.GetEnvironmentVariable("MURMUR_DATA_DIR") is { Length: > 0 } d ? d : Murmur.Core.MurmurDataLocations.Root), "Murmur", 0x10);
             Exit();
         }
         catch (Exception e) { CrashLog.Write(e); throw; }
