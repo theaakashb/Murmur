@@ -896,13 +896,15 @@ public class ProcessingTests
         // One of three sections times out; the others are accepted and the order is kept.
         var sentence = "We should um, ship the build on Friday after the review.";
         var long_ = string.Join(" ", Enumerable.Repeat(sentence, 30));
-        var echo = Echo(); echo.Shape = new CleanupShape { SectionTarget = CleanupSectioning.DefaultTarget };
+        // The sections are identical, so whichever one times out, the text is the same; the other two are accepted as returned.
+        var echo = MockProvider.OnBody(b => b.Replace("um, ", "")); echo.Shape = new CleanupShape { SectionTarget = CleanupSectioning.DefaultTarget };
         p.CloudCleaner = echo;
         int judges = 0;
         p.Probe = stage => { if (stage == "judge" && Interlocked.Increment(ref judges) == 2) throw new RegexMatchTimeoutException(); };
         var sectioned = await p.ProcessAsync(long_);
         c.Check(sectioned.Text == long_.Replace("um, ", "") && echo.Messages.Count == 3 && sectioned.Fallback == CleanupFailureReason.CleanerFailed
-                && sectioned.CleanupPath == CleanupPath.ModelPunctuationOnLocal, $"one section's timeout leaves the others: {sectioned.CleanupPath}");
+                && sectioned.CleanupPath == CleanupPath.ModelPunctuationOnLocal && sectioned.GuardVerdict!.Split(',').ToHashSet().SetEquals(["cleaned", "rejected"]),
+                $"one section's timeout leaves the others: {sectioned.CleanupPath} {echo.Messages.Count} {sectioned.Fallback} {sectioned.GuardVerdict}");
 
         // A preset's guard times out: ordinary cleanup runs.
         var preset = MockProvider.OnBody(_ => "Investigate the login failure.");
