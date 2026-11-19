@@ -189,7 +189,13 @@ internal sealed class Controller : IDisposable
             s.Settings.Get(Prefs.CleanupPunctuation), s.Settings.Get(Prefs.CleanupPolish), s.Settings.Get(Prefs.CleanupProfessional), s.Settings.Get(Prefs.CleanupSpoken));
         var plan = RoutePlan.Make(routes, options.AnyEnabled, s.Key);
         if (plan.Refusal is { } refusal) return StartFailed("route-refused", refusal);
-        if (plan.UsesLocalModel) return StartFailed("local-unavailable", "Local speech recognition arrives in M3. Pick a Custom Provider or Murmur Cloud in Settings for now.");
+        // A cloud route that is not configured never falls back to local; a local route needs the model files and the helper.
+        if (plan.UsesLocalModel)
+        {
+            if (!s.Local.HelperPresent) return StartFailed("local-helper-missing", "The speech helper is missing. Reinstall Murmur.");
+            if (!s.Local.ModelFilesPresent) return StartFailed("local-model-missing", "The speech model is not installed yet. Download it in Settings, or pick a Custom Provider or Murmur Cloud.");
+            s.Local.Prepare();
+        }
 
         // The recorder was started from the hook thread at key down; a UUID per recording, created exclusively by the recorder.
         var pre = early ?? StartEarly();
@@ -318,9 +324,11 @@ internal sealed class Controller : IDisposable
         if (focus is { IsPassword: true }) { Fail(ss, "start", "password-field", "Murmur does not dictate into password fields."); TryDelete(ss.WavPath); return; }
 
         // Transcribe: one request, no retry, no fallback between transcribers.
-        var provider = ss.Plan.Transcriber!;
+        var provider = ss.Plan.Transcriber;
         var transcribeStart = Stopwatch.GetTimestamp();
-        var (outcome, detail) = await CloudTranscription.RunDetailedAsync(provider, WAVAudio.EncodePCM16(capture.Samples16k, AudioConverter.TargetRate), ss.Cts.Token);
+        var (outcome, detail) = provider is null
+            ? await s.Local.TranscribeAsync(capture.Samples16k, ss.WavPath, ss.Cts.Token)
+            : await CloudTranscription.RunDetailedAsync(provider, WAVAudio.EncodePCM16(capture.Samples16k, AudioConverter.TargetRate), ss.Cts.Token);
         if (Stale(ss)) return;
         if (outcome is not CloudTranscriptionOutcome.Transcript transcript)
         {
@@ -338,7 +346,7 @@ internal sealed class Controller : IDisposable
         {
             Id = Guid.NewGuid().ToString().ToUpperInvariant(), RecordedAt = ss.StartedUtc, RawText = transcript.Text, FinalText = transcript.Text,
             InsertionStatusRaw = InsertionStatus.SavedNotInserted.Raw(), Seconds = Math.Round(capture.Seconds, 2), App = focus?.ProcessName,
-            TranscriptionProvider = provider.Id.RawValue(), TranscriptionModel = provider.ModelID,
+            TranscriptionProvider = provider?.Id.RawValue() ?? LocalTranscriber.ProviderId, TranscriptionModel = provider is null ? LocalTranscriber.ModelId : provider.ModelID,
             Transcription = new TranscriptionDetail { ClipSeconds = detail.ClipSeconds },
         };
         try { s.History.Save(entry); }
@@ -478,6 +486,7 @@ internal sealed class Controller : IDisposable
         tick.Stop();
         hook.Dispose();
         try { session?.Recorder?.Stop(); } catch (Exception) { }
+        s.Local.Dispose();
         s.Paste.FlushRestore();
     }
 }

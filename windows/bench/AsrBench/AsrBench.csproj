@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Drives MurmurSpeech through the app's own ModelHelper/WarmRunner over the fixture WAVs and writes one JSON line per clip and mode.
+       Usage is in windows/bench/README.md. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Murmur.Bench</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Murmur.Core\Murmur.Core.csproj" />
+  </ItemGroup>
+</Project>

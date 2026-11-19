@@ -14,6 +14,7 @@ internal sealed class AppServices
     public ClipboardPaste Paste { get; } = new();
     public DispatcherQueue UI { get; }
     public IDictationProcessor Processor { get; }
+    public LocalTranscriber Local { get; }
     public HistoryRouter<HistoryEntry> History { get; private set; } = null!;
     public ProcessingCoordinator Processing { get; private set; } = null!;
     public DictionaryStore Dictionary => Processing.Dictionary;
@@ -32,6 +33,7 @@ internal sealed class AppServices
         Settings = new JsonSettingsStore(Path.Combine(Root, JsonSettingsStore.FileName));
         Credentials = testing ? new InMemoryCredentialStore() : new CredentialAdapter(new CredentialManagerStore());
         Processor = new CoordinatorProcessor(() => Processing);
+        Local = new LocalTranscriber(this);
         ReopenData();
         PurgeAtLaunch();
     }
