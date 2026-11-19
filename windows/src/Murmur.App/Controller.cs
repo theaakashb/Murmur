@@ -40,6 +40,7 @@ internal sealed class Controller : IDisposable
 
         public IRecorder? Recorder { get; set; }
         public Task<FocusInfo?> Focus { get; set; } = Task.FromResult<FocusInfo?>(null);
+        public Task<WritingMode?> Mode { get; set; } = Task.FromResult<WritingMode?>(null);
         public double Tail { get; set; } = 0.2;
         public CancellationTokenSource Cts { get; } = new();
     }
@@ -242,6 +243,7 @@ internal sealed class Controller : IDisposable
         level = 0;
         // The password check goes through UI Automation, which can block: it runs beside the recording, and a password field discards it.
         ss.Focus = Task.Run(() => FocusProbe.Capture(readText: false));
+        ss.Mode = Task.Run(() => s.SelectModeAsync(ss.Focus, ss.Cts.Token));
         _ = WatchFocus(ss);
         phase = Phase.Listening;
         TestEvents.Emit("recording-started");
@@ -408,11 +410,16 @@ internal sealed class Controller : IDisposable
         TestEvents.Emit("transcribed");
         var transcribeSeconds = Stopwatch.GetElapsedTime(transcribeStart).TotalSeconds;
 
+        var mode = await ss.Mode;
+        if (Stale(ss)) return;
+        var engine = mode is null ? null : AIEngines.Derive(ss.Routes.Cleanup)?.Provider(ss.Routes, s.Key);
+
         // Raw goes to History first, so a crash during cleanup loses nothing.
         var entry = new HistoryEntry
         {
             Id = Guid.NewGuid().ToString().ToUpperInvariant(), RecordedAt = ss.StartedUtc, RawText = transcript.Text, FinalText = transcript.Text,
             InsertionStatusRaw = InsertionStatus.SavedNotInserted.Raw(), Seconds = Math.Round(capture.Seconds, 2), App = focus?.ProcessName,
+            WritingModeID = mode?.Id.ToString().ToUpperInvariant(), WritingModeName = mode?.Name,
             TranscriptionProvider = provider?.Id.RawValue() ?? LocalTranscriber.ProviderId, TranscriptionModel = provider is null ? LocalTranscriber.ModelId : provider.ModelID,
             Transcription = new TranscriptionDetail { ClipSeconds = detail.ClipSeconds },
         };
@@ -422,7 +429,7 @@ internal sealed class Controller : IDisposable
         bubble.ShowProcessing("Cleaning up...");
 
         var cleanupStart = Stopwatch.GetTimestamp();
-        var result = await s.Processor.ProcessAsync(new DictationRequest(transcript.Text, ss.Options, ss.Routes.Cleanup, ss.Plan.Cleaner, focus?.ProcessName, null), ss.Cts.Token);
+        var result = await s.Processor.ProcessAsync(new DictationRequest(transcript.Text, ss.Options, ss.Routes.Cleanup, ss.Plan.Cleaner, focus?.ProcessName, mode, engine), ss.Cts.Token);
         if (Stale(ss)) return;
         TestEvents.Emit("cleaned", ("path", JsonNamingPolicy.CamelCase.ConvertName(result.Path.ToString())));
         entry = entry.With(result.FinalText, fallback: result.Fallback is { } f ? JsonNamingPolicy.CamelCase.ConvertName(f.ToString()) : null, rejected: result.RejectedOutput) with

@@ -131,6 +131,7 @@ internal sealed class SettingsWindow : Window
         Toggle("Professional (model routes only)", Prefs.CleanupProfessional);
         Toggle("Use screen context (model routes only)", Prefs.ScreenContext);
         Note("With Polish or Professional on a Custom Provider or Murmur Cloud, words from the screen can appear in the pasted text.", margin: new Thickness(0, 0, 0, 6));
+        Note("Website modes use the focused page in Edge, Chrome, Brave, Vivaldi, Opera, Arc, or Firefox when Windows can read it. App matching still works in other browsers and when the page is unavailable.");
     }
 
     // ---- models ----
