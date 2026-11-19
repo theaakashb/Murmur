@@ -32,5 +32,11 @@ func encodeOutcome(_ o: CleanupOutcome, _ input: String) -> String {
         let c = SectionCase(input: s, ten: split(10, false), tenAttached: split(10, true), standard: split(nil, false), target150Attached: split(150, true))
         if c.ten != nil || c.tenAttached != nil || c.standard != nil || c.target150Attached != nil { sections.append(GoldenCases.json(c)) }
     }
-    GoldenCases.emit([("process", process), ("sections", sections)])
+    // Every corpus entry with its own options, by id (some inputs appear with more than one option set).
+    struct CorpusCase: Encodable { var id: String; var input: String; var options: String; var outcome: String }
+    let corpus = GoldenCases.corpus.map { e in
+        GoldenCases.json(CorpusCase(id: e.id, input: e.input, options: GoldenCases.encode(e.options),
+                                    outcome: encodeOutcome(CleanupPipeline.process(raw: e.input, options: e.options, cleaner: RuleCleaner()), e.input)))
+    }
+    GoldenCases.emit([("process", process), ("sections", sections), ("corpus", corpus)])
 }}
