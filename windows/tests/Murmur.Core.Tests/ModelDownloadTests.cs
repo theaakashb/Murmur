@@ -9,6 +9,49 @@ namespace Murmur.Core.Tests;
 
 public class ModelDownloadTests
 {
+    [Fact]
+    public async Task StartHashesOnAWorkerAndCancelsMidChecksum()
+    {
+        using var temp = new TempDir();
+        using var resume = new ManualResetEventSlim();
+        var checkpoint = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var fixture = new Fixture { Contents = [new("large.bin", new byte[16 * 1024 * 1024], true)] };
+        var hasher = new PausingHasher(() =>
+        {
+            checkpoint.SetResult(Environment.CurrentManagedThreadId);
+            if (!resume.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
+        });
+        var downloader = Downloader(fixture, temp.Combine("model"), hasher: hasher);
+        var done = new TaskCompletionSource<ModelDownloadError?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            int caller = await Task.Factory.StartNew(() =>
+            {
+                downloader.Start(null, error => done.SetResult(error));
+                return Environment.CurrentManagedThreadId;
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.NotEqual(caller, await checkpoint.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal(ModelStatus.Verifying, downloader.Status());
+            downloader.Cancel();
+        }
+        finally { resume.Set(); }
+        Assert.Equal(ModelDownloadError.Cancelled, await done.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.False(Directory.Exists(downloader.Target));
+    }
+
+    sealed class PausingHasher(Action pause) : IFileHasher
+    {
+        public string HexDigest(string file, ModelHashAlgorithm algorithm, Func<bool> cancelled)
+        {
+            int chunks = 0;
+            return new StreamingFileHasher(64 * 1024).HexDigest(file, algorithm, () =>
+            {
+                if (++chunks == 32) pause();
+                return cancelled();
+            });
+        }
+    }
+
     static ModelDownloadError Fails(Action action) => Assert.Throws<ModelDownloadException>(action).Error;
 
     static ModelDownloader Downloader(Fixture fixture, string target, FakeTransport? transport = null, IFileHasher? hasher = null, Func<string, long?>? free = null)
