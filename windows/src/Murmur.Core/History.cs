@@ -230,55 +230,161 @@ public sealed record AfterPaste
     }
 }
 
-/// <summary>Swift's <c>Collection.difference(from:)</c> (Myers, as in the paper's greedy forward form): which words of <c>said</c> were removed
-/// and which of <c>seen</c> were inserted. Ties are broken the way Swift breaks them, so the same words are kept.</summary>
+/// <summary>Swift's <c>Collection.difference(from:)</c>: which words of <c>said</c> were removed and which of <c>seen</c> were inserted.
+/// A line-for-line port of the linear-space Myers algorithm in swift/stdlib/public/core/Diffing.swift (Apache License 2.0 with Runtime
+/// Library Exception), so that when several shortest edit scripts exist the same words are kept as on the Mac. It matches the toolchain recorded in
+/// windows/golden/toolchain.txt; a Swift release that changes the algorithm shows up as a failing golden case.</summary>
 static class WordDifference
 {
-    public static (HashSet<int> Removed, HashSet<int> Inserted) Of(string[] said, string[] seen)
+    record struct Rect(int Left, int Top, int Right, int Bottom)
     {
-        // Swift strips the common prefix and then the common suffix before running Myers on what is left; which of several equal words
-        // is kept depends on it ("d" against "c a d d d" keeps the last d).
-        int prefix = 0;
-        while (prefix < said.Length && prefix < seen.Length && said[prefix] == seen[prefix]) prefix++;
-        int suffix = 0;
-        while (suffix < said.Length - prefix && suffix < seen.Length - prefix && said[^(suffix + 1)] == seen[^(suffix + 1)]) suffix++;
-        var (removed, inserted) = Myers(said[prefix..^suffix], seen[prefix..^suffix]);
-        return (removed.Select(i => i + prefix).ToHashSet(), inserted.Select(i => i + prefix).ToHashSet());
+        public int Width => Right - Left;
+        public int Height => Bottom - Top;
+        public int Size => Width + Height;
+        public int Delta => Width - Height;
+        public bool IsOdd => Delta % 2 != 0;
+        public bool IsEven => !IsOdd;
+        public int Max => (Size + 1) / 2;
+        public Rect CroppedToTopLeftOf(Rect limit) => new(Left, Top, limit.Left, limit.Top);
+        public Rect CroppedToBottomRightOf(Rect limit) => new(limit.Right, limit.Bottom, Right, Bottom);
+
+        public Rect Shrunk(string[] old, string[] @new)
+        {
+            var r = this;
+            while (r.Left < r.Right && r.Top < r.Bottom && old[r.Left] == @new[r.Top]) { r.Left++; r.Top++; }
+            while (r.Right > r.Left && r.Bottom > r.Top && old[r.Right - 1] == @new[r.Bottom - 1]) { r.Right--; r.Bottom--; }
+            return r;
+        }
     }
 
-    static (HashSet<int> Removed, HashSet<int> Inserted) Myers(string[] said, string[] seen)
+    /// <summary>An edit: a removal at an offset of <c>said</c>, or an insertion at an offset of <c>seen</c>.</summary>
+    readonly record struct Edit(bool IsInsertion, int Offset);
+
+    sealed class KVector(int size)
     {
-        int n = said.Length, m = seen.Length, max = n + m, offset = max + 1;
-        var removed = new HashSet<int>();
-        var inserted = new HashSet<int>();
-        var v = new int[2 * max + 3];
-        var trace = new List<int[]>();
-        for (int d = 0; d <= max; d++)
+        // Two k-vectors in one buffer, zero-filled once and reused across boxes, as in Swift (stale entries are part of the behavior).
+        readonly int[] buffer = new int[(size * 2 + 1) * 2];
+        readonly int forwardOffset = size, backwardOffset = (size * 2 + 1) + size;
+        public int Forward(int i) => buffer[forwardOffset + i];
+        public void SetForward(int i, int v) => buffer[forwardOffset + i] = v;
+        public int Backward(int i) => buffer[backwardOffset + i];
+        public void SetBackward(int i, int v) => buffer[backwardOffset + i] = v;
+    }
+
+    public static (HashSet<int> Removed, HashSet<int> Inserted) Of(string[] said, string[] seen)
+    {
+        var box = new Rect(0, 0, said.Length, seen.Length).Shrunk(said, seen);
+        var k = new KVector(box.Size);
+        var result = new List<Edit>();
+        var stack = new List<Rect>();
+        var current = box;
+        while (true)
         {
-            trace.Add((int[])v.Clone());
-            bool done = false;
-            for (int k = -d; k <= d; k += 2)
+            var (edit, snake) = MiddleSnake(k, current, said, seen);
+            if (edit is { } e) result.Add(e);
+            if (snake is not { } s)
             {
-                int x = k == -d || (k != d && v[offset + k - 1] < v[offset + k + 1]) ? v[offset + k + 1] : v[offset + k - 1] + 1;
-                int y = x - k;
-                while (x < n && y < m && said[x] == seen[y]) { x++; y++; }
-                v[offset + k] = x;
-                if (x >= n && y >= m) { done = true; break; }
+                if (stack.Count == 0) break;
+                current = stack[^1]; stack.RemoveAt(stack.Count - 1);
+                continue;
             }
-            if (done) break;
+            var head = current.CroppedToTopLeftOf(s).Shrunk(said, seen);
+            var tail = current.CroppedToBottomRightOf(s).Shrunk(said, seen);
+            current = head;
+            stack.Add(tail);
         }
-        int px = n, py = m;
-        for (int d = trace.Count - 1; d > 0; d--)
+        return (result.Where(e => !e.IsInsertion).Select(e => e.Offset).ToHashSet(), result.Where(e => e.IsInsertion).Select(e => e.Offset).ToHashSet());
+    }
+
+    static (Edit? Edit, Rect? Snake) MiddleSnake(KVector k, Rect box, string[] old, string[] @new)
+    {
+        if (box.Size <= 1)
         {
-            var prev = trace[d];
-            int k = px - py;
-            int prevK = k == -d || (k != d && prev[offset + k - 1] < prev[offset + k + 1]) ? k + 1 : k - 1;
-            int prevX = prev[offset + prevK], prevY = prevX - prevK;
-            while (px > prevX && py > prevY) { px--; py--; }
-            if (px == prevX) inserted.Add(prevY); else removed.Add(prevX);
-            px = prevX; py = prevY;
+            if (box.Size == 0) return (null, null);
+            return box.Width == 1 ? (new Edit(false, box.Left), null) : (new Edit(true, box.Top), null);
         }
-        return (removed, inserted);
+        k.SetForward(1, box.Left);
+        k.SetBackward(1, box.Bottom);
+        for (int depth = 0; depth <= box.Max; depth++)
+        {
+            if (box.IsOdd)
+            {
+                if (ForwardSearch(k, box, depth, old, @new) is { } r) return r;
+                BackwardSearch(k, box, depth, old, @new);
+            }
+            else
+            {
+                ForwardSearch(k, box, depth, old, @new);
+                if (BackwardSearch(k, box, depth, old, @new) is { } r) return r;
+            }
+        }
+        throw new InvalidOperationException("Unreachable");
+    }
+
+    static (Edit, Rect)? ForwardSearch(KVector kv, Rect box, int depth, string[] old, string[] @new)
+    {
+        for (int k = depth; k >= -depth; k -= 2)
+        {
+            int newRight, newBottom, newLeft, newTop, editIndex;
+            bool isInsertion;
+            if (k == -depth || (k != depth && kv.Forward(k - 1) < kv.Forward(k + 1)))
+            {
+                newRight = kv.Forward(k + 1);
+                newLeft = newRight;
+                newBottom = box.Top + (newRight - box.Left) - k;
+                isInsertion = true;
+                editIndex = newBottom - 1;
+            }
+            else
+            {
+                newLeft = kv.Forward(k - 1);
+                newRight = newLeft + 1;
+                newBottom = box.Top + (newRight - box.Left) - k;
+                isInsertion = false;
+                editIndex = newLeft;
+            }
+            newTop = depth == 0 || newRight != newLeft ? newBottom : newBottom - 1;
+            while (newRight < box.Right && newBottom < box.Bottom && old[newRight] == @new[newBottom]) { newRight++; newBottom++; }
+            kv.SetForward(k, newRight);
+            if (!box.IsOdd) continue;
+            int c = k - box.Delta;
+            if (c >= -(depth - 1) && c <= depth - 1 && newBottom >= kv.Backward(c))
+                return (new Edit(isInsertion, editIndex), new Rect(newLeft, newTop, newRight, newBottom));
+        }
+        return null;
+    }
+
+    static (Edit, Rect)? BackwardSearch(KVector kv, Rect box, int depth, string[] old, string[] @new)
+    {
+        for (int c = depth; c >= -depth; c -= 2)
+        {
+            int k = c + box.Delta;
+            int newLeft, newTop, newRight, newBottom, editIndex;
+            bool isInsertion;
+            if (c == -depth || (c != depth && kv.Backward(c - 1) > kv.Backward(c + 1)))
+            {
+                newTop = kv.Backward(c + 1);
+                newBottom = newTop;
+                newLeft = box.Left + (newTop - box.Top) + k;
+                isInsertion = false;
+                editIndex = newLeft;
+            }
+            else
+            {
+                newBottom = kv.Backward(c - 1);
+                newTop = newBottom - 1;
+                newLeft = box.Left + (newTop - box.Top) + k;
+                isInsertion = true;
+                editIndex = newTop;
+            }
+            newRight = depth == 0 || newTop != newBottom ? newLeft : newLeft + 1;
+            while (newLeft > box.Left && newTop > box.Top && old[newLeft - 1] == @new[newTop - 1]) { newLeft--; newTop--; }
+            kv.SetBackward(c, newTop);
+            if (!box.IsEven) continue;
+            if (k >= -depth && k <= depth && newLeft <= kv.Forward(k))
+                return (new Edit(isInsertion, editIndex), new Rect(newLeft, newTop, newRight, newBottom));
+        }
+        return null;
     }
 }
 
