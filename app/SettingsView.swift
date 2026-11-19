@@ -211,11 +211,6 @@ struct SettingsView: View {
         }
     }
 
-    @ViewBuilder func settingInfo(_ text: String) -> some View {
-        if showDetailedSettingsInfo { help(text) }
-        else { SettingInfoButton(text: text) }
-    }
-
     var microphoneInfo: String {
         (controller.inputDeviceUID == MicrophoneChoice.automatic
             ? "Uses the Mac’s built-in microphone instead of a Bluetooth headset’s while available, so AirPods keep full playback quality. Otherwise uses the system default.\n\n" : "")

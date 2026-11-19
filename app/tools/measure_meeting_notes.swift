@@ -45,7 +45,7 @@ nonisolated(unsafe) var lastReplies: [String] = []
         case "apple":
             let apple = AppleCleanupProvider()
             if let reason = apple.status() { print("Apple Intelligence unavailable: \(reason.userMessage)"); exit(2) }
-            apple.prewarm(); provider = apple; route = .appleIntelligence
+            provider = apple; route = .appleIntelligence
         case "custom":
             let d = UserDefaults(suiteName: "cc.clouddev.dictation.development")!
             guard let base = d.string(forKey: "customAPIBaseURL"), let model = d.string(forKey: "customAPIModel"),

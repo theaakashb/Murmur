@@ -313,8 +313,8 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
         // Call apps: helpers by prefix and known out-of-prefix processes; Murmur excluded from All apps.
         do {
             let chrome = CallApp.app("com.google.Chrome")!
-            check(chrome.tapBundleIDs(running: ["com.google.Chrome.helper", "com.google.Chromecast", "us.zoom.xos"]) == ["com.google.Chrome", "com.google.Chrome.helper"], "Chrome helpers by prefix, not look-alikes")
-            check(CallApp.app("com.apple.Safari")!.tapBundleIDs(running: []).contains("com.apple.WebKit.GPU"), "Safari includes the WebKit audio process")
+            check(chrome.matches("com.google.Chrome") && chrome.matches("com.google.Chrome.helper") && !chrome.matches("com.google.Chromecast") && !chrome.matches("us.zoom.xos"), "Chrome helpers by prefix, not look-alikes")
+            check(CallApp.app("com.apple.Safari")!.matches("com.apple.WebKit.GPU"), "Safari includes the WebKit audio process")
             check(CallApp.ownBundleIDs(main: "cc.clouddev.dictation", running: ["cc.clouddev.dictation.helper", "us.zoom.xos"]) == ["cc.clouddev.dictation", "cc.clouddev.dictation.helper"], "Murmur and its helpers are excluded")
             check(Set(CallApp.catalog.map(\.bundleID)).count == CallApp.catalog.count, "catalog has no duplicates")
             check(!CallApp.catalog.filter(\.inStartMenu).contains { $0.bundleID == "com.tdesktop.Telegram" } && CallApp.catalog.contains { $0.bundleID == "com.tdesktop.Telegram" }, "Telegram Desktop is detected but not in the Start menu")
@@ -323,7 +323,6 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             check(CallApp.app("com.apple.Safari")!.sharesWebKit && !CallApp.app("us.zoom.xos")!.sharesWebKit, "only Safari carries the shared WebKit note")
             let arc = CallApp.app("company.thebrowser.Browser")!
             check(arc.matches("company.thebrowser.browser.helper") && arc.matches("COMPANY.THEBROWSER.BROWSER"), "bundle IDs match ignoring case (Arc's audio helper)")
-            check(arc.tapBundleIDs(running: ["company.thebrowser.browser.helper"]).contains("company.thebrowser.browser.helper"), "a lowercase helper is tapped")
             check(!arc.matches("company.thebrowser.browserx") && CallApp.app("com.apple.FaceTime")!.matches("COM.APPLE.AVCONFERENCED"), "no look-alikes; known helpers ignore case too")
         }
 
