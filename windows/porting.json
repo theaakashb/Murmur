@@ -13,6 +13,12 @@
       ],
       "sha256": "23e0223dece88f206f2a8a9369186e04da985e65e053127aa3a6b29d8845e66d"
     },
+    "app/Capture.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Chunker.cs"
+      ],
+      "sha256": "c951d965f7005dfce54ae1c6d442c8ed62e15e641b018929cd0428fe3139b942"
+    },
     "app/Cleanup.swift": {
       "csharp": [
         "windows/src/Murmur.Core/Cleanup.cs"
@@ -131,7 +137,8 @@
     "app/ModelHelper.swift": {
       "csharp": [
         "windows/src/Murmur.Core/ModelHelper.cs",
-        "windows/src/Murmur.Core/WarmRunner.cs"
+        "windows/src/Murmur.Core/WarmRunner.cs",
+        "windows/src/Murmur.Core/ChunkJob.cs"
       ],
       "sha256": "2713294a3dde84eed948132cc1f3a589b3176feff385bb5524181c7aca34cd87"
     },

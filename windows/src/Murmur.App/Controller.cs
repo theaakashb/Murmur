@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Threading.Channels;
 using Microsoft.UI.Dispatching;
 using Murmur.Core;
 using Murmur.Platform;
@@ -25,6 +26,18 @@ internal sealed class Controller : IDisposable
         public required string WavPath { get; init; }
         public required DateTime StartedUtc { get; init; }
         public required Stopwatch Clock { get; init; }
+        public required RecordingFeed Feed { get; init; }
+        public ChunkJob? Chunks { get; set; }
+        public Chunker? Chunker { get; set; }
+        public CancellationTokenSource? Live { get; set; }
+
+        public void StopLive()
+        {
+            Live?.Cancel();
+            Live?.Dispose();
+            Live = null;
+        }
+
         public IRecorder? Recorder { get; set; }
         public Task<FocusInfo?> Focus { get; set; } = Task.FromResult<FocusInfo?>(null);
         public double Tail { get; set; } = 0.2;
@@ -46,7 +59,7 @@ internal sealed class Controller : IDisposable
     volatile float level;
     Session? session;
     /// <summary>A recorder started from the hook thread at key down (spec/pipeline.md section 1: a hold never loses its first word). BeginSession adopts it; anything else drops it.</summary>
-    sealed record EarlyStart(string WavPath, Task<IRecorder> Recorder);
+    sealed record EarlyStart(string WavPath, RecordingFeed Feed, Task<IRecorder> Recorder);
     EarlyStart? early;
     int generation;
     volatile int phaseRaw;
@@ -127,22 +140,24 @@ internal sealed class Controller : IDisposable
     EarlyStart StartEarly()
     {
         var wavPath = Path.Combine(s.Locations.RetryAudio, Guid.NewGuid().ToString().ToUpperInvariant() + ".wav");
-        return new EarlyStart(wavPath, Task.Run(() =>
+        var feed = new RecordingFeed();
+        return new EarlyStart(wavPath, feed, Task.Run(() =>
         {
             PrivateFiles.PrepareDirectory(s.Locations.RetryAudio);
-            return CreateRecorder(wavPath);
+            return CreateRecorder(wavPath, feed.Push);
         }));
     }
 
-    IRecorder CreateRecorder(string wavPath) =>
+    IRecorder CreateRecorder(string wavPath, Action<float[]> onSamples) =>
         Environment.GetEnvironmentVariable("MURMUR_SYNTHETIC_AUDIO") is { Length: > 0 } folder
-            ? SyntheticRecorder.Start(folder, wavPath, p => level = p)
-            : MicRecorder.Start(s.Settings.Get(Prefs.InputDeviceUID), wavPath, p => level = p);
+            ? SyntheticRecorder.Start(folder, wavPath, p => level = p, onSamples)
+            : MicRecorder.Start(s.Settings.Get(Prefs.InputDeviceUID), wavPath, p => level = p, onSamples);
 
     void DropEarly()
     {
         if (early is not { } e) return;
         early = null;
+        e.Feed.Attach(null);
         _ = e.Recorder.ContinueWith(t => { if (t.IsCompletedSuccessfully) { try { t.Result.Stop(); } catch (Exception) { } } try { File.Delete(e.WavPath); } catch (Exception) { } });
     }
 
@@ -195,7 +210,6 @@ internal sealed class Controller : IDisposable
             if (!s.Local.HelperPresent) return StartFailed("local-helper-missing", "The speech helper is missing. Reinstall Murmur.");
             if (!s.Local.ModelFilesPresent) return StartFailed("local-model-missing", "The speech model is not installed yet. Download it in Settings, or pick a Custom Provider or Murmur Cloud.");
             if (s.Local.ModelDamaged) return StartFailed("local-model-damaged", "The speech model failed its checksum check. Remove it in Settings and download it again.");
-            s.Local.Prepare();
         }
         // Load the cleanup model while the user speaks, so that cost is not inside the dictation.
         (plan.Cleaner as LocalModelCleanupProvider)?.Prewarm();
@@ -206,7 +220,7 @@ internal sealed class Controller : IDisposable
         var wavPath = pre.WavPath;
         var ss = new Session
         {
-            Gen = ++generation, Plan = plan, Routes = routes, Options = options, WavPath = wavPath,
+            Gen = ++generation, Plan = plan, Routes = routes, Options = options, WavPath = wavPath, Feed = pre.Feed,
             Insert = s.Settings.Get(Prefs.AutomaticInsertion), LeadingSpace = s.Settings.Get(Prefs.IntelligentLeadingSpace),
             StartedUtc = DateTime.UtcNow, Clock = Stopwatch.StartNew(),
         };
@@ -233,8 +247,42 @@ internal sealed class Controller : IDisposable
         TestEvents.Emit("recording-started");
         if (s.Settings.Get(Prefs.RecordingSounds)) Native.Cue(start: true);
         bubble.ShowListening();
+        AttachSpeech(ss);
         tick.Start();
         return true;
+    }
+
+    void AttachSpeech(Session ss)
+    {
+        if (ss.Plan.UsesLocalModel)
+        {
+            var job = s.Local.StartChunks(ss.WavPath, ss.Cts.Token);
+            ss.Chunks = job;
+            ss.Chunker = new Chunker(job.Enqueue, job.EnqueueBoundary);
+        }
+
+        Channel<float[]>? live = null;
+        if (LiveWordsFacts.Starts(s.Settings.Get(Prefs.LiveWords), s.LiveWordsSlot.Row.IsReady,
+            ss.Plan.Transcriber is not null, s.Settings.Get(Prefs.LiveWordsOnCloud)))
+        {
+            // Roughly two seconds of 20 ms blocks. A slow preview must never back up capture.
+            var channel = Channel.CreateBounded<float[]>(new BoundedChannelOptions(96) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
+            live = channel;
+            ss.Live = new CancellationTokenSource();
+            s.Local.StartLiveWords(channel.Reader, text => ui.TryEnqueue(() =>
+            {
+                if (Stale(ss) || phase != Phase.Listening || ss.Live is null ||
+                    !ss.Focus.IsCompletedSuccessfully || ss.Focus.Result?.IsPassword == true) return;
+                bubble.SetPartial(text);
+                if (!string.IsNullOrWhiteSpace(text)) TestEvents.Emit("partial");
+            }), ss.Live.Token);
+        }
+
+        ss.Feed.Attach(ss.Chunker is null && live is null ? null : samples =>
+        {
+            live?.Writer.TryWrite(samples);
+            if (ss.Chunks?.Pending == true) ss.Chunker!.Append(samples);
+        });
     }
 
     bool StartFailed(string reason, string message)
@@ -262,7 +310,9 @@ internal sealed class Controller : IDisposable
         generation++;
         session = null;
         tick.Stop();
+        ss.StopLive();
         ss.Cts.Cancel();
+        ss.Feed.Attach(null);
         _ = Task.Run(() => { try { ss.Recorder?.Stop(); File.Delete(ss.WavPath); } catch (Exception) { } });
         if (error is null) { phase = Phase.Ready; bubble.Hide(); return; }
         phase = Phase.Error;
@@ -285,6 +335,8 @@ internal sealed class Controller : IDisposable
         if (session is not { } ss) return;
         tick.Stop();
         phase = Phase.Processing;
+        ss.StopLive();
+        bubble.SetPartial(null);
         if (s.Settings.Get(Prefs.RecordingSounds)) Native.Cue(start: false);
         bubble.ShowProcessing("Transcribing...");
         _ = RunAsync(ss);
@@ -312,8 +364,20 @@ internal sealed class Controller : IDisposable
     {
         // Audio is cut at release plus a 0.2 s tail.
         if (ss.Tail > 0) await Task.Delay(TimeSpan.FromSeconds(ss.Tail));
-        if (Stale(ss)) return;
-        var capture = await Task.Run(() => ss.Recorder!.Stop());
+        var capture = await Task.Run(() =>
+        {
+            try
+            {
+                var result = ss.Recorder!.Stop();
+                if (!ss.Cts.IsCancellationRequested) ss.Chunker?.Finish();
+                return result;
+            }
+            finally
+            {
+                ss.Feed.Attach(null);
+                ss.Chunks?.Finish();
+            }
+        });
         if (Stale(ss)) return;
         TestEvents.Emit("recording-stopped", ("seconds", Math.Round(capture.Seconds, 2)));
         if (capture.Samples16k.Length == 0)
@@ -330,7 +394,7 @@ internal sealed class Controller : IDisposable
         var provider = ss.Plan.Transcriber;
         var transcribeStart = Stopwatch.GetTimestamp();
         var (outcome, detail) = provider is null
-            ? await s.Local.TranscribeAsync(capture.Samples16k, ss.WavPath, ss.Cts.Token)
+            ? await s.Local.TranscribeAsync(capture.Samples16k, ss.WavPath, ss.Chunks, ss.Cts.Token)
             : await CloudTranscription.RunDetailedAsync(provider, WAVAudio.EncodePCM16(capture.Samples16k, AudioConverter.TargetRate), ss.Cts.Token);
         if (Stale(ss)) return;
         if (outcome is not CloudTranscriptionOutcome.Transcript transcript)
@@ -508,7 +572,9 @@ internal sealed class Controller : IDisposable
     public void Dispose()
     {
         generation++;
+        session?.StopLive();
         session?.Cts.Cancel();
+        session?.Feed.Attach(null);
         tick.Stop();
         hook.Dispose();
         try { session?.Recorder?.Stop(); } catch (Exception) { }
