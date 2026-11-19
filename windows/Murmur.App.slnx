@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Murmur.Cleanup/Murmur.Cleanup.csproj" />
     <Project Path="src/Murmur.Core/Murmur.Core.csproj" />
     <Project Path="src/Murmur.Platform/Murmur.Platform.csproj" />
     <Project Path="src/Murmur.App/Murmur.App.csproj" />
