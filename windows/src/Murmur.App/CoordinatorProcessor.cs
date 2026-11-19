@@ -10,8 +10,8 @@ internal sealed class CoordinatorProcessor(Func<ProcessingCoordinator?> coordina
         if (coordinator() is not { } p) return new DictationResult(request.RawTranscript, CleanupPath.Off, null, null, Held: true);
         p.Update(p.Settings with { Options = request.Options, Route = request.Cleanup.ProcessingRoute() }, persist: false);
         p.CloudCleaner = request.Cleaner;
-        p.EngineCleaner = null; // shortcut: writing-mode engines arrive with modes in M4
-        var style = p.Settings.Style();
+        p.EngineCleaner = request.Engine;
+        var style = p.Settings.Style(request.Mode);
         var result = p.Settings.Route == CleanupRoute.Local ? p.Process(request.RawTranscript, style) : await p.ProcessAsync(request.RawTranscript, style, cancellationToken);
         // Held only happens when processing is unavailable; a dictation is never held, so the raw transcript goes out (spec/pipeline.md section 9).
         return result.Outcome switch
