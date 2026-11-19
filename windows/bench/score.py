@@ -24,10 +24,12 @@ def med(xs):
     return statistics.median(xs) if xs else float("nan")
 
 
-def score(texts, reference):
+def score(texts, reference, skip=()):
     """texts: wav -> text. Returns (word edits, reference words, exact clips, clips)."""
     edits = words = exact = 0
     for wav, spoken in reference.items():
+        if wav in skip:
+            continue
         ref, hyp = benchmark.words(spoken), benchmark.words(texts.get(wav, ""))
         e = benchmark.edits(ref, hyp)
         edits += e; words += len(ref); exact += e == 0
@@ -80,11 +82,14 @@ def main():
         # The single-mode transcripts must match the warm ones; a difference would be a protocol bug.
         engines[label]["single_texts"] = {r["wav"]: r["text"] for r in single}
 
-    print("| Engine | Micro WER | Word edits / reference words | Exact clips | Failed clips |")
-    print("|---|---:|---:|---:|---:|")
+    # The references are spoken words; every engine writes numbers as digits ("4721", "$125.50"), which counts as word errors for all of them.
+    digits = {w for e in engines.values() for w, t in e["texts"].items() if any(c.isdigit() for c in t)}
+    print("| Engine | Micro WER | Word edits / reference words | Exact clips | Micro WER without the clips where an engine wrote digits | Failed clips |")
+    print("|---|---:|---:|---:|---:|---:|")
     for label, e in engines.items():
         edits, words, exact, n = score(e["texts"], reference)
-        print(f"| {label} | {edits / words * 100:.2f}% | {edits} / {words} | {exact} / {n} | {len(e.get('failed', []))} |")
+        e2, w2, _, _ = score(e["texts"], reference, digits)
+        print(f"| {label} | {edits / words * 100:.2f}% | {edits} / {words} | {exact} / {n} | {e2 / w2 * 100:.2f}% ({e2} / {w2}, {len(reference) - len(digits)} clips) | {len(e.get('failed', []))} |")
     print()
     for label, e in engines.items():
         print(f"- **{label}**: {e['env']}")

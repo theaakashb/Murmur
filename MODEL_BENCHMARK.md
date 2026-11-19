@@ -36,3 +36,19 @@ This first pass favors Unified on WER without a measurable inference-time penalt
 Model weights are downloaded separately. See the app’s pre-download disclosure and [third-party notices](THIRD_PARTY_NOTICES.md) for the differing license declarations before downloading or redistributing weights.
 
 The runner additions are benchmark-only; the installed app and its default model were not changed.
+
+## Windows (ONNX) vs Mac (Core ML), synthetic speech
+
+Added November 19, 2026. This is a different, much smaller test than the one above: 23 synthetic dictations (macOS `say`, voice Samantha, 16 kHz mono, 70.2 s, 244 reference words), not LibriSpeech. It checks that the Windows helper runs the same model close to the Mac's accuracy; it does not rank models. Scripts, exact commands and the full tables are in [windows/bench](windows/bench/RESULTS.md).
+
+| Engine | Micro WER | Word edits / reference words | Exact clips | Warm request, median / max |
+|---|---:|---:|---:|---:|
+| Mac Core ML (FluidAudio), Apple M3 | 8.20% | 20 / 244 | 16 / 23 | n/a (one process per clip; 58 ms / 76 ms first transcribe) |
+| Mac ONNX (sherpa-onnx int8, CPU), Apple M3 | 9.02% | 22 / 244 | 15 / 23 | 123 ms / 239 ms |
+| Windows ONNX (the same helper, CPU), QEMU virtual CPU, 16 vCPUs, 10 GB, Windows 11 | 9.02% | 22 / 244 | 15 / 23 | 359 ms / 731 ms |
+
+- WER uses `benchmark.py`'s normalization against the spoken words. Every engine writes numbers as digits, so four clips cost errors for all of them; without those clips Core ML made 3 word errors in 201 words and the ONNX helper 4.
+- Load: Core ML 10.4 s the first time and 0.08 s after; ONNX 0.8 s (Mac) and 1.8 s (VM) for the helper process to be ready. These are helper loads, not app launch.
+- The Mac and the VM produced the same text on all 23 clips. Two of 12 other clips differed between them, so a different CPU can change a word at the margin.
+- The ONNX run is sherpa-onnx's int8 build (`csukuangfj2/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming@8c3a10f`); the Core ML run is FluidAudio's own Core ML conversion, whose quantization was not checked.
+- Limits: synthetic speech with one voice and no noise; 23 clips, where one word is 0.4 points, so a one- or two-word gap is not a finding; CPU only; the Windows machine is a virtual CPU whose latency says little about a real PC, and it varied by about half between two runs; memory on Windows was not measured; not run: accents, real microphones, long recordings, live words, speaker timing.
