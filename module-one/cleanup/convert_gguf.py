@@ -11,6 +11,7 @@ Writes OUT_DIR/vedu-scribe-0.8b-F16.gguf and -Q8_0.gguf and prints their SHA-256
 2. mlx-lm's Qwen3.5 load-time changes are undone: Hugging Face tensor names, the depthwise conv1d weight back to
    [C, 1, K], and RMSNorm weights stored by mlx-lm as 1 + w back to w.
 3. llama.cpp's converter writes F16 (keeps the dequantized values) and Q8_0 (requantizes them).
+4. patch_gguf_layers.py rewrites the header to the 24 layers that have tensors, copying tensor data byte for byte.
 """
 import hashlib, os, shutil, subprocess, sys, tempfile
 
@@ -62,9 +63,13 @@ def main(model, llama, out):
         subprocess.run([sys.executable, "-m", "mlx_lm", "convert", "--hf-path", model, "--mlx-path", bf16, "--dequantize"], check=True)
         print(unsanitize(bf16, hf), "tensors")
         env = dict(os.environ, PYTHONPATH=os.path.join(llama, "gguf-py"))
+        patch = os.path.join(os.path.dirname(os.path.abspath(__file__)), "patch_gguf_layers.py")
         for kind in ("f16", "q8_0"):
+            raw = os.path.join(tmp, f"{kind}.gguf")
             target = os.path.join(out, f"vedu-scribe-0.8b-{kind.upper()}.gguf")
-            subprocess.run([sys.executable, os.path.join(llama, "convert_hf_to_gguf.py"), hf, "--outtype", kind, "--outfile", target], check=True, env=env)
+            subprocess.run([sys.executable, os.path.join(llama, "convert_hf_to_gguf.py"), hf, "--outtype", kind, "--outfile", raw], check=True, env=env)
+            # The converter declares one multi-token-prediction layer the checkpoint has no tensors for; LLamaSharp's llama.cpp refuses that header.
+            subprocess.run([sys.executable, patch, os.path.join(llama, "gguf-py"), raw, target], check=True)
             print(os.path.basename(target), os.path.getsize(target), sha256(target))
 
 

@@ -156,8 +156,16 @@ Why llama.cpp over ONNX Runtime GenAI: there is a written, tested-by-someone con
 2. **Host:** the GGUF is a modified Apache-2.0 work, so it can be redistributed with the license and a modification notice. Decided: a Hugging Face repository under the user's account, pinned by revision like every other model. The files, model card and pin are prepared here; the repository is created and uploaded only after the user says so.
 3. **Runtime:** `Murmur.Cleanup` hosts LLamaSharp on the CPU backend first, with the Mac's exact settings: system message `Clean up this dictation.`, the `[tone: …]` and vocabulary header, at most 12 terms, thinking off (`enable_thinking: false`), temperature 0, the same input-token cap (400) and output cap, input limit 4,000 characters (`LocalCleanup.swift:27`). The local model stays on the strict guard (`Processing.swift:287`).
    - **Done 2026-11-19:** `module-one/cleanup/convert_gguf.py` with mlx-lm 0.32.2, llama.cpp `c7fc509` and torch 2.15.0, on the pinned checkpoint, verified against `artifact-pins.json`.
-     - F16: 1,516,744,416 bytes, SHA-256 `ed7194d3…3d5b208`.
-     - Q8_0: 811,843,296 bytes, SHA-256 `3d7ac022…f087690`.
+     - The converter's header declares a 25th, multi-token-prediction layer the checkpoint has no tensors for. llama.cpp `c7fc509` accepts it; the llama.cpp inside LLamaSharp 0.30.0 refuses it. `patch_gguf_layers.py`, now step 4 of `convert_gguf.py`, rewrites the header to 24 layers and copies tensor data byte for byte.
+     - Final files from the one-step converter:
+       - F16: 1,516,744,416 bytes, SHA-256 `632abde1…dafdd29de8`.
+       - Q8_0: 811,843,296 bytes, SHA-256 `6859e09e…89554c708`.
+     - Before the header patch, the Q8_0 was `3d7ac022…f087690`.
+     - Parity with the Mac's MLX on 400 corpus inputs (CLEANUP_BENCHMARK.md):
+       - Q8_0 matches exactly on 399/400 on both the Mac and the VM.
+       - Strict guard passes: 321/400 for MLX, 320 for Mac Q8_0, 321 for VM Q8_0.
+       - Tokenizer IDs are identical on 1,066 strings.
+     - Decision: ship Q8_0.
      - All 320 Q8_0 tensors are identical to the third-party `sumitsah35/vedu-scribe-0.8b-gguf@4b72e79`. Only the `general.name` metadata differs, so the conversion is reproducible.
      - Files are staged locally, outside the repo; no upload.
 4. **Prompt and token parity:** build the ChatML string ourselves (system, user, assistant with an empty `<think></think>` block) instead of relying on llama.cpp's embedded chat template to honor `enable_thinking: false`. A test tokenizes the same inputs with the MLX tokenizer and the GGUF tokenizer and compares token IDs, since the 400-token `too-long` cutoff depends on the counts matching.

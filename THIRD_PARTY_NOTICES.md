@@ -40,6 +40,18 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 - Header: "Copyright (c) 2015 - 2019 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception." License: https://swift.org/LICENSE.txt
 - Release duty: ship the Apache-2.0 text with the Windows app and state that the file was modified (translated to C#).
 
+### LLamaSharp and llama.cpp (local cleanup helper)
+
+- `windows/src/Murmur.Cleanup` uses LLamaSharp 0.30.0 (MIT, https://github.com/SciSharp/LLamaSharp) and its `LLamaSharp.Backend.Cpu` 0.30.0 native libraries. These are built from llama.cpp and ggml (MIT, https://github.com/ggml-org/llama.cpp).
+- Release duty: ship both MIT texts with the Windows app. Before release, check the copyright lines against each project's LICENSE at the pinned versions; they are not yet checked.
+
+### Vedu Scribe 0.8B, GGUF (downloaded at run time on Windows)
+
+- Apache-2.0.
+- **Modified:** converted from the MLX checkpoint `heyvedu/vedu-scribe-0.8b@7dced58`, a fine-tune of `Qwen/Qwen3.5-0.8B`. Steps: dequantize, repack, requantize to Q8_0, and edit the header to 24 layers (`module-one/cleanup/convert_gguf.py`).
+- These are not the original weights, and HeyVedu and the Qwen team have not endorsed them.
+- The hosted copy needs the Apache-2.0 text and this modification notice. It is staged locally until the user approves the upload.
+
 ## Downloaded at run time, not bundled
 
 ### Parakeet Unified English 0.6B
