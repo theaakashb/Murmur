@@ -76,7 +76,7 @@ try {
     }
     $settings | ConvertTo-Json | Set-Content (Join-Path $data 'settings.json') -Encoding UTF8
     # An elevated SSH session creates the run folder owned by Administrators; the unelevated app must own its data folder to make it private.
-    & icacls $run /setowner "$env:USERDOMAIN\$env:USERNAME" /T /C /Q | Out-Null
+    & icacls $run /setowner (whoami) /T /C /Q | Out-Null
 
     # Launcher: the env vars are the only thing that makes this a test run.
     $launcher = Join-Path $run 'launch-app.cmd'
