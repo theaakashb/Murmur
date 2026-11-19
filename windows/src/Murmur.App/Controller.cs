@@ -412,7 +412,6 @@ internal sealed class Controller : IDisposable
 
         var mode = await ss.Mode;
         if (Stale(ss)) return;
-        var engine = mode is null ? null : AIEngines.Derive(ss.Routes.Cleanup)?.Provider(ss.Routes, s.Key);
 
         // Raw goes to History first, so a crash during cleanup loses nothing.
         var entry = new HistoryEntry
@@ -428,6 +427,7 @@ internal sealed class Controller : IDisposable
         KeepOrDelete(ss.WavPath, entry.Id);
         bubble.ShowProcessing("Cleaning up...");
 
+        var engine = mode is null ? null : AIEngines.Derive(ss.Routes.Cleanup)?.Provider(ss.Routes, s.Key);
         var cleanupStart = Stopwatch.GetTimestamp();
         var result = await s.Processor.ProcessAsync(new DictationRequest(transcript.Text, ss.Options, ss.Routes.Cleanup, ss.Plan.Cleaner, focus?.ProcessName, mode, engine), ss.Cts.Token);
         if (Stale(ss)) return;

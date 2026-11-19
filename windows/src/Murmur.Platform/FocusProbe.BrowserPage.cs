@@ -33,7 +33,7 @@ public static partial class FocusProbe
     public static Uri? ReadBrowserPage(FocusInfo? target, CancellationToken ct = default) =>
         ReadBrowserPage(target, out _, ct);
 
-    internal static Uri? ReadBrowserPage(FocusInfo? target, out bool usedAddressBar, CancellationToken ct = default)
+    internal static Uri? ReadBrowserPage(FocusInfo? target, out bool usedAddressBar, CancellationToken ct = default, bool preferDocumentValue = true)
     {
         usedAddressBar = false;
         if (target is not { IsPassword: false, RuntimeId.Length: > 0 } ||
@@ -74,7 +74,7 @@ public static partial class FocusProbe
                 uia.CompareElements(focused, current, out int same) == 0 && same != 0;
             if (!StillFocused()) return null;
 
-            if (family == BrowserPage.Family.Chromium &&
+            if (preferDocumentValue && family == BrowserPage.Family.Chromium &&
                 BrowserPage.Parse(Prop<string>(document!, ValueValueProp), schemeOptional: false) is { } documentPage)
                 return StillFocused() ? documentPage : null;
 
@@ -105,9 +105,8 @@ public static partial class FocusProbe
 
     static bool IsAddressBar(IUIAutomationElement element, BrowserPage.Family family)
     {
-        var id = Prop<string>(element, AutomationIdProp);
-        if (family == BrowserPage.Family.Firefox) return id == "urlbar-input";
-        return id == "view_1012" || Prop<string>(element, ClassNameProp) == "OmniboxViewViews" ||
+        if (family == BrowserPage.Family.Firefox) return Prop<string>(element, AutomationIdProp) == "urlbar-input";
+        return Prop<string>(element, ClassNameProp) == "OmniboxViewViews" ||
             Prop<string>(element, NameProp) == "Address and search bar";
     }
 

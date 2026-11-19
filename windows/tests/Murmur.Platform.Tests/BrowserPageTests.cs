@@ -60,6 +60,7 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
     [DllImport("user32.dll")] static extern void keybd_event(byte virtualKey, byte scan, uint flags, nuint extra);
     [DllImport("user32.dll")] static extern nint GetForegroundWindow();
     [DllImport("user32.dll")] static extern uint GetDpiForWindow(nint hwnd);
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(nint hwnd);
 
     static void Press(byte key, bool control = false)
     {
@@ -69,7 +70,7 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
         if (control) keybd_event(0x11, 0, 2, 0);
     }
 
-    [InputFact]
+    [BrowserDesktopFact]
     public async Task ReadsFocusedPageAndSkipsAddressBar()
     {
         bool chrome = Environment.GetEnvironmentVariable("MURMUR_BROWSER_PROBE_CHROME") == "1";
@@ -88,37 +89,49 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
         using var browser = Launch(exe!, profile, $"http://127.0.0.1:{port}/first", "--new-window");
         try
         {
-            Assert.True(await WaitForPage(processName, "/first"), "normal window did not match its active page");
+            Assert.True(await WaitForPage(processName, "/first", startWindow: browser), "normal window did not match its active page");
             Assert.True(FocusProbe.ReadBrowserPage(FocusProbe.Capture(false), out bool addressBar) is not null, "normal window read vanished");
             output.WriteLine(addressBar ? "Normal: address ValuePattern" : "Normal: document value");
             output.WriteLine($"Foreground DPI: {GetDpiForWindow(GetForegroundWindow())}");
             var pageFocus = FocusProbe.Capture(readText: false);
+            Assert.True(await WaitForPage(processName, "/first", addressOnly: true), "address ValuePattern fallback did not match");
+            output.WriteLine("Address ValuePattern: matched");
 
             Press(0x4c, control: true); // Ctrl+L
             Assert.True(SpinWait.SpinUntil(() => FocusProbe.Capture(false) is { } bar && bar.ProcessName == processName &&
                 pageFocus is not null && !pageFocus.SameElement(bar), TimeSpan.FromSeconds(3)), "address bar did not take focus");
             Assert.True(FocusProbe.ReadBrowserPage(FocusProbe.Capture(false)) is null, "address bar focus must not read a page");
             Assert.True(FocusProbe.ReadBrowserPage(pageFocus) is null, "stale page focus must not read a page");
+            output.WriteLine("Address-bar and stale-focus gates: passed");
 
             Press(0x1b); // Escape
             using var tab = Launch(exe!, profile, $"http://127.0.0.1:{port}/tab");
             Assert.True(await WaitForPage(processName, "/tab"), "new tab did not match its active page");
             Press(0x09, control: true); // Ctrl+Tab returns to the first tab.
             Assert.True(await WaitForPage(processName, "/first"), "tab switch did not match the first page");
+            output.WriteLine("Tab switch: matched");
 
             Press(0x7a); // F11
             await Task.Delay(500);
             Assert.True(await WaitForPage(processName, "/first"), "full screen did not match document with toolbar hidden");
             Press(0x7a);
+            output.WriteLine("Full screen: matched");
 
             using var second = Launch(exe!, profile, $"http://127.0.0.1:{port}/second", "--new-window");
             Assert.True(await WaitForPage(processName, "/second"), "second window did not match its own page");
+            output.WriteLine("Second window: matched");
 
             using var embedded = Launch(exe!, profile, $"http://127.0.0.1:{port}/embedded", "--new-window");
             Assert.True(await WaitForPage(processName, "/embedded"), "focused iframe did not match its top-level page");
+            output.WriteLine("Iframe page: matched");
 
             using var privateWindow = Launch(exe!, profile, $"http://127.0.0.1:{port}/private", chrome ? "--incognito" : "--inprivate", "--new-window");
             Assert.True(await WaitForPage(processName, "/private"), "private window did not match its own page");
+            output.WriteLine("Private window: matched");
+
+            using var app = Launch(exe!, profile, null, $"--app=http://127.0.0.1:{port}/app");
+            Assert.True(await WaitForPage(processName, "/app"), "standalone app window did not match its page");
+            output.WriteLine("App window: matched");
         }
         finally
         {
@@ -133,23 +146,37 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
         }
     }
 
-    static Process Launch(string edge, string profile, string page, params string[] flags)
+    static Process Launch(string edge, string profile, string? page, params string[] flags)
     {
-        var info = new ProcessStartInfo(edge) { UseShellExecute = false };
-        foreach (var arg in new[] { "--user-data-dir=" + profile, "--no-first-run", "--no-default-browser-check", "--disable-sync", "--disable-extensions" }.Concat(flags).Append(page))
+        var info = new ProcessStartInfo(edge) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var arg in new[] { "--user-data-dir=" + profile, "--no-first-run", "--no-default-browser-check", "--disable-sync", "--disable-extensions", "--disable-search-engine-choice-screen" }.Concat(flags))
             info.ArgumentList.Add(arg);
-        return Process.Start(info)!;
+        if (page is not null) info.ArgumentList.Add(page);
+        var process = Process.Start(info)!;
+        process.OutputDataReceived += static (_, _) => { };
+        process.ErrorDataReceived += static (_, _) => { };
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        return process;
     }
 
-    static async Task<bool> WaitForPage(string processName, string path)
+    static async Task<bool> WaitForPage(string processName, string path, bool addressOnly = false, Process? startWindow = null)
     {
         var wait = Stopwatch.StartNew();
         var app = new WritingMode { Apps = [processName] };
         var site = new WritingMode { Websites = ["127.0.0.1" + path] };
         while (wait.Elapsed.TotalSeconds < 18)
         {
-            if (FocusProbe.Capture(false) is { } focus && focus.ProcessName == processName &&
-                ReferenceEquals(WritingModes.Match([app, site], processName, FocusProbe.ReadBrowserPage(focus)), site)) return true;
+            if (FocusProbe.Capture(false) is { } focus && focus.ProcessName == processName)
+            {
+                var page = FocusProbe.ReadBrowserPage(focus, out _, preferDocumentValue: !addressOnly);
+                if (ReferenceEquals(WritingModes.Match([app, site], processName, page), site)) return true;
+            }
+            else if (startWindow is { HasExited: false })
+            {
+                startWindow.Refresh();
+                if (startWindow.MainWindowHandle != 0) SetForegroundWindow(startWindow.MainWindowHandle);
+            }
             await Task.Delay(150);
         }
         return false;
@@ -162,15 +189,22 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
             while (!ct.IsCancellationRequested)
             {
                 using var client = await server.AcceptTcpClientAsync(ct);
-                using var stream = client.GetStream();
-                using var request = new StreamReader(stream, leaveOpen: true);
-                string? requestLine = await request.ReadLineAsync(ct);
-                while (await request.ReadLineAsync(ct) is { Length: > 0 }) { }
-                const string prefix = "<!doctype html><title>Murmur website probe</title>";
-                var html = prefix + (requestLine?.StartsWith("GET /embedded ", StringComparison.Ordinal) == true
-                    ? """<iframe src="/frame" onload="this.contentWindow.focus(); this.contentDocument.querySelector('input').focus()"></iframe>"""
-                    : "<label>Field <input autofocus></label>");
-                await stream.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {html.Length}\r\nConnection: close\r\n\r\n{html}"), ct);
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                deadline.CancelAfter(TimeSpan.FromSeconds(1));
+                try
+                {
+                    using var stream = client.GetStream();
+                    using var request = new StreamReader(stream, leaveOpen: true);
+                    string? requestLine = await request.ReadLineAsync(deadline.Token);
+                    while (await request.ReadLineAsync(deadline.Token) is { Length: > 0 }) { }
+                    const string prefix = "<!doctype html><title>Murmur website probe</title>";
+                    var html = prefix + (requestLine?.StartsWith("GET /embedded ", StringComparison.Ordinal) == true
+                        ? """<iframe src="/frame" onload="this.contentWindow.focus(); this.contentDocument.querySelector('input').focus()"></iframe>"""
+                        : "<label>Field <input autofocus></label>");
+                    await stream.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {html.Length}\r\nConnection: close\r\n\r\n{html}"), deadline.Token);
+                }
+                catch (IOException) { /* Chromium may abandon a preconnected socket. */ }
+                catch (OperationCanceledException) when (deadline.IsCancellationRequested) { }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
@@ -180,3 +214,12 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
 
 [CollectionDefinition("Browser desktop", DisableParallelization = true)]
 public sealed class BrowserDesktopCollection;
+
+public sealed class BrowserDesktopFactAttribute : FactAttribute
+{
+    public BrowserDesktopFactAttribute()
+    {
+        if (!SessionFactAttribute.Interactive || Environment.GetEnvironmentVariable("MURMUR_RUN_BROWSER_PROBE") != "1")
+            Skip = "Run this in the interactive console with MURMUR_RUN_BROWSER_PROBE=1.";
+    }
+}
