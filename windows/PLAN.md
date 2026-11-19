@@ -34,7 +34,14 @@ Updated 2026-11-19 (overnight autonomous run).
     - Real dictations of 5, 30 and 120 s on the user's PC, next to the Mac.
     - Live words in the bubble.
     - Chunked transcription during recording.
-- **M2 real-mic (partial pass), 2026-11-19:** the user ran several real-microphone dictations on the Star Labs PC with Murmur Cloud, mostly into Notepad, and everything worked. Not the full 20-row matrix: Edge, Teams/Slack and VS Code are not confirmed by a person yet.
+- **M2 real-mic: confirmed by the user, 2026-11-19.** Real-microphone dictations on the Star Labs PC with Murmur Cloud worked in Notepad and in other apps. The user hasn't named the other apps yet; ask if the exit record needs them.
+- **Bug, must be fixed before M6:** the app freezes while the transcription model downloads. Likely cause: download, hash or file work on the UI thread, or a synchronous wait on it. The fix covers both model downloads:
+  - the work runs off the dispatcher;
+  - progress is marshalled back to the UI;
+  - downloads can be cancelled and show an error state;
+  - a regression test with a slow loopback server proves the UI thread stays responsive.
+  
+  Assigned to the UI workstream.
 - **Next build on the PC:** `app-next` (`2dec66b`) adds the downloadable cleanup model. Switch by quitting from the tray and starting `T:\Paseo Project\Murmur\app-next\Murmur.exe`.
 - **Star Labs PC** (Paseo host `srv_XXiOqPoelqaJ`, Windows 11 Pro 26200, Ryzen 9 5900X, 32 GB):
   - Installed at `T:\Paseo Project\Murmur\` (`app`, `src` at `ac2a0ad`, `tools\dotnet` SDK 10.0.404, `cache`). The app is self-contained and starts without a separate .NET.
