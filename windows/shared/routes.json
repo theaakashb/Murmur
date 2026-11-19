@@ -1,0 +1,36 @@
+{
+  "defaultReasoningEffort" : "low",
+  "keyBindingPreference" : "customAPIKeyEndpoint",
+  "keyText" : {
+    "checking" : "Checking…",
+    "invalid" : "That doesn't look like an API key: it is empty or has spaces or unsupported characters. Nothing was saved.",
+    "missing" : "Save a key first.",
+    "none" : "No key saved",
+    "providers" : [
+      "customTranscription",
+      "customCleanup",
+      "murmur-cloud"
+    ],
+    "removeFailed" : "The key could not be removed from the Keychain.",
+    "removed" : "Key removed",
+    "saved" : "Key saved",
+    "storeFailed" : "The key could not be saved to the Keychain.",
+    "unreadable" : "The saved key could not be read from the Keychain."
+  },
+  "keys" : {
+    "cleanup" : "cleanupChoice",
+    "customAPIBaseURL" : "customAPIBaseURL",
+    "customAPIModel" : "customAPIModel",
+    "customAPIReasoningEffort" : "customAPIReasoningEffort",
+    "customTranscriptionAPIBaseURL" : "customTranscriptionAPIBaseURL",
+    "customTranscriptionModel" : "customTranscriptionModel",
+    "legacyCloudTranscriber" : "cloudTranscriber",
+    "legacyServerModel" : "localServerModel",
+    "legacyServerURL" : "localServerURL",
+    "transcription" : "transcriptionRoute"
+  },
+  "placeholderAPIURL" : "https://api.example.com/v1",
+  "placeholderModel" : "model-name",
+  "unknownFailure" : "Cloud transcription failed.",
+  "unreadableAudio" : "The recording could not be read."
+}
