@@ -306,8 +306,9 @@ public class ClipboardPasteTests
             Assert.Equal(0, BitConverter.ToInt32(during[ClipboardPaste.History]));
             Assert.Equal(0, BitConverter.ToInt32(during[ClipboardPaste.Cloud]));
             Assert.False(during.ContainsKey(FormatA));
-            Thread.Sleep(600);
+            // The restore runs 0.5 s after the paste on a timer; slow CI machines need longer than a fixed sleep.
             var after = ClipboardPaste.Snapshot();
+            for (var end = DateTime.UtcNow.AddSeconds(3); after.ContainsKey(ClipboardPaste.Owner) && DateTime.UtcNow < end; after = ClipboardPaste.Snapshot()) Thread.Sleep(100);
             AssertSeeded(after);
             Assert.False(after.ContainsKey(ClipboardPaste.Owner));
         }
