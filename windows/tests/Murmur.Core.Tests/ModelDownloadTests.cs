@@ -134,10 +134,10 @@ public class ModelDownloadTests
         Assert.Equal("pending-upload/vedu-scribe-0.8b-gguf", manifest.Repository);
         Assert.Equal("vedu-scribe-0.8b-Q8_0.gguf", manifest.Files.Single().Rfilename);
         Assert.Equal(811_843_296, manifest.TotalBytes);
-        Assert.Equal("3d7ac022d65de8d47d93e6b02f646e70ce5b87423feab38f3b2fd6008f087690", manifest.Files.Single().Checksum);
+        Assert.Equal("6859e09e41502d2c1665b9462b2f9f37c7e485ebddd14185813f22a89554c708", manifest.Files.Single().Checksum);
         var f16 = new ModelManifest(BundledModels.Pins(ModelPinsSource.WindowsModels)!, facts.Repository, "f16_files");
         Assert.Equal(1_516_744_416, f16.TotalBytes);
-        Assert.Equal("ed7194d335da98aeb0ad962a990cb96e87b1af8119b36ef7825d1609a3d5b208", f16.Files.Single().Checksum);
+        Assert.Equal("632abde139c754775e578b8c086e77c89a8553b60d8ce53556a70f8afdd29de8", f16.Files.Single().Checksum);
         Assert.True(manifest.License.IsPinned && manifest.License.Declarations.Single().Name == "Apache-2.0");
         using var temp = new TempDir();
         var transport = new FakeTransport();
