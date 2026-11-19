@@ -55,6 +55,14 @@ internal sealed class Bubble
     }
 
     public void ShowListening() => Present("Listening", dismissAfter: null, listening: true);
+    public void SetPartial(string? partial)
+    {
+        if (string.IsNullOrWhiteSpace(partial)) { text.Text = "Listening"; return; }
+        var characters = Murmur.Core.SwiftText.Characters(partial);
+        text.MaxWidth = 135;
+        text.Text = characters.Count <= 16 ? partial : "…" + string.Concat(characters.TakeLast(15));
+    }
+
     public void ShowProcessing(string message) => Present(message, null, processing: true);
     public void ShowError(string message, double dismissAfter) => Present(message, dismissAfter, error: true);
     public void ShowNotice(string message, double dismissAfter) => Present(message, dismissAfter);
