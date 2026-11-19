@@ -28,6 +28,12 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        try { Launch(); }
+        catch (Exception e) { CrashLog.Write(e); throw; }
+    }
+
+    void Launch()
+    {
         var dataDir = Environment.GetEnvironmentVariable("MURMUR_DATA_DIR");
         var name = string.IsNullOrWhiteSpace(dataDir) ? @"Local\Murmur.App" : @"Local\Murmur.App.Test." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(dataDir))))[..16];
         single = new Mutex(true, name, out var first);
