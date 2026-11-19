@@ -10,6 +10,7 @@ public class CleanupPipelineGoldenTests
     static readonly JsonElement Root = CleanupGolden.Load("cleanup_pipeline");
     public static IEnumerable<object[]> Process => CleanupGolden.Cases(Root, "process");
     public static IEnumerable<object[]> Sections => CleanupGolden.Cases(Root, "sections");
+    public static IEnumerable<object[]> Corpus => CleanupGolden.Cases(Root, "corpus");
 
     static string Encode(CleanupOutcome o, string input) => o switch
     {
@@ -33,6 +34,17 @@ public class CleanupPipelineGoldenTests
         }
         if (CleanupGolden.Optional(c, "own") is { } own)
             Assert.Equal(c.GetProperty("ownOutcome").GetString(), Encode(CleanupPipeline.Process(s, CleanupGolden.Decode(own), new RuleCleaner()), s));
+    }
+
+    // Each of the 426 corpus entries through the pipeline with its own options.
+    [Theory, MemberData(nameof(Corpus))]
+    public void CorpusEntries(int i, string label)
+    {
+        Assert.NotNull(label);
+        var c = Root.GetProperty("corpus")[i];
+        var s = c.GetProperty("input").GetString()!;
+        var options = CleanupGolden.Decode(c.GetProperty("options").GetString()!);
+        Assert.Equal(c.GetProperty("outcome").GetString(), Encode(CleanupPipeline.Process(s, options, new RuleCleaner()), s));
     }
 
     [Theory, MemberData(nameof(Sections))]
