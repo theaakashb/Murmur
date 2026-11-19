@@ -38,7 +38,10 @@
     <ItemGroup>
       <SpeechFile Include="$(OutDir)Speech\**" />
       <CleanupFile Include="$(OutDir)Cleanup\**" />
+      <!-- Unpackaged WinUI publish leaves out the compiled XAML and resource index; without them the app crashes once its windows load. -->
+      <XamlResource Include="$(OutDir)*.pri;$(OutDir)*.xbf" />
     </ItemGroup>
+    <Copy SourceFiles="@(XamlResource)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(SpeechFile)" DestinationFiles="@(SpeechFile->'$(PublishDir)Speech\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(CleanupFile)" DestinationFiles="@(CleanupFile->'$(PublishDir)Cleanup\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
