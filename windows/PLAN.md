@@ -34,6 +34,8 @@ Updated 2026-11-19 (overnight autonomous run).
     - Real dictations of 5, 30 and 120 s on the user's PC, next to the Mac.
     - Live words in the bubble.
     - Chunked transcription during recording.
+- **M2 real-mic (partial pass), 2026-11-19:** the user ran several real-microphone dictations on the Star Labs PC with Murmur Cloud, mostly into Notepad, and everything worked. Not the full 20-row matrix: Edge, Teams/Slack and VS Code are not confirmed by a person yet.
+- **Next build on the PC:** `app-next` (`2dec66b`) adds the downloadable cleanup model. Switch by quitting from the tray and starting `T:\Paseo Project\Murmur\app-next\Murmur.exe`.
 - **Star Labs PC** (Paseo host `srv_XXiOqPoelqaJ`, Windows 11 Pro 26200, Ryzen 9 5900X, 32 GB):
   - Installed at `T:\Paseo Project\Murmur\` (`app`, `src` at `ac2a0ad`, `tools\dotnet` SDK 10.0.404, `cache`). The app is self-contained and starts without a separate .NET.
   - No-mic smoke test with the harness: Edge passed every run (264–279 ms against the fake provider). Notepad passed 1 of 3 runs; the other two were `unverified` with empty read-back. The Notepad platform test couldn't bring Notepad to the foreground.
@@ -334,6 +336,30 @@ Why this works, from Velopack's source (`velopack/velopack` branch `develop`, re
 ## Minimum OS and architecture
 
 - Decided: **Windows 11 (22H2 or later), x64 first**. Windows 10 reached end of support on October 14, 2025, and process loopback's documented minimum is a server/Windows 11-era build. ARM64 (Snapdragon PCs) as a second target once x64 works, on its own update channel `win-arm64`: .NET and WinUI 3 ship ARM64 builds, and a `org.k2fsa.sherpa.onnx.runtime.win-arm64` NuGet package exists **(verify LLamaSharp's ARM64 backend)**.
+
+## UI workstream
+
+The user called the first UI "incredibly ugly". This workstream runs across M3 to M6, screen by screen, once each screen's behaviour is stable. It doesn't wait for the end.
+
+- **Goal:** a proper Windows 11 Fluent app:
+  - Mica backdrop;
+  - the system type ramp (Segoe UI Variable) and the standard spacing grid;
+  - WinUI controls used as intended: NavigationView, SettingsCard/expander-style rows, InfoBar, ContentDialog, ProgressRing, ToggleSwitch;
+  - light and dark, the accent colour, high contrast, keyboard focus and screen reader names.
+- **Reference:** the Mac app's information architecture and copy:
+  - Settings panes in `app/SettingsView.swift`, `SettingsPanes.swift` and `SettingsPaneViews.swift`;
+  - Home and History in `HomeView.swift` and `HistoryView.swift`;
+  - the bubble in `Bubble.swift`;
+  - the welcome guide in `WelcomeGuideView.swift`;
+  - `app/DESIGN.md`.
+  
+  Same sections, wording and order where Windows has the feature. Native Windows layout and controls, not a Mac clone.
+- **Evidence:** before-and-after screenshots of every screen in light and dark, taken in the logged-in session on the VM or PC. Screenshots stay off the repo, because the desktop can show personal windows.
+- **Order:**
+  1. Settings, History, the bubble and the tray menu (now).
+  2. The model rows and the modes, voice edit and learning screens (with M4).
+  3. The meetings screens (with M5).
+  4. The installer and updater surfaces (with M6).
 
 ## Milestones
 
