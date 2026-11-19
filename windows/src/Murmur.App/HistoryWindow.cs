@@ -1,51 +1,98 @@
-using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Murmur.Core;
 
 namespace Murmur.App;
 
-/// <summary>History: newest first, with the text, the app and how it ended. Copy puts the text on the clipboard; Delete removes the entry.</summary>
-internal sealed class HistoryWindow : Window
+public sealed partial class HistoryWindow : Window
 {
     readonly AppServices s;
-    readonly StackPanel list = new() { Spacing = 8, Padding = new Thickness(20) };
 
-    public HistoryWindow(AppServices services)
+    internal HistoryWindow(AppServices services)
     {
         s = services;
+        InitializeComponent();
         Title = "Murmur History";
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(760, 680));
-        Content = new ScrollViewer { Content = list };
+        Fluent.SetTitleBar(this, Caption);
+        Fluent.SetInitialSize(this, 760, 680);
     }
 
     public void Reload()
     {
-        list.Children.Clear();
+        Entries.Children.Clear();
+        Status.IsOpen = false;
         List<HistoryEntry> entries;
         try { entries = s.History.Entries(); }
-        catch (Exception) { list.Children.Add(new TextBlock { Text = "History could not be read." }); return; }
-        list.Children.Add(new TextBlock { Text = HistoryText.Summary(s.Settings.Get(Prefs.HistoryMode), entries.Count, s.History.SessionOnlyIDs.Count), Opacity = 0.7 });
-        if (entries.Count == 0) list.Children.Add(new TextBlock { Text = "Nothing dictated yet." });
-        foreach (var entry in entries) list.Children.Add(Row(entry));
+        catch (Exception) { Summary.Text = ""; ShowError("History could not be read."); return; }
+
+        var mode = s.Settings.Get(Prefs.HistoryMode);
+        Summary.Text = HistoryText.Summary(mode, entries.Count, s.History.SessionOnlyIDs.Count);
+        if (entries.Count == 0)
+        {
+            var empty = new StackPanel
+            {
+                Spacing = 8,
+                Padding = new Thickness(16, 48, 16, 48),
+                Children =
+                {
+                    new SymbolIcon(Symbol.Clock) { HorizontalAlignment = HorizontalAlignment.Center },
+                    Fluent.Text("Your dictation appears here", "SubtitleTextBlockStyle"),
+                    Fluent.Text(mode == HistoryMode.On
+                        ? "Completed transcripts are saved here before they are inserted."
+                        : HistoryModes.OffDisclosure)
+                }
+            };
+            foreach (var block in empty.Children.OfType<TextBlock>()) block.TextAlignment = TextAlignment.Center;
+            Entries.Children.Add(Fluent.Card(empty));
+            return;
+        }
+
+        foreach (var day in entries.GroupBy(entry => entry.RecordedAt.ToLocalTime().Date))
+        {
+            var heading = Fluent.Text(day.Key.ToString("D"), "BodyStrongTextBlockStyle");
+            heading.Margin = new Thickness(0, 12, 0, 0);
+            AutomationProperties.SetHeadingLevel(heading, AutomationHeadingLevel.Level2);
+            Entries.Children.Add(heading);
+            foreach (var entry in day) Entries.Children.Add(Row(entry));
+        }
     }
 
     Border Row(HistoryEntry entry)
     {
         var shown = entry.FinalText.Length > 0 ? entry.FinalText : entry.RawText;
-        var header = string.Join("  |  ", new[] { entry.RecordedAt.ToLocalTime().ToString("g"), entry.App, entry.StatusLabel ?? entry.InsertionStatusRaw }.Where(x => !string.IsNullOrEmpty(x)));
-        var text = new StackPanel { Spacing = 4 };
-        text.Children.Add(new TextBlock { Text = header, Opacity = 0.7, FontSize = 12 });
-        text.Children.Add(new TextBlock { Text = shown, TextWrapping = TextWrapping.Wrap, MaxLines = 8, IsTextSelectionEnabled = true });
-        var copy = new Button { Content = "Copy" };
-        copy.Click += (_, _) => Native.CopyText(shown);
-        var delete = new Button { Content = "Delete" };
-        delete.Click += (_, _) => { try { s.History.Delete(entry); } catch (Exception) { } Reload(); };
-        var buttons = new StackPanel { Spacing = 6, Margin = new Thickness(12, 0, 0, 0) };
-        buttons.Children.Add(copy); buttons.Children.Add(delete);
-        var grid = new Grid { ColumnDefinitions = { new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }, new ColumnDefinition { Width = GridLength.Auto } } };
-        grid.Children.Add(text);
-        Grid.SetColumn(buttons, 1); grid.Children.Add(buttons);
-        return new Border { Child = grid, Padding = new Thickness(14), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"], Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] };
+        var time = entry.RecordedAt.ToLocalTime().ToString("t");
+        var header = string.Join("  ·  ", new[] { time, entry.App, entry.StatusLabel ?? entry.InsertionStatusRaw }
+            .Where(x => !string.IsNullOrEmpty(x)));
+        var transcript = Fluent.Text(shown, "BodyTextBlockStyle");
+        transcript.MaxLines = 8;
+        transcript.TextTrimming = TextTrimming.CharacterEllipsis;
+        transcript.IsTextSelectionEnabled = true;
+        var copy = Fluent.Named(new Button { Content = "Copy Text" }, $"Copy transcript from {time}");
+        copy.Click += (_, _) =>
+        {
+            if (Native.CopyText(shown)) copy.Content = "Copied";
+            else ShowError("The transcript could not be copied.");
+        };
+        var delete = Fluent.Named(new Button { Content = "Delete" }, $"Delete transcript from {time}");
+        delete.Click += (_, _) =>
+        {
+            try { s.History.Delete(entry); }
+            catch (Exception) { ShowError("The transcript could not be deleted."); return; }
+            Reload();
+        };
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { copy, delete } };
+        return Fluent.Card(new StackPanel
+        {
+            Spacing = 8,
+            Children = { Fluent.Text(header, "MurmurCaption"), transcript, actions }
+        });
+    }
+
+    void ShowError(string message)
+    {
+        Status.Message = message;
+        Status.IsOpen = true;
     }
 }

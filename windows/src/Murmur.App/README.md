@@ -26,6 +26,12 @@ $env:MURMUR_DATA_DIR = "C:\tmp\murmur-test"; $env:MURMUR_SYNTHETIC_AUDIO = "C:\t
 
 Put a `settings.json` in the data dir first to choose a route (for example `transcriptionRoute: "cloud"` with `customTranscriptionAPIBaseURL` and `customTranscriptionModel`).
 
+## UI
+
+The tray opens Settings and History. In Settings, the speech model is under **Dictation → Transcription**, and the cleanup model is under **Writing**. Manage cloud keys under **Providers**.
+
+The app follows the Windows theme. For visual tests, set `MURMUR_THEME=light` or `MURMUR_THEME=dark` together with a throwaway `MURMUR_DATA_DIR`. The indicator reports recording and processing without taking focus. Only the copy card accepts clicks.
+
 ## Layout
 
 - `App.xaml.cs` tray icon, menu, single instance, window opening.

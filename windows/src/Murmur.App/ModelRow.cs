@@ -4,7 +4,7 @@ using Murmur.Core;
 
 namespace Murmur.App;
 
-/// <summary>One row of Settings > Models (app/SettingsPaneViews.swift model rows): title, summary, status, license, progress and the Download / Cancel / Retry / Remove buttons.
+/// <summary>A model card in Settings: title, summary, status, license, progress and the Download / Cancel / Retry / Remove buttons.
 /// The flow, texts and gates are Murmur.Core's (ModelFlow, ModelText); this class only draws them and shows the license-and-size confirmation in a ContentDialog.</summary>
 internal sealed class ModelRow
 {
@@ -21,18 +21,17 @@ internal sealed class ModelRow
     readonly ModelFlow flow;
     readonly Answer answer = new();
     readonly Func<XamlRoot?> root;
-    readonly Action changed;
-    readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap };
-    readonly TextBlock message = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7 };
+    readonly TextBlock status = Fluent.Text("", "BodyStrongTextBlockStyle");
+    readonly InfoBar message = new();
     readonly ProgressBar bar = new() { Maximum = 1, Visibility = Visibility.Collapsed };
     readonly Dictionary<ModelRowAction, Button> buttons = [];
-    public StackPanel Panel { get; } = new() { Spacing = 4, Margin = new Thickness(0, 0, 0, 10) };
+    public StackPanel Panel { get; } = new() { Spacing = 8 };
 
     /// <param name="release">Stops what holds the model's files open, before they are deleted.</param>
     /// <param name="changed">After the slot's state changed (the page re-checks what that enables).</param>
     public ModelRow(AppServices services, ModelSlot slot, Controller controller, Func<XamlRoot?> root, Action<Action> release, Action changed)
     {
-        s = services; this.slot = slot; this.root = root; this.changed = changed;
+        s = services; this.slot = slot; this.root = root;
         var facts = slot.Facts;
         flow = new ModelFlow(slot, answer)
         {
@@ -45,7 +44,9 @@ internal sealed class ModelRow
             Release = go => release(go),
             DidRemove = () => { Forget(); changed(); },
         };
-        Panel.Children.Add(new TextBlock { Text = facts.Title, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        Panel.Children.Add(Fluent.Text(facts.Title, "BodyStrongTextBlockStyle"));
+        Fluent.Named(bar, $"{facts.Title} download progress");
+        Fluent.Named(message, $"{facts.Title} status");
         Panel.Children.Add(Small(slot.Summary));
         if (!string.IsNullOrEmpty(facts.Explanation)) Panel.Children.Add(Small(facts.Explanation));
         Panel.Children.Add(Small(slot.License is { } license ? "License: " + string.Join(", ", license.Declarations.Select(d => d.Name).DefaultIfEmpty("not recorded")) + ". Shown in full before any download." : ""));
@@ -54,7 +55,7 @@ internal sealed class ModelRow
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         foreach (var (action, label, click) in new (ModelRowAction, string, Func<Task>)[] { (ModelRowAction.Download, "Download", Download), (ModelRowAction.Retry, "Retry", Download), (ModelRowAction.Cancel, "Cancel", () => { flow.Cancel(); return Task.CompletedTask; }), (ModelRowAction.Remove, "Remove", Remove) })
         {
-            var button = new Button { Content = label };
+            var button = Fluent.Named(new Button { Content = label }, $"{label} {facts.Title}");
             button.Click += async (_, _) => await click();
             buttons[action] = button; row.Children.Add(button);
         }
@@ -63,7 +64,12 @@ internal sealed class ModelRow
         Refresh();
     }
 
-    static TextBlock Small(string text) => new() { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7, Visibility = text.Length == 0 ? Visibility.Collapsed : Visibility.Visible };
+    static TextBlock Small(string text)
+    {
+        var block = Fluent.Text(text, "MurmurCaption");
+        block.Visibility = text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        return block;
+    }
 
     void Forget() { if (slot.Downloader is { } downloader) ModelVerificationCache.Shared.Forget(downloader.Target); }
 
@@ -73,15 +79,19 @@ internal sealed class ModelRow
     {
         var row = slot.Row;
         status.Text = row.StatusText;
+        status.Visibility = row.StatusText == slot.Message ? Visibility.Collapsed : Visibility.Visible;
         bar.Visibility = row.IsWorking ? Visibility.Visible : Visibility.Collapsed;
         bar.IsIndeterminate = row.IsWorking && row.Progress is null;
         if (row.Progress is { } fraction) bar.Value = fraction;
         foreach (var (action, button) in buttons)
         {
             button.Visibility = row.Actions.Contains(action) ? Visibility.Visible : Visibility.Collapsed;
+            button.IsEnabled = !slot.InFlight || action == ModelRowAction.Cancel;
         }
-        message.Text = slot.Message;
-        message.Visibility = slot.Message.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        message.Message = slot.Message;
+        message.Severity = slot.Status.Error is { } error && error != ModelDownloadError.Cancelled
+            ? InfoBarSeverity.Error : InfoBarSeverity.Informational;
+        message.IsOpen = slot.Message.Length != 0;
     }
 
     async Task Download()
@@ -105,6 +115,6 @@ internal sealed class ModelRow
     {
         if (root() is not { } xaml) return false;
         var dialog = new ContentDialog { XamlRoot = xaml, Title = title, Content = new ScrollViewer { Content = new TextBlock { Text = body, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true }, MaxHeight = 360 }, PrimaryButtonText = action, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        return await Fluent.Named(dialog, title).ShowAsync() == ContentDialogResult.Primary;
     }
 }
