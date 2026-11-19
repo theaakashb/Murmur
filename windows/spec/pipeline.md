@@ -87,7 +87,7 @@ The raw transcript is written to History before cleanup (Controller.swift:970-97
 - After a successful insertion that is not a cue expansion, when learning is on (Controller.swift:1168-1169, Controller+Learning.swift:35).
 - Watch the field up to 60 s, until focus leaves or the next insertion (Observation.swift:54, Controller+Learning.swift:7-9); poll every 0.25 s, settle after 2 s of stable text. The Mac falls back to following keystrokes through a listen-only tap when the field can't be read; nothing typed is stored.
 - Edits pass `CorrectionFilter` (Learning.swift:39-70): structure check, meaning guards, respelling similarity (0.75, or 0.5 with a phonetic match), lexicon guard. One settled fix promotes (Learning.swift:364); the user sees a "learned" notice with Undo. Editing a History entry also learns (Controller+History.swift:34-45).
-- **Windows:** read-back through UI Automation; whether to port the keystroke fallback is decided in M4 (it needs a keyboard hook that sees typed text, which is a larger privacy surface).
+- **Windows:** read-back through UI Automation; whether to port the keystroke fallback is a user decision (PLAN open question 7).
 
 ## 13. Voice edit
 
