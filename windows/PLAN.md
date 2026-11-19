@@ -216,6 +216,16 @@ Required in v1, as on the Mac (`ScreenReading.swift:10-38`: the page URL from th
 - **Test matrix** (manual on the user's PC, then a scripted UI Automation probe in CI where possible): Chrome, Edge, Firefox, Brave × {normal window, private window, second window, after tab switch, installed web app (PWA) window, F11 full screen with hidden toolbar, address bar focused, non-English browser UI, 100% and 150% display scaling, a page inside an iframe-heavy app such as Gmail}. Each case records the expected host and whether the mode matched.
 - A browser we can't read gets app-level matching only, and Settings says so for that browser. This is a coverage limit shown to the user, not a silent fallback.
 
+Windows VM probe (2026-11-19). The console was at 125% scaling with English browser UI. Each positive case required the synthetic loopback host and path to select the site mode over the browser's app mode.
+
+| Browser | Verified on the Windows VM | Pending |
+| --- | --- | --- |
+| Edge 157 | Normal window (document value and forced address-bar fallback), private window, second window, after tab switch, F11, focus inside an iframe (matched the top-level page), and a standalone window opened with `--app`. Address-bar and stale page focus returned no page. | Installed PWA, non-English browser UI, 100% and 150% scaling, real iframe-heavy apps. |
+| Chrome 158 | Normal document value and forced address-bar fallback each matched in one run. A later isolated-window run did not match its initial page, so this case is intermittent on the VM. | Repeat normal window and test the remaining matrix. |
+| Firefox and Brave | No probe run. | Full matrix. |
+
+The user-PC matrix is pending for all browsers. To run the VM probe from its logged-in console, set `MURMUR_RUN_BROWSER_PROBE=1` and run `dotnet test windows/tests/Murmur.Platform.Tests --filter FullyQualifiedName~ChromiumBrowserPageTests`. Set `MURMUR_BROWSER_PROBE_CHROME=1` to target Chrome.
+
 ## Learning from edits
 
 Required in v1. The Mac watches the field after a paste for up to 60 s, polls every 0.25 s, settles after 2 s of stable text, and falls back to following keystrokes when the field can't be read (`Observation.swift`, `Controller+Learning.swift`, `Learning.swift:39-70`).
