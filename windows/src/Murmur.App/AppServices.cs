@@ -15,7 +15,8 @@ internal sealed class AppServices
     public DispatcherQueue UI { get; }
     public IDictationProcessor Processor { get; }
     public HistoryRouter<HistoryEntry> History { get; private set; } = null!;
-    public DictionaryStore Dictionary { get; private set; } = null!;
+    public ProcessingCoordinator Processing { get; private set; } = null!;
+    public DictionaryStore Dictionary => Processing.Dictionary;
     HistoryStore store = null!;
 
     public AppServices(DispatcherQueue ui)
@@ -30,7 +31,7 @@ internal sealed class AppServices
         TestEvents.Init(Root);
         Settings = new JsonSettingsStore(Path.Combine(Root, JsonSettingsStore.FileName));
         Credentials = testing ? new InMemoryCredentialStore() : new CredentialAdapter(new CredentialManagerStore());
-        Processor = new RulesOnlyProcessor(() => Dictionary);
+        Processor = new CoordinatorProcessor(() => Processing);
         ReopenData();
         PurgeAtLaunch();
     }
@@ -42,7 +43,8 @@ internal sealed class AppServices
         PrivateFiles.PrepareDirectory(Locations.Dictionary);
         store = new HistoryStore(Locations.History);
         History = new HistoryRouter<HistoryEntry>(new HistoryDisk<HistoryEntry>(store.Save, () => store.Entries(), store.Delete), Settings.Get(Prefs.HistoryMode).PersistsTranscripts());
-        Dictionary = new DictionaryStore(Locations.Dictionary);
+        // shortcut: no lexicon until the bundled English word list lands (PLAN "Dictionary correction and lexicon"); respelling then skips the lexicon guard, as Swift does with nil.
+        Processing = new ProcessingCoordinator(Locations.Dictionary, Settings);
     }
 
     /// <summary>Retention purge, retry audio older than 24 hours, and the transient chunks folder (spec/settings.md).</summary>

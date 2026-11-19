@@ -45,8 +45,12 @@ internal sealed class Controller : IDisposable
     double pressedAt;
     volatile float level;
     Session? session;
+    /// <summary>A recorder started from the hook thread at key down (spec/pipeline.md section 1: a hold never loses its first word). BeginSession adopts it; anything else drops it.</summary>
+    sealed record EarlyStart(string WavPath, Task<IRecorder> Recorder);
+    EarlyStart? early;
     int generation;
-    Phase phase;
+    volatile int phaseRaw;
+    Phase phase { get => (Phase)phaseRaw; set => phaseRaw = (int)value; } // read by the hook thread
     string? lastText;
 
     public Controller(AppServices services, Bubble bubble)
@@ -95,6 +99,7 @@ internal sealed class Controller : IDisposable
             bool repeat = e.IsDown && dictationDown, down = e.IsDown;
             dictationDown = down;
             double t = e.Timestamp / (double)Stopwatch.Frequency;
+            if (down && !repeat && phase != Phase.Listening && early is null) early = StartEarly();
             ui.TryEnqueue(() => { if (down) Pressed(t, repeat); else Released(t); });
             return !ShortcutSpec.IsModifier(vk);
         }
@@ -115,6 +120,30 @@ internal sealed class Controller : IDisposable
         machine.PressToToggle = s.Settings.Get(Prefs.PressToToggle);
         if (!repeat) pressedAt = t;
         Apply(machine.Press(t, repeat));
+        DropEarly(); // a press that did not start a session (finish, toggle, refused) leaves no recording behind
+    }
+
+    /// <summary>Runs on the hook thread: queues the recorder start so the hook returns at once.</summary>
+    EarlyStart StartEarly()
+    {
+        var wavPath = Path.Combine(s.Locations.RetryAudio, Guid.NewGuid().ToString().ToUpperInvariant() + ".wav");
+        return new EarlyStart(wavPath, Task.Run(() =>
+        {
+            PrivateFiles.PrepareDirectory(s.Locations.RetryAudio);
+            return CreateRecorder(wavPath);
+        }));
+    }
+
+    IRecorder CreateRecorder(string wavPath) =>
+        Environment.GetEnvironmentVariable("MURMUR_SYNTHETIC_AUDIO") is { Length: > 0 } folder
+            ? SyntheticRecorder.Start(folder, wavPath, p => level = p)
+            : MicRecorder.Start(s.Settings.Get(Prefs.InputDeviceUID), wavPath, p => level = p);
+
+    void DropEarly()
+    {
+        if (early is not { } e) return;
+        early = null;
+        _ = e.Recorder.ContinueWith(t => { if (t.IsCompletedSuccessfully) { try { t.Result.Stop(); } catch (Exception) { } } try { File.Delete(e.WavPath); } catch (Exception) { } });
     }
 
     void Released(double t) => Apply(machine.Release(t));
@@ -162,9 +191,10 @@ internal sealed class Controller : IDisposable
         if (plan.Refusal is { } refusal) return StartFailed("route-refused", refusal);
         if (plan.UsesLocalModel) return StartFailed("local-unavailable", "Local speech recognition arrives in M3. Pick a Custom Provider or Murmur Cloud in Settings for now.");
 
-        // Never reuse a previous session's folder name: a UUID per recording, created exclusively by the recorder.
-        PrivateFiles.PrepareDirectory(s.Locations.RetryAudio);
-        var wavPath = Path.Combine(s.Locations.RetryAudio, Guid.NewGuid().ToString().ToUpperInvariant() + ".wav");
+        // The recorder was started from the hook thread at key down; a UUID per recording, created exclusively by the recorder.
+        var pre = early ?? StartEarly();
+        early = null;
+        var wavPath = pre.WavPath;
         var ss = new Session
         {
             Gen = ++generation, Plan = plan, Routes = routes, Options = options, WavPath = wavPath,
@@ -173,9 +203,7 @@ internal sealed class Controller : IDisposable
         };
         try
         {
-            ss.Recorder = Environment.GetEnvironmentVariable("MURMUR_SYNTHETIC_AUDIO") is { Length: > 0 } folder
-                ? SyntheticRecorder.Start(folder, wavPath, p => level = p)
-                : MicRecorder.Start(s.Settings.Get(Prefs.InputDeviceUID), wavPath, p => level = p);
+            ss.Recorder = pre.Recorder.GetAwaiter().GetResult(); // normally finished already: it started at key down
         }
         catch (AudioCaptureException e)
         {
@@ -319,13 +347,13 @@ internal sealed class Controller : IDisposable
         bubble.ShowProcessing("Cleaning up...");
 
         var cleanupStart = Stopwatch.GetTimestamp();
-        var result = await s.Processor.ProcessAsync(new DictationRequest(transcript.Text, ss.Options, ss.Routes.Cleanup, focus?.ProcessName, null), ss.Cts.Token);
+        var result = await s.Processor.ProcessAsync(new DictationRequest(transcript.Text, ss.Options, ss.Routes.Cleanup, ss.Plan.Cleaner, focus?.ProcessName, null), ss.Cts.Token);
         if (Stale(ss)) return;
         TestEvents.Emit("cleaned", ("path", JsonNamingPolicy.CamelCase.ConvertName(result.Path.ToString())));
         entry = entry.With(result.FinalText, fallback: result.Fallback is { } f ? JsonNamingPolicy.CamelCase.ConvertName(f.ToString()) : null, rejected: result.RejectedOutput) with
         {
             CleanupOutcome = result.Path, AppVersion = AppInfo.Version,
-            CleanupProvider = "local-rules",
+            CleanupProvider = ss.Plan.Cleaner?.Id.RawValue() ?? "local-rules", CleanupModel = ss.Plan.Cleaner?.ModelID,
             Timing = new StageTiming { Transcription = transcribeSeconds, Cleanup = Stopwatch.GetElapsedTime(cleanupStart).TotalSeconds, Capture = capture.Seconds },
         };
         try { s.History.Save(entry); }
