@@ -46,11 +46,12 @@ Derived from the Swift app at commit `c70cdb1`. References are `app/<file>:<line
 | meetingPanelTopRight | [double] | [] | Meeting panel corner | Settings.swift:75 | screen pixels |
 | openAtLoginDefaulted | bool | false | Start at login set on first launch | Settings.swift:77, main.swift:28-29 | same, with `HKCU\…\Run` |
 | dictionarySuggestionsDismissed | [string] | [] | Dismissed suggestion words; removed by Delete All | Settings.swift:79 | same |
-| shortcut | string | `right-option` | Dictation key preset or `custom:KEYCODE:FLAGS:KEY` | Controller+Settings.swift:8, Shortcut.swift:113-116 | Windows presets and VK codes; default open (PLAN question 4) |
+| shortcut | string | `right-option` | Dictation key preset or `custom:KEYCODE:FLAGS:KEY` | Controller+Settings.swift:8, Shortcut.swift:113-116 | Windows presets and VK codes; default `right-ctrl` |
+| pasteLastShortcut | string | Mac fixed ⌃⌘V | Paste last dictation | Shortcut.swift:245 | new key on Windows, default `ctrl-win-v` |
 | voiceEditShortcut | string | `same` | Voice edit key; `same` = dictation key with a selection | Controller+Settings.swift:9, EditTrigger.swift:13-14 | same semantics |
 | modelDirectory | path | computed under the user cache folder | Batch model folder | Controller+Settings.swift:10, ModelText.swift:97-100 | `%LOCALAPPDATA%\Murmur\Models\<model>-<rev>` |
 | transcriptionRoute | `local`/`cloud`/`murmur-cloud` | `local` | Transcription route | Routes.swift:20-26, 117-118 | same |
-| cleanupChoice | `local-rules`/`local-model`/`custom-api`/`murmur-cloud` | `local-rules` | Cleanup route | Routes.swift:37-44, 120 | `local-model` only if PLAN question 1 says port |
+| cleanupChoice | `local-rules`/`local-model`/`custom-api`/`murmur-cloud` | `local-rules` | Cleanup route | Routes.swift:37-44, 120 | same; `local-model` runs Vedu Scribe through `Murmur.Cleanup` |
 | customAPIBaseURL | string | "" | Custom cleanup server | Routes.swift:121 | same |
 | customTranscriptionAPIBaseURL | string | customAPIBaseURL when unset | Custom transcription server | Routes.swift:122, 187 | same |
 | customAPIModel | string | "" | Custom cleanup model | Routes.swift:123 | same |
