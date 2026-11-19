@@ -5,6 +5,7 @@
 namespace Murmur.Core;
 
 /// <summary>Raw values "apple-intelligence", "custom-provider", "murmur-cloud".</summary>
+[System.Text.Json.Serialization.JsonConverter(typeof(KebabCaseEnumConverter<AIEngine>))]
 public enum AIEngine { AppleIntelligence, CustomProvider, MurmurCloud }
 
 public static class AIEngines

@@ -926,6 +926,23 @@ public class ProcessingTests
         c.Done();
     }
 
+    // MARK: Filler-only dictations insert nothing, with no error (spec/pipeline.md §9, Controller.swift:1128-1133)
+
+    [Fact]
+    public async Task FillerOnlyInsertsNothing()
+    {
+        var p = Make();
+        var local = p.Process("Um.");
+        Assert.True(local.Text == "" && local.Fallback is null && local.CleanupPath == CleanupPath.LocalRoute, "local route: only fillers, nothing to insert, no failure");
+        With(p, s => s with { Route = CleanupRoute.Cloud, Options = Polished });
+        p.CloudCleaner = MockProvider.Fixed("");
+        var cloud = await p.ProcessAsync("Um, uh.");
+        Assert.True(cloud.Text == "" && cloud.Fallback is null && cloud.ProviderError is null, "cloud: an empty reply to fillers is nothing to insert, not a failure");
+        var words = await p.ProcessAsync("call the team now");
+        Assert.True(words.Fallback == CleanupFailureReason.EmptyOutput && words.Text is { Length: > 0 } t && t.Contains("call the team now", StringComparison.OrdinalIgnoreCase),
+                    $"an empty reply to real words is a rejection; the words go in: {words.Text}");
+    }
+
     // MARK: PromptHash and ProcessingOutcome
 
     [Fact]
