@@ -32,6 +32,14 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 - The local Swift 6.4 package dump selected FluidAudio's `Package@swift-6.2.swift`, whose default trait enables `NemoTextProcessing`; build workspace metadata resolves the v0.3.1 xcframework, and the built helper contains FluidAudio `TextNormalizer` symbols.
 - These checks do not establish which individual framework components are included in the final executable. Verify that list and its required notices for the exact binary before distribution.
 
+## Murmur for Windows
+
+### Swift standard library (word difference)
+
+- `windows/src/Murmur.Core/History.cs` (`WordDifference`) is a C# port of the linear-space Myers difference in `stdlib/public/core/Diffing.swift` from https://github.com/swiftlang/swift (`main`, fetched 2026-11-19). The port keeps the same edits as the Mac app when several shortest edit scripts exist.
+- Header: "Copyright (c) 2015 - 2019 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception." License: https://swift.org/LICENSE.txt
+- Release duty: ship the Apache-2.0 text with the Windows app and state that the file was modified (translated to C#).
+
 ## Downloaded at run time, not bundled
 
 ### Parakeet Unified English 0.6B
