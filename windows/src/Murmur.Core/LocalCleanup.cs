@@ -34,11 +34,11 @@ public static class LocalCleanupLimits
 /// <summary>The managed local cleanup model's download facts (the provider and helper client are below).</summary>
 public sealed partial record ModelFacts
 {
-    /// <summary>The Vedu Scribe GGUF, from windows/shared/windows-models.json. Staged: the repository is a placeholder until the files are uploaded, so it cannot be downloaded yet.</summary>
+    /// <summary>The Vedu Scribe GGUF, pinned in windows/shared/windows-models.json.</summary>
     public static readonly ModelFacts LocalCleanup = new()
     {
         DisplayName = LocalCleanupIdentity.ModelName,
-        Repository = "pending-upload/vedu-scribe-0.8b-gguf",
+        Repository = "clouddevaakash/vedu-scribe-0.8b-gguf",
         Source = ModelPinsSource.WindowsModels,
         FolderName = LocalCleanupIdentity.FolderName,
         ConfirmName = LocalCleanupIdentity.ModelName,

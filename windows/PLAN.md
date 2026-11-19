@@ -34,7 +34,6 @@ Updated 2026-11-19 (overnight autonomous run).
     - Real dictations of 5, 30 and 120 s on the user's PC, next to the Mac.
     - Live words in the bubble.
     - Chunked transcription during recording.
-    - The cleanup model is downloadable only after the Hugging Face upload.
 - **Star Labs PC** (Paseo host `srv_XXiOqPoelqaJ`, Windows 11 Pro 26200, Ryzen 9 5900X, 32 GB):
   - Installed at `T:\Paseo Project\Murmur\` (`app`, `src` at `ac2a0ad`, `tools\dotnet` SDK 10.0.404, `cache`). The app is self-contained and starts without a separate .NET.
   - No-mic smoke test with the harness: Edge passed every run (264–279 ms against the fake provider). Notepad passed 1 of 3 runs; the other two were `unverified` with empty read-back. The Notepad platform test couldn't bring Notepad to the foreground.
@@ -43,7 +42,6 @@ Updated 2026-11-19 (overnight autonomous run).
   - CI publishes the unsigned build as the `Murmur-windows-x64-unsigned` artifact.
 - **Needs user:**
   - The real-mic confirmation, on M2 and on local M3.
-  - Approve the Hugging Face upload of `~/murmur-m3/hf-stage/vedu-scribe-0.8b-gguf/` (Q8_0, SHA-256 `6859e09e…`).
   - Approve starting M4.
 - **VM settings changed:** clipboard history (HKCU `Software\Microsoft\Clipboard\EnableClipboardHistory` = 1), approved 2026-11-19. It was already 1, so the write changed nothing; the console session reports history on and cloud sync (roaming) off. To revert: set it to 0.
 - **Needs user:**
@@ -194,7 +192,7 @@ Why llama.cpp over ONNX Runtime GenAI: there is a written, tested-by-someone con
        - Tokenizer IDs are identical on 1,066 strings.
      - Decision: ship Q8_0.
      - All 320 Q8_0 tensors are identical to the third-party `sumitsah35/vedu-scribe-0.8b-gguf@4b72e79`. Only the `general.name` metadata differs, so the conversion is reproducible.
-     - Files are staged locally, outside the repo; no upload.
+     - Uploaded 2026-11-19 to `clouddevaakash/vedu-scribe-0.8b-gguf` at revision `edf27597…`. The Windows app downloads it from there (`windows/shared/windows-models.json`).
 4. **Prompt and token parity:** build the ChatML string ourselves (system, user, assistant with an empty `<think></think>` block) instead of relying on llama.cpp's embedded chat template to honor `enable_thinking: false`. A test tokenizes the same inputs with the MLX tokenizer and the GGUF tokenizer and compares token IDs, since the 400-token `too-long` cutoff depends on the counts matching.
 5. **Validation:** run `cleanup-corpus.json` through the Mac's MLX helper and the Windows GGUF helper with greedy decoding, compare outputs case by case, and report exact-match rate and guard outcomes; add a local-model section to `CLEANUP_BENCHMARK.md`. Bar: guard pass rate and corpus results within a small, stated margin of the Mac's; any difference is listed, not hidden. Pick Q8_0 if it meets the bar, otherwise F16 (about 1.6 GB).
 6. **Pins and notices:** add the GGUF to `artifact-pins.json`; add LLamaSharp, llama.cpp and the model's modification notice to `THIRD_PARTY_NOTICES.md`.

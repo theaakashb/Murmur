@@ -68,19 +68,17 @@ internal sealed class ModelRow
     void Forget() { if (slot.Downloader is { } downloader) ModelVerificationCache.Shared.Forget(downloader.Target); }
 
     /// <summary>A staged model exists on disk only as a side-loaded test copy: it is built but not uploaded, so Download says so instead of failing.</summary>
-    bool NotPublished => slot.Manifest?.Staged == true && slot.Status.Kind == ModelStatusKind.NotDownloaded;
 
     public void Refresh()
     {
         var row = slot.Row;
-        status.Text = NotPublished ? "Not published yet: this model is built but not uploaded, so it cannot be downloaded yet." : row.StatusText;
+        status.Text = row.StatusText;
         bar.Visibility = row.IsWorking ? Visibility.Visible : Visibility.Collapsed;
         bar.IsIndeterminate = row.IsWorking && row.Progress is null;
         if (row.Progress is { } fraction) bar.Value = fraction;
         foreach (var (action, button) in buttons)
         {
             button.Visibility = row.Actions.Contains(action) ? Visibility.Visible : Visibility.Collapsed;
-            if (action is ModelRowAction.Download or ModelRowAction.Retry) button.IsEnabled = !NotPublished;
         }
         message.Text = slot.Message;
         message.Visibility = slot.Message.Length == 0 ? Visibility.Collapsed : Visibility.Visible;

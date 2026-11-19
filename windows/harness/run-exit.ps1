@@ -86,7 +86,7 @@ try {
         # Folder names are ModelFacts.Directory: <repo name>-<rev7> under <data root>\Models. Only the pinned files are copied; the app verifies them against the pins.
         $models = Join-Path $data 'Models'
         $speechDir = Join-Path $models 'sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming-8c3a10f'
-        $cleanupDir = Join-Path $models 'vedu-scribe-0.8b-0000000'
+        $cleanupDir = Join-Path $models 'vedu-scribe-0.8b-edf2759'
         New-Item -ItemType Directory -Force $speechDir, $cleanupDir | Out-Null
         foreach ($f in 'encoder.int8.onnx', 'decoder.int8.onnx', 'joiner.int8.onnx', 'tokens.txt') { Copy-Item (Join-Path $ModelSource "speech\$f") $speechDir }
         Copy-Item (Join-Path $ModelSource 'cleanup\vedu-scribe-0.8b-Q8_0.gguf') $cleanupDir

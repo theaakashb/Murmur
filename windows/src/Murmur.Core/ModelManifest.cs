@@ -29,8 +29,6 @@ public sealed class ModelManifest
     public string Revision { get; }
     public IReadOnlyList<ModelManifestFile> Files { get; }
     public ModelLicenseInfo License { get; }
-    /// <summary>True for a model whose files exist locally but are not uploaded yet (<c>"staged": true</c> in windows/shared/windows-models.json): it cannot be downloaded.</summary>
-    public bool Staged { get; }
 
     /// <summary>Sum of pinned file sizes: the download size to show before downloading.</summary>
     public long TotalBytes => Files.Sum(f => f.Size);
@@ -88,7 +86,6 @@ public sealed class ModelManifest
             Repository = repository;
             Revision = rev.GetString()!;
             Files = files;
-            Staged = model.TryGetProperty("staged", out var staged) && staged.ValueKind == JsonValueKind.True;
             if (model.TryGetProperty("license", out var license) && license.ValueKind == JsonValueKind.Object
                 && license.TryGetProperty("name", out var licenseName) && licenseName.ValueKind == JsonValueKind.String && licenseName.GetString()!.Length > 0
                 && license.TryGetProperty("url", out var licenseUrl) && licenseUrl.ValueKind == JsonValueKind.String

@@ -2,7 +2,7 @@
 // Downloads the pinned model files from Hugging Face, verifies every byte against the pins, and moves the verified set into place with one rename.
 namespace Murmur.Core;
 
-public enum ModelDownloadErrorKind { Network, DiskFull, ChecksumMismatch, HttpStatus, Cancelled, InvalidManifest, UnsafePath, FileSystem, Busy, NotPublished }
+public enum ModelDownloadErrorKind { Network, DiskFull, ChecksumMismatch, HttpStatus, Cancelled, InvalidManifest, UnsafePath, FileSystem, Busy }
 
 /// <summary>Every case maps to a short, user-facing message that names no file, path, or URL.</summary>
 public readonly record struct ModelDownloadError(ModelDownloadErrorKind Kind, int Status = 0)
@@ -15,8 +15,6 @@ public readonly record struct ModelDownloadError(ModelDownloadErrorKind Kind, in
     public static readonly ModelDownloadError UnsafePath = new(ModelDownloadErrorKind.UnsafePath);
     public static readonly ModelDownloadError FileSystem = new(ModelDownloadErrorKind.FileSystem);
     public static readonly ModelDownloadError Busy = new(ModelDownloadErrorKind.Busy);
-    /// <summary>Windows only: a staged model (files prepared, repository not uploaded yet).</summary>
-    public static readonly ModelDownloadError NotPublished = new(ModelDownloadErrorKind.NotPublished);
     public static ModelDownloadError HttpStatus(int code) => new(ModelDownloadErrorKind.HttpStatus, code);
 
     public string UserMessage => Kind switch
@@ -30,7 +28,7 @@ public readonly record struct ModelDownloadError(ModelDownloadErrorKind Kind, in
         ModelDownloadErrorKind.UnsafePath => "The pinned model manifest contains an unsafe file path, so nothing was downloaded.",
         ModelDownloadErrorKind.FileSystem => "Murmur could not write the model files. Check that the model folder is writable.",
         ModelDownloadErrorKind.Busy => "A model download is already in progress.",
-        _ => "This model has not been published yet, so it cannot be downloaded. Update Murmur and try again.",
+        _ => throw new System.Diagnostics.UnreachableException(),
     };
 
     /// <summary>Maps file-write failures; a full disk (Windows ERROR_DISK_FULL / ERROR_HANDLE_DISK_FULL, or ENOSPC / EDQUOT) becomes <see cref="DiskFull"/>.</summary>
@@ -212,7 +210,6 @@ public sealed class ModelDownloader
         }
         try
         {
-            if (Manifest.Staged) throw new ModelDownloadException(ModelDownloadError.NotPublished);
             PerformInstall();
             Finish(null);
         }
