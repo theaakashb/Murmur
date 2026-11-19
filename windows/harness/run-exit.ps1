@@ -17,7 +17,9 @@ param(
     [string]$ModelSource = 'C:\src\models'  # speech\ (4 pinned files) and cleanup\ (the pinned GGUF); never committed
 )
 $ErrorActionPreference = 'Stop'
-$env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+# Keep the caller's PATH first (a dotnet outside Program Files), then add the saved machine and user paths for SSH sessions.
+$env:Path = ($env:Path, [Environment]::GetEnvironmentVariable('Path', 'Machine'), [Environment]::GetEnvironmentVariable('Path', 'User')) -join ';'
+$dotnetRoot = if ($env:DOTNET_ROOT) { "set DOTNET_ROOT=$env:DOTNET_ROOT" } else { 'rem default .NET location' }
 $harness = $PSScriptRoot
 $windows = Split-Path $harness -Parent
 $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -123,7 +125,7 @@ try {
     @{ dataDir = $data; outDir = $run; providerUrl = $url; fixturesDir = "$harness\fixtures"; pageFile = "$harness\pages\textarea.html"; count = $Count } |
         ConvertTo-Json | Set-Content $cfg -Encoding UTF8
     $driverCmd = Join-Path $run 'run-driver.cmd'
-    @('@echo off', "`"$driverExe`" run `"$cfg`" > `"$run\driver.log`" 2>&1", "echo %ERRORLEVEL% > `"$run\driver-exit.txt`"") | Set-Content $driverCmd -Encoding ASCII
+    @('@echo off', $dotnetRoot, "`"$driverExe`" run `"$cfg`" > `"$run\driver.log`" 2>&1", "echo %ERRORLEVEL% > `"$run\driver-exit.txt`"") | Set-Content $driverCmd -Encoding ASCII
     Start-InSession1 'MurmurHarnessDriver' 'cmd.exe' "/c `"$driverCmd`""
     $deadline = (Get-Date).AddSeconds(150 + 45 * $Count)
     while (-not (Test-Path "$run\driver-exit.txt") -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
