@@ -1,0 +1,82 @@
+using System.Text;
+using System.Text.Json;
+using LLama;
+using LLama.Common;
+using LLama.Native;
+using LLama.Sampling;
+
+// Managed local cleanup helper, the Windows counterpart of module-one/cleanup/Runner (LocalCleanupRunner):
+// one JSON object per line on stdin, one reply per line on stdout.
+//   {"id":1,"text":"...","tone":"formal"|"casual","terms":["..."]}  ->  {"id":1,"text":"..."} | {"id":1,"error":"too-long"|"failed"}
+// No networking, no transcript logging. A fresh context per request. argv[0] is the verified GGUF path.
+// The app owns cancellation by terminating this process.
+
+if (args.Length < 1) return 2;
+const int MaximumInputTokens = 400;   // Over system line + header + text, counted on the plain string as main.swift does.
+const int MaximumOutputTokens = 512;
+const string System_ = "Clean up this dictation.";
+
+static void Send(object o)
+{
+    var json = JsonSerializer.Serialize(o);
+    Console.Out.Write(json + "\n");
+    Console.Out.Flush();
+}
+
+static string Header(string tone, IEnumerable<string> terms)
+{
+    var lines = new List<string>();
+    if (tone == "formal") lines.Add("[tone: formal]");
+    var vocab = terms.Take(12).Select(t => t.Replace(";", ",").Replace("\n", " ")).ToList();
+    if (vocab.Count > 0) lines.Add("[vocab: " + string.Join("; ", vocab) + "]");
+    return lines.Count == 0 ? "" : string.Join("\n", lines) + "\n";
+}
+
+// Qwen3.5's chat template with enable_thinking false: an empty think block opens the assistant turn.
+static string Chatml(string prompt) =>
+    $"<|im_start|>system\n{System_}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n";
+
+if (Environment.GetEnvironmentVariable("MURMUR_CLEANUP_DEBUG") != "1") NativeLogConfig.llama_log_set((_, _) => { });
+
+LLamaWeights weights;
+try { weights = LLamaWeights.LoadFromFile(new ModelParams(args[0]) { ContextSize = 2048, GpuLayerCount = 0 }); }
+catch (Exception e) { if (Environment.GetEnvironmentVariable("MURMUR_CLEANUP_DEBUG") == "1") Console.Error.WriteLine(e); Send(new { ready = false }); return 3; }
+var contextParams = new ModelParams(args[0]) { ContextSize = 2048, GpuLayerCount = 0 };
+
+if (args.Length > 1 && args[1] == "--tokenize")   // Parity test aid: prints token IDs of each stdin line (JSON string) for plain and templated text.
+{
+    Send(new { ready = true });
+    while (Console.ReadLine() is { } l)
+        Send(new { ids = weights.Tokenize(JsonSerializer.Deserialize<string>(l)!, false, true, Encoding.UTF8).Select(t => (int)t).ToArray() });
+    return 0;
+}
+
+Send(new { ready = true });
+while (Console.ReadLine() is { } line)
+{
+    int id; string text, tone = "casual"; List<string> terms = [];
+    try
+    {
+        using var doc = JsonDocument.Parse(line);
+        var root = doc.RootElement;
+        id = root.GetProperty("id").GetInt32();
+        text = root.GetProperty("text").GetString()!;
+        if (root.TryGetProperty("tone", out var t) && t.ValueKind == JsonValueKind.String) tone = t.GetString()!;
+        if (root.TryGetProperty("terms", out var ts) && ts.ValueKind == JsonValueKind.Array)
+            terms = ts.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.String).Select(e => e.GetString()!).ToList();
+    }
+    catch { Send(new { id = -1, error = "failed" }); continue; }
+
+    var prompt = Header(tone, terms) + text;
+    try
+    {
+        if (weights.Tokenize(System_ + "\n" + prompt, false, false, Encoding.UTF8).Length > MaximumInputTokens) { Send(new { id, error = "too-long" }); continue; }
+        var executor = new StatelessExecutor(weights, contextParams);
+        var inference = new InferenceParams { MaxTokens = MaximumOutputTokens, SamplingPipeline = new GreedySamplingPipeline() };
+        var output = new StringBuilder();
+        await foreach (var piece in executor.InferAsync(Chatml(prompt), inference)) output.Append(piece);
+        Send(new { id, text = output.ToString() });
+    }
+    catch { Send(new { id, error = "failed" }); }
+}
+return 0;
