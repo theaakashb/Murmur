@@ -244,3 +244,19 @@ public class DictionaryTests
         c.Done();
     }
 }
+
+public class StoreJsonBomTests
+{
+    [Fact]
+    public void DecodesAFileWithAByteOrderMark()
+    {
+        var dir = Directory.CreateTempSubdirectory("murmur-dict-bom-").FullName;
+        try
+        {
+            File.WriteAllBytes(Path.Combine(dir, "dictionary.json"), [0xEF, 0xBB, 0xBF, .. System.Text.Encoding.UTF8.GetBytes("{\"version\":1,\"entries\":[]}")]);
+            var store = new Murmur.Core.DictionaryStore(dir);
+            Assert.Empty(store.Entries);
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+}

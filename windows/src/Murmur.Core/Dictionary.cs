@@ -45,7 +45,8 @@ static class StoreJson
     };
 
     public static byte[] Encode<T>(T value) => Encoding.UTF8.GetBytes(JsonSerializer.Serialize(value, Options));
-    public static T Decode<T>(byte[] data) => JsonSerializer.Deserialize<T>(data, Options) ?? throw new StoreError("The file is empty");
+    // Foundation's JSONDecoder accepts a UTF-8 byte order mark (Notepad and PowerShell write one); System.Text.Json does not.
+    public static T Decode<T>(byte[] data) => JsonSerializer.Deserialize<T>(data is [0xEF, 0xBB, 0xBF, ..] ? data.AsSpan(3) : data, Options) ?? throw new StoreError("The file is empty");
 }
 
 [JsonConverter(typeof(CamelCaseEnumConverter<EntrySource>))]

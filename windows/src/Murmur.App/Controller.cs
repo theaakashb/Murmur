@@ -370,6 +370,16 @@ internal sealed class Controller : IDisposable
         try { s.History.Save(entry); }
         catch (Exception) { Fail(ss, "history", "save-failed", "Could not save the processed transcript. The raw transcript is in History."); return; }
 
+        if (result.Held)
+        {
+            entry = entry with { InsertionStatusRaw = InsertionStatus.HeldCleanup.Raw() };
+            try { s.History.Save(entry); } catch (Exception) { }
+            phase = Phase.Error;
+            TestEvents.Emit("error", ("stage", "cleanup"), ("reason", "processing-unavailable"));
+            bubble.ShowError(s.DataProblem ?? "Cleanup is unavailable, so the transcript was kept in History.", 8);
+            return;
+        }
+
         // Only filler words were heard: keep the raw transcript, insert nothing, show no error.
         if (result.FinalText.Length == 0)
         {

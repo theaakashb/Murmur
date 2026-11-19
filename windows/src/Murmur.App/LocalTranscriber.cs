@@ -56,8 +56,8 @@ internal sealed class LocalTranscriber : IDisposable
         {
             try
             {
-                var terms = s.Dictionary.HelperVocabulary;
-                if (terms.Count > 0)
+                var terms = s.Dictionary?.HelperVocabulary;
+                if (terms is { Count: > 0 })
                 {
                     var json = JsonSerializer.SerializeToUtf8Bytes(new { terms = terms.Select(t => t.Aliases is null ? (object)new { text = t.Text } : new { text = t.Text, aliases = t.Aliases }) });
                     if (PrivateFiles.Read(VocabularyFile) is not { } current || !current.AsSpan().SequenceEqual(json)) PrivateFiles.Write(json, VocabularyFile);

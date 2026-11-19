@@ -66,6 +66,7 @@ public partial class App : Application
         };
         tray.ForceCreate();
         TestEvents.Emit("ready");
+        if (services.DataProblem is { } problem) bubble.ShowError(problem, 8);
         // Development aid: open a window at launch (the tray menu is the normal way).
         var launchArgs = Environment.GetCommandLineArgs();
         if (launchArgs.Contains("--settings")) OpenSettings();
