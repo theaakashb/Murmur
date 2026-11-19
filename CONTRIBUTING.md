@@ -75,6 +75,10 @@ app/check_ui.sh --meetings --separating
 
 Additional fixture flags and their side effects are described in [app/README.md](app/README.md). Standalone probes are in the [insertion spike](spike/README.md), [capture probe](module-one/capture/README.md) and [model tooling](module-one/models/README.md) guides. A synthetic fixture is not live capture, insertion, or provider evidence.
 
+## Windows port
+
+Murmur for Windows lives in `windows/` and is kept in step with the Mac app: change and test on the Mac first, then port. Run `app/check.sh windows_parity` after changing a ported file or corpus. It regenerates the golden and shared files the C# tests use and checks `windows/porting.json`. The checklist is in [windows/CONTRIBUTING.md](windows/CONTRIBUTING.md).
+
 ## Conventions
 
 These are the patterns in the existing code and docs.

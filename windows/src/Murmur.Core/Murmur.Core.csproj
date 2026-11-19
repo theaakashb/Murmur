@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Murmur.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Murmur.Core.Tests" />
+  </ItemGroup>
+  <!-- Data exported from the Swift source of truth by windows/shared/export_*.swift. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\shared\*.json" LogicalName="shared/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

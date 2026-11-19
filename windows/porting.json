@@ -1,0 +1,4 @@
+{
+  "about": "Swift files ported to C#: the C# files that port each one and the SHA-256 of the Swift file the port matches. Maintained with windows/tools/check_parity.py --update; see windows/CONTRIBUTING.md.",
+  "ported": {}
+}

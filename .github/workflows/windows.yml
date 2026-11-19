@@ -1,0 +1,40 @@
+# Murmur for Windows: C# tests on Linux and Windows, and the Mac-to-Windows parity checks.
+# app/** is included because a Mac change to a ported file or shared corpus must fail here until it is
+# ported (windows/CONTRIBUTING.md, "Porting a Mac change").
+name: Windows port
+on:
+  push:
+    paths: ["windows/**", "app/**", ".github/workflows/windows.yml"]
+  pull_request:
+    paths: ["windows/**", "app/**", ".github/workflows/windows.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: "10.0.x"
+      - name: Ported Swift files unchanged since their port
+        run: python3 windows/tools/check_parity.py
+        if: runner.os == 'Linux'
+      - name: C# tests against the shared corpora and golden files
+        run: dotnet test windows/Murmur.Windows.slnx
+  golden:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Golden and shared files match the Swift code
+        run: windows/golden/generate.sh --check
