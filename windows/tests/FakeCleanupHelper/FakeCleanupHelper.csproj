@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Test double for Murmur.Cleanup.exe: the LocalCleanupRunner tests start it as the helper process. Framework-only: no NuGet packages. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Murmur.Tests.FakeCleanupHelper</RootNamespace>
+    <AssemblyName>FakeCleanupHelper</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+</Project>
