@@ -35,6 +35,7 @@ Updated 2026-11-19 (overnight autonomous run).
     - Live words in the bubble.
     - Chunked transcription during recording.
     - The cleanup model is downloadable only after the Hugging Face upload.
+- **Next:** the real-mic run on the Star Labs PC (`starlabs-server-pc`, not reachable yet), following `windows/INSTALL-TEST.md`. CI publishes the unsigned build as the `Murmur-windows-x64-unsigned` artifact.
 - **Needs user:**
   - The real-mic confirmation, on M2 and on local M3.
   - Approve the Hugging Face upload of `~/murmur-m3/hf-stage/vedu-scribe-0.8b-gguf/` (Q8_0, SHA-256 `6859e09e…`).

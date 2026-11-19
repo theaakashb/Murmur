@@ -87,24 +87,6 @@ Read-back method per target: UI Automation `ValuePattern` on the Notepad documen
 
 Result 2026-11-19, VM `murmur-win`: 20/20, every hard check passed, 0 provider requests, 18 cleanups `modelAccepted` and 2 `unexplainedDeletion` guard fallbacks. Release-to-paste latency (CPU only, no GPU): min 1655 ms, median 2616 ms, max 6766 ms (the first dictation includes loading both models). With `-SeedDictionary`: 20/20, min 1887, median 3023, max 6424 ms; raw transcripts differed from the unseeded run in punctuation only, as two unseeded runs differ from each other.
 
-## Real-microphone confirmation (person, short)
+## Real-microphone confirmation
 
-The harness proves the pipeline. Five real dictations confirm the parts it can't reach: the microphone, a real provider, and a real person's keyboard.
-1. On the Windows PC, either build it or download the `windows` CI artifact once release packaging exists (M6):
-   - `git clone -b windows https://github.com/theaakashb/Murmur.git`
-   - `cd Murmur`
-   - `dotnet build windows\Murmur.App.slnx -c Release`
-   - Run `windows\src\Murmur.App\bin\Release\net10.0-windows10.0.22621.0\win-x64\Murmur.exe` without any `MURMUR_*` variables.
-2. Tray icon > Settings: choose Custom Provider or Murmur Cloud for transcription and cleanup, paste the key, then Save and Validate.
-3. Copy some text, so you can check the clipboard comes back. Then hold Right Ctrl, speak a sentence, and release, into each of these:
-   - Notepad;
-   - a browser text box;
-   - VS Code;
-   - Teams or Slack;
-   - one more app of your choice.
-4. For each, check that:
-   - the text appears where the cursor was;
-   - Ctrl+V afterwards pastes your copied text, not the dictation;
-   - Win+V doesn't list the dictation;
-   - the History window shows the entry.
-5. Note anything off: the first word clipped, a wrong microphone, a slow paste, or focus jumping. Never share transcript text in issues; describe the problem instead.
+See [../INSTALL-TEST.md](../INSTALL-TEST.md): install on a real PC, then do 20 cloud dictations (M2) and the local-model real-speech comparison (M3).
