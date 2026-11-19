@@ -140,7 +140,8 @@ public static class SwiftText
     /// <summary>Foundation <c>trimmingCharacters(in: .whitespacesAndNewlines)</c>.</summary>
     public static string TrimWhitespaceAndNewlines(string s)
     {
-        static bool Ws(Rune r) => r.Value is 0x85 or 0x2028 or 0x2029 or 0x9 || (r.Value is >= 0xA and <= 0xD) || Rune.GetUnicodeCategory(r) == UnicodeCategory.SpaceSeparator;
+        // Foundation's CharacterSet.whitespacesAndNewlines: Zs, U+0009-000D, U+0085, U+2028/2029 and U+200B (checked against macOS Foundation).
+        static bool Ws(Rune r) => r.Value is 0x85 or 0x2028 or 0x2029 or 0x9 or 0x200B || (r.Value is >= 0xA and <= 0xD) || Rune.GetUnicodeCategory(r) == UnicodeCategory.SpaceSeparator;
         var runes = s.EnumerateRunes().ToList();
         int a = 0, b = runes.Count;
         while (a < b && Ws(runes[a])) a++;
