@@ -3,6 +3,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>Murmur.Cleanup</RootNamespace>
     <AssemblyName>Murmur.Cleanup</AssemblyName>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="LLamaSharp" Version="0.30.0" />

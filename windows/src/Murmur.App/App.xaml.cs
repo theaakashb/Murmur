@@ -23,7 +23,7 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
-        UnhandledException += (_, e) => { e.Handled = true; TestEvents.Emit("error", ("stage", "app"), ("reason", "unhandled")); };
+        UnhandledException += (_, e) => { e.Handled = true; CrashLog.Write(e.Exception); TestEvents.Emit("error", ("stage", "app"), ("reason", "unhandled")); };
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)

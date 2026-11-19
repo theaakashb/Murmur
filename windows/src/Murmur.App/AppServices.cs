@@ -15,6 +15,9 @@ internal sealed class AppServices
     public DispatcherQueue UI { get; }
     public IDictationProcessor Processor { get; }
     public LocalTranscriber Local { get; }
+    /// <summary>The downloadable models under <c>&lt;data root&gt;\Models</c> (one slot each; Settings shows them, the helpers read them).</summary>
+    public ModelSlot SpeechSlot { get; }
+    public ModelSlot CleanupSlot { get; }
     public HistoryRouter<HistoryEntry> History { get; private set; } = null!;
     public ProcessingCoordinator Processing { get; private set; } = null!;
     public DictionaryStore Dictionary => Processing.Dictionary;
@@ -33,9 +36,27 @@ internal sealed class AppServices
         Settings = new JsonSettingsStore(Path.Combine(Root, JsonSettingsStore.FileName));
         Credentials = testing ? new InMemoryCredentialStore() : new CredentialAdapter(new CredentialManagerStore());
         Processor = new CoordinatorProcessor(() => Processing);
+        SpeechSlot = ModelSlot.Create(ModelFacts.Batch, Root);
+        CleanupSlot = ModelSlot.Create(ModelFacts.LocalCleanup, Root);
+        foreach (var slot in new[] { SpeechSlot, CleanupSlot }) if (slot.Downloader is { } downloader) slot.Status = downloader.Status();
+        ConfigureCleanupRunner();
         Local = new LocalTranscriber(this);
         ReopenData();
         PurgeAtLaunch();
+        // Hash the pinned speech model now, off the UI thread, so the first dictation does not wait for it.
+        if (RouteSettings.Load(Settings).Transcription == TranscriptionRoute.Local) _ = Task.Run(Local.Verify);
+    }
+
+    /// <summary>Points the cleanup runner at this data root (it defaults to the real one, not a test run's) and checks the pinned checksums before the helper first reads the model.</summary>
+    void ConfigureCleanupRunner()
+    {
+        if (CleanupSlot is not { Downloader: { } downloader, Manifest: { } manifest }) return;
+        LocalCleanupRunner.ModelDirectory = downloader.Target;
+        LocalCleanupRunner.Verifier = () =>
+        {
+            try { ModelVerificationCache.Shared.Verify(downloader.Target, manifest); return true; }
+            catch (RetentionError) { return false; }
+        };
     }
 
     /// <summary>(Re)creates the History and dictionary stores over their folders, after the folders were deleted or replaced.</summary>
@@ -45,8 +66,7 @@ internal sealed class AppServices
         PrivateFiles.PrepareDirectory(Locations.Dictionary);
         store = new HistoryStore(Locations.History);
         History = new HistoryRouter<HistoryEntry>(new HistoryDisk<HistoryEntry>(store.Save, () => store.Entries(), store.Delete), Settings.Get(Prefs.HistoryMode).PersistsTranscripts());
-        // shortcut: no lexicon until the bundled English word list lands (PLAN "Dictionary correction and lexicon"); respelling then skips the lexicon guard, as Swift does with nil.
-        Processing = new ProcessingCoordinator(Locations.Dictionary, Settings);
+        Processing = new ProcessingCoordinator(Locations.Dictionary, Settings, Lexicon.English.IsCommonWord);
     }
 
     /// <summary>Retention purge, retry audio older than 24 hours, and the transient chunks folder (spec/settings.md).</summary>

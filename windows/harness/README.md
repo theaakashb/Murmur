@@ -10,7 +10,7 @@ On the Windows machine, from any shell (an SSH session works; the GUI parts run 
 powershell -NoProfile -ExecutionPolicy Bypass -File <checkout>\windows\harness\run-exit.ps1
 ```
 
-Options: `-Count 20` (dictations), `-AppExe <path>` (use this Murmur.exe and skip the app build), `-SkipAppBuild`, `-OutBase C:\src` (where `harness-run-<timestamp>` goes).
+Options: `-LocalOnly` (key-free, see below), `-SeedDictionary`, `-ModelSource <dir>`, `-Count 20` (dictations), `-AppExe <path>` (use this Murmur.exe and skip the app build), `-SkipAppBuild`, `-OutBase C:\src` (where `harness-run-<timestamp>` goes).
 
 Needs: .NET 10 SDK, Edge, VS Code (user install), an unlocked console session. Re-runnable: each run gets a fresh data folder. It stops leftover `Murmur`, `FakeProvider` and `Driver` processes first (by name), so do not run it on a machine where you use Murmur.
 
@@ -80,6 +80,12 @@ Read-back method per target: UI Automation `ValuePattern` on the Notepad documen
   - no dictation text in Win+V history (clipboard history on).
 - **Release-to-paste latency** against the loopback fake provider: min 270 ms, median 293 ms, max 609 ms.
 - **The advisory check** shows the strict guard rejected 8 of the fake rewrites and inserted the local-rules fallback: 3 `numberAdded`, 3 `structureAdded`, 2 `unexplainedDeletion`. This is the guard ported from the Mac and checked against its golden outputs.
+
+## Key-free run (`-LocalOnly`)
+
+`run-exit.ps1 -LocalOnly` writes `transcriptionRoute` `local` and `cleanupChoice` `local-model` (Polish on) and copies the pinned model files from `-ModelSource` (default `C:\src\w-integrate\models`, with `speech\` holding `encoder/decoder/joiner.int8.onnx` and `tokens.txt`, and `cleanup\` holding `vedu-scribe-0.8b-Q8_0.gguf`; never committed) into the run's `data\Models\<model>-<rev7>` folders. The app verifies them against the pins, the speech helper and the cleanup helper run from `Speech\` and `Cleanup\` beside `Murmur.exe`, and the run fails if the fake provider sees any request. The side-loaded copies are deleted at the end of the run (1.5 GB). The WAV fixtures must be in `fixtures\` (generate on a Mac, see its README). `-SeedDictionary` also writes a dictionary so the speech helper runs with `--vocabulary`.
+
+Result 2026-11-19, VM `murmur-win`: 20/20, every hard check passed, 0 provider requests, 18 cleanups `modelAccepted` and 2 `unexplainedDeletion` guard fallbacks. Release-to-paste latency (CPU only, no GPU): min 1655 ms, median 2616 ms, max 6766 ms (the first dictation includes loading both models). With `-SeedDictionary`: 20/20, min 1887, median 3023, max 6424 ms; raw transcripts differed from the unseeded run in punctuation only, as two unseeded runs differ from each other.
 
 ## Real-microphone confirmation (person, short)
 

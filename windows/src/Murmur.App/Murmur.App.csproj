@@ -21,4 +21,25 @@
     <ProjectReference Include="..\Murmur.Core\Murmur.Core.csproj" />
     <ProjectReference Include="..\Murmur.Platform\Murmur.Platform.csproj" />
   </ItemGroup>
+  <!-- Artifact pins for BundledModels (shared with the Mac), beside Murmur.exe. -->
+  <ItemGroup>
+    <None Include="..\..\..\module-one\models\artifact-pins.json" Link="artifact-pins.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- The two helpers, each self-contained in its own subfolder so their native DLLs never clash: Speech\MurmurSpeech.exe and Cleanup\Murmur.Cleanup.exe.
+       Published in-build (a ProjectReference to an exe cannot be self-contained from here); Publish of the app copies the subfolders along. -->
+  <ItemGroup>
+    <Helper Include="..\Murmur.Speech\Murmur.Speech.csproj" Folder="Speech" />
+    <Helper Include="..\Murmur.Cleanup\Murmur.Cleanup.csproj" Folder="Cleanup" />
+  </ItemGroup>
+  <Target Name="PublishHelpers" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="@(Helper)" Targets="Publish" Properties="Configuration=$(Configuration);Platform=AnyCPU;RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$([System.IO.Path]::GetFullPath('$(OutDir)', '$(MSBuildProjectDirectory)'))%(Helper.Folder)\" BuildInParallel="false" />
+  </Target>
+  <Target Name="CopyHelpersToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <SpeechFile Include="$(OutDir)Speech\**" />
+      <CleanupFile Include="$(OutDir)Cleanup\**" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SpeechFile)" DestinationFiles="@(SpeechFile->'$(PublishDir)Speech\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(CleanupFile)" DestinationFiles="@(CleanupFile->'$(PublishDir)Cleanup\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
 </Project>
