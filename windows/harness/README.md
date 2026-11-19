@@ -66,3 +66,39 @@ Read-back method per target: UI Automation `ValuePattern` on the Notepad documen
 - Real Win+V behavior when clipboard history is off: the history check is skipped and only the exclusion formats are asserted; the formats are not proof that Windows honors them in every build.
 - Injected input differs from a real keyboard in one way that matters: the app's keyboard hook must not ignore `LLKHF_INJECTED` events, so a hook that filters injected keys will fail here while working for a person (and a hook that does not filter them cannot be distinguished here).
 - Anything after the first 20 dictations: long sessions, memory, history retention, update, sleep and resume.
+
+## Result on record
+
+2026-11-19, VM `murmur-win` (Windows 11 23H2, build 22631), commit `a772ab8`:
+- **Dictations:** 20/20 passed (Notepad 7, Edge 7, VS Code 6).
+- **Every hard check passed:**
+  - paste event and insertion status (all `verified`);
+  - History entry;
+  - UI Automation read-back of the final text;
+  - clipboard restored to the sentinel;
+  - all three exclusion formats on every staged item;
+  - no dictation text in Win+V history (clipboard history on).
+- **Release-to-paste latency** against the loopback fake provider: min 270 ms, median 293 ms, max 609 ms.
+- **The advisory check** shows the strict guard rejected 8 of the fake rewrites and inserted the local-rules fallback: 3 `numberAdded`, 3 `structureAdded`, 2 `unexplainedDeletion`. This is the guard ported from the Mac and checked against its golden outputs.
+
+## Real-microphone confirmation (person, short)
+
+The harness proves the pipeline. Five real dictations confirm the parts it can't reach: the microphone, a real provider, and a real person's keyboard.
+1. On the Windows PC, either build it or download the `windows` CI artifact once release packaging exists (M6):
+   - `git clone -b windows https://github.com/theaakashb/Murmur.git`
+   - `cd Murmur`
+   - `dotnet build windows\Murmur.App.slnx -c Release`
+   - Run `windows\src\Murmur.App\bin\Release\net10.0-windows10.0.22621.0\win-x64\Murmur.exe` without any `MURMUR_*` variables.
+2. Tray icon > Settings: choose Custom Provider or Murmur Cloud for transcription and cleanup, paste the key, then Save and Validate.
+3. Copy some text, so you can check the clipboard comes back. Then hold Right Ctrl, speak a sentence, and release, into each of these:
+   - Notepad;
+   - a browser text box;
+   - VS Code;
+   - Teams or Slack;
+   - one more app of your choice.
+4. For each, check that:
+   - the text appears where the cursor was;
+   - Ctrl+V afterwards pastes your copied text, not the dictation;
+   - Win+V doesn't list the dictation;
+   - the History window shows the entry.
+5. Note anything off: the first word clipped, a wrong microphone, a slow paste, or focus jumping. Never share transcript text in issues; describe the problem instead.

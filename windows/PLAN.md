@@ -7,25 +7,18 @@ Status: Phase 1 (planning). No Windows code exists yet. This plan was written on
 Updated 2026-11-19 (overnight autonomous run).
 
 - **M1:** done. Core text engine, golden parity, CI green on Linux and Windows.
-- **M2:** in progress on `windows` (head `525235d`).
-  - Merged:
-    - the platform layer;
-    - settings, history, retention, backup and modes;
-    - providers and routes;
-    - Processing, Observation and AIEngine;
-    - the WinUI tray app.
-  - The app runs dictations through `ProcessingCoordinator`, and recording starts at key down.
-  - Tests on the VM: 21,854 core and 17 platform pass. A synthetic dictation into Notepad passed with the clipboard restored.
-  - Running: the exit harness worker.
-  - Next: merge the harness, run `windows/harness/run-exit.ps1` on the VM, fix failures, then report the M2 exit.
-  - Known gaps:
+- **M2:** synthetic exit passed 2026-11-19: 20/20 dictations on the VM, every hard check passing (see `windows/harness/README.md`, "Result on record").
+  - Fixed during the run:
+    - a startup crash when the data folder isn't owned by the user (the app now explains instead);
+    - `settings.json` with a byte order mark was treated as corrupt;
+    - two harness detection bugs.
+  - Still open:
+    - The user's short real-mic confirmation (harness README, "Real-microphone confirmation").
     - No lexicon until the bundled word list lands.
-    - Settings and History buttons haven't been clicked in tests yet.
-    - The leading-space rule assumes the caret is at the end.
-    - Writing-mode engines arrive in M4.
-  - Paused 03:45 PST: Claude's 5-hour window was at 18%, under the 20% guardrail. It resumes after the 04:10 PST reset.
+    - Settings buttons untested by automation.
+    - Leading space assumes the caret is at the end.
+- **M3:** started.
 - **VM settings changed:** clipboard history (HKCU `Software\Microsoft\Clipboard\EnableClipboardHistory` = 1), approved 2026-11-19. It was already 1, so the write changed nothing; the console session reports history on and cloud sync (roaming) off. To revert: set it to 0.
-- **M3:** queued. It starts when the M2 synthetic exit passes.
 - **Needs user:**
   - The real-mic confirmation run with a real key.
   - The Hugging Face upload of the cleanup GGUF.
