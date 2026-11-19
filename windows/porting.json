@@ -128,6 +128,13 @@
       ],
       "sha256": "cee3d08aeda2c396e0b19540114127e5fdd8cfde3e0f21990383b590bbdab22d"
     },
+    "app/ModelHelper.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/ModelHelper.cs",
+        "windows/src/Murmur.Core/WarmRunner.cs"
+      ],
+      "sha256": "2713294a3dde84eed948132cc1f3a589b3176feff385bb5524181c7aca34cd87"
+    },
     "app/ModelManifest.swift": {
       "csharp": [
         "windows/src/Murmur.Core/ModelManifest.cs"
@@ -342,6 +349,12 @@
         "windows/src/Murmur.Core/BoostFilter.cs"
       ],
       "sha256": "b4ddac5da74930a7beb9b8e4a9db60319803ac9c977fa1fdf3c8bbf584445c25"
+    },
+    "module-one/models/Runner/Sources/ModelBench/ModelBench.swift": {
+      "csharp": [
+        "windows/src/Murmur.Speech/Program.cs"
+      ],
+      "sha256": "acec1e71f7455fb621156d3d3a77adb13b017698e30ba5332b3e30045f570985"
     }
   }
 }
