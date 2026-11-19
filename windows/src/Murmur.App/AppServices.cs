@@ -19,8 +19,10 @@ internal sealed class AppServices
     public ModelSlot SpeechSlot { get; }
     public ModelSlot CleanupSlot { get; }
     public HistoryRouter<HistoryEntry> History { get; private set; } = null!;
-    public ProcessingCoordinator Processing { get; private set; } = null!;
-    public DictionaryStore Dictionary => Processing.Dictionary;
+    /// <summary>Null when the dictionary or ledger can't be read: only cleanup and the dictionary stop, and dictations are held in History (app/Controller.swift:348-351).</summary>
+    public ProcessingCoordinator? Processing { get; private set; }
+    public DictionaryStore? Dictionary => Processing?.Dictionary;
+    public string? DataProblem { get; private set; }
     HistoryStore store = null!;
 
     public AppServices(DispatcherQueue ui)
@@ -66,7 +68,8 @@ internal sealed class AppServices
         PrivateFiles.PrepareDirectory(Locations.Dictionary);
         store = new HistoryStore(Locations.History);
         History = new HistoryRouter<HistoryEntry>(new HistoryDisk<HistoryEntry>(store.Save, () => store.Entries(), store.Delete), Settings.Get(Prefs.HistoryMode).PersistsTranscripts());
-        Processing = new ProcessingCoordinator(Locations.Dictionary, Settings, Lexicon.English.IsCommonWord);
+        try { Processing = new ProcessingCoordinator(Locations.Dictionary, Settings, Lexicon.English.IsCommonWord); DataProblem = null; }
+        catch (Exception) { Processing = null; DataProblem = "The dictionary could not be read. Dictations are held in History until it is repaired."; }
     }
 
     /// <summary>Retention purge, retry audio older than 24 hours, and the transient chunks folder (spec/settings.md).</summary>

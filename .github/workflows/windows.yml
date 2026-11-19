@@ -35,3 +35,14 @@ jobs:
       - name: Windows app build and all tests (core, platform)
         run: dotnet test windows/Murmur.App.slnx
         if: runner.os == 'Windows'
+      - name: Publish the unsigned app for manual testing
+        if: runner.os == 'Windows'
+        run: dotnet publish windows/src/Murmur.App -c Release -r win-x64 -o out/Murmur
+      - name: Upload the unsigned build
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Murmur-windows-x64-unsigned
+          path: out/Murmur
+          retention-days: 14
+          if-no-files-found: error
