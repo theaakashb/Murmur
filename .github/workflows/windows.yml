@@ -31,3 +31,7 @@ jobs:
         if: runner.os == 'Linux'
       - name: C# tests against the shared corpora and golden files
         run: dotnet test windows/Murmur.Windows.slnx
+        if: runner.os == 'Linux'
+      - name: Windows app build and all tests (core, platform)
+        run: dotnet test windows/Murmur.App.slnx
+        if: runner.os == 'Windows'
