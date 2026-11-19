@@ -1,7 +1,6 @@
-// Ports the Foundation-only assertions of app/check_routes.swift. Skipped (need ports that come later or are Mac-only):
-// AIEngine (check_routes:169-179), dictionaryTranscriptionChecks, lexiconChecks, cleanupChecks and the coordinator half of
-// murmurCloudChecks (ProcessingCoordinator), the Apple Intelligence shape checks (AppleCleanup), and the legacy-settings migration
-// assertions (settingsChecks after the round trip, keyChecks:419-450), since Windows ports no migrations.
+// Ports the Foundation-only assertions of app/check_routes.swift (the AI engine block, check_routes:169-179, is in AIEngineTests).
+// Skipped (Mac-only): the Apple Intelligence shape checks (AppleCleanup), and the legacy-settings migration assertions
+// (settingsChecks after the round trip, keyChecks:419-450), since Windows ports no migrations.
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
@@ -359,7 +358,7 @@ public class RoutesTests
         public void DeleteAll() { }
     }
 
-    // MARK: Murmur Cloud routes (the coordinator half is skipped: ProcessingCoordinator)
+    // MARK: Murmur Cloud routes
 
     [Fact]
     public async Task MurmurCloudRoutes()
@@ -449,9 +448,107 @@ public class RoutesTests
     [Fact]
     public async Task CloudCleanupFailureIsAProviderErrorNotAFallback()
     {
-        // The route layer surfaces the error; the local-rules fallback belongs to Processing (ported later).
+        // The route layer surfaces the error; the local-rules fallback is ProcessingCoordinator's (CloudCleanup below).
         ICleanupProvider failing = new MockCleaner(ProviderError.Quota(ProviderID.CustomAPI));
         var e = await Assert.ThrowsAsync<ProviderException>(() => failing.CleanupAsync(new CleanupMessages("s", "u")));
         Assert.Equal(SessionDisposition.PreserveNeedsChange, e.Error.Disposition);
+    }
+
+    static ProcessingCoordinator Coordinator(Func<string, bool>? isCommonWord = null) => new(TempDirs.New("routes"), new InMemorySettingsStore(), isCommonWord);
+
+    // MARK: dictionaryTranscriptionChecks
+
+    [Fact]
+    public async Task DictionaryTranscription()
+    {
+        var p = Coordinator();
+        p.Dictionary.Add("Aakash", ["Akash"]);
+        p.Dictionary.Add("spaceyboi", ["spacey boy"], EntrySource.Learned);
+        p.Dictionary.Add("Shelfmate", [], EntrySource.Learned);
+        p.Update(p.Settings with { Options = CleanupOptions.Faithful });
+        const string raw = "Call Akash and spacey boy.";
+        var transport = new CannedTransport(200, JsonSerializer.Serialize(new { text = raw }));
+        var provider = new OpenAICompatibleTranscriptionProvider("https://stt.example.test", "whisper-1", TestKey) { Transport = transport };
+        var outcome = await CloudTranscription.RunAsync(provider, WAVAudio.EncodePCM16(Tone(1, 0.3f), 48_000));
+        var text = Assert.IsType<CloudTranscriptionOutcome.Transcript>(outcome).Text;
+        Assert.True(text == raw, "raw provider text remains available for history");
+        Assert.True(p.Process(text).Text == "Call Aakash and spaceyboi.", "manual and learned variants correct without ASR hints or cleanup");
+        var body = Encoding.UTF8.GetString(transport.Requests[^1].Body ?? []);
+        Assert.True(!body.Contains("name=\"prompt\"") && !body.Contains("Shelfmate"), "whole dictionary stays out of custom ASR");
+        Assert.True(p.Process("Send a shelf made report.").Text == "Send a shelf made report.", "preferred-only learned entry does not make faithful correction fuzzy");
+        p.Update(p.Settings with { Route = CleanupRoute.Cloud, Options = CleanupOptions.Standard with { Polish = true } });
+        p.CloudCleaner = new MockCleaner(text: "Send a Shelfmate report.");
+        Assert.True((await p.ProcessAsync("Send a shelf made report.")).Text == "Send a Shelfmate report.", "preferred-only learned spelling still corrected by guarded cleanup");
+        p.CloudCleaner = new MockCleaner(ProviderError.Timeout(ProviderID.CustomAPI));
+        Assert.True((await p.ProcessAsync(text)).Text == "Call Aakash and spaceyboi.", "cleanup failure keeps manual and learned exact corrections");
+    }
+
+    // MARK: lexiconChecks
+
+    [Fact]
+    public void Lexicon()
+    {
+        HashSet<string> lexicon = ["lunch", "launch", "casual", "causal", "team"];
+        var p = Coordinator(lexicon.Contains);
+        p.Update(p.Settings with { LearningEnabled = true });
+        static CorrectionLedger.RecordOutcome Observe(ProcessingCoordinator c, string s, string t) =>
+            c.Observe(new ObservedCorrection { SessionId = Guid.NewGuid(), Source = s, Target = t, ObservedAt = DateTime.UtcNow });
+        Assert.True(Observe(p, "lunch", "launch") == CorrectionLedger.RecordOutcome.Rejected(CandidateRejection.OrdinaryWords), "lexicon rejects lunch -> launch");
+        Assert.True(Observe(p, "casual", "causal") == CorrectionLedger.RecordOutcome.Rejected(CandidateRejection.OrdinaryWords), "lexicon rejects casual -> causal");
+        Assert.True(Observe(p, "Acme", "Akme") == CorrectionLedger.RecordOutcome.Provisional, "lexicon keeps a name respelling");
+        Assert.True(Observe(Coordinator(), "casual", "causal") == CorrectionLedger.RecordOutcome.Provisional, "without a lexicon the swap passes (known limit)");
+    }
+
+    // MARK: cleanupChecks
+
+    [Fact]
+    public async Task CloudCleanup()
+    {
+        var p = Coordinator();
+        p.Update(p.Settings with { Route = CleanupChoice.CustomAPI.ProcessingRoute(), Options = CleanupOptions.Standard with { Polish = true } });
+        p.CloudCleaner = new MockCleaner(text: "Call Akme.");
+        Assert.True((await p.ProcessAsync("Um, call Akme.")).Text == "Call Akme.", "configured cloud cleanup inserts");
+        p.CloudCleaner = new MockCleaner(ProviderError.Quota(ProviderID.CustomAPI));
+        var result6 = await p.ProcessAsync("Um, call Akme.");
+        Assert.True(result6.Text == "Call Akme.", $"cleanup error uses local rules: {result6.Text}");
+        Assert.True(result6.ProviderError == ProviderError.Quota(ProviderID.CustomAPI), "provider error kept for the notice");
+        p.CloudCleaner = null;
+        var result7 = await p.ProcessAsync("Um, call Akme.");
+        Assert.True(result7.Text == "Call Akme.", "unconfigured cloud cleanup uses local rules");
+        Assert.True(result7.ProviderError is null, "error cleared per call");
+    }
+
+    // MARK: murmurCloudChecks, the coordinator half
+
+    [Fact]
+    public async Task MurmurCloudThroughTheCoordinator()
+    {
+        // The server gets the text after this PC's edits, the guard judges the reply, History records the server's prompt.
+        var p = Coordinator();
+        p.Update(p.Settings with { Route = CleanupChoice.MurmurCloud.ProcessingRoute(), Options = CleanupOptions.Standard with { Polish = true, Spoken = true } });
+        var server = new CannedTransport(200, """{"text":"Revenue is up 10%."}""");
+        p.CloudCleaner = new MurmurCloudCleanupProvider(TestKey) { Transport = server };
+        var result = await p.ProcessAsync("revenue is up ten percent");
+        var body = JsonDocument.Parse(server.Requests[^1].Body!).RootElement;
+        Assert.True(body.GetProperty("transcript").GetString() == "revenue is up 10%" && body.GetProperty("level").GetString() == "polish", "the server gets the transcript after spoken commands");
+        Assert.True(result.Text == "Revenue is up 10%." && result.PromptHash == "murmur-cloud-server", "the guarded reply is inserted; the prompt hash names the server's prompt");
+        // A preset is refused without a request; the ordinary cleanup that follows carries none of the preset's instructions.
+        p.EngineCleaner = p.CloudCleaner; // writing modes run on the AI engine
+        var email = p.Settings.Style(WritingMode.Presets[1]);
+        var before = server.Count;
+        await p.ProcessAsync("revenue is up ten percent", email);
+        var presetBody = JsonDocument.Parse(server.Requests[^1].Body!).RootElement;
+        Assert.True(email.Instructions.Length > 0 && server.Count == before + 1 && !presetBody.TryGetProperty("style_notes", out _),
+                    "a preset falls back to one ordinary cleanup with no preset instructions as style notes");
+    }
+
+    // MARK: main(): every destination setting stays on this PC when restoring (check_routes.swift:144-146)
+
+    [Fact]
+    public void EveryDestinationSettingStaysOnThisPCWhenRestoring()
+    {
+        Assert.Equal(new HashSet<string> { RouteSettings.Key.Transcription, RouteSettings.Key.LegacyCloudTranscriber, RouteSettings.Key.Cleanup, RouteSettings.Key.CustomAPIBaseURL,
+                                           RouteSettings.Key.CustomTranscriptionAPIBaseURL, RouteSettings.Key.LegacyServerURL, Prefs.CleanupRoute.Key },
+                     DataBackup.DestinationSettings.ToHashSet());
     }
 }
