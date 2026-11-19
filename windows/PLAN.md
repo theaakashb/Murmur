@@ -17,7 +17,16 @@ Updated 2026-11-19 (overnight autonomous run).
     - No lexicon until the bundled word list lands.
     - Settings buttons untested by automation.
     - Leading space assumes the caret is at the end.
-- **M3:** started.
+- **M3:** in progress (head `1ffaad3`).
+  - Merged:
+    - model download, verification and pins;
+    - the local cleanup client and helper. Q8_0 matches MLX on 399/400; the guard passes are the same.
+    - the Parakeet ONNX speech helper and the app's local route. Synthetic WER: 9.02% ONNX vs 8.20% Core ML. Warm median: 123 ms on the Mac, 359 ms on the VM.
+    - the hotwords spike: small gain, and one regression (`Kestrelmoor`). It stays off until the word list lands; CTC rescoring is still an open option.
+  - Running:
+    - the bundled English word list;
+    - app integration: helpers in the build, the Settings Models section, the local-model cleanup route, and a key-free 20-dictation harness run.
+  - Needs user: the Hugging Face upload of the staged GGUF (`~/murmur-m3/hf-stage/vedu-scribe-0.8b-gguf/`, Q8_0, SHA-256 `6859e09e…`).
 - **VM settings changed:** clipboard history (HKCU `Software\Microsoft\Clipboard\EnableClipboardHistory` = 1), approved 2026-11-19. It was already 1, so the write changed nothing; the console session reports history on and cloud sync (roaming) off. To revert: set it to 0.
 - **Needs user:**
   - The real-mic confirmation run with a real key.
