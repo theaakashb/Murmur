@@ -1,6 +1,12 @@
 {
   "about": "Swift files ported to C#, including the check_*.swift files whose assertions became C# tests (check_modes: only its CleanupTypes/Tone assertions so far): the C# files that port each one and the SHA-256 of the Swift file the port matches. Maintained with windows/tools/check_parity.py --update; see windows/CONTRIBUTING.md.",
   "ported": {
+    "app/AIEngine.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/AIEngine.cs"
+      ],
+      "sha256": "25d72b445838e5a32f2872b087dac5dc64ead3b36f4c6c211eeb12a5e309ab26"
+    },
     "app/AudioFormat.swift": {
       "csharp": [
         "windows/src/Murmur.Core/AudioFormat.cs"
@@ -92,6 +98,12 @@
       ],
       "sha256": "ec9535468a61497fd4817840f92cf8a18ae3487035515122cde1449d9113792c"
     },
+    "app/Observation.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Observation.cs"
+      ],
+      "sha256": "d7f0614f7aa63daab9f99263a318a5785a9de93c00632e515b43da4686d7440d"
+    },
     "app/OpenAICompatible.swift": {
       "csharp": [
         "windows/src/Murmur.Core/OpenAICompatible.cs"
@@ -103,6 +115,12 @@
         "windows/src/Murmur.Core/PrivateFiles.cs"
       ],
       "sha256": "3e6a9a35b8a819b5aa49b7b8146bd5a6d65e5108642ba9c23cde5bef171c5765"
+    },
+    "app/Processing.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Processing.cs"
+      ],
+      "sha256": "7e85b3ff83adbf6e73af8a6f84ac4c44e0a6f280e61ebc22695e9586d54e9e2f"
     },
     "app/ProviderHTTP.swift": {
       "csharp": [
@@ -227,6 +245,13 @@
         "windows/tests/Murmur.Core.Tests/SettingsTests.cs"
       ],
       "sha256": "b662dd5786cf8e7aa1427b1c57569a7216a9f4a0d914600bc818fb6a931dc9a3"
+    },
+    "app/check_processing.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/ProcessingTests.cs",
+        "windows/tests/Murmur.Core.Tests/ObservationTests.cs"
+      ],
+      "sha256": "9f512fe33c37ccfda3a74b5fa8ff2ac43f66df257a4a1195be73f37709231fff"
     },
     "app/check_providers.swift": {
       "csharp": [
