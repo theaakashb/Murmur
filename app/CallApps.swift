@@ -82,13 +82,6 @@ struct CallApp: Equatable {
     static func resolve(_ bundleID: String, name: String = "") -> CallApp { app(bundleID) ?? CallApp(bundleID: bundleID, name: name, isBrowser: false, helpers: []) }
     static func app(_ bundleID: String) -> CallApp? { catalog.first { isBundle(bundleID, of: $0.bundleID, scope: .exact, caseSensitive: true) } }
 
-    /// Bundle IDs to tap for this app: its own, every running audio process whose ID starts with it
-    /// (helpers such as `com.google.Chrome.helper`), and its known out-of-prefix helpers.
-    func tapBundleIDs(running: [String]) -> [String] {
-        var ids = [bundleID] + helpers
-        for id in running where matches(id) && !ids.contains(where: { Self.isBundle(id, of: $0, scope: .exact) }) { ids.append(id) }
-        return ids
-    }
     static func ownBundleIDs(main: String?, running: [String]) -> [String] {
         guard let main else { return [] }
         return [main] + running.filter { isBundle($0, of: main, scope: .childrenOnly, caseSensitive: true) }
