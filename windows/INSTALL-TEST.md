@@ -64,7 +64,7 @@ It's a folder of about 360 MB with `Murmur.exe`, `Speech\MurmurSpeech.exe` and `
 
 ## Part B: local models, real speech (M3 exit)
 
-1. Quit Murmur from the tray. Start it with `harness\real-mic\start-bench.cmd` instead. That uses a separate data folder (`%LOCALAPPDATA%\Murmur-bench`), so your own History stays clean, and keeps each recording for the comparison.
+1. Quit Murmur from the tray. Start it with `harness\real-mic\start-bench.cmd` instead. If Murmur isn't in the default folder, pass the path to `Murmur.exe` as an argument. That uses a separate data folder (`%LOCALAPPDATA%\Murmur-bench`), so your own History stays clean, and keeps each recording for the comparison.
 2. In that instance's Settings:
    - choose Local (this PC) for transcription and Local model (this PC) for cleanup;
    - for the cleanup model, side-load it into `%LOCALAPPDATA%\Murmur-bench\Models\vedu-scribe-0.8b-0000000\` as in step 3;
