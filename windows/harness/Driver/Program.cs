@@ -68,27 +68,37 @@ static class Program
         if (ev.WaitFor(e => e.Name == "ready", 60) is null) { Console.WriteLine("FATAL: no ready event from the app"); WriteResults(cfg, results, screenshots, "app never became ready"); return 1; }
         ev.WaitFor(e => e.Name == "hook-installed", 10);
 
+        // All targets are opened up front and kept open: when one closes, Windows hands the foreground to whatever is next in
+        // z-order (on the VM an elevated PowerShell), and injected input cannot reach an elevated foreground window.
+        var started = new List<Target>();
         foreach (var t in targets)
         {
             var mine = plan.Where(p => p.t == t).Select(p => p.f).ToList();
             if (mine.Count == 0) continue;
-            Console.WriteLine($"== {t.Name}: {mine.Count} dictations");
-            try { t.Start(cfg.OutDir); }
+            try { t.Start(cfg.OutDir); started.Add(t); Console.WriteLine($"started {t.Name}"); }
             catch (Exception e)
             {
                 foreach (var f in mine) results.Add(new Dictation(f.Id, t.Name, f.Seconds, new() { new("target-start", "fail", e.Message) }, null, null, null));
-                t.Close(); continue;
+                t.Close();
             }
-            foreach (var f in mine)
-            {
-                var d = await Dictate(cfg, t, f, synth, http, ev, clip);
-                results.Add(d);
-                Console.WriteLine($"  {(d.Passed ? "PASS" : "FAIL")} {f.Id} latency={d.LatencyMs:F0}ms " + string.Join(" ", d.Checks.Where(c => c.Result == "fail").Select(c => $"[{c.Name}: {c.Detail}]")));
-            }
-            var shot = Path.Combine(cfg.OutDir, $"screenshot-{t.Name}.png");
-            try { t.Screenshot(shot); screenshots.Add(shot); } catch (Exception e) { Console.WriteLine("  screenshot failed: " + e.Message); }
-            t.Close();
         }
+        try
+        {
+            foreach (var t in started)
+            {
+                var mine = plan.Where(p => p.t == t).Select(p => p.f).ToList();
+                Console.WriteLine($"== {t.Name}: {mine.Count} dictations");
+                foreach (var f in mine)
+                {
+                    var d = await Dictate(cfg, t, f, synth, http, ev, clip);
+                    results.Add(d);
+                    Console.WriteLine($"  {(d.Passed ? "PASS" : "FAIL")} {f.Id} latency={d.LatencyMs:F0}ms " + string.Join(" ", d.Checks.Where(c => c.Result == "fail").Select(c => $"[{c.Name}: {c.Detail}]")));
+                }
+                var shot = Path.Combine(cfg.OutDir, $"screenshot-{t.Name}.png");
+                try { t.Screenshot(shot); screenshots.Add(shot); } catch (Exception e) { Console.WriteLine("  screenshot failed: " + e.Message); }
+            }
+        }
+        finally { foreach (var t in started) t.Close(); }
         WriteResults(cfg, results, screenshots, historyNote);
         return results.All(r => r.Passed) && results.Count == Math.Min(cfg.Count, fixtures.Count) ? 0 : 1;
     }
@@ -108,7 +118,16 @@ static class Program
             File.WriteAllText(Path.Combine(synth, "next.txt"), Path.GetFullPath(Path.Combine(cfg.FixturesDir, f.Wav)));
             var r = await http.PostAsync("/control/next", new StringContent(JsonSerializer.Serialize(new { id = f.Id }), Encoding.UTF8, "application/json"));
             r.EnsureSuccessStatusCode();
-            if (!t.Focus()) { Add("target-focus", false, "could not bring the target to the foreground; foreground process is " + Native.ForegroundProcess()); return new(f.Id, t.Name, f.Seconds, checks, null, null, null); }
+            if (!t.Focus())
+            {
+                try
+                {
+                    var b = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
+                    using var bmp = new System.Drawing.Bitmap(b.Width, b.Height);
+                    using (var g = System.Drawing.Graphics.FromImage(bmp)) g.CopyFromScreen(0, 0, 0, 0, bmp.Size);
+                    bmp.Save(Path.Combine(cfg.OutDir, $"focus-failure-{t.Name}.png"));
+                } catch (Exception) { }
+                Add("target-focus", false, "could not bring the target to the foreground; foreground process is " + Native.ForegroundProcess() + "; " + t.FocusLog); return new(f.Id, t.Name, f.Seconds, checks, null, null, null); }
             Thread.Sleep(300);
             clip.Sentinel = sentinel; clip.DictationTexts = new() { f.Cleanup.Trim() }; // refined below from History
             ev.Mark(); clip.Clear();
@@ -286,8 +305,11 @@ static class Program
         Console.WriteLine("no target: " + Press());
         var page = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "textarea.html"));
         Target t = name switch { "notepad" => new NotepadTarget(), "edge" => new EdgeTarget { PageUrl = new Uri(page).AbsoluteUri }, _ => new CodeTarget() };
+        if (name == "edge-after-notepad") { var n = new NotepadTarget(); n.Start(work); Console.WriteLine("notepad fg=" + (Native.GetForegroundWindow() == n.Hwnd)); n.Close(); Thread.Sleep(1000); Console.WriteLine("after notepad close, fg process: " + Native.ForegroundProcess()); t = new EdgeTarget { PageUrl = new Uri(page).AbsoluteUri }; }
         t.Start(work);
+        Console.WriteLine("fg process after start: " + Native.ForegroundProcess());
         Console.WriteLine($"fg-is-target={Native.GetForegroundWindow() == t.Hwnd}; target started: " + Press());
+        Console.WriteLine("Focus() => " + t.Focus() + ", fg process " + Native.ForegroundProcess());
         t.Focus(); Console.WriteLine("after Focus: " + Press());
         t.Clear(); Console.WriteLine("after Clear: " + Press());
         t.Close();

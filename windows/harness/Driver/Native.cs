@@ -35,6 +35,9 @@ static class Native
         Send(Key(VK_RCONTROL, (ushort)MapVirtualKey(VK_RCONTROL, 0), KEYEVENTF_EXTENDEDKEY | (down ? 0 : KEYEVENTF_KEYUP)));
 
     [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    /// <summary>Puts a window above every non-topmost window (an elevated window in front would swallow our click otherwise).</summary>
+    public static void MakeTopmost(IntPtr h) => SetWindowPos(h, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0040); // NOSIZE|NOMOVE|SHOWWINDOW
     /// <summary>Left click at screen pixel coordinates (primary monitor). Clicking activates a window even when the foreground
     /// lock refuses SetForegroundWindow, for example while an elevated window is in front.</summary>
     public static void Click(int x, int y)
@@ -85,9 +88,15 @@ static class Native
     }
     public static string ForegroundProcess()
     {
-        try { GetWindowThreadProcessId(GetForegroundWindow(), out var pid); return System.Diagnostics.Process.GetProcessById((int)pid).ProcessName; }
+        try
+        {
+            var h = GetForegroundWindow(); GetWindowThreadProcessId(h, out var pid);
+            var title = new StringBuilder(80); GetWindowText(h, title, 80);
+            return $"{System.Diagnostics.Process.GetProcessById((int)pid).ProcessName} pid {pid} title '{title}'";
+        }
         catch (Exception) { return "unknown"; }
     }
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder sb, int max);
     [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
     [DllImport("user32.dll")] static extern void SwitchToThisWindow(IntPtr h, bool alt);
     [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr h);
