@@ -333,7 +333,10 @@ final class ProcessingCoordinator {
 
     /// One provider call, no retry (a rate limit or an outage would only fail again). If the guard
     /// rejects the cleaned words, the transcript's words take the model's punctuation instead.
-    /// The guard judges against the transcript section only: screen context never widens what it accepts.
+    /// The guard judges against the transcript section only. On a trusted route (polish or professional
+    /// on a cloud or custom model) it holds only malfunctions, so it does not stop words from screen
+    /// context reaching the paste: the prompt's data-only tags are the defense there. A replay of
+    /// History (Nov 2026) found the full guard would hold 23% of good polish written with context.
     static func cloudClean(_ section: String, provider: CleanupProvider, options: CleanupOptions, terms: [String],
                                    context: ScreenContext? = nil, instructions: String = "") async -> CloudAttempt {
         var output: String
