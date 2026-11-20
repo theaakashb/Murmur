@@ -16,7 +16,7 @@ internal sealed partial class Controller
     bool separateEditStart;
     double editPressedAt;
 
-    void ReloadVoiceEditShortcut()
+    public void ReloadVoiceEditShortcut()
     {
         string spec = s.Settings.Get(Prefs.VoiceEditShortcut);
         editBinding = new(spec == EditTrigger.SameKey, VoiceEditBinding.Parse(spec, dictationVk));
