@@ -106,9 +106,11 @@ Merged since the last handoff: voice edit and learning extras `10cbd2a` (Notepad
 
 | # | Agent ID | Worktree folder / branch (from `ad1212c`) | Assignment |
 | --- | --- | --- | --- |
-| UI | `011b034c-1275-4d94-9ab7-df651151be2a` | `windows-m4-core` / `windows-ui-maclook` | Rework Settings, History, the bubble and the tray to match the Mac app's look (PLAN.md "UI workstream"), with Mac-vs-Windows pairs in `/tmp/murmur-maclook`. |
-| Sites | `b84929e5-893a-42b5-a02b-07d8fb945fd3` | `windows-m3-live` / `windows-m4-sites` | Fix the Chrome Ctrl+L timing, re-run Edge, then the Firefox and Brave matrix rows. |
+| UI | `011b034c-1275-4d94-9ab7-df651151be2a` (checkpoint `3d841c7`; coordinator review sent it back: Settings sidebar, underline-tab controls, Tips, a main window with the Mac sidebar holding History/Settings, the bubble pill and card) | `windows-m4-core` / `windows-ui-maclook` | Rework Settings, History, the bubble and the tray to match the Mac app's look (PLAN.md "UI workstream"), with Mac-vs-Windows pairs in `/tmp/murmur-maclook`. |
+| Sites | `b84929e5` (archived) | `windows-m4-sites` | Website matching. | **Merged** as `8b1b363`. Chrome passed 2/2 and Edge 1/1 on the VM matrix at 125%. Firefox 160 doesn't match: the probe couldn't foreground the window (launcher process), so the reader is unverified there. Brave won't install on the VM (0x80040719, silent setup timed out). Both are pending on the user's PC. |
 | M5 core | `c281bc63-eaf3-4166-b2af-4a9c1ceae103` | `windows-ui-fluent` / `windows-m5-core` (from `10cbd2a`) | M5 core ports: MeetingStreamFeed, MeetingStore, MeetingNotes and corpus, MeetingExport with exact escaping, speakers, the CallDetection logic. |
+
+**Usage, 02:59Z:** Codex 5h at 30% (resets 07:37Z), dropping about 3.5%/min with three workers. Codex workers checkpoint at ≤15%, then the rest moves to Claude Sonnet until Claude weekly (28%) reaches 20%.
 
 **Ops:** the VM's C: drive dropped to about 700 MB during parallel builds. The archived workers' `C:\src\w-*` folders were deleted, freeing about 2.5 GB. Workers clean their own outputs and check free disk before building.
 
