@@ -13,6 +13,8 @@ public sealed class MeetingRecorderTests : IDisposable
     MeetingNotesRoute? route = MeetingNotesRoute.None;
     Func<Meeting, bool, CancellationToken, Task<MeetingNotesWriter.Outcome>>? notes;
     readonly List<string> transcribed = [];
+    Func<string, double, CancellationToken, Task<IReadOnlyList<SpeakerSegment>?>>? diarize;
+    readonly List<string> timedCalls = [];
 
     sealed class FakeStream(Action<float[]> samples) : IMeetingStream
     {
@@ -51,7 +53,9 @@ public sealed class MeetingRecorderTests : IDisposable
         var recorder = new MeetingRecorder();
         recorder.Wire(new(new MeetingStore(Path.Combine(root, "meetings")), Path.Combine(root, "audio"), persists, audio,
             (path, _) => { lock (transcribed) transcribed.Add(Path.GetFileName(path)); return Task.FromResult<ChunkText?>(new("hello there")); },
-            () => clock, posted.Enqueue, text => text, () => route, (meeting, lecture, _) => notes!(meeting, lecture, default), () => consent));
+            () => clock, posted.Enqueue, text => text, () => route, (meeting, lecture, _) => notes!(meeting, lecture, default), () => consent,
+            Path.Combine(root, "speakers"), (path, _) => { lock (timedCalls) timedCalls.Add(Path.GetFileName(path)); return Task.FromResult<ChunkText?>(new("hello there")); },
+            (audio, threshold, token) => diarize!(audio, threshold, token)));
         return recorder;
     }
 
@@ -258,6 +262,122 @@ public sealed class MeetingRecorderTests : IDisposable
         recorder.Shutdown();
         Assert.Null(recorder.Live);
         Assert.True(new MeetingStore(Path.Combine(root, "meetings")).Meetings().Single().Finished);
+    }
+
+
+    [Fact]
+    public void SpeakersAreSeparatedAfterStopThenNotesAreWrittenWithTheirLabels()
+    {
+        route = MeetingNotesRoute.CustomProvider;
+        notes = (meeting, _, _) => Task.FromResult(new MeetingNotesWriter.Outcome(new MeetingNotes("Custom Provider", DateTime.UtcNow), new Dictionary<NotesGrounding.Reason, int>()));
+        long keptBytes = 0;
+        diarize = (audio, threshold, _) =>
+        {
+            keptBytes = new FileInfo(audio).Length; // the helper reads a finished WAV
+            Assert.Equal(MeetingSpeakers.Threshold, threshold);
+            return Task.FromResult<IReadOnlyList<SpeakerSegment>?>([new("a", 0, 1000)]);
+        };
+        var recorder = Make();
+        recorder.SpeakersAvailable = true;
+        Assert.True(recorder.Start(new MeetingSource("Zoom", "zoom")));
+        Assert.Equal(SpeakerState.Pending, recorder.Live!.Speakers!.State);
+        audio.Mics[0].Samples(Tone(2)); audio.Calls[0].Samples(Tone(2));
+        clock += 5;
+        recorder.Stop();
+        Drain(() => recorder.Meetings[0].Speakers?.State == SpeakerState.Done && recorder.Meetings[0].Notes is not null);
+        Assert.True(keptBytes > SpeakerAudio.Header);
+        Assert.Contains(timedCalls, name => name.StartsWith("them-"));
+        Assert.DoesNotContain(timedCalls, name => name.StartsWith("me-"));
+        Assert.False(File.Exists(SpeakerAudio.File(Path.Combine(root, "speakers"), recorder.Meetings[0].Id)));
+        Assert.NotNull(recorder.Meetings[0].Lines.Single(l => l.Stream == MeetingStream.Them).Speaker);
+        Assert.Null(recorder.Meetings[0].Lines.Single(l => l.Stream == MeetingStream.Me).Speaker);
+    }
+
+    [Fact]
+    public void AFailedSeparationLabelsThemAndStillWritesNotesAndDeletesTheAudio()
+    {
+        route = MeetingNotesRoute.CustomProvider;
+        notes = (meeting, _, _) => Task.FromResult(new MeetingNotesWriter.Outcome(new MeetingNotes("Custom Provider", DateTime.UtcNow), new Dictionary<NotesGrounding.Reason, int>()));
+        diarize = (_, _, _) => Task.FromResult<IReadOnlyList<SpeakerSegment>?>(null);
+        var recorder = Make();
+        recorder.SpeakersAvailable = true;
+        recorder.Start(new MeetingSource("Zoom", "zoom"));
+        audio.Calls[0].Samples(Tone(2));
+        recorder.Stop();
+        Drain(() => recorder.Meetings[0].Speakers?.State == SpeakerState.Failed && recorder.Meetings[0].Notes is not null);
+        Assert.False(File.Exists(SpeakerAudio.File(Path.Combine(root, "speakers"), recorder.Meetings[0].Id)));
+        Assert.Equal("helper-failed", recorder.Meetings[0].Speakers!.Failure);
+    }
+
+    [Fact]
+    public void SkipCancelsARunningSeparationAndMicrophoneOnlyMeetingsAreNotSeparatedUnlessAsked()
+    {
+        var started = new ManualResetEventSlim(); CancellationToken seen = default;
+        diarize = async (_, _, token) => { seen = token; started.Set(); await Task.Delay(Timeout.Infinite, token); return null; };
+        var recorder = Make();
+        recorder.SpeakersAvailable = true;
+        recorder.Start(MeetingSource.MicrophoneOnly);
+        Assert.Null(recorder.Live!.Speakers);
+        recorder.Cancel();
+        recorder.SeparateRoomSpeakers = true;
+        recorder.Start(MeetingSource.MicrophoneOnly);
+        Assert.NotNull(recorder.Live!.Speakers);
+        audio.Mics[1].Samples(Tone(2));
+        recorder.Stop();
+        Drain(() => started.IsSet);
+        var id = recorder.Meetings[0].Id;
+        recorder.SkipSeparation(id);
+        Assert.True(seen.IsCancellationRequested);
+        Assert.Equal(SpeakerState.Skipped, recorder.Meetings[0].Speakers!.State);
+        Assert.Empty(recorder.Separating);
+    }
+
+    [Fact]
+    public void ARelaunchResumesAPendingSeparationFromTheKeptAudio()
+    {
+        var started = new ManualResetEventSlim();
+        diarize = async (_, _, token) => { started.Set(); await Task.Delay(Timeout.Infinite, token); return null; };
+        var first = Make();
+        first.SpeakersAvailable = true;
+        first.Start(new MeetingSource("Zoom", "zoom"));
+        audio.Calls[0].Samples(Tone(2));
+        first.Stop();
+        Drain(() => started.IsSet);
+        first.Shutdown(); // quitting mid-separation leaves the meeting pending and its audio on disk
+        var id = first.Meetings[0].Id;
+        Assert.True(File.Exists(SpeakerAudio.File(Path.Combine(root, "speakers"), id)));
+
+        diarize = (_, _, _) => Task.FromResult<IReadOnlyList<SpeakerSegment>?>([new("a", 0, 1000)]);
+        var second = Make();
+        second.SpeakersAvailable = true;
+        second.Reload();
+        Drain(() => second.Meetings[0].Speakers?.State == SpeakerState.Done);
+        Assert.False(File.Exists(SpeakerAudio.File(Path.Combine(root, "speakers"), id)));
+    }
+
+    [Fact]
+    public void ACloudChunkThatFailsIsTranscribedOnThisPcAndMarked()
+    {
+        var recorder = Make();
+        Assert.True(recorder.Start(MeetingSource.MicrophoneOnly, (_, _) => Task.FromResult<MeetingCloudResult>(new MeetingCloudResult.Failed()), "Custom Provider"));
+        Assert.Equal("Custom Provider", recorder.Live!.TranscribedBy);
+        audio.Mics[0].Samples(Tone(2));
+        recorder.Stop();
+        Drain(() => recorder.Meetings[0].Lines.Count == 1);
+        Assert.True(recorder.Meetings[0].Lines[0].LocalFallback);
+        Assert.Empty(timedCalls); // cloud meetings are assigned whole, not timed
+    }
+
+    [Fact]
+    public void ACloudSuccessUsesTheCloudTextAndNeverTheLocalHelper()
+    {
+        var recorder = Make();
+        recorder.Start(MeetingSource.MicrophoneOnly, (_, _) => Task.FromResult<MeetingCloudResult>(new MeetingCloudResult.Text("from the cloud")), "Custom Provider");
+        audio.Mics[0].Samples(Tone(2));
+        recorder.Stop();
+        Drain(() => recorder.Meetings[0].Lines.Count == 1);
+        Assert.Equal("from the cloud", recorder.Meetings[0].Lines[0].Text);
+        Assert.Empty(transcribed);
     }
 
     public void Dispose() { try { Directory.Delete(root, true); } catch (IOException) { } }
