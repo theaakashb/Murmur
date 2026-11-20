@@ -1,6 +1,6 @@
 # Local meeting notes benchmark
 
-Phase 1 evaluates user-downloaded GGUFs for offline notes on Windows. The target PC has a Ryzen 9 5900X and 32 GB RAM. The comparison assumes CPU inference.
+Phase 1 evaluates user-downloaded GGUFs for offline notes on Windows. The target PC has a Ryzen 9 5900X, 32 GB RAM and an RTX 3080. The Windows VM and M3 CPU-only runs serve as separate laptop proxies.
 
 ## Notes contract
 
@@ -89,6 +89,27 @@ The M3 CPU-only run used a 4,096-token context, nice +10 and zero GPU layers. It
 The Vedu four-thread process ran at Below Normal priority. A normal-priority PowerShell loop summed 150,000 integers, timed after a 10,000-iteration warm-up. Idle p50/p95 was 212.50/244.06 ms (10 samples). Loaded p50/p95 was 250.84/348.09 ms (62 samples across both jobs), an 18% increase at the median and 43% at p95. The probe completed throughout the sampled interval. This shows measurable contention with some CPU capacity left on this VM. It provides no measurement of responsiveness while dictating.
 
 The VM started with 6.40 GB free on C:. The Qwen 3B and Phi downloads encountered incomplete ranges. On a subsequent Phi retry, system free space fell to 2.37 GB while the full 2.49 GB file was still pending. Downloads for Phi and Gemma were stopped to preserve the disk floor. Qwen 7B was blocked before download because both shards could not fit with the required reserve. The staging folder was removed, the pre-existing shared Vedu stayed in place, and C: reported 3.35 GB free at cleanup.
+
+## Star Labs PC
+
+The temporary Windows harness used the C# writer with its budget set to 5,000 characters for comparison to the Swift scorer. The 30-minute fixture had 4,501 words, 569 lines and seven extraction chunks. The 60-minute fixture had 9,018 words, 1,156 lines and 14 chunks. The official b11146 x64 CPU and Vulkan archives matched their SHA-256 digests. The harness requested 1,200 reply tokens, greedy decoding, one 8,192-token slot and no prompt cache or context shifting. CPU used 12 threads, with zero GPU layers. Vulkan used six host threads and offloaded every model layer to the RTX 3080. Offload and buffer sizes were checked in separate load-only runs. Peak working set below is for the server process.
+
+| Model / backend | 30-minute workload | 60-minute workload | Peak working set |
+| --- | --- | --- | ---: |
+| Phi-4-mini / 5900X CPU | Length cap at 122 s, extraction 1 | Length cap at 148 s, extraction 2 | 5.33 GB |
+| Phi-4-mini / RTX 3080 Vulkan | Length cap at 25 s, extraction 1 | Unparseable reply at 4 s, extraction 1 | 3.43 GB |
+| Gemma 3 4B / 5900X CPU | Length cap at 136 s, extraction 2 | Length cap at 238 s, extraction 4 | 6.44 GB |
+| Gemma 3 4B / RTX 3080 Vulkan | Completed in 58 s | Length cap at 45 s, extraction 12 | 11.45 GB |
+
+Gemma Vulkan took seven extraction and three merge requests to complete 30 minutes. The writer kept 18 points, 17 decisions and 30 actions, and dropped 70 items. This repeated fixture has no recall labels. The PC runs in the table had zero context overflows. Total GPU memory used rose from 1,210 MiB before the runs to peaks of 4,752 MiB for Phi and 4,386 MiB for Gemma.
+
+| PC responsiveness probe (150,000 integer additions) | Idle p50 / p95 | Loaded p50 / p95 |
+| --- | ---: | ---: |
+| Phi CPU | 159 / 222 ms | 251 / 283 ms |
+| Gemma CPU | 209 / 234 ms | 221 / 274 ms |
+| Gemma Vulkan | 130 / 155 ms | 195 / 243 ms |
+
+Processes from a separate GPU benchmark were present throughout the Phi runs and during part of the Gemma CPU run. Their activity during those samples was unknown. They were absent during the Gemma Vulkan run. Pre-run GPU utilisation was 0–1% for Phi and Gemma.
 
 ## Hardware policy to validate
 
