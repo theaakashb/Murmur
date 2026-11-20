@@ -104,7 +104,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 
 | # | Agent ID | Worktree folder / branch | Assignment | Start point |
 | --- | --- | --- | --- | --- |
-| UI | `33161254-7ebc-4901-8f17-7ea1f29d70a9` (Claude Sonnet 5.5, medium) | `windows-m4-core` / `windows-ui-maclook` | Match the Mac look: one shared main window with the Mac sidebar (Home, Insights, History, Settings), the Mac settings sidebar, underline-tab controls, History search/collapsed rows/footer, re-capture all screens, then the harness. App.xaml.cs granted narrowly. | `b756625`. Checkpoint in `~/murmur-m3/checkpoints/ui-maclook.md`. Pairs and tooling in `/tmp/murmur-maclook/`. `3d841c7` passed the harness 6/6. |
+| UI | `33161254-7ebc-4901-8f17-7ea1f29d70a9` (Claude Sonnet 5.5, medium) | `windows-m4-core` / `windows-ui-maclook-2` | Pass 2: the Mac's grey switches, the circled (?), the ~700 px content column and type scale, the Writing tabs Modes/Dictionary/Cues, the welcome guide window (Mac look, Windows steps, first launch), re-capture and the harness. | `2abe6ca`. Pass 1 merged: shared window, sidebars, underline tabs, Mac History; VM publish and tests clean. |
 | M5 platform | `de4d6235-00f4-448e-87ad-1eb15492aa49` (Claude Sonnet 5.5, medium) | `windows-ui-fluent` / `windows-m5-platform` | Process-loopback Them capture with silence fill, Me capture, IAudioSessionManager2 call-detection input, a recorder in `Controller.Meetings.cs`, tests, and a PC checklist for the 30-minute call. No visuals. | `1b14fc1` |
 | M6 local | `68cee5b1-a6bc-46bc-b172-569af8fee551` (Claude Sonnet 5.5, medium) | `windows-m3-live` / `windows-m6-velopack` | Velopack in the app (pinned), the updater with an injectable source, start at login, `windows/tools/package.ps1`, and a draft `windows-release.yml` with signing and upload off. A VM install → delta update → uninstall test from a local feed. No signing, no uploads. | `1b14fc1`. It asks before installing to `%LOCALAPPDATA%\MurmurApp` on the VM. |
 
@@ -115,7 +115,8 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 - M4 core `4aab0c6`;
 - learning `67e4ed3`;
 - voice edit and the learning extras `10cbd2a`;
-- M5 core `5ddfdc6`.
+- M5 core `5ddfdc6`;
+- the Mac-look UI, pass 1, `2abe6ca`.
 
 The Codex workers `011b034c`, `b84929e5` and `c281bc63` are archived.
 
