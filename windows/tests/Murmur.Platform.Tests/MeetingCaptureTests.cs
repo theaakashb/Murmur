@@ -14,8 +14,11 @@ public sealed class RealAudioFactAttribute : FactAttribute
     }
 }
 
-public class MeetingCaptureTests(Xunit.ITestOutputHelper output)
+public class MeetingCaptureTests
 {
+    // Evidence for the record: set MURMUR_TEST_NOTES to a file path to learn what the activation did on this machine.
+    static void Note(string text) { if (Environment.GetEnvironmentVariable("MURMUR_TEST_NOTES") is { Length: > 0 } path) File.AppendAllText(path, text + "\n"); }
+
     [Fact]
     public void ProcessListHasThisProcessWithItsParent()
     {
@@ -34,8 +37,8 @@ public class MeetingCaptureTests(Xunit.ITestOutputHelper output)
         var audio = new WasapiMeetingAudio(() => null);
         Assert.Equal(Environment.OSVersion.Version.Build >= ProcessLoopback.MinimumBuild, audio.CallAudioSupported);
         IMeetingStream? stream = null;
-        try { stream = audio.StartCall(MeetingSource.Everything, _ => { }); Thread.Sleep(500); output.WriteLine($"activation worked, buffers={stream.Buffers}"); }
-        catch (MeetingCaptureException e) { output.WriteLine("activation failed: " + e.Message); Assert.DoesNotContain("Exception", e.Message); } // content-free, readable message
+        try { stream = audio.StartCall(MeetingSource.Everything, _ => { }); Thread.Sleep(500); Note($"activation worked, buffers={stream.Buffers}"); }
+        catch (MeetingCaptureException e) { Note("activation failed: " + e.Message); Assert.DoesNotContain("Exception", e.Message); } // content-free, readable message
         finally { stream?.Stop(); }
     }
 
