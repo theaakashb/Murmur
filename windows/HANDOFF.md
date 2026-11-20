@@ -92,7 +92,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - Voice edit and learning extras: `10cbd2a`. Notepad 2/2 with a fake provider.
   - Welcome guide: `de97c81`.
   - Still to verify on the PC: the browser matrix (including Firefox and Brave), learning on real readable and unreadable fields, voice edit against a real provider.
-- **M5: code complete; the exit needs the user's PC.**
+- **M5: real-call pass reported by the user on 2026-11-20** (app-next2 `687fca8`, crash fixed). Per-item check results weren't reported.
   - Core: `5ddfdc6`.
   - Platform (process loopback, session enumeration, recorder): `c6c76be`. Loopback activation works on the VM without audio devices.
   - Speakers and cloud route: `5c49c06`. Speaker separation uses pinned pyannote-seg-3.0 and WeSpeaker ONNX models in the speech helper; it worked on a 16 s Mac sample, and its 0.6 threshold is untuned.
@@ -169,7 +169,7 @@ Use a fresh branch from `windows` for each new task.
 
 ## Next actions
 
-1. **Waiting on the user's PC retest of app-next2 (`687fca8`).** It covers the meeting crash (Start meeting, tray right-click, Stop) and Email mode (start the dictation with "Email mode, …"). The switch steps went to the orchestrator.
+1. **app-next2 retest:** meeting PASS (2026-11-20). Email mode: pending, not reported. It covers the meeting crash (Start meeting, tray right-click, Stop) and Email mode (start the dictation with "Email mode, …"). The switch steps went to the orchestrator.
    - If the crash recurs: run a read-only PC agent for the Application event log (.NET Runtime 1026), `%TEMP%\Murmur-crash.txt` and `%LOCALAPPDATA%\CrashDumps`, as at 05:40Z. Never read History, transcripts or audio.
    - Earlier PC results on app-next (`0a21433`): learning PASS, model download PASS. Still to run: voice edit, the browser matrix (Firefox and Brave matter most), the 30-minute meeting.
 2. **CI is green at `a186cfd`.** Before merging, run `dotnet build windows/Murmur.App.slnx -c Release` on the VM. It catches CsWinRT1032, which the Mac build and sometimes `publish` miss.
