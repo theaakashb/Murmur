@@ -23,6 +23,8 @@ Murmur for Windows installs and updates through [Velopack](https://velopack.io),
 
 `tools/test-update-flow.ps1` checks install → delta update → uninstall against a folder feed and that seeded data in `%LOCALAPPDATA%\Murmur` is byte-identical afterwards.
 
+`-Phase restart` (run in the logged-in console session, after `install`) drives the real `RestartToUpdate()`: it launches the installed app with `--settings`, waits for the `update-ready` test event, selects Updates and invokes "Restart to Update" through UI Automation (no input simulation), then checks the new version, that the old process exited, that the untouched seed files are byte-identical and that the `Run` value survived. Verified on the VM (0.0.1 → 0.0.2, 2026-11-20). Delta evidence: the downloaded `packages\MurmurApp-0.0.2-full.nupkg` differs in size and hash from the feed's full package, so it was rebuilt from the 329 KB delta (Velopack wrote no log file to confirm this directly).
+
 ## Needs user: signing and publishing (M6)
 
 Nothing below has been done. Agents hold no Azure access and no keys.
