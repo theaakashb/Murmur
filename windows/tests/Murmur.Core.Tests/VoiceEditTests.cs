@@ -89,8 +89,7 @@ public class VoiceEditTests
         var routes = Routes with { Cleanup = route, CustomAPIBaseURL = "https://provider.example/v1", CustomAPIModel = "internal-model" };
         var result = VoiceEdit.CreateSession(false, route, routes, _ => Key, new FakeTarget(Field()), 99);
         var edit = Assert.IsType<VoiceEdit.SessionResult.Ready>(result).Session;
-        string host = route == CleanupChoice.MurmurCloud ? MurmurCloud.Host : "provider.example";
-        Assert.Equal($"Editing with {name} ({host})…", edit.ProcessingLabel);
+        Assert.Equal($"Editing with {name}…", edit.ProcessingLabel);
         Assert.Equal($"Edited with {name}. Ctrl+Z in the app undoes it.", edit.CompletedLabel);
     }
 

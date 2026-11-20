@@ -89,7 +89,7 @@ internal sealed partial class WelcomeWindow : Window
     static Button Filled(string text, Action click)
     {
         var accent = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 77, 111, 240));
-        var b = MurmurStyle.Named(new Button { Content = text, Style = MurmurStyle.Style("AccentButtonStyle"), MinHeight = 36, Padding = new Thickness(18, 0, 18, 0), CornerRadius = new CornerRadius(18) }, text);
+        var b = MurmurStyle.Named(new Button { Content = text, BorderThickness = new Thickness(0), Style = MurmurStyle.Style("AccentButtonStyle"), MinHeight = 36, Padding = new Thickness(18, 0, 18, 0), CornerRadius = new CornerRadius(18) }, text);
         foreach (var key in new[] { "AccentButtonBackground", "AccentButtonBackgroundPointerOver", "AccentButtonBackgroundPressed" }) b.Resources[key] = accent;
         b.Click += (_, _) => click();
         return b;

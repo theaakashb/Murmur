@@ -28,6 +28,32 @@ public class CleanupStyleTests
     [Theory]
     [InlineData(CleanupChoice.LocalRules)]
     [InlineData(CleanupChoice.LocalModel)]
+    public void SavedModeCannotRunCloudFeaturesOnALocalRoute(CleanupChoice local)
+    {
+        var mode = new WritingMode
+        {
+            Options = CleanupOptions.Standard with { Polish = true, Professional = true },
+            Tone = Tone.Casual,
+            Instructions = "Rewrite as an email",
+            Transform = ModeTransform.Email,
+            ScreenContext = true,
+        };
+        var context = new ScreenContext { Selected = "Fixture selection" };
+        var saved = DictationStyle.ForMode(mode, CleanupOptions.Standard, false, context);
+        Assert.Same(context, saved.Context);
+        var effective = local.EffectiveStyle(saved);
+        Assert.Equal(CleanupOptions.Standard, effective.Options);
+        Assert.Equal(Tone.Casual, effective.Tone);
+        Assert.Empty(effective.Instructions);
+        Assert.Null(effective.Transform);
+        Assert.Null(effective.Context);
+        Assert.False(effective.UsesEngine);
+        Assert.Same(saved, CleanupChoice.MurmurCloud.EffectiveStyle(saved));
+    }
+
+    [Theory]
+    [InlineData(CleanupChoice.LocalRules)]
+    [InlineData(CleanupChoice.LocalModel)]
     public void LocalRoutesUseNaturalAndKeepTheSavedCloudLevel(CleanupChoice local)
     {
         var saved = CleanupOptions.Standard with { Polish = true, Professional = true, TrustModel = true };

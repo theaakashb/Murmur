@@ -10,6 +10,16 @@ public static class CleanupStyles
     public static CleanupOptions EffectiveOptions(this CleanupChoice route, CleanupOptions saved) =>
         route.CloudOnlyOK() ? saved : saved with { Polish = false, Professional = false, TrustModel = false };
 
+    public static DictationStyle EffectiveStyle(this CleanupChoice route, DictationStyle style) =>
+        route.CloudOnlyOK() ? style : style with
+        {
+            Options = route.EffectiveOptions(style.Options),
+            Context = null,
+            Instructions = "",
+            Transform = null,
+            UsesEngine = false,
+        };
+
     public static CleanupStyle Current(CleanupChoice route, CleanupOptions saved)
     {
         var options = route.EffectiveOptions(saved);

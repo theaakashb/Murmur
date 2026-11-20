@@ -173,6 +173,7 @@ internal sealed partial class SettingsView
     void ShowPane(string pane)
     {
         if (!panes.TryGetValue(pane, out var body)) return;
+        if (pane == "Modes") Render(body, RenderModes);
         content.Content = body;
         View.ChangeView(null, 0, null, true);
     }

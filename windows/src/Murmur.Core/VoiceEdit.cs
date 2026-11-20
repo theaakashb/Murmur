@@ -22,7 +22,7 @@ public sealed record VoiceEditSession(string EngineName, string Destination, boo
     string Selection, Func<string, string, CancellationToken, Task<string>> Run)
 {
     public Guid Generation { get; init; } = Guid.NewGuid();
-    public string ProcessingLabel => OnDevice ? "Editing on this PC…" : $"Editing with {EngineName} ({Destination})…";
+    public string ProcessingLabel => OnDevice ? "Editing on this PC…" : $"Editing with {EngineName}…";
     public string CompletedLabel => $"Edited with {EngineName}. Ctrl+Z in the app undoes it.";
 }
 
