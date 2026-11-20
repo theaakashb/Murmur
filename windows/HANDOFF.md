@@ -107,14 +107,13 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - Pass 1, `2abe6ca`: shared window and sidebars, underline tabs, Mac History.
   - Pass 2, `de97c81`: switches, (?) icons, column width, Modes/Dictionary/Cues, welcome guide.
   - Pass 3, merged 2026-11-20 (merge of `windows-ui-meetings` plus a microphone-step fix). It adds the Meetings screen, sheets, call offer, Settings Meetings and Updates, Open at login, tray Restart to update, the voice edit shortcut row and dictionary suggestions. Harness 6/6 (median 318 ms). Known gaps: no meeting date filter, Lecture tab, speaker rename or live floating panel; no cloud meeting-transcription row; no "Not learned" list; the call offer isn't exercised live.
+  - Pass 4, merged 2026-11-20: Home, Insights charts and streak calendar, settings search reveal, meetings date filter, speaker rename/merge/move, Not learned list. Harness 6/6 (median 314 ms). Remaining gaps: Lecture tab, live floating meeting panel, the Start Meeting Notes app picker, the settings search results overlay, Home info wording, and Insights app display names. Not yet viewed rendered: Insights below the fold, Dictionary, search reveal, filters.
 
-## Active workers (04:20Z, coordinator 268d6a36)
+## Active workers
 
-| Agent | Model | Worktree folder / branch | Assignment |
-| --- | --- | --- | --- |
-| `67bab2d6-767e-499a-8030-229f159b1632` | Claude Sonnet 5.5, medium | `windows-ui-fluent` / `windows-ui-pass4` | UI pass 4: Home, Insights and streak, settings search highlight, pass-3 leftovers. It holds the VM desktop for captures and the harness. |
+None (04:55Z).
 
-All other workers are archived. Free workspaces to reuse: `wks_eef3d710acd15c9a` (`windows-m4-core`) and `wks_50c7ffeb2fda107c` (`windows-m3-live`); their branches are merged.
+All other workers are archived. Free workspaces to reuse: `wks_eef3d710acd15c9a` (`windows-m4-core`), `wks_50c7ffeb2fda107c` (`windows-m3-live`) and `wks_f5364d96a43c462c` (`windows-ui-fluent`); their branches are merged.
 
 Use a fresh branch from `windows` for each new task.
 
@@ -163,11 +162,8 @@ Use a fresh branch from `windows` for each new task.
 1. Review and merge UI pass 3 (`windows-ui-meetings`) with the checklist; look at the pairs yourself.
 2. Build a fresh unsigned app for the user's PC (CI artifact `Murmur-windows-x64-unsigned`) and give the user the M4 and M5 PC checklist. Don't touch the PC while the user is testing.
 3. Remaining parity gaps to schedule, on Codex after 07:37Z:
-   - settings search highlight;
    - Firefox reader activation;
-   - the RestartToUpdate tray path;
+   - the RestartToUpdate tray item (only the Settings button is verified);
    - speaker threshold tuning on real calls;
-   - Insights charts and the streak calendar;
-   - the Home screen against the Mac;
-   - the voice edit shortcut row (Mac `VoiceEditShortcutSettings`). Windows has the `voiceEditShortcut` key but no Settings UI for it.
+   - the pass 4 remaining gaps (UI workstream above).
 4. M6 with the user: signing, then a test-repo release, then the first `windows-v*` draft.
