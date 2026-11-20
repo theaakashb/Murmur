@@ -112,9 +112,11 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - Pass 5, merged 2026-11-20 (`749dcc9`): meeting app picker, live floating meeting panel with pill, Lecture tab, settings search overlay (Ctrl+K), Home row opens its History entry, app display names. Harness 6/6 (median 330 ms). Remaining: the panel isn't draggable and the Meeting indicator setting does nothing; search has no synonyms; Home info wording. Unviewed: search jump-to-result, Not learned, a real live meeting.
   - Merge check: CsWinRT1032 shows up in `dotnet build -c Release` (and CI) but not always in `dotnet publish`. Run the Release build on the VM before pushing.
 
-## Active workers
+## Active workers (09:40Z)
 
-None (05:30Z).
+| Agent | Model | Worktree folder / branch | Assignment |
+| --- | --- | --- | --- |
+| `1d14aebd-7c63-48e4-bda9-fe8d3ebfda9a` | Codex gpt-6.2-sol, medium | `windows-m4-core` / `windows-local-notes` | Local meeting notes, phase 1: read the Mac notes contract, verify candidate GGUFs (2–8B plus the Vedu Scribe baseline), benchmark on the corpus and heldout set (Mac Metal and VM CPU), write `windows/bench/notes/NOTES_MODEL_BENCHMARK.md`, then recommend. Phase 2 (pinning, the Models row, the notes route) waits for the user's OK. No uploads. |
 
 All other workers are archived. Free workspaces to reuse: `wks_eef3d710acd15c9a` (`windows-m4-core`) `wks_50c7ffeb2fda107c` (`windows-m3-live`) and `wks_f5364d96a43c462c` (`windows-ui-fluent`); their branches are merged.
 
