@@ -105,8 +105,8 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 | # | Agent ID | Worktree folder / branch | Assignment | Start point |
 | --- | --- | --- | --- | --- |
 | UI | `33161254-7ebc-4901-8f17-7ea1f29d70a9` (Claude Sonnet 5.5, medium) | `windows-m4-core` / `windows-ui-maclook-2` | Pass 2: the Mac's grey switches, the circled (?), the ~700 px content column and type scale, the Writing tabs Modes/Dictionary/Cues, the welcome guide window (Mac look, Windows steps, first launch), re-capture and the harness. | `2abe6ca`. Pass 1 merged: shared window, sidebars, underline tabs, Mac History; VM publish and tests clean. |
-| M5 platform | `de4d6235-00f4-448e-87ad-1eb15492aa49` (Claude Sonnet 5.5, medium) | `windows-ui-fluent` / `windows-m5-platform` | Process-loopback Them capture with silence fill, Me capture, IAudioSessionManager2 call-detection input, a recorder in `Controller.Meetings.cs`, tests, and a PC checklist for the 30-minute call. No visuals. | `1b14fc1` |
-| M6 local | `68cee5b1-a6bc-46bc-b172-569af8fee551` (Claude Sonnet 5.5, medium) | `windows-m3-live` / `windows-m6-velopack` | Velopack in the app (pinned), the updater with an injectable source, start at login, `windows/tools/package.ps1`, and a draft `windows-release.yml` with signing and upload off. A VM install → delta update → uninstall test from a local feed. No signing, no uploads. | `1b14fc1`. It asks before installing to `%LOCALAPPDATA%\MurmurApp` on the VM. |
+| M5 next | `de4d6235-00f4-448e-87ad-1eb15492aa49` (Claude Sonnet 5.5) | `windows-ui-fluent` / `windows-m5-speakers` | Speaker separation (diarizer model pinned and downloaded, in the helper), meetings on the cloud route if the Mac has it, ResetMeetings on Delete All/Restore, quit confirmation during a meeting. | `c6c76be`. Platform merged: process loopback (activation works on the VM without audio devices), session enumeration, MeetingRecorder in Core, tray Start/Stop meeting. Real audio untested; the PC checklist is in INSTALL-TEST.md "Meetings". |
+| M6 local | `68cee5b1-a6bc-46bc-b172-569af8fee551` (Claude Sonnet 5.5) | `windows-m3-live` / `windows-m6-velopack` | Velopack 1.2.161 pinned, Updater, LoginItem, package.ps1, draft workflow, UPDATES.md (`cf241ad`). Waiting for the desktop to run the VM install → delta → uninstall test. | Hooks for the UI: `App.Updater.ReadyVersion`, `RestartToUpdate()`, `UpdateReady`, `Updater.Explanation`, `LoginItem.IsOn` and `LoginItem.Set(bool)`. |
 
 **Merged this session (all pushed to `windows`):**
 - live words `8535cb1`;
@@ -116,7 +116,8 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 - learning `67e4ed3`;
 - voice edit and the learning extras `10cbd2a`;
 - M5 core `5ddfdc6`;
-- the Mac-look UI, pass 1, `2abe6ca`.
+- the Mac-look UI, pass 1, `2abe6ca`;
+- the M5 platform `c6c76be`.
 
 The Codex workers `011b034c`, `b84929e5` and `c281bc63` are archived.
 
