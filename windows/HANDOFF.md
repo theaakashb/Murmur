@@ -135,6 +135,12 @@ Use a fresh branch from `windows` for each new task.
 
 ## Open bugs
 
+- **Fixed on `windows-crash-trigger` (`b9982cb`), not yet merged:**
+  - Start meeting crashed the app on the PC. The cause was the call-audio client being created on the UI thread (STA) and used on the MTA capture thread, so Drain threw E_NOINTERFACE. The fix creates and uses it on one MTA thread. The regression test `CallAudioStartedFromAnStaThreadKeepsCapturing` crashes the old code on the VM and passes on the fix. Background-thread crashes now go to CrashLog.
+  - The spoken mode trigger ("email mode …") was never called on Windows. It's now applied after transcription, as in the Mac's Controller.deliver.
+  - Harness worker `45827cee` is adding an "email mode" fixture and running the full harness. app-next2 is being staged on the PC.
+- **Mac note (read-only):** "E-mail mode" (with a hyphen) is one token and won't match the trigger "email mode" (Dictionary.swift:27). The same applies on Windows. It's unfixed.
+
 - **CI was red from `4aab0c6` to `1e316b0`.** The `windows-ci-fix` merge fixed it. The root cause was a real bug: `AudioCapture` and `AudioSessions` activated MMDeviceEnumerator in two different ways in one process, so whichever ran second threw InvalidCastException, both in the app and in the tests. The fix also added CsWinRT1032 casts and gates the learning keystroke test on CI.
 - **PC app-next is staged at `0a21433`** (2026-11-20, about 05:05Z): `T:\Paseo Project\Murmur\app-next`. The previous build is `app-next.old-20261119-2100`. The user is running PC-CHECKLIST.md.
 
