@@ -4,6 +4,8 @@ Status: Phase 1 (planning). No Windows code exists yet. This plan was written on
 
 ## Status
 
+- **M5 real call: pass, reported by the user on 2026-11-20.** The run was on the PC with app-next2 (`687fca8`), and the Start meeting crash (E_NOINTERFACE in ProcessLoopback) is fixed. The user didn't report the per-item results of the INSTALL-TEST.md "Meetings" checks (30 minutes, recovery after a kill, notes) separately. Email mode retest: pending.
+
 Updated 2026-11-19 (overnight autonomous run).
 
 - **M1:** done. Core text engine, golden parity, CI green on Linux and Windows.
