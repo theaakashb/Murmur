@@ -54,6 +54,11 @@ internal sealed class HistoryView
         };
     }
 
+    string? openId;
+
+    /// <summary>Opens the screen with this entry expanded and scrolled into view (a Home recent-dictation row). The search is cleared so the entry is listed.</summary>
+    public void Select(string id) { openId = id; search.Text = ""; }
+
     public void Reload()
     {
         entries.Children.Clear();
@@ -135,7 +140,7 @@ internal sealed class HistoryView
         clock.Margin = new Thickness(0, 3, 0, 0);
 
         var details = new StackPanel { Spacing = 10, Padding = new Thickness(116, 0, 4, 18), Visibility = Visibility.Collapsed };
-        var meta = string.Join("  ·  ", new[] { entry.App, entry.StatusLabel ?? entry.InsertionStatusRaw }.Where(x => !string.IsNullOrEmpty(x)));
+        var meta = string.Join("  ·  ", new[] { entry.App is { Length: > 0 } a ? AppNames.Display(a) : null, entry.StatusLabel ?? entry.InsertionStatusRaw }.Where(x => !string.IsNullOrEmpty(x)));
         if (meta.Length > 0) details.Children.Add(MurmurStyle.Text(meta, "MurmurCaption"));
         var full = MurmurStyle.Text(shown, "MurmurTranscript");
         full.IsTextSelectionEnabled = true;
@@ -161,15 +166,22 @@ internal sealed class HistoryView
             Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0)
         };
         MurmurStyle.Named(toggle, $"Transcript from {time}");
-        toggle.Click += (_, _) =>
+        void Set(bool open)
         {
-            bool open = details.Visibility == Visibility.Collapsed;
             details.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
-            chevron.Glyph = open ? "" : "";
+            chevron.Glyph = open ? "" : "";
             transcript.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
             if (open) { header.Children.Remove(transcript); } else if (!header.Children.Contains(transcript)) { header.Children.Add(transcript); Grid.SetColumn(transcript, 2); }
-        };
-        return new StackPanel { Children = { toggle, details } };
+        }
+        toggle.Click += (_, _) => Set(details.Visibility == Visibility.Collapsed);
+        var result = new StackPanel { Children = { toggle, details } };
+        if (entry.Id == openId)
+        {
+            openId = null;
+            Set(true);
+            result.Loaded += (_, _) => result.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.2 });
+        }
+        return result;
     }
 
     async Task ClearAll()

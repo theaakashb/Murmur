@@ -236,7 +236,7 @@ internal sealed class InsightsView(AppServices s, Action openPrivacy)
         int max = Math.Max(st.Apps.FirstOrDefault()?.Words ?? 1, 1);
         foreach (var item in st.Apps.Take(6))
         {
-            var name = MurmurStyle.Text(AppName(item.App), "MurmurSettingLabel"); name.FontSize = 14; name.TextTrimming = TextTrimming.CharacterEllipsis; name.TextWrapping = TextWrapping.NoWrap;
+            var name = MurmurStyle.Text(AppNames.Display(item.App), "MurmurSettingLabel"); name.FontSize = 14; name.TextTrimming = TextTrimming.CharacterEllipsis; name.TextWrapping = TextWrapping.NoWrap;
             var words = MurmurStyle.Text($"{item.Words:N0} words", "MurmurCaption"); words.TextWrapping = TextWrapping.NoWrap;
             var head = new Grid { ColumnSpacing = 8, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { name, words } };
             Grid.SetColumn(words, 1);
@@ -245,16 +245,9 @@ internal sealed class InsightsView(AppServices s, Action openPrivacy)
             double share = (double)item.Words / max;
             track.SizeChanged += (_, e) => fill.Width = e.NewSize.Width * share;
             var row = new StackPanel { Spacing = 5, Children = { head, track } };
-            AutomationProperties.SetName(row, $"{AppName(item.App)}, {item.Words} words, {item.Count} dictations");
+            AutomationProperties.SetName(row, $"{AppNames.Display(item.App)}, {item.Words} words, {item.Count} dictations");
             list.Children.Add(row);
         }
         return Block(Heading("Top apps", $"Ranked by words in retained History. {st.WithoutApp} dictations have no destination app recorded."), list);
-    }
-
-    /// <summary>History stores a lowercased process name on Windows ("chrome"); show it capitalised without ".exe".</summary>
-    internal static string AppName(string app)
-    {
-        var name = app.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? app[..^4] : app;
-        return name.Length == 0 ? app : char.ToUpper(name[0], Culture) + name[1..];
     }
 }

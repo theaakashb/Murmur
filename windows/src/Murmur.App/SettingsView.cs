@@ -96,6 +96,24 @@ internal sealed partial class SettingsView
         return null;
     }
 
+    /// <summary>Every setting row whose labels or description contain the text, for the search overlay (the Mac's SettingsSearch.matches): its label, and the pane and tab it is in. Rows that start with a sentence (description-only paragraphs) are left out.</summary>
+    public List<(string Pane, int Tab, string Title, string Where)> Matches(string query)
+    {
+        var found = new List<(string, int, string, string)>();
+        query = query.Trim();
+        if (query.Length == 0) return found;
+        foreach (var pane in Panes)
+        {
+            var names = Tabs.TryGetValue(pane, out var t) ? t : [pane];
+            for (int i = 0; i < names.Length; i++)
+                if (panes[names[i]] is Panel body)
+                    foreach (var row in body.Children)
+                        if (Texts(row).ToList() is { Count: > 0 } texts && texts[0].Length <= 60 && !texts[0].EndsWith('.') && texts.Any(x => x.Contains(query, StringComparison.OrdinalIgnoreCase)))
+                            found.Add((pane, i, texts[0], names.Length > 1 ? $"{pane} > {names[i]}" : pane));
+        }
+        return found;
+    }
+
     // Walks the built (possibly never shown) tree by its logical children.
     static IEnumerable<string> Texts(object node)
     {
