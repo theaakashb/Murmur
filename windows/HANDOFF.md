@@ -1,6 +1,6 @@
 # Murmur for Windows: coordinator handoff
 
-Refreshed 2026-11-20 about 06:15Z by coordinator 3 (`268d6a36-00e7-40c3-a2bd-0b2dacfa5718`; it took over from `f9e7f4a7` at 04:00Z). The orchestrator is `8f691026-6ec3-41d4-8c14-4cba2ef6db44`. Read this first, then `windows/PLAN.md` (the Status section is current), `windows/CONTRIBUTING.md` and `~/.claude/CLAUDE.md`.
+Refreshed 2026-11-20 about 09:50Z by coordinator 3 (`268d6a36-00e7-40c3-a2bd-0b2dacfa5718`; it took over from `f9e7f4a7` at 04:00Z). The orchestrator is `8f691026-6ec3-41d4-8c14-4cba2ef6db44`. Read this first, then `windows/PLAN.md` (the Status section is current), `windows/CONTRIBUTING.md` and `~/.claude/CLAUDE.md`.
 
 ## Objective
 
@@ -112,11 +112,17 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - Pass 5, merged 2026-11-20 (`749dcc9`): meeting app picker, live floating meeting panel with pill, Lecture tab, settings search overlay (Ctrl+K), Home row opens its History entry, app display names. Harness 6/6 (median 330 ms). Remaining: the panel isn't draggable and the Meeting indicator setting does nothing; search has no synonyms; Home info wording. Unviewed: search jump-to-result, Not learned, a real live meeting.
   - Merge check: CsWinRT1032 shows up in `dotnet build -c Release` (and CI) but not always in `dotnet publish`. Run the Release build on the VM before pushing.
 
-## Active workers (09:40Z)
+## Active workers (09:50Z)
+
+Workers report to coordinator `268d6a36`. A new coordinator should message each worker with its own ID, then check each one's activity directly.
 
 | Agent | Model | Worktree folder / branch | Assignment |
 | --- | --- | --- | --- |
-| `1d14aebd-7c63-48e4-bda9-fe8d3ebfda9a` | Codex gpt-6.2-sol, medium | `windows-m4-core` / `windows-local-notes` | Local meeting notes, phase 1: read the Mac notes contract, verify candidate GGUFs (2–8B plus the Vedu Scribe baseline), benchmark on the corpus and heldout set (Mac Metal and VM CPU), write `windows/bench/notes/NOTES_MODEL_BENCHMARK.md`, then recommend. Phase 2 (pinning, the Models row, the notes route) waits for the user's OK. No uploads. |
+| `1d14aebd-7c63-48e4-bda9-fe8d3ebfda9a` | Codex gpt-6.2-sol, medium | `windows-m4-core` / `windows-local-notes` | **Local meeting notes, phase 1.** It reads the Mac notes contract, verifies candidate GGUFs (2–8B plus the Vedu Scribe baseline), benchmarks them on the corpus and heldout set (Mac Metal and VM CPU), writes `windows/bench/notes/NOTES_MODEL_BENCHMARK.md`, and recommends. The user approved the workstream. Take the model choice to the orchestrator before pinning or uploading; uploads need the user's OK. Phase 2: a Settings › Models row with the fixed downloader, the notes route uses it, and a clear "not downloaded" message. |
+| `32843b61-bf04-45dd-a2ce-5edf491660f3` | Codex gpt-6.2-sol, medium | `windows-m3-live` / `windows-gpu` | **GPU acceleration, "Use GPU when available"** with CPU fallback (user-approved). Phase 1: a read-only PC GPU probe through one PC agent; which providers the sherpa-onnx/ORT and LLamaSharp packages ship (DirectML and Vulkan as defaults, CUDA optional); why live words load the CPU; a plan in PLAN.md "GPU acceleration". It must come back with package-size numbers before adding large packages. Phase 2: build, then measure CPU vs GPU (CPU %, latency, parity) on the PC. |
+| `5329bb55-ba3e-45c7-8ae0-3aeb4c4f7222` | Claude Sonnet 5.5, medium | `windows-ui-fluent` / `windows-ui-polish` | **UI polish (user screenshot).** Remove the pill's light outline, audit stray outlines on all screens (focus visuals on keyboard focus only), add a multi-resolution light/dark tray .ico, and capture before/after next to the Mac. It holds the VM desktop; the GPU worker asks for it through the coordinator. |
+
+**When all three are merged:** stage the result on the PC as **app-next3**, in a new folder; never touch the running build. Send the switch steps to the orchestrator.
 
 All other workers are archived. Free workspaces to reuse: `wks_eef3d710acd15c9a` (`windows-m4-core`) `wks_50c7ffeb2fda107c` (`windows-m3-live`) and `wks_f5364d96a43c462c` (`windows-ui-fluent`); their branches are merged.
 
@@ -175,7 +181,7 @@ Use a fresh branch from `windows` for each new task.
    - If the crash recurs: run a read-only PC agent for the Application event log (.NET Runtime 1026), `%TEMP%\Murmur-crash.txt` and `%LOCALAPPDATA%\CrashDumps`, as at 05:40Z. Never read History, transcripts or audio.
    - Earlier PC results on app-next (`0a21433`): learning PASS, model download PASS. Still to run: voice edit, the browser matrix (Firefox and Brave matter most), the 30-minute meeting.
 2. **CI is green at `a186cfd`.** Before merging, run `dotnet build windows/Murmur.App.slnx -c Release` on the VM. It catches CsWinRT1032, which the Mac build and sometimes `publish` miss.
-3. **Remaining gaps to schedule** (Codex 5h was 13% until 07:37Z; Claude weekly about 24%):
+3. **Remaining gaps to schedule after the three active workstreams** (Codex 5h was 13% until 07:37Z; Claude weekly about 24%):
    - Firefox reader activation, if the matrix fails;
    - the hyphenated "E-mail mode" trigger (one token; both apps);
    - the RestartToUpdate tray item;
