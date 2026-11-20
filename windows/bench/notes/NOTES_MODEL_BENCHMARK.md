@@ -76,12 +76,15 @@ A failed time is elapsed time to rejection. It does not measure time to usable n
 | Metal / Qwen2.5 7B | Completed in 349 s | Failed at 205 s | 5.76 GB |
 | VM CPU, 8 threads / Vedu | Failed at 187 s | — | 4.38 GB |
 | VM laptop proxy, 4 threads / Vedu | Failed at 94 s | Failed at 201 s | 1.46 GB |
+| M3 CPU-only proxy, 4 threads / Qwen2.5 7B, 1,200 tokens | Completed in 1,635 s | Cancelled during extraction | 6.34 GB |
 
 The Qwen 7B 30-minute run completed seven extraction requests and one merge. Grounding retained 10 points, one decision and five actions and dropped 32 items. Long fixtures measure completion and resources. They have no aggregate quality labels.
 
 The failed Metal jobs for Phi, Gemma and Qwen 7B exhausted the 768-token allowance during extraction. The failing calls used 1,945–2,657 prompt tokens in an 8,192-token slot, with no context overflows. The line protocol requests as many items as needed and has no per-item length or citation limit. The scorer rejects a reply that did not finish normally, before the writer parses or grounds it. Relaxing that check could hide incomplete notes. A bounded extraction prompt or splitting and retrying on output exhaustion could change completion. A bounded merge would also be needed before treating that recovery as reliable. Any candidate change should recheck decision and action recall as well as completion.
 
 Qwen 7B at 1,200 tokens completed 30 minutes in 351 s and retained two points, three decisions and zero actions. Its 60-minute workload exhausted all 1,200 tokens on extraction request four, the same request that failed at 768. It took 293 s to fail. Peak process RSS for the sensitivity run was 5.46 GB.
+
+The M3 CPU-only run used a 4,096-token context, nice +10 and zero GPU layers. It completed eight requests for 30 minutes and retained one point and one action, with 45 drops. The 60-minute job was stopped in its fifth extraction after about 14 minutes to give the Metal reruns priority. A normal-priority Python arithmetic probe returned idle p50/p95 of 18.38/19.18 ms (10 samples), and loaded p50/p95 of 35.75/60.57 ms (2,410 samples across the completed and interrupted workloads). The probe measures CPU contention on this Mac. Its values cannot be compared directly with the VM's PowerShell probe.
 
 The Vedu four-thread process ran at Below Normal priority. A normal-priority PowerShell loop summed 150,000 integers, timed after a 10,000-iteration warm-up. Idle p50/p95 was 212.50/244.06 ms (10 samples). Loaded p50/p95 was 250.84/348.09 ms (62 samples across both jobs), an 18% increase at the median and 43% at p95. The probe completed throughout the sampled interval. This shows measurable contention with some CPU capacity left on this VM. It provides no measurement of responsiveness while dictating.
 
