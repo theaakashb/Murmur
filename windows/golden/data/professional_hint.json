@@ -1,0 +1,261 @@
+{
+  "sentences" : [
+    {
+      "reasons" : [
+        "runOn",
+        "runOn"
+      ],
+      "sentence" : "Professional would break this long run-on into clear sentences and break this long run-on into clear sentences."
+    },
+    {
+      "reasons" : [
+        "runOn",
+        "correction"
+      ],
+      "sentence" : "Professional would break this long run-on into clear sentences and keep only what you meant after your correction."
+    },
+    {
+      "reasons" : [
+        "runOn",
+        "list"
+      ],
+      "sentence" : "Professional would break this long run-on into clear sentences and set out the points you listed."
+    },
+    {
+      "reasons" : [
+        "runOn",
+        "fillers"
+      ],
+      "sentence" : "Professional would break this long run-on into clear sentences and tidy the filler words."
+    },
+    {
+      "reasons" : [
+        "correction",
+        "runOn"
+      ],
+      "sentence" : "Professional would keep only what you meant after your correction and break this long run-on into clear sentences."
+    },
+    {
+      "reasons" : [
+        "correction",
+        "correction"
+      ],
+      "sentence" : "Professional would keep only what you meant after your correction and keep only what you meant after your correction."
+    },
+    {
+      "reasons" : [
+        "correction",
+        "list"
+      ],
+      "sentence" : "Professional would keep only what you meant after your correction and set out the points you listed."
+    },
+    {
+      "reasons" : [
+        "correction",
+        "fillers"
+      ],
+      "sentence" : "Professional would keep only what you meant after your correction and tidy the filler words."
+    },
+    {
+      "reasons" : [
+        "list",
+        "runOn"
+      ],
+      "sentence" : "Professional would set out the points you listed and break this long run-on into clear sentences."
+    },
+    {
+      "reasons" : [
+        "list",
+        "correction"
+      ],
+      "sentence" : "Professional would set out the points you listed and keep only what you meant after your correction."
+    },
+    {
+      "reasons" : [
+        "list",
+        "list"
+      ],
+      "sentence" : "Professional would set out the points you listed and set out the points you listed."
+    },
+    {
+      "reasons" : [
+        "list",
+        "fillers"
+      ],
+      "sentence" : "Professional would set out the points you listed and tidy the filler words."
+    },
+    {
+      "reasons" : [
+        "fillers",
+        "runOn"
+      ],
+      "sentence" : "Professional would tidy the filler words and break this long run-on into clear sentences."
+    },
+    {
+      "reasons" : [
+        "fillers",
+        "correction"
+      ],
+      "sentence" : "Professional would tidy the filler words and keep only what you meant after your correction."
+    },
+    {
+      "reasons" : [
+        "fillers",
+        "list"
+      ],
+      "sentence" : "Professional would tidy the filler words and set out the points you listed."
+    },
+    {
+      "reasons" : [
+        "fillers",
+        "fillers"
+      ],
+      "sentence" : "Professional would tidy the filler words and tidy the filler words."
+    }
+  ],
+  "signals" : [
+    {
+      "longestRun" : 48,
+      "reasons" : [
+        "runOn",
+        "correction"
+      ],
+      "sentence" : "Professional would break this long run-on into clear sentences and keep only what you meant after your correction.",
+      "text" : "and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan no I mean the other plan"
+    },
+    {
+      "longestRun" : 6,
+      "reasons" : [
+
+      ],
+      "sentence" : "",
+      "text" : "Let's meet Thursday at the cafe."
+    },
+    {
+      "longestRun" : 42,
+      "reasons" : [
+
+      ],
+      "sentence" : "",
+      "text" : "and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan "
+    },
+    {
+      "longestRun" : 84,
+      "reasons" : [
+        "runOn"
+      ],
+      "sentence" : "Professional would break this long run-on into clear sentences.",
+      "text" : "and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan and then we talked about the plan "
+    },
+    {
+      "longestRun" : 4,
+      "reasons" : [
+
+      ],
+      "sentence" : "",
+      "text" : "First we ship. Second we test. Finally we write up."
+    },
+    {
+      "longestRun" : 5,
+      "reasons" : [
+        "correction",
+        "list"
+      ],
+      "sentence" : "Professional would keep only what you meant after your correction and set out the points you listed.",
+      "text" : "First we ship. Second we test. Scratch that, we write up."
+    },
+    {
+      "longestRun" : 13,
+      "reasons" : [
+        "correction",
+        "fillers"
+      ],
+      "sentence" : "Professional would keep only what you meant after your correction and tidy the filler words.",
+      "text" : "um so uh the thing um is ready no wait it is not"
+    },
+    {
+      "longestRun" : 0,
+      "reasons" : [
+
+      ],
+      "sentence" : "",
+      "text" : ""
+    },
+    {
+      "longestRun" : 0,
+      "reasons" : [
+
+      ],
+      "sentence" : "",
+      "text" : "   "
+    },
+    {
+      "longestRun" : 4,
+      "reasons" : [
+
+      ],
+      "sentence" : "",
+      "text" : "no wait. Actually, I meant it. Hold on—stop"
+    },
+    {
+      "longestRun" : 8,
+      "reasons" : [
+        "list",
+        "fillers"
+      ],
+      "sentence" : "Professional would set out the points you listed and tidy the filler words.",
+      "text" : "Um, uh, er, like first and then second"
+    },
+    {
+      "longestRun" : 9,
+      "reasons" : [
+
+      ],
+      "sentence" : "",
+      "text" : "I don't think it's ready, I mean it isn't."
+    },
+    {
+      "longestRun" : 35,
+      "reasons" : [
+        "runOn",
+        "correction"
+      ],
+      "sentence" : "Professional would break this long run-on into clear sentences and keep only what you meant after your correction.",
+      "text" : "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word. I mean it"
+    },
+    {
+      "longestRun" : 38,
+      "reasons" : [
+        "runOn",
+        "correction"
+      ],
+      "sentence" : "Professional would break this long run-on into clear sentences and keep only what you meant after your correction.",
+      "text" : "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word I mean it"
+    },
+    {
+      "longestRun" : 82,
+      "reasons" : [
+        "runOn",
+        "correction"
+      ],
+      "sentence" : "Professional would break this long run-on into clear sentences and keep only what you meant after your correction.",
+      "text" : "Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 Zoë 東京 scratch that"
+    },
+    {
+      "longestRun" : 1,
+      "reasons" : [
+
+      ],
+      "sentence" : "",
+      "text" : "stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! stop! "
+    },
+    {
+      "longestRun" : 70,
+      "reasons" : [
+        "runOn"
+      ],
+      "sentence" : "Professional would break this long run-on into clear sentences.",
+      "text" : "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a "
+    }
+  ]
+}
