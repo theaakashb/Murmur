@@ -101,7 +101,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 - **M6: local part done (`ce410d2`).**
   - Velopack 1.2.161 pinned. The Updater (GithubSource, `MURMUR_UPDATE_FEED` for local feeds), LoginItem (on at the first installed launch, as on the Mac), `windows/tools/package.ps1`, the `.github/workflows/windows-release.yml` draft (`workflow_dispatch`; sign and upload are off) and `windows/UPDATES.md`.
   - On the VM: install, delta update and uninstall kept user data byte-identical. The uninstall leftover Run value is fixed.
-  - Not exercised: `RestartToUpdate()`; whether the client actually applied the delta.
+  - `RestartToUpdate()` was verified on the VM on 2026-11-20 (`e85e6d5`): 0.0.1 → 0.0.2 through the Settings button, data and Run value intact, with `-Phase restart` in test-update-flow.ps1. The delta was probably applied: the rebuilt full package differs from the feed's. Not run separately: the tray item.
   - Needs the user: the signing account, the vpk signing flags (unverified for 1.2.161), and publishing (manual, `windows-v*` tags, never latest).
 - **UI workstream:** the Windows UI matches the Mac look (user direction 2026-11-19).
   - Pass 1, `2abe6ca`: shared window and sidebars, underline tabs, Mac History.
@@ -112,10 +112,9 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 
 | Agent | Model | Worktree folder / branch | Assignment |
 | --- | --- | --- | --- |
-| `d3e95f6e-41b9-4236-951e-f43589eacf74` | Claude Sonnet 5.5, medium | `windows-m3-live` / `windows-restart-update` | Run RestartToUpdate and the tray item on the VM: install vA, update to vB through the local feed, check data and Run value. It holds the VM desktop. |
-| `67bab2d6-767e-499a-8030-229f159b1632` | Claude Sonnet 5.5, medium | `windows-ui-fluent` / `windows-ui-pass4` | UI pass 4: Home, Insights and streak, settings search highlight, pass-3 leftovers. It asks for the desktop before using it. |
+| `67bab2d6-767e-499a-8030-229f159b1632` | Claude Sonnet 5.5, medium | `windows-ui-fluent` / `windows-ui-pass4` | UI pass 4: Home, Insights and streak, settings search highlight, pass-3 leftovers. It holds the VM desktop for captures and the harness. |
 
-All other workers are archived. A free workspace to reuse: `wks_eef3d710acd15c9a`, folder `windows-m4-core`, branch `windows-ui-meetings` (merged).
+All other workers are archived. Free workspaces to reuse: `wks_eef3d710acd15c9a` (`windows-m4-core`) and `wks_50c7ffeb2fda107c` (`windows-m3-live`); their branches are merged.
 
 Use a fresh branch from `windows` for each new task.
 
