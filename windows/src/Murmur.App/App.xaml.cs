@@ -18,8 +18,7 @@ public partial class App : Application
     Controller? controller;
     Bubble? bubble;
     TaskbarIcon? tray;
-    SettingsWindow? settings;
-    HistoryWindow? history;
+    MainWindow? main;
 
     public App()
     {
@@ -85,18 +84,16 @@ public partial class App : Application
         if (launchArgs.Contains("--history")) OpenHistory();
     }
 
-    void OpenSettings()
+    // One shared window: Settings and History are pages inside it.
+    MainWindow Main()
     {
-        if (settings is null) { settings = new SettingsWindow(services!, controller!); settings.Closed += (_, _) => settings = null; }
-        settings.Activate();
+        if (main is null) { main = new MainWindow(services!, controller!); main.Closed += (_, _) => main = null; }
+        return main;
     }
 
-    void OpenHistory()
-    {
-        if (history is null) { history = new HistoryWindow(services!); history.Closed += (_, _) => history = null; }
-        history.Reload();
-        history.Activate();
-    }
+    void OpenSettings() => Main().ShowSettings();
+
+    void OpenHistory() => Main().ShowHistory();
 
     void Quit()
     {
