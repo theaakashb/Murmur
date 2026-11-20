@@ -207,12 +207,15 @@ internal sealed partial class SettingsView
             : "Say one at the very start of a dictation to use this mode; it is removed from the text. This built-in mode rewrites the text on AI cleanup routes; the custom instructions above control its rewrite."));
 
         Label("Cleanup");
-        int style = mode.Options is not { } o ? 0 : !o.AnyEnabled ? 1 : o.Professional ? 5 : o.Polish ? 4 : 2;
-        panel.Children.Add(new Segmented("Mode cleanup", ["Same as Cleanup", "Faithful", "Natural", "Polish", "Professional"], style switch { 0 => 0, 1 => 1, 2 => 2, 4 => 3, _ => 4 }, i =>
-        {
-            ChangeMode(id, x => x with { Options = ModeOptions(x, i) }, true);
-        }, fontSize: 13));
-        if (mode.Options is { AnyEnabled: true } opts)
+        var route = Routes.Cleanup;
+        var cloud = route.CloudOnlyOK();
+        var style = mode.Options is { } saved ? 1 + (int)CleanupStyles.Current(route, saved) : 0;
+        var cleanup = new Segmented("Mode cleanup", ["Same as Cleanup", "Faithful", "Natural", "Polish", "Professional"], style,
+            i => ChangeMode(id, x => x with { Options = ModeOptions(x, i) }, true), cloud: cloud ? null : [3, 4], fontSize: 13);
+        cleanup.SetEnabled(3, cloud);
+        cleanup.SetEnabled(4, cloud);
+        panel.Children.Add(cleanup);
+        if (mode.Options is { } options && route.EffectiveOptions(options) is { AnyEnabled: true } opts)
         {
             (string, string, Func<CleanupOptions, bool>, Func<CleanupOptions, bool, CleanupOptions>)[] flags =
             [
@@ -243,7 +246,10 @@ internal sealed partial class SettingsView
         panel.Children.Add(Caption("Applied by rules after cleanup, on every route. Never applied to an email laid out from “write an email to…”.", 2));
 
         Label("Screen context");
-        panel.Children.Add(new Segmented("Mode screen context", ["Same as Cleanup", "On", "Off"], mode.ScreenContext is null ? 0 : mode.ScreenContext == true ? 1 : 2, i => ChangeMode(id, x => x with { ScreenContext = i == 0 ? null : i == 1 }), fontSize: 13));
+        var context = new Segmented("Mode screen context", ["Same as Cleanup", "On", "Off"], !cloud ? 2 : mode.ScreenContext is null ? 0 : mode.ScreenContext == true ? 1 : 2,
+            i => ChangeMode(id, x => x with { ScreenContext = i == 0 ? null : i == 1 }), fontSize: 13);
+        for (int i = 0; i < 3; i++) context.SetEnabled(i, cloud);
+        panel.Children.Add(context);
         return panel;
     }
 
