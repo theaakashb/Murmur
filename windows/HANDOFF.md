@@ -1,6 +1,6 @@
 # Murmur for Windows: coordinator handoff
 
-Rewritten 2026-11-20 03:55Z by coordinator `f9e7f4a7-3580-4cf3-a339-f14b44fbf5d9` (it took over from `37717132`). Read this first, then `windows/PLAN.md` (the Status section is current), `windows/CONTRIBUTING.md` and `~/.claude/CLAUDE.md`.
+Rewritten 2026-11-20 03:55Z by coordinator `f9e7f4a7-3580-4cf3-a339-f14b44fbf5d9`. Current coordinator, since 04:00Z: `268d6a36-00e7-40c3-a2bd-0b2dacfa5718`. Read this first, then `windows/PLAN.md` (the Status section is current), `windows/CONTRIBUTING.md` and `~/.claude/CLAUDE.md`.
 
 ## Objective
 
@@ -145,7 +145,7 @@ Use a fresh branch from `windows` for each new task.
 
 ## Needs user
 
-- **M4 and M5 exits on the PC:**
+- **M4 and M5 exits on the PC:** the user-run steps are in `windows/PC-CHECKLIST.md`.
   - the browser matrix: Chrome, Edge, Firefox, Brave;
   - learning on real fields;
   - voice edit against a real provider;
@@ -153,7 +153,7 @@ Use a fresh branch from `windows` for each new task.
   - a real model download (the freeze fix).
   
   Install the latest CI artifact or `T:\Paseo Project\Murmur` app-next after the next build.
-- **M6:** the signing account (Azure Artifact Signing or a certificate), approval for test-repo release runs, and publishing (manual).
+- **M6:** the signing account, the test-repo release runs and publishing. The setup steps are in `windows/UPDATES.md`, "Needs user". The pinned vpk 1.2.161 still needs signtool and the dlib; Velopack 1.3 or later signs directly.
 - **Optional:** a bigger VM disk, so parallel builds don't run low.
 
 ## Next actions
@@ -166,5 +166,6 @@ Use a fresh branch from `windows` for each new task.
    - the RestartToUpdate tray path;
    - speaker threshold tuning on real calls;
    - Insights charts and the streak calendar;
-   - the Home screen against the Mac.
+   - the Home screen against the Mac;
+   - the voice edit shortcut row (Mac `VoiceEditShortcutSettings`). Windows has the `voiceEditShortcut` key but no Settings UI for it.
 4. M6 with the user: signing, then a test-repo release, then the first `windows-v*` draft.
