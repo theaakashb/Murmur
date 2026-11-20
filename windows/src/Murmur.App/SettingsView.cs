@@ -348,7 +348,7 @@ internal sealed partial class SettingsView
         page = providerSection;
         BuildProvider(transcription: true);
         page = body;
-        void RefreshProvider() => providerSection.Visibility = Routes.Transcription == TranscriptionRoute.Cloud ? Visibility.Visible : Visibility.Collapsed;
+        void RefreshProvider() => providerSection.Visibility = ProviderFieldGating.ShowTranscriptionFields(Routes.Transcription) ? Visibility.Visible : Visibility.Collapsed;
         refreshNotes.Add(RefreshProvider);
         RefreshProvider();
     }
@@ -438,8 +438,8 @@ internal sealed partial class SettingsView
         {
             var route = Routes.Cleanup;
             var style = CleanupStyleNow;
-            routeSection.Visibility = style == CleanupStyle.Faithful ? Visibility.Collapsed : Visibility.Visible;
-            providerSection.Visibility = style != CleanupStyle.Faithful && route == CleanupChoice.CustomAPI ? Visibility.Visible : Visibility.Collapsed;
+            routeSection.Visibility = ProviderFieldGating.ShowCleanupRoute(style) ? Visibility.Visible : Visibility.Collapsed;
+            providerSection.Visibility = ProviderFieldGating.ShowCleanupFields(route, style) ? Visibility.Visible : Visibility.Collapsed;
             modelCard.Visibility = route == CleanupChoice.LocalModel ? Visibility.Visible : Visibility.Collapsed;
             screenContext.IsEnabled = style.NeedsModel();
             styleTabs.SetCloud(2, !route.CloudOnlyOK());

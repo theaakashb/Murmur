@@ -59,6 +59,17 @@ public partial class App : Application
 
     void Launch()
     {
+        // Development aid: render the pill offscreen and exit. No mutex, no services, no data folder.
+        var launchArgs0 = Environment.GetCommandLineArgs();
+        var renderAt = Array.IndexOf(launchArgs0, "--render-bubble");
+        if (renderAt >= 0 && renderAt + 1 < launchArgs0.Length)
+        {
+            var folder = launchArgs0[renderAt + 1];
+            var renderQueue = DispatcherQueue.GetForCurrentThread();
+            var pill = new Bubble(renderQueue);
+            _ = RenderThenExit(pill, folder);
+            return;
+        }
         var dataDir = Environment.GetEnvironmentVariable("MURMUR_DATA_DIR");
         var name = string.IsNullOrWhiteSpace(dataDir) ? @"Local\Murmur.App" : @"Local\Murmur.App.Test." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(dataDir))))[..16];
         single = new Mutex(true, name, out var first);
@@ -108,6 +119,13 @@ public partial class App : Application
         if (forced || (string.IsNullOrWhiteSpace(dataDir) && new Murmur.Core.WelcomeGuide(services.Settings).OpensAtLaunch(services.Local.ModelFilesPresent))) OpenWelcome();
         if (launchArgs.Contains("--bubble")) bubble.ShowListening();
         if (launchArgs.Contains("--start-meeting")) controller.StartMeeting();
+    }
+
+    async Task RenderThenExit(Bubble pill, string folder)
+    {
+        try { await pill.RenderStatesAsync(folder); }
+        catch (Exception e) { File.WriteAllText(Path.Combine(folder, "render-error.txt"), e.ToString()); }
+        Environment.Exit(0);
     }
 
     // One shared window: Settings and History are pages inside it.
