@@ -124,7 +124,7 @@ Workers report to coordinator `268d6a36`. A new coordinator should message each 
 
 **When all three are merged:** stage the result on the PC as **app-next3**, in a new folder; never touch the running build. Send the switch steps to the orchestrator.
 
-All other workers are archived. Free workspaces to reuse: `wks_eef3d710acd15c9a` (`windows-m4-core`) `wks_50c7ffeb2fda107c` (`windows-m3-live`) and `wks_f5364d96a43c462c` (`windows-ui-fluent`); their branches are merged.
+All other workers are archived. All three worktree workspaces are in use; create a new worktree from `windows` for any new task.
 
 Use a fresh branch from `windows` for each new task.
 
