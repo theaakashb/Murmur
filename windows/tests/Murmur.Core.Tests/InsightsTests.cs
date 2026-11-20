@@ -7,7 +7,13 @@ public class InsightsTests
 {
     static readonly TimeZoneInfo Utc = TimeZoneInfo.Utc;
     static readonly DateTimeOffset Now = DateTimeOffset.FromUnixTimeSeconds(1_792_065_600); // noon UTC on 2026-10-15
-    static TimeZoneInfo Zone(string id) => TimeZoneInfo.FindSystemTimeZoneById(id);
+    // InvariantGlobalization has no ICU, so Windows only knows its own zone IDs.
+    internal static TimeZoneInfo Zone(string id) => TimeZoneInfo.FindSystemTimeZoneById(!OperatingSystem.IsWindows() ? id : id switch
+    {
+        "Asia/Tokyo" => "Tokyo Standard Time",
+        "America/New_York" => "Eastern Standard Time",
+        _ => id,
+    });
     static bool Near(double? a, double b) => a is { } x && Math.Abs(x - b) < 0.001;
 
     static InsightsItem Item(double daysAgo, string raw = "hello there", string? final = null, double? seconds = null, string? app = null, bool expanded = false) =>
