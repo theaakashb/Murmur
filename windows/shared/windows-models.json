@@ -22,6 +22,50 @@
         "name": "Apache-2.0",
         "url": "https://www.apache.org/licenses/LICENSE-2.0"
       }
+    },
+    "csukuangfj/sherpa-onnx-pyannote-segmentation-3-0": {
+      "comment": "pyannote segmentation-3.0 exported to ONNX by sherpa-onnx (csukuangfj). Speaker separation, segmentation half. Hash and size checked against the Hugging Face API and a local download on 2026-11-19.",
+      "platform": "windows",
+      "revision": "9403a6902bb58e3d5ae8c7e77c3422de279db2e0",
+      "files": [
+        {
+          "rfilename": "model.onnx",
+          "size": 5992913,
+          "lfs": {
+            "sha256": "220ad67ca923bef2fa91f2390c786097bf305bceb5e261d4af67b38e938e1079",
+            "size": 5992913
+          }
+        }
+      ],
+      "batch_files": [
+        "model.onnx"
+      ],
+      "license": {
+        "name": "MIT",
+        "url": "https://huggingface.co/csukuangfj/sherpa-onnx-pyannote-segmentation-3-0/blob/main/LICENSE"
+      }
+    },
+    "csukuangfj/speaker-embedding-models": {
+      "comment": "WeSpeaker VoxCeleb ResNet34 speaker embedding (wespeaker_en_voxceleb_resnet34.onnx) from the sherpa-onnx speaker-embedding collection; Wespeaker/wespeaker-voxceleb-resnet34 declares Apache-2.0. Speaker separation, embedding half. Only this file is pinned.",
+      "platform": "windows",
+      "revision": "a8055d6daef723a6a4ecf4de233708575bf4994f",
+      "files": [
+        {
+          "rfilename": "wespeaker_en_voxceleb_resnet34.onnx",
+          "size": 26534365,
+          "lfs": {
+            "sha256": "5ef208a9da1453335308a6b6f4e6dfbd7e183a38b604de0a57664f45d257fe94",
+            "size": 26534365
+          }
+        }
+      ],
+      "batch_files": [
+        "wespeaker_en_voxceleb_resnet34.onnx"
+      ],
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0"
+      }
     }
   }
 }
