@@ -28,7 +28,7 @@ public sealed class LearningTests(ITestOutputHelper output)
         Thread.Sleep(200);
     }
 
-    [SessionFact]
+    [InputFact]
     public void ReadableFieldGivesTheSpanOffsetAndTheEditedText()
     {
         using var notepad = new NotepadWindow();

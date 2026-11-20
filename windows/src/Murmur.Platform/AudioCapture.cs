@@ -22,7 +22,8 @@ public sealed record AudioCaptureResult(float[] Samples16k, double Seconds, stri
 public sealed class AudioCapture : IDisposable
 {
     // --- COM interop (vtable order matters; unused methods are declared only where they precede used ones) ---
-    [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorClass { }
+    // No [ComImport] coclass: AudioSessions activates the same CLSID via Activator, and mixing the two styles in one process throws "Unable to cast ... to MMDeviceEnumeratorClass".
+    static readonly Guid MMDeviceEnumeratorClsid = new("BCDE0395-E52F-467C-8E3D-C4579291692E");
 
     [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IMMDeviceEnumerator
@@ -92,7 +93,7 @@ public sealed class AudioCapture : IDisposable
     static readonly Guid IAudioClientId = new("1CB9AD4C-DBFA-4C32-B178-C2F568A703B2"), IAudioCaptureClientId = new("C8ADBD64-E71E-48A0-A4DE-185C395CD317");
     static readonly Guid FriendlyNameFormat = new("a45c254e-df1c-4efd-8020-67d146a850e0");
 
-    static IMMDeviceEnumerator Enumerator() => (IMMDeviceEnumerator)(object)new MMDeviceEnumeratorClass();
+    static IMMDeviceEnumerator Enumerator() => (IMMDeviceEnumerator)Activator.CreateInstance(Type.GetTypeFromCLSID(MMDeviceEnumeratorClsid)!)!;
 
     static AudioCaptureException Map(int hr, string what) => hr switch
     {
