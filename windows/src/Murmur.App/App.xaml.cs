@@ -1,3 +1,4 @@
+using Murmur.Core;
 using H.NotifyIcon;
 using H.NotifyIcon.Core;
 using Microsoft.UI;
@@ -14,6 +15,8 @@ public partial class App : Application
 {
     internal static TitleBarTheme CaptionTheme { get; private set; } = TitleBarTheme.UseDefaultAppMode;
     static Mutex? single;
+    /// <summary>Null until launch. Settings/tray bind to <c>Updater.UpdateReady</c>, <c>ReadyVersion</c>, <c>RestartToUpdate()</c> and <c>LoginItem</c>.</summary>
+    internal static Updater? Updater { get; private set; }
     AppServices? services;
     Controller? controller;
     Bubble? bubble;
@@ -61,6 +64,12 @@ public partial class App : Application
         bubble = new Bubble(queue);
         controller = new Controller(services, bubble);
 
+        // Mac parity (main.swift:28): start at login is on after the first launch, then the user's choice.
+        if (!services.Settings.Get(Prefs.OpenAtLoginDefaulted)) { if (LoginItem.Set(true)) services.Settings.Set(Prefs.OpenAtLoginDefaulted, true); }
+        Updater = new Updater(Updater.ProductionSource(), () => services.Settings.Get(Prefs.UpdateChecks), () => controller.IsBusy);
+        Updater.UpdateReady += version => TestEvents.Emit("update-ready", ("version", version));
+        Updater.Start();
+
         var menu = new TrayMenu(OpenSettings, OpenHistory, Quit);
         var showMenu = new XamlUICommand();
         showMenu.ExecuteRequested += (_, _) => menu.Show();
@@ -101,6 +110,7 @@ public partial class App : Application
     void Quit()
     {
         controller?.Dispose();
+        Updater?.ApplyOnExit();
         services?.Paste.FlushRestore();
         tray?.Dispose();
         Environment.Exit(0);
