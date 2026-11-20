@@ -36,6 +36,14 @@
                     <SolidColorBrush x:Key="MurmurAccent" Color="{ThemeResource SystemColorHighlightColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
+            <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#4D6FF0" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#4D6FF0" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#4D6FF0" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#4D6FF0" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#4D6FF0" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="#4D6FF0" />
+            <SolidColorBrush x:Key="RadioButtonOuterEllipseCheckedFill" Color="#4D6FF0" />
+            <SolidColorBrush x:Key="HyperlinkButtonForeground" Color="#4D6FF0" />
             <Style x:Key="MurmurCard" TargetType="Border">
                 <Setter Property="Background" Value="{ThemeResource MurmurSidebar}" />
                 <Setter Property="BorderBrush" Value="{ThemeResource MurmurRule}" />
@@ -109,6 +117,9 @@
                 <Setter Property="Background" Value="Transparent" />
             </Style>
             <Style x:Key="MurmurTabOff" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{ThemeResource MurmurMuted}" />
+            </Style>
+            <Style x:Key="MurmurMutedIcon" TargetType="FontIcon">
                 <Setter Property="Foreground" Value="{ThemeResource MurmurMuted}" />
             </Style>
             <Style x:Key="MurmurAccentIcon" TargetType="FontIcon">

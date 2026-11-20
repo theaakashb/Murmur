@@ -9,7 +9,7 @@ namespace Murmur.App;
 
 /// <summary>The one shared window, like the Mac's: a sidebar (Home, Insights, History, Settings, status), and Settings opens inside it with its own sidebar.
 /// Meetings joins the sidebar when M5 lands.</summary>
-internal sealed class MainWindow : Window
+internal sealed partial class MainWindow : Window
 {
     enum Page { Home, Insights, History, Settings }
 
@@ -73,7 +73,7 @@ internal sealed class MainWindow : Window
 
     // ---- sidebars ----
 
-    static FontIcon Icon(string glyph) => new() { Glyph = glyph, FontSize = 18, Style = MurmurStyle.Style("MurmurTabOff") };
+    static FontIcon Icon(string glyph) => new() { Glyph = glyph, FontSize = 18, Style = MurmurStyle.Style("MurmurMutedIcon") };
 
     Border NavItem(string key, string glyph, string label, Action click, bool selected, bool mono)
     {

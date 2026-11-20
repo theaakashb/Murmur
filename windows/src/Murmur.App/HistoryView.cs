@@ -118,7 +118,7 @@ internal sealed class HistoryView
     {
         var shown = Text(entry);
         var time = entry.RecordedAt.ToLocalTime().ToString("t");
-        var chevron = new FontIcon { Glyph = "", FontSize = 12, Style = MurmurStyle.Style("MurmurTabOff") };
+        var chevron = new FontIcon { Glyph = "", FontSize = 12, Style = MurmurStyle.Style("MurmurMutedIcon") };
         var clock = MurmurStyle.Text(time, "MurmurSection");
         clock.FontSize = 14; clock.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas");
         var transcript = MurmurStyle.Text(shown, "MurmurTranscript");
