@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Runtime.InteropServices;
 using LLama;
 using LLama.Common;
 using LLama.Native;
@@ -47,6 +48,8 @@ try
     if (Environment.GetEnvironmentVariable("MURMUR_CLEANUP_DEBUG") != "1") NativeLogConfig.llama_log_set((_, _) => { });
     if (gpu && !NativeApi.llama_supports_gpu_offload()) { Send(new { ready = false }); return 3; }
     contextParams = new ModelParams(modelPath) { ContextSize = 2048, GpuLayerCount = gpu ? int.MaxValue : 0 };
+    if (!gpu)
+        contextParams.Threads = contextParams.BatchThreads = Math.Min(8, CpuTopology.PhysicalCoreCount());
     weights = LLamaWeights.LoadFromFile(contextParams);
     if (gpu)
     {
@@ -93,3 +96,39 @@ while (Console.ReadLine() is { } line)
     catch { Send(new { id, error = "failed" }); }
 }
 return 0;
+
+static class CpuTopology
+{
+    const int RelationProcessorCore = 0;
+
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    static extern bool GetLogicalProcessorInformationEx(int relationship, nint buffer, ref int length);
+
+    public static int PhysicalCoreCount()
+    {
+        int logical = Environment.ProcessorCount;
+        if (!OperatingSystem.IsWindows()) return logical;
+
+        int length = 0;
+        GetLogicalProcessorInformationEx(RelationProcessorCore, 0, ref length);
+        if (length <= 0) return logical;
+        var buffer = Marshal.AllocHGlobal(length);
+        try
+        {
+            if (!GetLogicalProcessorInformationEx(RelationProcessorCore, buffer, ref length)) return logical;
+            int count = 0;
+            // Each processor-core record starts with a relationship and a byte size.
+            for (int offset = 0; offset < length;)
+            {
+                if (length - offset < 8) return logical;
+                int size = Marshal.ReadInt32(buffer, offset + 4);
+                if (size < 8 || size > length - offset) return logical;
+                offset += size;
+                count++;
+            }
+            return count > 0 ? Math.Min(count, logical) : logical;
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
+    }
+}

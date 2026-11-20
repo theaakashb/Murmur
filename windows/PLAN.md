@@ -216,6 +216,27 @@ Why llama.cpp over ONNX Runtime GenAI: there is a written, tested-by-someone con
 - **Cleanup.** Prefer LLamaSharp.Backend.Vulkan.Windows 0.30.0, Windows x64 only, with explicit GPU layer offload and the existing CPU backend retained. The package is 17.4 MB compressed and its x64 DLLs total 54.8 MB installed. CUDA 12/13 Windows packages at the same pin are 238.8/129.3 MB before external CUDA runtime requirements. Defer CUDA and reuse the backend for future local notes once that route exists. These are NuGet and DLL sizes, so measure the final installer/update size before shipping.
 - **Fallback and verification.** Probe the backend and model at helper load. When Vulkan is selected, also allocate a model context before declaring the helper ready. Resolve the backend before consuming the Live Words audio queue. Compare CPU and GPU on identical fixtures using process CPU %, first-partial latency, partial cadence, ASR output parity and cleanup output parity. Verify forced and natural fallback on the GPU-less VM, run Release builds and the six-dictation harness, and measure the Velopack setup and update assets. PC measurements use a separate staging directory. The approved budget is about 26 MB compressed and 73 MB installed for both backends, bundled in every installer.
 
+[CI run 44716871878](https://github.com/theaakashb/Murmur/actions/runs/44716871878) measured these Velopack sizes in bytes:
+
+| Artifact | CPU baseline | Bundled GPU | Increase |
+| --- | ---: | ---: | ---: |
+| Setup | 202,237,397 | 228,540,060 | 26,302,663 |
+| Full package | 194,723,285 | 221,025,948 | 26,302,663 |
+| Installed payload | 464,039,566 | 536,706,203 | 72,666,637 |
+
+PC verification is parked until the machine is available. In a separate staged build, compare DirectML and Vulkan with CPU on identical fixtures. Record per-process CPU, first partial, partial cadence, final latency and output parity. Label speech samples by helper mode (`--serve`, `--stream`, `--diarize`) and record Live Words and dictionary boosting separately. Compare four-thread default spin and no-spin before changing speech defaults.
+
+The GPU-less VM verified natural fallback and forced fallback with the DirectML and Vulkan binaries temporarily withheld. In both cases batch speech, Live Words and cleanup returned output via CPU and emitted a content-free initialization failure trace for each route.
+
+The six-dictation VM harness passed at `6d21ea8` and `a228fc5` with LocalOnly, Live Words and a seeded dictionary. The backend initialization fix changed the observed cleanup path from local rules on 6/6 to accepted model cleanup on 6/6.
+
+| Commit | Median ASR stage | Median cleanup stage | Median paste stage | Harness release-to-paste |
+| --- | ---: | ---: | ---: | ---: |
+| `6d21ea8` | 1,483 ms | 277 ms | 76 ms | 2,553 ms |
+| `a228fc5` | 1,333 ms | 1,379 ms | 79 ms | 4,733 ms |
+
+Stage medians use the midpoint of the two middle samples. The harness reports the upper middle of the six end-to-end samples.
+
 ### Live Words VM CPU tradeoff
 
 Windows 11 QEMU VM, 16 vCPUs, sherpa-onnx 2.0.1 with ORT 1.28.2, two long synthetic harness fixtures fed in 100 ms blocks. Each run starts a new helper and samples one second of idle time after initialization. One fully occupied logical core is 100%. The decode CPU column is summed process CPU time divided by summed wall time through helper exit. Timing columns are medians in seconds. The VM fell behind real time, and baseline repeats varied by about 13 seconds at final partial.
@@ -246,7 +267,23 @@ GPU-less VM, stock ORT 1.28.2, 24 synthetic harness clips per run with a synthet
 | No spin, 1 thread | 53.9 | 150% | 2,261 ms | 4,798 ms |
 | Default spin, 4 threads (repeat) | 101.5 | 867% | 880 ms | 1,629 ms |
 
-Four threads with no spin nearly halved peak CPU and increased median helper latency by 157–238 ms. Confirm the peak/latency tradeoff on the PC before changing the default. The user also saw whole-system CPU below about 3% during dictation and briefly around 80% on release with local CPU cleanup selected. That observation did not isolate the cleanup process. Compare per-process cleanup CPU and latency with the same inputs and thread settings before changing the cleanup default.
+Four threads with no spin nearly halved peak CPU and increased median helper latency by 157–238 ms. Confirm the peak/latency tradeoff on the PC before changing the default. The user also saw whole-system CPU below about 3% during dictation and briefly around 80% on release with local CPU cleanup selected. That observation did not isolate the cleanup process. The cleanup measurements below isolate the helper process.
+
+### Local cleanup CPU tradeoff
+
+GPU-less Windows VM with 16 physical and logical cores. Each warm helper processed the same five short synthetic inputs. Peak is sampled every 100 ms on the one-core scale. Outputs matched byte-for-byte across all runs.
+
+| Generation and batch threads | CPU seconds per run | Peak process CPU | Median latency | Worst latency |
+| --- | ---: | ---: | ---: | ---: |
+| LLamaSharp defaults (first run) | 37.1 | 1,500% | 919 ms | 922 ms |
+| 4 | 31.6 | 600% | 1,537 ms | 1,653 ms |
+| 2 | 29.5 | 286% | 2,965 ms | 3,174 ms |
+| 8 | 39.4 | 1,433% | 965 ms | 1,006 ms |
+| LLamaSharp defaults (repeat) | 39.6 | 1,196% | 924 ms | 1,064 ms |
+| Physical-core cap (first run) | 37.2 | 1,150% | 916 ms | 955 ms |
+| Physical-core cap (repeat) | 37.0 | 1,314% | 855 ms | 994 ms |
+
+CPU cleanup uses up to eight physical cores for each LLamaSharp thread setting. Eight preserved near-default latency in the VM run. The measured process peak still reached 1,433%, so the thread settings alone do not establish a process-wide CPU ceiling. Confirm the sustained and peak process CPU and end-to-end latency on the 5900X before drawing conclusions about whole-system load.
 
 ## Website matching for modes
 
