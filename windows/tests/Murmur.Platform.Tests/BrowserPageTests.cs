@@ -61,6 +61,29 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
     [DllImport("user32.dll")] static extern nint GetForegroundWindow();
     [DllImport("user32.dll")] static extern uint GetDpiForWindow(nint hwnd);
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(nint hwnd);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(nint hwnd, out uint pid);
+    [DllImport("user32.dll")] static extern bool AttachThreadInput(uint from, uint to, bool attach);
+    [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] static extern void SwitchToThisWindow(nint h, bool altTab);
+    [DllImport("user32.dll")] static extern bool ShowWindow(nint h, int cmd);
+    [DllImport("user32.dll")] static extern bool BringWindowToTop(nint hwnd);
+
+    // A background process may not take focus; attaching to the foreground thread's input queue lifts that lock.
+    static bool Activate(nint hwnd)
+    {
+        uint other = GetWindowThreadProcessId(GetForegroundWindow(), out _), me = GetCurrentThreadId();
+        bool attached = other != me && AttachThreadInput(me, other, true);
+        try
+        {
+            BringWindowToTop(hwnd);
+            if (SetForegroundWindow(hwnd)) return true;
+            SwitchToThisWindow(hwnd, true);
+            if (GetForegroundWindow() == hwnd) return true;
+            ShowWindow(hwnd, 6); ShowWindow(hwnd, 9); // minimize, then restore
+            return SetForegroundWindow(hwnd) || GetForegroundWindow() == hwnd;
+        }
+        finally { if (attached) AttachThreadInput(me, other, false); }
+    }
 
     static void Press(byte key, bool control = false)
     {
@@ -104,7 +127,7 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
             Assert.True(FocusProbe.ReadBrowserPage(pageFocus) is null, "stale page focus must not read a page");
             output.WriteLine("Address-bar and stale-focus gates: passed");
 
-            Press(0x1b); // Escape
+            Press(0x1b); Press(0x1b); // Chrome keeps omnibox focus after the first Escape.
             using var tab = Launch(exe!, profile, $"http://127.0.0.1:{port}/tab");
             Assert.True(await WaitForPage(processName, "/tab"), "new tab did not match its active page");
             Press(0x09, control: true); // Ctrl+Tab returns to the first tab.
@@ -172,10 +195,10 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
                 var page = FocusProbe.ReadBrowserPage(focus, out _, preferDocumentValue: !addressOnly);
                 if (ReferenceEquals(WritingModes.Match([app, site], processName, page), site)) return true;
             }
-            else if (startWindow is { HasExited: false })
+            if (!(FocusProbe.Capture(false) is { } f2 && f2.ProcessName == processName) && startWindow is { HasExited: false })
             {
                 startWindow.Refresh();
-                if (startWindow.MainWindowHandle != 0) SetForegroundWindow(startWindow.MainWindowHandle);
+                if (startWindow.MainWindowHandle != 0) Activate(startWindow.MainWindowHandle);
             }
             await Task.Delay(150);
         }
