@@ -14,6 +14,7 @@
 //   /tmp/mmn apple|custom|llama [--long] [--30-minute] [--60-minute] [--verbose]
 // The llama route uses a local llama.cpp server on MMN_LLAMA_PORT (default 18085).
 // Set MMN_LLAMA_MAX_TOKENS to test a different reply budget (default 768).
+// Set MMN_LLAMA_BOUNDED=1 to test Apple's item limits in the line protocol.
 import Foundation
 
 struct Corpus: Decodable {
@@ -45,11 +46,14 @@ func llamaNotes(system: String, user: String) async throws -> String {
     let env = ProcessInfo.processInfo.environment
     let port = UInt16(env["MMN_LLAMA_PORT"] ?? "18085") ?? 18085
     let maxTokens = Int(env["MMN_LLAMA_MAX_TOKENS"] ?? "768") ?? 768
+    let boundedSystem = env["MMN_LLAMA_BOUNDED"] == "1"
+        ? system + "\nReturn at most 8 POINT, 10 DECISION and 12 ACTION lines. Prefer the most important supported items."
+        : system
     var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/v1/chat/completions")!, timeoutInterval: 600)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.httpBody = try JSONSerialization.data(withJSONObject: [
-        "messages": [["role": "system", "content": system], ["role": "user", "content": user]],
+        "messages": [["role": "system", "content": boundedSystem], ["role": "user", "content": user]],
         "temperature": 0, "seed": 1234, "max_tokens": maxTokens
     ])
     let (data, response) = try await URLSession.shared.data(for: request)
@@ -60,7 +64,12 @@ func llamaNotes(system: String, user: String) async throws -> String {
         }
         throw NotesFailure.failed("llama.cpp request failed.")
     }
-    guard let choice = try JSONDecoder().decode(Reply.self, from: data).choices.first,
+    let choice = try JSONDecoder().decode(Reply.self, from: data).choices.first
+    if choice?.finish_reason == "length" {
+        let stage = user.hasPrefix("<parts-") ? "merge" : "extraction"
+        throw NotesFailure.failed("llama.cpp \(stage) stopped at a length limit (requested cap: \(maxTokens) tokens).")
+    }
+    guard let choice,
           choice.finish_reason == "stop", let content = choice.message.content, !content.isEmpty else {
         throw NotesFailure.failed("llama.cpp did not return a complete reply.")
     }

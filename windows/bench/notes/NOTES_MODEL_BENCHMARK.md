@@ -36,7 +36,7 @@ From the repository root, build with `app/tools/build.sh measure_meeting_notes`,
 
 The low-end CPU profile uses four llama.cpp threads, one 4,096-token context slot, and Windows Below Normal process priority. The smaller context bounds KV-cache allocation. It does not cap total RAM or reproduce a four-core machine, since the VM still exposes 16 logical CPUs. The concurrent probe times a fixed PowerShell arithmetic loop after a short warm-up, excluding SSH and interpreter startup, at normal priority. Compare its idle and loaded median and p95 to assess foreground CPU contention. This probe does not exercise microphone capture, paging on a smaller machine, UI input latency, or thermal throttling.
 
-The 60-minute workload uses roughly 9,000 synthetic words across 3,600 seconds. Use `--30-minute --60-minute` to time both workloads in the same run. Set `MMN_LLAMA_MAX_TOKENS=1200` for the higher reply-budget sensitivity check. Sample inferences run in sequence after loading the weights.
+The 60-minute workload uses roughly 9,000 synthetic words across 3,600 seconds. Use `--30-minute --60-minute` to time both workloads in the same run. Set `MMN_LLAMA_MAX_TOKENS=1200` for the higher reply-budget sensitivity check. Set `MMN_LLAMA_BOUNDED=1` to ask for up to 8 points, 10 decisions and 12 actions in each extraction and merge. These are prompt instructions in the scorer. Apple uses schema limits. Sample inferences run in sequence after loading the weights. The writer generates fresh nonce tags, so the prompt tokens can vary between otherwise identical runs.
 
 ## Apple Intelligence reference
 
@@ -58,6 +58,8 @@ Unsupported is shown as count (per completed meeting). The miss denominators ref
 | Metal / Phi-4-mini | Heldout | 0 / 9 | 0 (0.00) | 0 | 4 / 8 | 4 / 11 | 6.6 / 9.0 |
 | Metal / Gemma 3 4B | Corpus | 0 / 22 | 2 (0.09) | 0 | 8 / 21 | 11 / 30 | 8.0 / 15.6 |
 | Metal / Gemma 3 4B | Heldout | 0 / 9 | 0 (0.00) | 0 | 3 / 8 | 3 / 11 | 8.4 / 11.1 |
+| Metal / Qwen2.5 7B | Corpus | 0 / 22 | 1 (0.05) | 0 | 6 / 21 | 16 / 30 | 13.9 / 23.8 |
+| Metal / Qwen2.5 7B | Heldout | 0 / 9 | 0 (0.00) | 0 | 2 / 8 | 3 / 11 | 13.0 / 14.9 |
 | VM CPU / Vedu | Corpus | 5 / 22 | 2 (0.12) | 0 | 15 / 17 | 11 / 20 | 12.3 / 28.6 |
 | VM CPU / Vedu | Heldout | 0 / 9 | 1 (0.11) | 0 | 4 / 8 | 3 / 11 | 11.5 / 13.0 |
 
@@ -70,8 +72,14 @@ A failed time is elapsed time to rejection. It does not measure time to usable n
 | Metal / Vedu | Failed at 26 s | — | 1.79 GB |
 | Metal / Qwen2.5 3B | Failed at 192 s | — | 3.20 GB |
 | Metal / Phi-4-mini | Failed at 65 s | Failed at 196 s | 5.11 GB |
+| Metal / Gemma 3 4B | Failed at 77 s | Failed at 48 s | 7.32 GB |
+| Metal / Qwen2.5 7B | Completed in 349 s | Failed at 205 s | 5.76 GB |
 | VM CPU, 8 threads / Vedu | Failed at 187 s | — | 4.38 GB |
 | VM laptop proxy, 4 threads / Vedu | Failed at 94 s | Failed at 201 s | 1.46 GB |
+
+The Qwen 7B 30-minute run completed seven extraction requests and one merge. Grounding retained 10 points, one decision and five actions and dropped 32 items. Long fixtures measure completion and resources. They have no aggregate quality labels.
+
+The failed Metal jobs for Phi, Gemma and Qwen 7B exhausted the 768-token allowance during extraction. The failing calls used 1,945–2,657 prompt tokens in an 8,192-token slot, with no context overflows. The line protocol requests as many items as needed and has no per-item length or citation limit. The scorer rejects a reply that did not finish normally, before the writer parses or grounds it. Relaxing that check could hide incomplete notes. A bounded extraction prompt or splitting and retrying on output exhaustion could change completion. A bounded merge would also be needed before treating that recovery as reliable. Any candidate change should recheck decision and action recall as well as completion.
 
 The Vedu four-thread process ran at Below Normal priority. A normal-priority PowerShell loop summed 150,000 integers, timed after a 10,000-iteration warm-up. Idle p50/p95 was 212.50/244.06 ms (10 samples). Loaded p50/p95 was 250.84/348.09 ms (62 samples across both jobs), an 18% increase at the median and 43% at p95. The probe completed throughout the sampled interval. This shows measurable contention with some CPU capacity left on this VM. It provides no measurement of responsiveness while dictating.
 
