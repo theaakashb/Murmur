@@ -234,6 +234,20 @@ The Star Labs baseline on app-next2 (`687fca8`), sampled at 1 Hz for 120 seconds
 
 The pinned sherpa source passes `num_threads` to both ORT thread-count setters and applies the resulting options separately to the Parakeet encoder, decoder and joiner sessions. Both speech paths normally request four threads per session. The offline benchmark override `MURMUR_ASR_THREADS` can alter batch limits. Dictionary boosting loads a second three-session recognizer in the same warm process, so several per-session pools can coexist and spin within the same sampling interval. Diarization uses two threads per component in its own process. Dictation does not launch an ONNX VAD. Before changing the cap, compare process CPU by command line at sub-second resolution with Live Words and dictionary boosting toggled separately. Record launch, decode and partial events without capturing audio, text or model paths.
 
+### Warm batch CPU tradeoff
+
+GPU-less VM, stock ORT 1.28.2, 24 synthetic harness clips per run with a synthetic dictionary that loaded the second recognizer. Peak process CPU is sampled every 100 ms on the one-core scale. Latency is warm request-to-response, before cleanup or paste. All configurations returned identical text on 24/24 clips.
+
+| Mode | CPU seconds per corpus | Peak process CPU | Median latency | Worst latency |
+| --- | ---: | ---: | ---: | ---: |
+| Default spin, 4 threads (first run) | 116.9 | 821% | 961 ms | 8,102 ms |
+| No spin, 4 threads | 77.5 | 412% | 1,118 ms | 2,418 ms |
+| No spin, 2 threads | 56.2 | 233% | 1,326 ms | 2,628 ms |
+| No spin, 1 thread | 53.9 | 150% | 2,261 ms | 4,798 ms |
+| Default spin, 4 threads (repeat) | 101.5 | 867% | 880 ms | 1,629 ms |
+
+Four threads with no spin nearly halved peak CPU and increased median helper latency by 157–238 ms. Confirm the peak/latency tradeoff on the PC before changing the default. The user also saw whole-system CPU below about 3% during dictation and briefly around 80% on release with local CPU cleanup selected. That observation did not isolate the cleanup process. Compare per-process cleanup CPU and latency with the same inputs and thread settings before changing the cleanup default.
+
 ## Website matching for modes
 
 Required in v1, as on the Mac (`ScreenReading.swift:10-38`: the page URL from the browser's web area, read only for mode matching, never stored or logged).
