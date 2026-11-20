@@ -4,6 +4,18 @@
 
 Refreshed 2026-11-20 about 09:50Z by coordinator 3 (`268d6a36-00e7-40c3-a2bd-0b2dacfa5718`; it took over from `f9e7f4a7` at 04:00Z). The orchestrator is `8f691026-6ec3-41d4-8c14-4cba2ef6db44`. Read this first, then `windows/PLAN.md` (the Status section is current), `windows/CONTRIBUTING.md` and `~/.claude/CLAUDE.md`.
 
+## RELOCATION (2026-11-21 about 00:10Z): the Mac goes offline
+
+The user's Mac (coordinator 4 `b080c3f1`, the orchestrator and every Mac worker) is going off the network. Work moves to the **Star Labs PC** (Paseo `srv_XXiOqPoelqaJ`, workspace `wks_3d3a18a1cff53984`, Claude only; Codex is disabled there).
+
+- **New coordinator:** a Claude agent on the PC (its ID is in the orchestrator message). It owns everything below, works from this file, and keeps every PC rule: T: only; TEMP, TMP, DOTNET_CLI_HOME, NUGET_PACKAGES and NUGET_SCRATCH on T:; no user data; never touch the running app; nothing left on C:.
+- **The Windows UI fix** (branch `windows-ui-fix2`; checkpoint pushed by Mac worker 9811836d) moves to a PC Claude worker, which builds in `T:\Paseo Project\Murmur\src` and stages **app-next5**. Scope: the pill's light outline (find the real layer: DWM border colour DWMWA_BORDER_COLOR = DWMWA_COLOR_NONE, corner preference, backdrop, XAML Border, shadow); the pill size scaled to Mac px (DPI-aware; Mac constants in app/Bubble*.swift); the lightning glyph outside the capsule (match the Mac, else remove); provider fields gated per route exactly as on the Mac (see below). Verify with crops at 100% and 150%, which the PC can do only without disturbing the user's running app, so prefer an offscreen render of the pill.
+  - Mac gating (code-read on main 2239a4f): transcription Local shows a help line only; Cloud shows URL, model and key; Murmur Cloud shows its key only (SettingsPaneViews.swift:150-175). Cleanup custom fields show only when the route is Custom API AND the style isn't Faithful (:254-280). The meeting notes and meeting transcription pickers have no provider fields. Voice edit has no picker. The API Keys pane lists all keys (by design).
+- **Notes benchmark:** branch `windows-local-notes` (checkpoint pushed by Mac worker abc068c2). The Mac Metal runs are PAUSED until the Mac is back. PC agent `fa8785fe` (Qwen CPU/Vulkan, then the T: cleanup and C: audit) continues on the PC; poll it with get_agent_activity. No pinning; the model choice goes to the user.
+- **Paused until the Mac is back:** the Mac Metal notes runs, the Mac-side .NET build, tests and `check_parity`, golden generation, and Mac UI snapshots. The VM (`murmur-win`) is reachable only by SSH from the Mac, so its use pauses as well.
+- **Agents VM** (`srv_eTAT9llxMw-3`, Linux): checked only if useful; see the orchestrator message.
+- **Merging:** the PC coordinator may merge worker branches into `windows` after the checks it can run (a PC Release build, tests, a fresh publish containing `Cleanup\runtimes\win-x64\native\vulkan`). Record in the merge message that Mac `check_parity` was skipped.
+
 ## Objective
 
 A native C#/.NET 10 + WinUI 3 port of the Mac app, in `windows/` on branch `windows` of `theaakashb/Murmur` (public). V1 is full parity: dictation, cleanup and routes, Murmur Cloud, dictionary and learning, modes, voice edit, history, local speech and cleanup models, meetings, and an updater.
