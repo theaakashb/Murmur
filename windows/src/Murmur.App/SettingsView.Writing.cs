@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Murmur.Core;
+using Murmur.Platform;
 
 namespace Murmur.App;
 
@@ -9,6 +10,65 @@ internal sealed partial class SettingsView
 {
     StackPanel modesPage = null!, dictionaryPage = null!, cuesPage = null!;
     Guid? editingMode, editingEntry, editingCue;
+
+    // ---- Voice edit shortcut (app/VoiceEditSettings.swift VoiceEditShortcutSettings) ----
+
+    static string EditLabel(string spec)
+    {
+        var parts = spec.Split(':');
+        if (parts.Length < 2 || !int.TryParse(parts[1], out var vk)) return "";
+        int mask = parts.Length == 3 && int.TryParse(parts[2], out var m) ? m : 0;
+        var names = new List<string>();
+        if ((mask & 1) != 0) names.Add("Ctrl");
+        if ((mask & 2) != 0) names.Add("Shift");
+        if ((mask & 4) != 0) names.Add("Alt");
+        if ((mask & 8) != 0) names.Add("Win");
+        names.Add(Native.KeyName(vk));
+        return string.Join("+", names);
+    }
+
+    void BuildVoiceEdit()
+    {
+        bool separate = s.Settings.Get(Prefs.VoiceEditShortcut) != EditTrigger.SameKey;
+        var recorded = MurmurStyle.Text(separate ? EditLabel(s.Settings.Get(Prefs.VoiceEditShortcut)) : "", "MurmurCaption");
+        var record = MurmurStyle.Named(new Button { Content = "Record key" }, "Record voice edit key");
+        var detail = new StackPanel { Spacing = 8, Visibility = separate ? Visibility.Visible : Visibility.Collapsed };
+        var picker = Picker("Voice edit shortcut", ["Same as dictation key, when text is selected", "A separate shortcut"], separate ? 1 : 0, i =>
+        {
+            detail.Visibility = i == 1 ? Visibility.Visible : Visibility.Collapsed;
+            if (i == 0) { s.Settings.Set(Prefs.VoiceEditShortcut, EditTrigger.SameKey); recorded.Text = ""; controller.ReloadVoiceEditShortcut(); }
+        });
+        picker.Width = 340;
+        Row("Voice edit shortcut", null, picker);
+        record.Click += async (_, _) =>
+        {
+            record.IsEnabled = false;
+            recorded.Text = "Press a key (Esc cancels)…";
+            var vk = await controller.RecordNextKey();
+            string? refusal = null;
+            if (vk != 0)
+            {
+                // Modifiers still held when the key arrives become part of the shortcut: Ctrl=1 Shift=2 Alt=4 Win=8.
+                int mask = (Held(Windows.System.VirtualKey.Control) ? 1 : 0) | (Held(Windows.System.VirtualKey.Shift) ? 2 : 0) | (Held(Windows.System.VirtualKey.Menu) ? 4 : 0)
+                    | (Held(Windows.System.VirtualKey.LeftWindows) || Held(Windows.System.VirtualKey.RightWindows) ? 8 : 0);
+                var spec = mask == 0 ? $"custom:{vk}" : $"custom:{vk}:{mask}";
+                int dictation = ShortcutSpec.KeyOf(s.Settings.Get(Prefs.Shortcut));
+                if (vk == dictation) refusal = "That is your dictation shortcut. Pick another key.";
+                else if (VoiceEditBinding.Parse(spec, dictation) is null) refusal = "That key can't start voice edit. Pick another key.";
+                else { s.Settings.Set(Prefs.VoiceEditShortcut, spec); controller.ReloadVoiceEditShortcut(); }
+            }
+            var current = s.Settings.Get(Prefs.VoiceEditShortcut);
+            recorded.Text = refusal ?? (current == EditTrigger.SameKey ? "" : EditLabel(current));
+            record.IsEnabled = true;
+        };
+        detail.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { recorded, record } });
+        detail.Children.Add(MurmurStyle.Text("A key that also edits text, such as Ctrl+E, is used only when text is selected. Otherwise it works as usual.", "MurmurCaption"));
+        page.Children.Add(detail);
+        page.Children.Add(MurmurStyle.Text("Select text, press the shortcut and say how to change it. To replace selected text by dictation, delete it first, or pick a separate voice edit shortcut. Works with a Custom Provider or Murmur Cloud; pasting the result makes rich text plain.", "MurmurCaption"));
+    }
+
+    static bool Held(Windows.System.VirtualKey key) =>
+        Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
 
     // ---- shared bits ----
 
@@ -248,6 +308,64 @@ internal sealed partial class SettingsView
             }
             page.Children.Add(new Border { Height = 1, Style = MurmurStyle.Style("MurmurRuleLine") });
         }
+
+        IReadOnlyList<DictionarySuggestion> suggestions = [];
+        try
+        {
+            suggestions = DictionarySuggestions.Find([.. s.History.Entries().Where(h => h.EditOriginal == null).Select(h => (h.RawText, h.FinalText))],
+                processing.Dictionary.Entries, new HashSet<string>(s.Settings.Get(Prefs.DismissedSuggestions)), Lexicon.English.IsCommonWord);
+        }
+        catch (Exception) { /* History unreadable: no suggestions */ }
+        if (suggestions.Count > 0)
+        {
+            Heading("Suggested");
+            page.Children.Add(Caption("Words Murmur keeps hearing that aren't in your dictionary. Fix the spelling if needed, then add it.", 0));
+            page.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 8, 0, 0), Style = MurmurStyle.Style("MurmurRuleLine") });
+            foreach (var item in suggestions)
+            {
+                var it = item;
+                var spelling = Box("Spelling", it.Preferred, "", _ => { });
+                var detail = MurmurStyle.Text($"Heard as {string.Join(", ", it.Heard)} · {it.Dictations} dictations", "MurmurCaption");
+                var addSuggestion = Btn("Add", () =>
+                {
+                    var word = spelling.Text.Trim();
+                    if (word.Length == 0) return;
+                    try
+                    {
+                        var heardForms = it.Heard.Where(h => TermText.Fold(h) != TermText.Fold(word)).ToList();
+                        if (processing.Dictionary.Entries.FirstOrDefault(e => TermText.Fold(e.Preferred) == TermText.Fold(word)) is { } existing)
+                            processing.UpdateEntry(existing.Id, existing.Preferred, string.Join(", ", existing.Variants.Concat(heardForms.Where(h => !existing.Variants.Any(v => TermText.Fold(v) == TermText.Fold(h))))), existing.Enabled);
+                        else processing.AddEntry(word, string.Join(", ", heardForms));
+                        Render(dictionaryPage, RenderDictionary);
+                    }
+                    catch (StoreError ex) { message.Text = ex.Message; }
+                }, "Add " + it.Preferred);
+                var dismiss = Btn("Dismiss", () => { s.Settings.Set(Prefs.DismissedSuggestions, [.. s.Settings.Get(Prefs.DismissedSuggestions), .. it.Heard.Select(TermText.Fold)]); Render(dictionaryPage, RenderDictionary); }, "Dismiss " + it.Heard[0], plain: true);
+                var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center, Children = { addSuggestion, dismiss } };
+                var row = new Grid { MinHeight = 72, ColumnSpacing = 12, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center, Children = { spelling, detail } }, buttons } };
+                Grid.SetColumn(buttons, 1);
+                page.Children.Add(row);
+                page.Children.Add(new Border { Height = 1, Style = MurmurStyle.Style("MurmurRuleLine") });
+            }
+        }
+
+        var reset = Btn("Reset Learned…", () => _ = ResetLearned(processing, message), "Reset learned entries");
+        reset.IsEnabled = processing.Dictionary.Entries.Any(e => e.Source == EntrySource.Learned);
+        reset.Margin = new Thickness(0, 16, 0, 0); reset.HorizontalAlignment = HorizontalAlignment.Left;
+        page.Children.Add(Caption("“Heard as” forms are always replaced. With cleanup on, sound-alikes get fixed too. Edits save immediately.", 16));
+        page.Children.Add(reset);
+    }
+
+    async Task ResetLearned(ProcessingCoordinator processing, TextBlock message)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = root(), Title = "Reset learned entries?", Content = new TextBlock { Text = "Removes the words Murmur learned from your corrections and what it has seen so far. Entries you added yourself stay.", TextWrapping = TextWrapping.Wrap },
+            PrimaryButtonText = "Reset Learned", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
+        };
+        if (await MurmurStyle.Named(dialog, "Reset learned entries").ShowAsync() != ContentDialogResult.Primary) return;
+        try { processing.ResetLearned(); Render(dictionaryPage, RenderDictionary); }
+        catch (Exception) { message.Text = "Could not reset learned entries."; }
     }
 
     // ---- Cues ----

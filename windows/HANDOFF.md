@@ -106,7 +106,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 - **UI workstream:** the Windows UI matches the Mac look (user direction 2026-11-19).
   - Pass 1, `2abe6ca`: shared window and sidebars, underline tabs, Mac History.
   - Pass 2, `de97c81`: switches, (?) icons, column width, Modes/Dictionary/Cues, welcome guide.
-  - Pass 3 is in progress.
+  - Pass 3, merged 2026-11-20 (merge of `windows-ui-meetings` plus a microphone-step fix). It adds the Meetings screen, sheets, call offer, Settings Meetings and Updates, Open at login, tray Restart to update, the voice edit shortcut row and dictionary suggestions. Harness 6/6 (median 318 ms). Known gaps: no meeting date filter, Lecture tab, speaker rename or live floating panel; no cloud meeting-transcription row; no "Not learned" list; the call offer isn't exercised live.
 
 ## Active workers (03:55Z)
 
@@ -136,6 +136,9 @@ Use a fresh branch from `windows` for each new task.
 
 ## Open bugs
 
+- **CI is red since `4aab0c6`** (last green run `35d640d`). Five Murmur.Platform.Tests fail on windows-latest: the no-device audio tests and LearningTests.ReadableField. Because of this, no `Murmur-windows-x64-unsigned` artifact gets built. Worker `d3e95f6e` is fixing it on `windows-ci-fix` (assigned 04:10Z).
+- **The PC Paseo host `srv_XXiOqPoelqaJ` was offline at 04:05Z.** Staging app-next is still to do.
+
 - **VM SSH drops (twice, about 02:00Z, 2026-11-20):** sshd resets at `ssh-userauth`. Both times it came right after Chrome probe runs, and it recovered on its own without a reboot. Afterwards: 4.6 GB disk and 6.8 GB RAM free, no chrome.exe left. Cause unknown. Avoid long browser-probe loops, and close browsers by PID.
 
 - **The app freezes while downloading a model:** fix merged in `c8dd54f`. Progress is now sampled at 10 Hz with one pending UI update, and status and removal work run off the dispatcher. Verified on the VM with a synthetic transfer. Still to confirm: a real download on the user's PC.
@@ -154,6 +157,7 @@ Use a fresh branch from `windows` for each new task.
   
   Install the latest CI artifact or `T:\Paseo Project\Murmur` app-next after the next build.
 - **M6:** the signing account, the test-repo release runs and publishing. The setup steps are in `windows/UPDATES.md`, "Needs user". The pinned vpk 1.2.161 still needs signtool and the dlib; Velopack 1.3 or later signs directly.
+- **Velopack 1.3:** the user asked for stable 1.3.x, but none exists. The only 1.3 build is the prerelease 1.3.39-g8d2844f; the latest stable is 1.2.161. Decided: stay on 1.2.161, and move to 1.3 when a stable release ships (UPDATES.md). The user may still override.
 - **Optional:** a bigger VM disk, so parallel builds don't run low.
 
 ## Next actions
