@@ -136,7 +136,7 @@ Use a fresh branch from `windows` for each new task.
 
 ## Open bugs
 
-- **CI is red since `4aab0c6`** (last green run `35d640d`). Five Murmur.Platform.Tests fail on windows-latest: the no-device audio tests and LearningTests.ReadableField. Because of this, no `Murmur-windows-x64-unsigned` artifact gets built. Worker `d3e95f6e` is fixing it on `windows-ci-fix` (assigned 04:10Z).
+- **CI was red from `4aab0c6` to `1e316b0`.** The `windows-ci-fix` merge fixed it. The root cause was a real bug: `AudioCapture` and `AudioSessions` activated MMDeviceEnumerator in two different ways in one process, so whichever ran second threw InvalidCastException, both in the app and in the tests. The fix also added CsWinRT1032 casts and gates the learning keystroke test on CI.
 - **The PC Paseo host `srv_XXiOqPoelqaJ` was offline at 04:05Z.** Staging app-next is still to do.
 
 - **VM SSH drops (twice, about 02:00Z, 2026-11-20):** sshd resets at `ssh-userauth`. Both times it came right after Chrome probe runs, and it recovered on its own without a reboot. Afterwards: 4.6 GB disk and 6.8 GB RAM free, no chrome.exe left. Cause unknown. Avoid long browser-probe loops, and close browsers by PID.
