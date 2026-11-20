@@ -63,6 +63,7 @@ public partial class App : Application
         services = new AppServices(queue);
         bubble = new Bubble(queue);
         controller = new Controller(services, bubble);
+        _ = new CallOfferPanel(services, controller, queue); // held by the controller's CallOffered event
 
         // Mac parity (main.swift:28): start at login is on after the first launch, then the user's choice.
         if (!services.Settings.Get(Prefs.OpenAtLoginDefaulted)) { if (LoginItem.Set(true)) services.Settings.Set(Prefs.OpenAtLoginDefaulted, true); }
@@ -70,7 +71,8 @@ public partial class App : Application
         Updater.UpdateReady += version => TestEvents.Emit("update-ready", ("version", version));
         Updater.Start();
 
-        var menu = new TrayMenu(OpenSettings, OpenHistory, Quit, () => { if (controller!.MeetingLive) controller.StopMeeting(); else controller.StartMeeting(); }, () => controller!.MeetingLive);
+        var menu = new TrayMenu(OpenSettings, OpenHistory, Quit, () => { if (controller!.MeetingLive) controller.StopMeeting(); else controller.StartMeeting(); }, () => controller!.MeetingLive,
+            () => { if (Updater?.RestartToUpdate() is { } message) bubble.ShowNotice(message, 5); }, () => Updater?.ReadyVersion);
         var showMenu = new XamlUICommand();
         showMenu.ExecuteRequested += (_, _) => menu.Show();
         tray = new TaskbarIcon

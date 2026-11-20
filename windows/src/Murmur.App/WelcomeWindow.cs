@@ -46,6 +46,8 @@ internal sealed partial class WelcomeWindow : Window
         Content = root;
         MurmurStyle.SetTitleBar(this, caption);
         MurmurStyle.SetInitialSize(this, 1000, 680);
+        controller.SetupShowing = step == Step.TryIt;
+        Closed += (_, _) => controller.SetupShowing = false;
         Render();
     }
 
@@ -69,7 +71,7 @@ internal sealed partial class WelcomeWindow : Window
 
     bool Done(Step st) => st switch
     {
-        Step.Microphone => micOk,
+        Step.Microphone => MicrophonePrivacy.Read() == MicrophonePrivacy.State.Allowed && micOk,
         Step.RecordShortcut => s.Settings.Get(Prefs.Shortcut).StartsWith("custom:", StringComparison.Ordinal),
         Step.Transcription or Step.Cleanup => guide.IsConfirmed(st),
         Step.Model => s.Local.ModelFilesPresent,
@@ -101,7 +103,7 @@ internal sealed partial class WelcomeWindow : Window
         return b;
     }
 
-    void Go(Step next) { step = next; guide.Save(next); Render(); }
+    void Go(Step next) { controller.SetupShowing = next == Step.TryIt; step = next; guide.Save(next); Render(); }
 
     void Render()
     {
@@ -187,7 +189,10 @@ internal sealed partial class WelcomeWindow : Window
                 panel.Children.Add(MurmurStyle.Text("Audio stays on this PC unless you choose a cloud route. You see what a cloud route sends before you confirm it.", "MurmurDescription"));
                 break;
             case Step.Microphone:
-                var status = MurmurStyle.Text(micChecked ? (micOk ? "Microphone found." : "No microphone was found. Check that one is connected and allowed.") : "", "MurmurCaption");
+                var privacy = MicrophonePrivacy.Read();
+                var status = MurmurStyle.Text(privacy == MicrophonePrivacy.State.Blocked ? "Windows is blocking microphone access for desktop apps. Turn it on in Windows settings, then press Check."
+                    : micChecked ? (micOk ? "Microphone found and allowed." : "No microphone was found. Check that one is connected.")
+                    : privacy == MicrophonePrivacy.State.Allowed ? "Windows allows microphone access." : "", "MurmurCaption");
                 AutomationProperties.SetLiveSetting(status, AutomationLiveSetting.Polite);
                 panel.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { Filled("Open Microphone Settings", () => _ = Windows.System.Launcher.LaunchUriAsync(new Uri("ms-settings:privacy-microphone"))), Outline("Check Microphone", CheckMic) } });
                 panel.Children.Add(status);

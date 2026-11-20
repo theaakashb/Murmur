@@ -17,8 +17,10 @@ internal sealed class TrayMenu
     bool open;
     MenuFlyoutItem? meetingItem;
     Func<bool>? meetingLive;
+    MenuFlyoutItem? updateItem;
+    Func<string?>? updateVersion;
 
-    public TrayMenu(Action settings, Action history, Action quit, Action? toggleMeeting = null, Func<bool>? meetingLive = null)
+    public TrayMenu(Action settings, Action history, Action quit, Action? toggleMeeting = null, Func<bool>? meetingLive = null, Action? restartToUpdate = null, Func<string?>? updateVersion = null)
     {
         window.Content = anchor;
         window.AppWindow.SetPresenter(OverlappedPresenter.CreateForContextMenu());
@@ -30,6 +32,7 @@ internal sealed class TrayMenu
         menu.Items.Add(Item("Settings…", settings));
         menu.Items.Add(Item("History…", history));
         if (toggleMeeting is not null) { meetingItem = Item("Start meeting", toggleMeeting); menu.Items.Add(meetingItem); this.meetingLive = meetingLive; }
+        if (restartToUpdate is not null) { updateItem = Item("Restart to update", restartToUpdate); updateItem.Visibility = Visibility.Collapsed; menu.Items.Add(updateItem); this.updateVersion = updateVersion; }
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(Item("Quit Murmur", quit));
         menu.Closed += (_, _) =>
@@ -44,6 +47,7 @@ internal sealed class TrayMenu
     {
         if (open) return;
         open = true;
+        if (updateItem is not null) updateItem.Visibility = updateVersion?.Invoke() is null ? Visibility.Collapsed : Visibility.Visible;
         if (meetingItem is not null) meetingItem.Text = meetingLive?.Invoke() == true ? "Stop meeting" : "Start meeting";
         GetCursorPos(out var cursor);
         var work = (fromKeyboard ? DisplayArea.Primary : DisplayArea.GetFromPoint(cursor, DisplayAreaFallback.Primary)).WorkArea;
