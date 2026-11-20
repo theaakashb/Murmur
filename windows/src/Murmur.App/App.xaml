@@ -16,6 +16,18 @@
                     <SolidColorBrush x:Key="MurmurRule" Color="#DEDEDE" />
                     <SolidColorBrush x:Key="MurmurSelection" Color="#EEEEEE" />
                     <SolidColorBrush x:Key="MurmurAccent" Color="#4D6FF0" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOff" Color="#D6D6D6" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOff" Color="#BDBDBD" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOff" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOffPointerOver" Color="#D6D6D6" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOffPointerOver" Color="#BDBDBD" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPointerOver" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOffPressed" Color="#D6D6D6" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOffPressed" Color="#BDBDBD" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPressed" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Default">
                     <SolidColorBrush x:Key="MurmurPaper" Color="#181818" />
@@ -25,6 +37,18 @@
                     <SolidColorBrush x:Key="MurmurRule" Color="#393939" />
                     <SolidColorBrush x:Key="MurmurSelection" Color="#242424" />
                     <SolidColorBrush x:Key="MurmurAccent" Color="#4D6FF0" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOff" Color="#4A4A4A" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOff" Color="#6A6A6A" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOff" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOffPointerOver" Color="#4A4A4A" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOffPointerOver" Color="#6A6A6A" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPointerOver" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOffPressed" Color="#4A4A4A" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOffPressed" Color="#6A6A6A" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPressed" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="MurmurPaper" Color="{ThemeResource SystemColorWindowColor}" />
@@ -36,6 +60,12 @@
                     <SolidColorBrush x:Key="MurmurAccent" Color="{ThemeResource SystemColorHighlightColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOff" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPointerOver" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPressed" Color="#FFFFFF" />
             <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#4D6FF0" />
             <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#4D6FF0" />
             <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#4D6FF0" />
@@ -52,15 +82,20 @@
                 <Setter Property="Padding" Value="12" />
             </Style>
             <Style x:Key="MurmurDescription" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
+                <Setter Property="FontSize" Value="13" />
                 <Setter Property="Foreground" Value="{ThemeResource MurmurMuted}" />
                 <Setter Property="TextWrapping" Value="Wrap" />
             </Style>
             <Style x:Key="MurmurCaption" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+                <Setter Property="FontSize" Value="12" />
                 <Setter Property="Foreground" Value="{ThemeResource MurmurMuted}" />
                 <Setter Property="TextWrapping" Value="Wrap" />
             </Style>
             <Style x:Key="MurmurRuleLine" TargetType="Border">
                 <Setter Property="Background" Value="{ThemeResource MurmurRule}" />
+            </Style>
+            <Style x:Key="MurmurRuleTopStrong" TargetType="Border">
+                <Setter Property="BorderBrush" Value="{ThemeResource MurmurMuted}" />
             </Style>
             <Style x:Key="MurmurRuleTop" TargetType="Border">
                 <Setter Property="BorderBrush" Value="{ThemeResource MurmurRule}" />
