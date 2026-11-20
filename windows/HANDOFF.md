@@ -109,11 +109,13 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - Pass 3, merged 2026-11-20 (merge of `windows-ui-meetings` plus a microphone-step fix). It adds the Meetings screen, sheets, call offer, Settings Meetings and Updates, Open at login, tray Restart to update, the voice edit shortcut row and dictionary suggestions. Harness 6/6 (median 318 ms). Known gaps: no meeting date filter, Lecture tab, speaker rename or live floating panel; no cloud meeting-transcription row; no "Not learned" list; the call offer isn't exercised live.
   - Pass 4, merged 2026-11-20: Home, Insights charts and streak calendar, settings search reveal, meetings date filter, speaker rename/merge/move, Not learned list. Harness 6/6 (median 314 ms). Remaining gaps: Lecture tab, live floating meeting panel, the Start Meeting Notes app picker, the settings search results overlay, Home info wording, and Insights app display names. Not yet viewed rendered: Insights below the fold, Dictionary, search reveal, filters.
 
-## Active workers
+## Active workers (04:45Z)
 
-None (04:55Z).
+| Agent | Model | Worktree folder / branch | Assignment |
+| --- | --- | --- | --- |
+| `f95f6988-109d-4ec0-93dd-564b66eb687f` | Claude Sonnet 5.5, medium | `windows-ui-fluent` / `windows-ui-pass5` | UI pass 5: meeting app picker, live floating meeting panel, Lecture tab (only if the Core supports it), settings search overlay, Home and Insights details, and a rendered check of what pass 4 didn't view. It holds the VM desktop. |
 
-All other workers are archived. Free workspaces to reuse: `wks_eef3d710acd15c9a` (`windows-m4-core`), `wks_50c7ffeb2fda107c` (`windows-m3-live`) and `wks_f5364d96a43c462c` (`windows-ui-fluent`); their branches are merged.
+All other workers are archived. Free workspaces to reuse: `wks_eef3d710acd15c9a` (`windows-m4-core`) and `wks_50c7ffeb2fda107c` (`windows-m3-live`); their branches are merged.
 
 Use a fresh branch from `windows` for each new task.
 
