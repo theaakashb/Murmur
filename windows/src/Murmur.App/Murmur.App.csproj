@@ -27,6 +27,10 @@
     <ProjectReference Include="..\Murmur.Core\Murmur.Core.csproj" />
     <ProjectReference Include="..\Murmur.Platform\Murmur.Platform.csproj" />
   </ItemGroup>
+  <!-- Tray icons (tools/make_tray_icons.py): light and dark taskbar variants. -->
+  <ItemGroup>
+    <Content Include="Assets\tray-light.ico;Assets\tray-dark.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <!-- Shared editorial fonts and their SIL Open Font License notices. -->
   <ItemGroup>
     <Content Include="..\..\..\app\Fonts\InstrumentSerif-Regular.ttf;..\..\..\app\Fonts\DMSans.ttf"
