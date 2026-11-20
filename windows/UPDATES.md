@@ -22,3 +22,22 @@ Murmur for Windows installs and updates through [Velopack](https://velopack.io),
 `tools/package.ps1 -Version X.Y.Z -Out <folder>` publishes self-contained x64 and runs `vpk pack --packId MurmurApp`. Put the previous release's files in `<folder>` first and a delta is built. No signing yet: the marked spot in the script takes `--azureTrustedSignFile` or `--signParams`. `.github/workflows/windows-release.yml` is a manual draft with signing and upload off.
 
 `tools/test-update-flow.ps1` checks install → delta update → uninstall against a folder feed and that seeded data in `%LOCALAPPDATA%\Murmur` is byte-identical afterwards.
+
+## Needs user: signing and publishing (M6)
+
+Nothing below has been done. Agents hold no Azure access and no keys.
+
+**Azure Artifact Signing setup (the user, in the Azure portal):**
+1. An Azure subscription. For an individual developer, the billing account type must be "Individual", and its legal name and address must match a government ID. Individuals must be in the US or Canada; organizations have a wider country list.
+2. Register the resource provider `Microsoft.CodeSigning` (Subscription > Resource providers).
+3. Create an Artifact Signing account. The SKU is `Basic` (about USD 10 a month, per Velopack's docs). Note the region endpoint, such as `https://eus.codesigning.azure.net`.
+4. Identity validation (portal only; it takes 1 to 30 business days): Organization or Individual, Public Trust. This needs the "Artifact Signing Identity Verifier" role.
+5. Create a certificate profile of type Public Trust.
+6. For CI: create an app registration with a GitHub OIDC federated credential for this repo, and give it the "Artifact Signing Certificate Profile Signer" role on the profile. Add the repo secrets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`. These are IDs, not passwords.
+7. Send the coordinator the endpoint, the account name and the profile name. They go in a non-secret `metadata.json` (`Endpoint`, `CodeSigningAccountName`, `CertificateProfileName`).
+
+**Then the agents:**
+- Decide the Velopack version. With the pinned 1.2.161, `--azureTrustedSignFile` needs `signtool.exe` and the Artifact Signing dlib on a Windows runner. Velopack 1.3 or later signs directly. Moving to 1.3 means bumping both the NuGet package and vpk together and re-running the VM install, update and uninstall test.
+- Wire `azure/login` with OIDC and the flag into `tools/package.ps1` and `windows-release.yml`, then confirm `signtool verify /pa` on `Setup.exe` and `Murmur.exe`.
+
+**User approvals still needed:** a test-repo release run; the first `windows-v*` draft release; and publishing. Publishing is manual and the release is never marked latest.
