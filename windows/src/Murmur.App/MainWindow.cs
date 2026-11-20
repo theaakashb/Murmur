@@ -146,7 +146,7 @@ internal sealed partial class MainWindow : Window
             Highlight(hit.Pane);
         };
         var list = new StackPanel { Spacing = 4, Margin = new Thickness(16, 0, 16, 0) };
-        (string Pane, string Glyph)[] panes = [("General", ""), ("Dictation", ""), ("Writing", ""), ("Meetings", "\uE716"), ("Privacy & Storage", ""), ("Providers", "")];
+        (string Pane, string Glyph)[] panes = [("General", ""), ("Dictation", ""), ("Writing", ""), ("Meetings", "\uE716"), ("Privacy & Storage", ""), ("Providers", ""), ("Updates", "\uE777")];
         foreach (var (pane, glyph) in panes)
         {
             if (pane == "Privacy & Storage") list.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 14, 0, 14), Style = MurmurStyle.Style("MurmurRuleLine") });
