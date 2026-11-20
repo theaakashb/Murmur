@@ -128,7 +128,7 @@ public sealed partial class SettingsWindow : Window
         fields.Children.Add(box);
     }
 
-    static ComboBox Picker(string title, IEnumerable<string> items, int selected, Action<int> changed)
+    static ComboBox Picker(string title, string[] items, int selected, Action<int> changed)
     {
         var box = Fluent.Named(new ComboBox { Width = 208 }, title);
         foreach (var item in items) box.Items.Add(item);
@@ -137,7 +137,7 @@ public sealed partial class SettingsWindow : Window
         return box;
     }
 
-    void Choice(string title, string? description, IEnumerable<string> items, int selected, Action<int> changed) =>
+    void Choice(string title, string? description, string[] items, int selected, Action<int> changed) =>
         Row(title, description, Picker(title, items, selected, changed));
 
     void RouteRow(RadioButton radio, Func<string> disclosure)
@@ -209,6 +209,7 @@ public sealed partial class SettingsWindow : Window
         Toggle("Fix punctuation and capitalization", "Adds commas, periods and capitals.", Prefs.CleanupPunctuation);
         Toggle("Spoken commands and numbers", "Interprets “comma” and “new paragraph”, and writes spoken numbers as digits.", Prefs.CleanupSpoken);
         Toggle("Use screen context", "With Polish or Professional on a Custom Provider or Murmur Cloud, words from the screen can appear in the pasted text.", Prefs.ScreenContext);
+        Note("Website modes use the focused page in Edge, Chrome, Brave, Vivaldi, Opera, Arc, or Firefox when Windows can read it. App matching still works in other browsers and when the page is unavailable.");
         BuildProvider(transcription: false);
     }
 
@@ -248,7 +249,7 @@ public sealed partial class SettingsWindow : Window
             Field(fields, "Cleanup API base URL", routes.CustomAPIBaseURL, RouteSettings.PlaceholderAPIURL, v => SaveRoutes(x => x with { CustomAPIBaseURL = v }));
             Field(fields, "Cleanup model name", routes.CustomAPIModel, RouteSettings.PlaceholderModel, v => SaveRoutes(x => x with { CustomAPIModel = v }));
             string[] efforts = ["", "minimal", "low", "medium", "high"];
-            var effort = Picker("Reasoning effort", efforts.Select(e => e.Length == 0 ? "None" : e), Math.Max(0, Array.IndexOf(efforts, routes.CustomAPIReasoningEffort)), i => SaveRoutes(x => x with { CustomAPIReasoningEffort = efforts[i] }));
+            var effort = Picker("Reasoning effort", efforts.Select(e => e.Length == 0 ? "None" : e).ToArray(), Math.Max(0, Array.IndexOf(efforts, routes.CustomAPIReasoningEffort)), i => SaveRoutes(x => x with { CustomAPIReasoningEffort = efforts[i] }));
             effort.Header = "Reasoning effort";
             fields.Children.Add(effort);
         }
@@ -377,7 +378,7 @@ public sealed partial class SettingsWindow : Window
             s.Settings.Get(Prefs.HistoryMode) == HistoryMode.On ? 0 : 1,
             i => { s.Settings.Set(Prefs.HistoryMode, i == 0 ? HistoryMode.On : HistoryMode.Off); s.ApplyHistoryMode(); });
         var retentions = Enum.GetValues<HistoryRetention>();
-        Choice("Keep transcripts for", null, retentions.Select(r => r.Label()), Array.IndexOf(retentions, s.Settings.Get(Prefs.Retention)), i => s.Settings.Set(Prefs.Retention, retentions[i]));
+        Choice("Keep transcripts for", null, retentions.Select(r => r.Label()).ToArray(), Array.IndexOf(retentions, s.Settings.Get(Prefs.Retention)), i => s.Settings.Set(Prefs.Retention, retentions[i]));
 
         Heading("Your data");
         var backup = Fluent.Named(new Button { Content = "Back Up…" }, "Back up Murmur data");

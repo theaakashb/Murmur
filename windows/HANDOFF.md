@@ -104,11 +104,15 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 
 | # | Agent ID | Worktree / branch | Assignment | Last known state |
 | --- | --- | --- | --- | --- |
-| 1 | `73cf71a2-227a-460f-aec8-28072dc6d481` | `/Users/aakash/.paseo/worktrees/01wxcxve/windows-ui-fluent` / `windows-ui-fluent` | Fluent redesign of Settings, History, the bubble and the tray. Add `Bubble.SetPartial`. Fix the **download freeze** with a regression test. | Before-screenshots done. Building the redesign. Will ask "need desktop" for the after-screenshots and a 6-dictation harness run. |
-| 2 | `a7240d06-07ff-4539-90ca-6957ec171740` | `.../windows-m4-sites` / `windows-m4-sites` (from `8535cb1`) | M4 website matching for modes (UIA browser URL reader, wiring, Settings note, browser matrix on the VM). | Assigned 2026-11-19. Its M3 live work merged as `8535cb1`. |
-| 3 | `660ac734-9568-4346-b5eb-fe8e342b5f42` | `.../windows-m4-core` / `windows-m4-core` | Core ports: EditPrompt, MurmurCloudEdit, VoiceEdit (logic), EditTrigger/EditShortcut, Tips, Insights, ProfessionalHint, WelcomeGuide, with tests and golden files. | Running; no report yet. |
+| 1 | `73cf71a2-227a-460f-aec8-28072dc6d481` | `.../windows-m4-learning` / `windows-m4-learning` | M4 learning observer. | **Paused** (Codex 5h window). Local WIP commit `22d064b`: the UIA focus reader draft compiles but isn't wired up. The commit message holds the checkpoint; a copy is in `~/murmur-m3/checkpoints/m4-learning.md`. Next steps: wire it up after the paste, the keystroke fallback, the Settings › Learning text, then the VM tests. |
+| 2 | `a7240d06-07ff-4539-90ca-6957ec171740` | `.../windows-m4-sites` / `windows-m4-sites` | M4 website matching. | **Merged** as `fcceafc`; now paused. Edge passes the whole VM matrix at 125%. Chrome is intermittent (its fresh-window run didn't match). Firefox, Brave and the user-PC cases are pending. Resume with the Chrome retry and its remaining matrix. `origin/windows-m4-sites` was pushed before the push-only-`windows` reminder reached it, and was left in place. |
+| 3 | `660ac734-9568-4346-b5eb-fe8e342b5f42` | `.../windows-m4-core` / `windows-m4-core` | M4 core ports. | **Paused** at local commit `89d31cc`, clean tree. It holds the C# ports of VoiceEdit, Insights, Tips, ProfessionalHint, WelcomeGuide and WordDiff, plus 3 Swift exporters. App seams: `IVoiceEditTarget` and `EditChord`. Doesn't build yet: two CS0108 errors in `Insights.Stats`, and the edit-prompt export needs a `CleanupPrompt` dep. Still to do: shared data, golden files, the Swift assertion ports, tests. |
 
-**Desktop:** worker 1 holds it. Worker 2 queues next for the Edge probe.
+**Desktop:** free. Worker 2's later runs went through `runps.ps1` and passed.
+
+**Pause, 2026-11-19 23:45Z:** Codex's 5h window is at 10% (it resets 02:31Z); Codex weekly is 72%. Claude's 5h window is at 100%, weekly 29%. All Codex workers are paused. The one-shot Paseo schedule `aae94043` (02:40Z) wakes the coordinator to resume them. On resume: `paseo usage --json --refresh`, then resume workers 1, 2 and 3 from their checkpoints.
+
+**CI note:** `dotnet publish` (trimmed) catches CsWinRT1032 (collection expressions targeting `IEnumerable`), which `dotnet build` and `dotnet test` miss. Run the publish on the VM before merging App changes.
 
 **Coordinator:** agent `f9e7f4a7-3580-4cf3-a339-f14b44fbf5d9`, which took over from `37717132` on 2026-11-19.
 
@@ -124,7 +128,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 
 ## Open bugs
 
-- **The app freezes while downloading a model** (user-reported on the PC). Assigned to worker 1. Must be fixed before M6.
+- **The app freezes while downloading a model:** fix merged in `c8dd54f`. Progress is now sampled at 10 Hz with one pending UI update, and status and removal work run off the dispatcher. Verified on the VM with a synthetic transfer. Still to confirm: a real download on the user's PC.
 - **Golden check "hang": not a bug.** A full `generate.sh --check` takes about 15 minutes, and longer under load; all 21 generators pass. Run it per generator name.
 - **Notepad paste on the unattended PC:** passed 1 of 3 runs in the earlier smoke test. The user's own real-mic run in Notepad worked. Watch for it, but it's not reproduced with a person present.
 - **Hotwords:** one correct made-up name was respelled in the spike (`Kestrelmoor`). Boosting is on when the dictionary has entries. The CTC rescoring alternative is still open.
