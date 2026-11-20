@@ -126,6 +126,7 @@ internal sealed class LiveMeetingPanel
     FrameworkElement Meter(string label, Microsoft.UI.Xaml.Controls.ProgressBar bar)
     {
         var text = MurmurStyle.Text(label, "MurmurSection"); text.FontSize = 11; text.Width = 40;
+        bar.Foreground = MurmurStyle.ThemeBrush("MurmurAccent", surface);
         var row = new Grid { ColumnSpacing = 8, ColumnDefinitions = { new ColumnDefinition { Width = GridLength.Auto }, new ColumnDefinition() }, Children = { text, bar } };
         Grid.SetColumn(bar, 1);
         bar.VerticalAlignment = VerticalAlignment.Center;
