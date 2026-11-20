@@ -18,6 +18,8 @@ internal static class AppNames
         return Cache[app] = name;
     }
 
+    static string RemoveSuffix(this string text, string suffix) => text.EndsWith(suffix, StringComparison.OrdinalIgnoreCase) ? text[..^suffix.Length] : text;
+
     static string Capitalised(string name, string original) => name.Length == 0 ? original : char.ToUpper(name[0], System.Globalization.CultureInfo.CurrentCulture) + name[1..];
 
     static string? Description(string process)
@@ -37,7 +39,7 @@ internal static class AppNames
                 foreach (var running in Process.GetProcessesByName(process))
                     using (running) { try { path ??= running.MainModule?.FileName; } catch (Exception) { } }
             }
-            return path is not null && FileVersionInfo.GetVersionInfo(path).FileDescription is { Length: > 0 } text ? text.Trim() : null;
+            return path is not null && FileVersionInfo.GetVersionInfo(path).FileDescription is { Length: > 0 } text ? text.Trim().RemoveSuffix(".exe") : null;
         }
         catch (Exception) { return null; }
     }
