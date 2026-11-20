@@ -106,7 +106,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 - **UI workstream:** the Windows UI matches the Mac look (user direction 2026-11-19).
   - Pass 1, `2abe6ca`: shared window and sidebars, underline tabs, Mac History.
   - Pass 2, `de97c81`: switches, (?) icons, column width, Modes/Dictionary/Cues, welcome guide.
-  - Pass 3 is in progress.
+  - Pass 3, merged 2026-11-20 (merge of `windows-ui-meetings` plus a microphone-step fix). It adds the Meetings screen, sheets, call offer, Settings Meetings and Updates, Open at login, tray Restart to update, the voice edit shortcut row and dictionary suggestions. Harness 6/6 (median 318 ms). Known gaps: no meeting date filter, Lecture tab, speaker rename or live floating panel; no cloud meeting-transcription row; no "Not learned" list; the call offer isn't exercised live.
 
 ## Active workers (03:55Z)
 
