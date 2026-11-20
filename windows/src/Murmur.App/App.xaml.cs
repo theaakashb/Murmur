@@ -38,6 +38,9 @@ public partial class App : Application
         }
         InitializeComponent();
         UnhandledException += (_, e) => { e.Handled = true; CrashLog.Write(e.Exception); TestEvents.Emit("error", ("stage", "app"), ("reason", "unhandled")); };
+        // A background thread's exception still ends the process; this leaves its type and stack behind first (content-free).
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => { if (e.ExceptionObject is Exception x) CrashLog.Write(x); TestEvents.Emit("error", ("stage", "thread"), ("reason", "unhandled")); };
+        TaskScheduler.UnobservedTaskException += (_, e) => { CrashLog.Write(e.Exception); e.SetObserved(); };
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)

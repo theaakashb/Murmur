@@ -43,6 +43,29 @@ public class MeetingCaptureTests
     }
 
     [Fact]
+    public void CallAudioStartedFromAnStaThreadKeepsCapturing()
+    {
+        // The app starts meetings on the UI thread (STA). Regression: the capture client was created there and used on the MTA loop thread,
+        // and the first packet query threw E_NOINTERFACE on that thread, which ended the process.
+        if (Environment.OSVersion.Version.Build < ProcessLoopback.MinimumBuild) return;
+        ProcessLoopback? stream = null;
+        Exception? error = null;
+        var sta = new Thread(() =>
+        {
+            try { stream = ProcessLoopback.Start(new CallTarget.AllExcept(Environment.ProcessId), _ => { }); }
+            catch (MeetingCaptureException e) { Note("activation failed: " + e.Message); }
+            catch (Exception e) { error = e; }
+        });
+        sta.SetApartmentState(ApartmentState.STA);
+        sta.Start();
+        sta.Join();
+        Assert.Null(error);
+        if (stream is null) return; // no call audio on this machine
+        try { Thread.Sleep(500); Assert.Null(stream.Fault); }
+        finally { stream.Stop(); }
+    }
+
+    [Fact]
     public void SessionEnumerationAndMicrophoneStartCoexistInOneProcess()
     {
         // Two [ComImport] coclasses with one CLSID in a process break each other, so both paths must share the activation style.

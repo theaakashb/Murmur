@@ -167,12 +167,30 @@ public sealed class ProcessLoopback : IMeetingStream
     {
         this.target = target;
         this.onSamples = onSamples;
-        desiredPid = Resolve();
-        if (desiredPid != 0) client = new Client(desiredPid, target is CallTarget.AllExcept);
-        fill.Begin(Now);
-        thread = new Thread(Loop) { IsBackground = true, Name = "Murmur call audio" };
+        // The audio client is created and used on this one MTA thread. Created on the caller's STA (the UI thread) and used here, the
+        // capture client needs cross-apartment marshaling it doesn't have: the first GetNextPacketSize threw E_NOINTERFACE and killed the app.
+        Exception? startError = null;
+        using var ready = new ManualResetEventSlim();
+        thread = new Thread(() =>
+        {
+            try
+            {
+                desiredPid = Resolve();
+                if (desiredPid != 0) client = new Client(desiredPid, target is CallTarget.AllExcept);
+                fill.Begin(Now);
+            }
+            catch (Exception e) { startError = e; }
+            finally { ready.Set(); }
+            if (startError is null) Loop();
+        }) { IsBackground = true, Name = "Murmur call audio" };
+        thread.SetApartmentState(ApartmentState.MTA);
         thread.Start();
+        ready.Wait();
+        if (startError is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(startError).Throw();
     }
+
+    /// <summary>The exception type that stopped the capture thread, if any (content-free). The stream then stops counting buffers, as after a device change.</summary>
+    public string? Fault { get; private set; }
 
     static double Now => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
 
@@ -212,6 +230,7 @@ public sealed class ProcessLoopback : IMeetingStream
             client?.Dispose();
         }
         catch (COMException e) when (e.HResult == AUDCLNT_E_DEVICE_INVALIDATED) { /* the buffers counter stops; the recorder rebuilds the stream */ }
+        catch (Exception e) { Fault = $"{e.GetType().Name} 0x{e.HResult:X8}"; client?.Dispose(); } // a capture bug ends this stream, never the app
     }
 
     bool Drain()

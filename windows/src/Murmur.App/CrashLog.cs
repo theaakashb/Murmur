@@ -1,6 +1,6 @@
 namespace Murmur.App;
 
-/// <summary>A startup crash leaves the exception type, HRESULT and stack in %TEMP%\Murmur-crash.txt. Content-free: no transcript, settings values or keys.</summary>
+/// <summary>A crash (at startup, on the UI thread or on a background thread) leaves the exception type, HRESULT and stack in %TEMP%\Murmur-crash.txt. Content-free: no transcript, settings values or keys.</summary>
 internal static class CrashLog
 {
     public static void Write(Exception e)
