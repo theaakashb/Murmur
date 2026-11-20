@@ -15,7 +15,7 @@ public sealed partial class SettingsWindow : Window
     readonly Controller controller;
     readonly Dictionary<string, StackPanel> panes = [];
     readonly List<Action> refreshNotes = [];
-    readonly InfoBar status = Fluent.Named(new InfoBar { IsClosable = true }, "Data operation status");
+    readonly InfoBar status = MurmurStyle.Named(new InfoBar { IsClosable = true }, "Data operation status");
     StackPanel page = null!;
 
     internal SettingsWindow(AppServices services, Controller controller)
@@ -24,8 +24,8 @@ public sealed partial class SettingsWindow : Window
         this.controller = controller;
         InitializeComponent();
         Title = "Murmur Settings";
-        Fluent.SetTitleBar(this, Caption);
-        Fluent.SetInitialSize(this, 920, 780);
+        MurmurStyle.SetTitleBar(this, Caption);
+        MurmurStyle.SetInitialSize(this, 1000, 720);
         BuildPane("General", BuildGeneral);
         BuildPane("Recording", BuildRecording);
         BuildPane("Transcription", BuildTranscription);
@@ -40,7 +40,7 @@ public sealed partial class SettingsWindow : Window
 
     void BuildPane(string name, Action build)
     {
-        page = new StackPanel { Spacing = 8 };
+        page = new StackPanel();
         build();
         panes.Add(name, page);
     }
@@ -57,7 +57,7 @@ public sealed partial class SettingsWindow : Window
             "Privacy & Storage" => "Choose what Murmur saves on this PC, and for how long.",
             _ => "Needed only for cloud routes. Stored in Windows Credential Manager."
         };
-        DictationTabs.Visibility = pane == "Dictation" ? Visibility.Visible : Visibility.Collapsed;
+        DictationStrip.Visibility = pane == "Dictation" ? Visibility.Visible : Visibility.Collapsed;
         ShowPane(pane == "Dictation" ? DictationTabs.SelectedItem?.Text ?? "Recording" : pane);
     }
 
@@ -90,47 +90,58 @@ public sealed partial class SettingsWindow : Window
 
     void Heading(string title)
     {
-        var heading = Fluent.Text(title, "SubtitleTextBlockStyle");
-        heading.Margin = new Thickness(0, 12, 0, 0);
+        if (page.Children.Count > 0)
+        {
+            var rule = new Border { Height = 1, Margin = new Thickness(0, 12, 0, 16), Style = MurmurStyle.Style("MurmurRuleLine") };
+            page.Children.Add(rule);
+        }
+        var heading = MurmurStyle.Text(title.ToUpperInvariant(), "MurmurSection");
+        heading.Margin = new Thickness(0, 0, 0, 4);
         AutomationProperties.SetHeadingLevel(heading, AutomationHeadingLevel.Level2);
         page.Children.Add(heading);
     }
 
-    void Note(string text) => page.Children.Add(Fluent.Text(text));
+    void Note(string text)
+    {
+        var note = MurmurStyle.Text(text);
+        note.Margin = new Thickness(0, 8, 0, 8);
+        page.Children.Add(note);
+    }
 
     void Row(string title, string? description, FrameworkElement control)
     {
         var labels = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
-        labels.Children.Add(Fluent.Text(title, "BodyStrongTextBlockStyle"));
-        if (description is not null) labels.Children.Add(Fluent.Text(description, "MurmurCaption"));
+        labels.Children.Add(MurmurStyle.Text(title, "MurmurSettingLabel"));
+        if (description is not null) labels.Children.Add(MurmurStyle.Text(description, "MurmurCaption"));
         var grid = new Grid
         {
             ColumnSpacing = 16,
+            Padding = new Thickness(0, 10, 0, 10),
             ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } },
             Children = { labels, control }
         };
         Grid.SetColumn(control, 1);
         control.VerticalAlignment = VerticalAlignment.Center;
-        page.Children.Add(Fluent.Card(grid));
+        page.Children.Add(grid);
     }
 
     void Toggle(string title, string description, Setting<bool> setting, Action? changed = null)
     {
-        var toggle = Fluent.Named(new ToggleSwitch { IsOn = s.Settings.Get(setting) }, title);
+        var toggle = MurmurStyle.Named(new ToggleSwitch { IsOn = s.Settings.Get(setting), OnContent = null, OffContent = null, MinWidth = 0 }, title);
         toggle.Toggled += (_, _) => { s.Settings.Set(setting, toggle.IsOn); changed?.Invoke(); };
         Row(title, description, toggle);
     }
 
     void Field(StackPanel fields, string header, string value, string placeholder, Action<string> save)
     {
-        var box = Fluent.Named(new TextBox { Header = header, Text = value, PlaceholderText = placeholder }, header);
+        var box = MurmurStyle.Named(new TextBox { Header = header, Text = value, PlaceholderText = placeholder }, header);
         box.TextChanged += (_, _) => save(box.Text.Trim());
         fields.Children.Add(box);
     }
 
     static ComboBox Picker(string title, string[] items, int selected, Action<int> changed)
     {
-        var box = Fluent.Named(new ComboBox { Width = 208 }, title);
+        var box = MurmurStyle.Named(new ComboBox { Width = 208 }, title);
         foreach (var item in items) box.Items.Add(item);
         box.SelectedIndex = selected;
         box.SelectionChanged += (_, _) => { if (box.SelectedIndex >= 0) changed(box.SelectedIndex); };
@@ -142,10 +153,10 @@ public sealed partial class SettingsWindow : Window
 
     void RouteRow(RadioButton radio, Func<string> disclosure)
     {
-        var note = Fluent.Text(disclosure(), "MurmurCaption");
+        var note = MurmurStyle.Text(disclosure(), "MurmurCaption");
         note.Margin = new Thickness(28, 0, 0, 0);
         refreshNotes.Add(() => note.Text = disclosure());
-        page.Children.Add(Fluent.Card(new StackPanel { Children = { radio, note } }));
+        page.Children.Add(new StackPanel { Padding = new Thickness(0, 3, 0, 7), Children = { radio, note } });
     }
 
     // ---- routes ----
@@ -174,14 +185,14 @@ public sealed partial class SettingsWindow : Window
     {
         Heading("Speech recognition");
         var speechRow = new ModelRow(s, s.SpeechSlot, controller, () => Content.XamlRoot, go => { s.Local.Release(); go(); }, UpdateModelRoutes);
-        page.Children.Add(Fluent.Card(speechRow.Panel));
+        page.Children.Add(MurmurStyle.Card(speechRow.Panel));
         Heading("Where transcription runs");
         foreach (var (route, label) in TranscriptionChoices)
         {
             var radio = new RadioButton { Content = label, GroupName = "transcription", IsChecked = Routes.Transcription == route, IsEnabled = route != TranscriptionRoute.Local };
             radio.Checked += (_, _) => SaveRoutes(r => r with { Transcription = route });
             if (route == TranscriptionRoute.Local) modelRoutes[route] = radio;
-            RouteRow(Fluent.Named(radio, label), () => TranscriptionNote(route));
+            RouteRow(MurmurStyle.Named(radio, label), () => TranscriptionNote(route));
         }
         BuildProvider(transcription: true);
     }
@@ -194,11 +205,11 @@ public sealed partial class SettingsWindow : Window
             var radio = new RadioButton { Content = label, GroupName = "cleanup", IsChecked = Routes.Cleanup == choice, IsEnabled = choice != CleanupChoice.LocalModel };
             if (choice == CleanupChoice.LocalModel) modelRoutes[choice] = radio;
             radio.Checked += (_, _) => SaveRoutes(r => r with { Cleanup = choice });
-            RouteRow(Fluent.Named(radio, label), () => CleanupNote(choice));
+            RouteRow(MurmurStyle.Named(radio, label), () => CleanupNote(choice));
         }
         Heading("Local cleanup model");
         var cleanupRow = new ModelRow(s, s.CleanupSlot, controller, () => Content.XamlRoot, go => { LocalCleanupRunner.Shared.Shutdown(); go(); }, UpdateModelRoutes);
-        page.Children.Add(Fluent.Card(cleanupRow.Panel));
+        page.Children.Add(MurmurStyle.Card(cleanupRow.Panel));
         Heading("Cleanup style");
         Toggle("Polish", "Use an AI model to smooth the wording. Available on model routes.", Prefs.CleanupPolish);
         Toggle("Professional", "Use an AI model to make the wording more formal. Available on model routes.", Prefs.CleanupProfessional);
@@ -257,8 +268,8 @@ public sealed partial class SettingsWindow : Window
             fields.Children.Add(effort);
         }
 
-        fields.Children.Add(Fluent.Text("Any OpenAI-compatible server. A server on this PC (127.0.0.1) needs no key and sends nothing off the PC. Manage keys under Providers.", "MurmurCaption"));
-        page.Children.Add(Fluent.Named(new Expander
+        fields.Children.Add(MurmurStyle.Text("Any OpenAI-compatible server. A server on this PC (127.0.0.1) needs no key and sends nothing off the PC. Manage keys under Providers.", "MurmurCaption"));
+        page.Children.Add(MurmurStyle.Named(new Expander
         {
             Header = "Custom Provider", Content = fields, HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
@@ -277,12 +288,12 @@ public sealed partial class SettingsWindow : Window
 
     void KeyRow(string header, ProviderID provider, Func<string> address)
     {
-        var box = Fluent.Named(new PasswordBox { PlaceholderText = "Enter API key" }, header);
-        var result = Fluent.Text("", "MurmurCaption");
+        var box = MurmurStyle.Named(new PasswordBox { PlaceholderText = "Enter API key" }, header);
+        var result = MurmurStyle.Text("", "MurmurCaption");
         AutomationProperties.SetLiveSetting(result, AutomationLiveSetting.Polite);
         void Refresh() { try { result.Text = s.Credentials.Exists(provider) ? "A key is saved." : KeyText.None; } catch (CredentialException) { result.Text = KeyText.Unreadable; } }
         Refresh();
-        var save = Fluent.Named(new Button { Content = "Save" }, "Save " + header);
+        var save = MurmurStyle.Named(new Button { Content = "Save" }, "Save " + header);
         save.Click += (_, _) =>
         {
             if (APIKey.Create(box.Password) is not { } key) { result.Text = KeyText.Invalid; return; }
@@ -295,7 +306,7 @@ public sealed partial class SettingsWindow : Window
             catch (ProviderException e) { result.Text = e.Error.UserMessage; }
             catch (CredentialException) { result.Text = KeyText.StoreFailed; }
         };
-        var validate = Fluent.Named(new Button { Content = "Validate" }, "Validate " + header);
+        var validate = MurmurStyle.Named(new Button { Content = "Validate" }, "Validate " + header);
         validate.Click += async (_, _) =>
         {
             APIKey? key = APIKey.Create(box.Password);
@@ -304,16 +315,16 @@ public sealed partial class SettingsWindow : Window
             result.Text = KeyText.Checking;
             result.Text = await KeyCheck.RunAsync(provider, key, address());
         };
-        var remove = Fluent.Named(new Button { Content = "Remove" }, "Remove " + header);
+        var remove = MurmurStyle.Named(new Button { Content = "Remove" }, "Remove " + header);
         remove.Click += (_, _) =>
         {
             try { s.Credentials.Delete(provider); if (provider != ProviderID.MurmurCloud) CustomAPIKeyBinding.Clear(s.Settings, provider); result.Text = KeyText.Removed; }
             catch (CredentialException) { result.Text = KeyText.RemoveFailed; }
         };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { save, validate, remove } };
-        page.Children.Add(Fluent.Card(new StackPanel
+        page.Children.Add(MurmurStyle.Card(new StackPanel
         {
-            Spacing = 8, Children = { Fluent.Text(header, "BodyStrongTextBlockStyle"), box, result, buttons }
+            Spacing = 8, Children = { MurmurStyle.Text(header, "BodyStrongTextBlockStyle"), box, result, buttons }
         }));
     }
 
@@ -330,8 +341,8 @@ public sealed partial class SettingsWindow : Window
             controller.ReloadShortcuts();
         });
         Row("Dictation shortcut", "Hold the shortcut to record and release to stop. Escape cancels.", presets);
-        var record = Fluent.Named(new Button { Content = "Record key" }, "Record custom dictation key");
-        var recorded = Fluent.Text(spec.StartsWith("custom:") ? ShortcutSpec.Label(spec) : "", "MurmurCaption");
+        var record = MurmurStyle.Named(new Button { Content = "Record key" }, "Record custom dictation key");
+        var recorded = MurmurStyle.Text(spec.StartsWith("custom:") ? ShortcutSpec.Label(spec) : "", "MurmurCaption");
         record.Click += async (_, _) =>
         {
             record.IsEnabled = false;
@@ -363,7 +374,7 @@ public sealed partial class SettingsWindow : Window
 
         Heading("Live words");
         var liveWordsRow = new ModelRow(s, s.LiveWordsSlot, controller, () => Content.XamlRoot, go => go(), UpdateModelRoutes);
-        page.Children.Add(Fluent.Card(liveWordsRow.Panel));
+        page.Children.Add(MurmurStyle.Card(liveWordsRow.Panel));
         Toggle("Show live words while speaking", "Shows the words in the indicator as you speak. Needs the live words download.", Prefs.LiveWords);
         Toggle("Show live words on cloud routes", "Also shows live words while transcription runs in the cloud. Off by default.", Prefs.LiveWordsOnCloud);
     }
@@ -384,11 +395,11 @@ public sealed partial class SettingsWindow : Window
         Choice("Keep transcripts for", null, retentions.Select(r => r.Label()).ToArray(), Array.IndexOf(retentions, s.Settings.Get(Prefs.Retention)), i => s.Settings.Set(Prefs.Retention, retentions[i]));
 
         Heading("Your data");
-        var backup = Fluent.Named(new Button { Content = "Back Up…" }, "Back up Murmur data");
+        var backup = MurmurStyle.Named(new Button { Content = "Back Up…" }, "Back up Murmur data");
         backup.Click += async (_, _) => await Backup();
-        var restore = Fluent.Named(new Button { Content = "Restore…" }, "Restore Murmur backup");
+        var restore = MurmurStyle.Named(new Button { Content = "Restore…" }, "Restore Murmur backup");
         restore.Click += async (_, _) => await Restore();
-        var delete = Fluent.Named(new Button { Content = "Delete All Data…" }, "Delete all Murmur data");
+        var delete = MurmurStyle.Named(new Button { Content = "Delete All Data…" }, "Delete all Murmur data");
         delete.Click += async (_, _) => await DeleteAll();
         Row("Backup and restore", "Save History, the dictionary and settings to a Murmur Backup folder. API keys and audio are excluded. Restore keeps your current provider routes.", new StackPanel
         {
@@ -416,7 +427,7 @@ public sealed partial class SettingsWindow : Window
     async Task<bool> Confirm(string title, string body, string action)
     {
         var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = title, Content = new TextBlock { Text = body, TextWrapping = TextWrapping.Wrap }, PrimaryButtonText = action, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
-        return await Fluent.Named(dialog, title).ShowAsync() == ContentDialogResult.Primary;
+        return await MurmurStyle.Named(dialog, title).ShowAsync() == ContentDialogResult.Primary;
     }
 
     async Task Backup()
