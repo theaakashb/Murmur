@@ -14,7 +14,7 @@ public sealed class RealAudioFactAttribute : FactAttribute
     }
 }
 
-public class MeetingCaptureTests
+public class MeetingCaptureTests(Xunit.ITestOutputHelper output)
 {
     [Fact]
     public void ProcessListHasThisProcessWithItsParent()
@@ -22,7 +22,7 @@ public class MeetingCaptureTests
         var all = AudioSessions.Processes();
         var me = all.Single(p => p.Pid == Environment.ProcessId);
         Assert.Contains(all, p => p.Pid == me.ParentPid);
-        Assert.StartsWith("Murmur.Platform.Tests", me.Name.Replace(".exe", ""), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(Process.GetCurrentProcess().ProcessName, me.Name.Replace(".exe", ""), ignoreCase: true);
     }
 
     [Fact]
@@ -34,8 +34,8 @@ public class MeetingCaptureTests
         var audio = new WasapiMeetingAudio(() => null);
         Assert.Equal(Environment.OSVersion.Version.Build >= ProcessLoopback.MinimumBuild, audio.CallAudioSupported);
         IMeetingStream? stream = null;
-        try { stream = audio.StartCall(MeetingSource.Everything, _ => { }); Thread.Sleep(500); }
-        catch (MeetingCaptureException e) { Assert.DoesNotContain("Exception", e.Message); } // content-free, readable message
+        try { stream = audio.StartCall(MeetingSource.Everything, _ => { }); Thread.Sleep(500); output.WriteLine($"activation worked, buffers={stream.Buffers}"); }
+        catch (MeetingCaptureException e) { output.WriteLine("activation failed: " + e.Message); Assert.DoesNotContain("Exception", e.Message); } // content-free, readable message
         finally { stream?.Stop(); }
     }
 
