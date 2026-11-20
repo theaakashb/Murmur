@@ -147,9 +147,9 @@ public sealed class ClipboardPaste
         bool posted = false;
         try
         {
+            WaitForModifiersReleased();
             if (stillTarget is not null && !stillTarget()) return Refused(PasteFailure.DestinationChanged);
             if (!Owns(stagedSeq, token)) return Refused(PasteFailure.OwnershipChanged);
-            WaitForModifiersReleased();
             if (!PostInput()) return Refused(PasteFailure.CannotPostInput);
             posted = true;
             long postedAt = Stopwatch.GetTimestamp();

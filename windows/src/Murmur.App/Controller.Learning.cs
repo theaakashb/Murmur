@@ -21,6 +21,8 @@ internal sealed partial class Controller
         public required DictationObservation Observation { get; init; }
         public required FocusProbe.LearningTarget Target { get; init; }
         public required ProcessingCoordinator Processing { get; init; }
+        public required HistoryRouter<HistoryEntry> History { get; init; }
+        public string? HistoryId { get; init; }
         public KeystrokeSpan? Span { get; init; }
         public string Route => Span is null ? "ax" : "keys";
         public ConcurrentQueue<KeyEvent> Keys { get; } = new();
@@ -53,7 +55,7 @@ internal sealed partial class Controller
     }
 
     /// <summary>After a paste (worker thread): starts the UI Automation watch when the field reads back the pasted text at the expected place, otherwise the keystroke watch.</summary>
-    void StartLearning(LearningStart? start, string text, InsertionStatus status)
+    void StartLearning(LearningStart? start, string text, InsertionStatus status, string? historyId)
     {
         if (start is null || status == InsertionStatus.Failed || text.Length == 0) return;
         var processing = s.Processing;
@@ -85,7 +87,7 @@ internal sealed partial class Controller
             }
         }
         if (observation is null) { TestEvents.Emit("learning-watch", ("route", "none"), ("miss", miss)); return; }
-        var w = new LearningWatch { Session = observation.SessionId, Observation = observation, Target = start.Target, Processing = processing, Span = span, Current = text };
+        var w = new LearningWatch { Session = observation.SessionId, Observation = observation, Target = start.Target, Processing = processing, History = s.History, HistoryId = historyId, Span = span, Current = text };
         w.ChangedAt = Seconds();
         if (Volatile.Read(ref learningGen) != start.Gen) return; // a newer insertion began while this one was reading back
         w.Worker = Task.Factory.StartNew(() => RunLearning(w), TaskCreationOptions.LongRunning);
@@ -172,16 +174,17 @@ internal sealed partial class Controller
         double now = Seconds();
         w.Observation.Observe(value, selection, now, same, readable);
         if (ending) w.Observation.Finish();
-        var edited = w.Observation.Edited ?? w.Observation.Initial;
+        var observed = w.Observation.Edited;
+        var edited = observed ?? w.Observation.Initial;
         bool stopped = w.Observation.Stopped;
         var reason = w.Observation.Reason;
         if (edited == w.LastPosted && !stopped && !w.PendingFlag) return;
         w.LastPosted = edited;
-        ui.TryEnqueue(() => ApplyLearning(w, edited, stopped, reason, now));
+        ui.TryEnqueue(() => ApplyLearning(w, edited, stopped, reason, now, observed));
     }
 
     /// <summary>UI thread: the ledger and the dictionary belong here. Drops the result if the data was replaced or the switch went off meanwhile.</summary>
-    void ApplyLearning(LearningWatch w, string edited, bool stopped, DictationObservation.StopReason? reason, double now)
+    void ApplyLearning(LearningWatch w, string edited, bool stopped, DictationObservation.StopReason? reason, double now, string? observed)
     {
         if (w.Closed) return;
         if (!ReferenceEquals(s.Processing, w.Processing) || !s.Settings.Get(Prefs.LearningEnabled)) { w.Closed = true; w.Aborted = true; return; }
@@ -190,6 +193,7 @@ internal sealed partial class Controller
             if (edited != w.Current)
             {
                 var outcome = w.Processing.ObserveSpan(w.Session, w.Observation.Initial, edited);
+                // The ledger updates the shared dictionary. Speech reads its current vocabulary at the next helper launch.
                 w.Current = edited; w.ChangedAt = now;
                 w.Pending = outcome is { Kind: CorrectionLedger.RecordKind.Provisional };
                 w.PendingFlag = w.Pending;
@@ -198,13 +202,16 @@ internal sealed partial class Controller
             if (stopped)
             {
                 w.Closed = true; w.PendingFlag = false;
+                RecordAfterPaste(w, observed, reason);
                 var learned = w.Processing.Settle(w.Session);
+                AnnounceLearned(learned);
                 TestEvents.Emit("learning-end", ("reason", reason?.RawValue()), ("route", w.Route), ("learned", learned.Count));
             }
             else if (w.Pending && now - w.ChangedAt >= StableSettleDelay)
             {
                 w.Pending = false; w.PendingFlag = false; w.SettledEarly = true;
                 var learned = w.Processing.Settle(w.Session);
+                AnnounceLearned(learned);
                 TestEvents.Emit("learning-settled", ("learned", learned.Count));
             }
         }
@@ -213,5 +220,32 @@ internal sealed partial class Controller
             w.Closed = true; w.Aborted = true;
             try { w.Processing.Ledger.Revert(w.Session); } catch (Exception) { }
         }
+    }
+
+    void RecordAfterPaste(LearningWatch watch, string? edited, DictationObservation.StopReason? reason)
+    {
+        (string Text, bool Changed)? seen = edited is null ? null : AfterPaste.TrimmingAppended(watch.Observation.Initial, edited);
+        var after = new AfterPaste { Text = seen?.Text, Changed = seen?.Changed, Route = watch.Route, EndReason = reason?.RawValue() };
+
+        var tips = new Tips(s.Settings);
+        var routes = RouteSettings.Load(s.Settings);
+        if (seen is { Changed: true } rewrite && !tips.IsDone(Tips.ID.VoiceEdit) &&
+            Tips.IsRewrite(watch.Observation.Initial, rewrite.Text) &&
+            VoiceEdit.VoiceEditReady(routes.Cleanup, routes, provider => s.Key(provider) is not null))
+            tips.NoteRewrite(DateTimeOffset.Now);
+
+        if (watch.HistoryId is not { } id || !ReferenceEquals(s.History, watch.History)) return;
+        try
+        {
+            if (watch.History.Entries().FirstOrDefault(entry => entry.Id == id) is { } entry)
+                watch.History.Update(entry with { AfterPaste = after });
+        }
+        catch (Exception) { TestEvents.Emit("after-paste-save-failed"); }
+    }
+
+    void AnnounceLearned(IReadOnlyList<DictionaryEntry> learned)
+    {
+        if (learned.LastOrDefault() is { } entry && phase == Phase.Ready)
+            bubble.ShowNotice($"Added {entry.Preferred} to your dictionary.", 5);
     }
 }
