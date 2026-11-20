@@ -248,6 +248,64 @@ internal sealed partial class SettingsView
             }
             page.Children.Add(new Border { Height = 1, Style = MurmurStyle.Style("MurmurRuleLine") });
         }
+
+        IReadOnlyList<DictionarySuggestion> suggestions = [];
+        try
+        {
+            suggestions = DictionarySuggestions.Find([.. s.History.Entries().Where(h => h.EditOriginal == null).Select(h => (h.RawText, h.FinalText))],
+                processing.Dictionary.Entries, new HashSet<string>(s.Settings.Get(Prefs.DismissedSuggestions)), Lexicon.English.IsCommonWord);
+        }
+        catch (Exception) { /* History unreadable: no suggestions */ }
+        if (suggestions.Count > 0)
+        {
+            Heading("Suggested");
+            page.Children.Add(Caption("Words Murmur keeps hearing that aren't in your dictionary. Fix the spelling if needed, then add it.", 0));
+            page.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 8, 0, 0), Style = MurmurStyle.Style("MurmurRuleLine") });
+            foreach (var item in suggestions)
+            {
+                var it = item;
+                var spelling = Box("Spelling", it.Preferred, "", _ => { });
+                var detail = MurmurStyle.Text($"Heard as {string.Join(", ", it.Heard)} · {it.Dictations} dictations", "MurmurCaption");
+                var addSuggestion = Btn("Add", () =>
+                {
+                    var word = spelling.Text.Trim();
+                    if (word.Length == 0) return;
+                    try
+                    {
+                        var heardForms = it.Heard.Where(h => TermText.Fold(h) != TermText.Fold(word)).ToList();
+                        if (processing.Dictionary.Entries.FirstOrDefault(e => TermText.Fold(e.Preferred) == TermText.Fold(word)) is { } existing)
+                            processing.UpdateEntry(existing.Id, existing.Preferred, string.Join(", ", existing.Variants.Concat(heardForms.Where(h => !existing.Variants.Any(v => TermText.Fold(v) == TermText.Fold(h))))), existing.Enabled);
+                        else processing.AddEntry(word, string.Join(", ", heardForms));
+                        Render(dictionaryPage, RenderDictionary);
+                    }
+                    catch (StoreError ex) { message.Text = ex.Message; }
+                }, "Add " + it.Preferred);
+                var dismiss = Btn("Dismiss", () => { s.Settings.Set(Prefs.DismissedSuggestions, [.. s.Settings.Get(Prefs.DismissedSuggestions), .. it.Heard.Select(TermText.Fold)]); Render(dictionaryPage, RenderDictionary); }, "Dismiss " + it.Heard[0], plain: true);
+                var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center, Children = { addSuggestion, dismiss } };
+                var row = new Grid { MinHeight = 72, ColumnSpacing = 12, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center, Children = { spelling, detail } }, buttons } };
+                Grid.SetColumn(buttons, 1);
+                page.Children.Add(row);
+                page.Children.Add(new Border { Height = 1, Style = MurmurStyle.Style("MurmurRuleLine") });
+            }
+        }
+
+        var reset = Btn("Reset Learned…", () => _ = ResetLearned(processing, message), "Reset learned entries");
+        reset.IsEnabled = processing.Dictionary.Entries.Any(e => e.Source == EntrySource.Learned);
+        reset.Margin = new Thickness(0, 16, 0, 0); reset.HorizontalAlignment = HorizontalAlignment.Left;
+        page.Children.Add(Caption("“Heard as” forms are always replaced. With cleanup on, sound-alikes get fixed too. Edits save immediately.", 16));
+        page.Children.Add(reset);
+    }
+
+    async Task ResetLearned(ProcessingCoordinator processing, TextBlock message)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = root(), Title = "Reset learned entries?", Content = new TextBlock { Text = "Removes the words Murmur learned from your corrections and what it has seen so far. Entries you added yourself stay.", TextWrapping = TextWrapping.Wrap },
+            PrimaryButtonText = "Reset Learned", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
+        };
+        if (await MurmurStyle.Named(dialog, "Reset learned entries").ShowAsync() != ContentDialogResult.Primary) return;
+        try { processing.ResetLearned(); Render(dictionaryPage, RenderDictionary); }
+        catch (Exception) { message.Text = "Could not reset learned entries."; }
     }
 
     // ---- Cues ----
