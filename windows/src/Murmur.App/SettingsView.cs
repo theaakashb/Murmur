@@ -9,33 +9,60 @@ using WinRT.Interop;
 
 namespace Murmur.App;
 
-public sealed partial class SettingsWindow : Window
+internal sealed class SettingsView
 {
+    public static readonly string[] Panes = ["General", "Dictation", "Writing", "Privacy & Storage", "Providers"];
+    // Sub-tabs: the Mac's Modes, Dictionary and Cues are not on Windows yet (recorded in pairs/README.md).
+    static readonly Dictionary<string, string[]> Tabs = new() { ["Dictation"] = ["Recording", "Transcription", "Insertion"], ["Writing"] = ["Cleanup", "Learning"] };
+    static readonly Dictionary<string, string> Descriptions = new()
+    {
+        ["General"] = "Make Murmur feel at home on your PC.",
+        ["Dictation"] = "Set up your voice-to-text workflow.",
+        ["Writing"] = "Shape your text and keep your own voice.",
+        ["Privacy & Storage"] = "Choose what Murmur saves on this PC, and for how long.",
+        ["Providers"] = "Needed only for cloud routes. Stored in Windows Credential Manager.",
+    };
+
     readonly AppServices s;
     readonly Controller controller;
+    readonly Func<XamlRoot?> root;
+    readonly Func<nint> hwnd;
     readonly Dictionary<string, StackPanel> panes = [];
     readonly List<Action> refreshNotes = [];
     readonly InfoBar status = MurmurStyle.Named(new InfoBar { IsClosable = true }, "Data operation status");
+    readonly TextBlock title = new() { Style = MurmurStyle.Style("MurmurHeading") };
+    readonly TextBlock description = MurmurStyle.Text("", "MurmurDescription");
+    readonly Border tabHost = new() { Margin = new Thickness(0, 24, 0, 0) };
+    readonly ContentControl content = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch, IsTabStop = false };
+    readonly Dictionary<string, int> tabMemory = [];
     StackPanel page = null!;
+    string current = "";
 
-    internal SettingsWindow(AppServices services, Controller controller)
+    /// <summary>The pane area; the shell hosts it next to the Settings sidebar.</summary>
+    public ScrollViewer View { get; }
+
+    internal SettingsView(AppServices services, Controller controller, Func<XamlRoot?> root, Func<nint> hwnd)
     {
         s = services;
         this.controller = controller;
-        InitializeComponent();
-        Title = "Murmur Settings";
-        MurmurStyle.SetTitleBar(this, Caption);
-        MurmurStyle.SetInitialSize(this, 1000, 720);
+        this.root = root;
+        this.hwnd = hwnd;
+        AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level1);
+        description.Margin = new Thickness(0, 6, 0, 0);
+        View = MurmurStyle.Named(new ScrollViewer
+        {
+            Content = new StackPanel { Padding = new Thickness(36, 28, 36, 32), MaxWidth = 832, HorizontalAlignment = HorizontalAlignment.Left, Children = { title, description, tabHost, content } }
+        }, "Settings pane");
         BuildPane("General", BuildGeneral);
         BuildPane("Recording", BuildRecording);
         BuildPane("Transcription", BuildTranscription);
         BuildPane("Insertion", BuildInsertion);
-        BuildPane("Writing", BuildCleanup);
+        BuildPane("Cleanup", BuildCleanup);
+        BuildPane("Learning", BuildLearning);
         BuildPane("Privacy & Storage", BuildData);
         BuildPane("Providers", BuildKeys);
-        DictationTabs.SelectedItem = DictationTabs.Items[0];
-        Navigation.SelectedItem = Navigation.MenuItems[1];
         UpdateModelRoutes();
+        Show("General");
     }
 
     void BuildPane(string name, Action build)
@@ -45,38 +72,58 @@ public sealed partial class SettingsWindow : Window
         panes.Add(name, page);
     }
 
-    void SelectPane(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    /// <summary>Settings search: the first pane (and tab) whose labels contain the text, or null.</summary>
+    public (string Pane, int Tab)? Find(string query)
     {
-        if (args.SelectedItem is not NavigationViewItem { Content: string pane }) return;
-        PaneTitle.Text = pane;
-        PaneDescription.Text = pane switch
+        query = query.Trim();
+        if (query.Length == 0) return null;
+        foreach (var pane in Panes)
         {
-            "General" => "Make Murmur feel at home on your PC.",
-            "Dictation" => "Set up your voice-to-text workflow.",
-            "Writing" => "Shape your text and keep your own voice.",
-            "Privacy & Storage" => "Choose what Murmur saves on this PC, and for how long.",
-            _ => "Needed only for cloud routes. Stored in Windows Credential Manager."
-        };
-        DictationStrip.Visibility = pane == "Dictation" ? Visibility.Visible : Visibility.Collapsed;
-        ShowPane(pane == "Dictation" ? DictationTabs.SelectedItem?.Text ?? "Recording" : pane);
+            var names = Tabs.TryGetValue(pane, out var t) ? t : [pane];
+            for (int i = 0; i < names.Length; i++)
+                if (pane.Contains(query, StringComparison.OrdinalIgnoreCase) || names[i].Contains(query, StringComparison.OrdinalIgnoreCase) || Texts(panes[names[i]]).Any(x => x.Contains(query, StringComparison.OrdinalIgnoreCase)))
+                    return (pane, i);
+        }
+        return null;
     }
 
-    void SelectDictationTab(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    // Walks the built (possibly never shown) tree by its logical children.
+    static IEnumerable<string> Texts(object node)
     {
-        if (Navigation.SelectedItem is NavigationViewItem { Content: "Dictation" } && sender.SelectedItem?.Text is { } pane)
-            ShowPane(pane);
+        switch (node)
+        {
+            case TextBlock { Text.Length: > 0 } text: yield return text.Text; break;
+            case Panel panel: foreach (var child in panel.Children) foreach (var x in Texts(child)) yield return x; break;
+            case Border { Child: { } c }: foreach (var x in Texts(c)) yield return x; break;
+            case ContentControl { Content: { } c }: foreach (var x in Texts(c)) yield return x; break;
+        }
+    }
+
+    public void Show(string pane, int tab = -1)
+    {
+        current = pane;
+        title.Text = pane;
+        description.Text = Descriptions[pane];
+        if (Tabs.TryGetValue(pane, out var names))
+        {
+            int index = tab >= 0 ? tab : tabMemory.GetValueOrDefault(pane);
+            tabHost.Child = new Segmented(pane + " tabs", names, index, i => { tabMemory[pane] = i; ShowPane(names[i]); }, stretch: false);
+            tabMemory[pane] = index;
+            ShowPane(names[index]);
+        }
+        else { tabHost.Child = null; ShowPane(pane); }
     }
 
     void ShowPane(string pane)
     {
-        if (!panes.TryGetValue(pane, out var content)) return;
-        PaneContent.Content = content;
-        PaneScroll.ChangeView(null, 0, null, true);
+        if (!panes.TryGetValue(pane, out var body)) return;
+        content.Content = body;
+        View.ChangeView(null, 0, null, true);
     }
 
     void BuildGeneral()
     {
-        Choice("Dictation indicator", "Where the recording indicator and its notices appear.",
+        SegmentedRow("Dictation indicator", "Where the recording indicator and its notices appear.",
             ["Top of the screen", "Bottom of the screen"], s.Settings.Get(Prefs.DictationIndicator) == DictationIndicator.Top ? 0 : 1,
             i => s.Settings.Set(Prefs.DictationIndicator, i == 0 ? DictationIndicator.Top : DictationIndicator.Bottom));
 
@@ -91,9 +138,12 @@ public sealed partial class SettingsWindow : Window
         page.Children.Add(reset);
     }
 
-    readonly Dictionary<object, RadioButton> modelRoutes = [];
+    readonly Dictionary<object, Action<bool>> modelRoutes = [];
     bool speechFilesPresent, cleanupFilesPresent;
     int modelCheck;
+    readonly List<Action> refreshRules = [];
+    Segmented? styleTabs;
+    void StyleChanged() { styleTabs?.Select((int)CleanupStyleNow); foreach (var refresh in refreshNotes) refresh(); }
 
     RouteSettings Routes => RouteSettings.Load(s.Settings);
     void SaveRoutes(Func<RouteSettings, RouteSettings> change) { change(Routes).Save(s.Settings); foreach (var refresh in refreshNotes) refresh(); }
@@ -102,13 +152,9 @@ public sealed partial class SettingsWindow : Window
 
     void Heading(string title)
     {
-        if (page.Children.Count > 0)
-        {
-            var rule = new Border { Height = 1, Margin = new Thickness(0, 12, 0, 16), Style = MurmurStyle.Style("MurmurRuleLine") };
-            page.Children.Add(rule);
-        }
-        var heading = MurmurStyle.Text(title.ToUpperInvariant(), "MurmurSection");
-        heading.Margin = new Thickness(0, 0, 0, 4);
+        var heading = MurmurStyle.Text(title, "MurmurSettingLabel");
+        heading.FontSize = 17; heading.FontWeight = Microsoft.UI.Text.FontWeights.Medium;
+        heading.Margin = new Thickness(0, page.Children.Count > 0 ? 28 : 8, 0, 8);
         AutomationProperties.SetHeadingLevel(heading, AutomationHeadingLevel.Level2);
         page.Children.Add(heading);
     }
@@ -120,15 +166,34 @@ public sealed partial class SettingsWindow : Window
         page.Children.Add(note);
     }
 
-    void Row(string title, string? description, FrameworkElement control)
+    static Button Help(string text)
     {
-        var labels = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
-        labels.Children.Add(MurmurStyle.Text(title, "MurmurSettingLabel"));
-        if (description is not null) labels.Children.Add(MurmurStyle.Text(description, "MurmurCaption"));
+        var tip = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 320 };
+        var help = new Button
+        {
+            Content = new FontIcon { Glyph = "\uE897", FontSize = 15, Style = MurmurStyle.Style("MurmurTabOff") }, Padding = new Thickness(4), MinWidth = 0, MinHeight = 0,
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
+            Flyout = new Flyout { Content = tip }, VerticalAlignment = VerticalAlignment.Center
+        };
+        ToolTipService.SetToolTip(help, text);
+        return MurmurStyle.Named(help, "About: " + text);
+    }
+
+    /// <summary>The Mac's row: label, (?) help, and the control at the right. A <paramref name="visible"/> description (privacy disclosures) also stays on screen under the label.</summary>
+    void Row(string title, string? description, FrameworkElement control, bool visible = false)
+    {
+        var label = MurmurStyle.Text(title, "MurmurSettingLabel");
+        label.VerticalAlignment = VerticalAlignment.Center; label.FontSize = 15;
+        var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Children = { label } };
+        var labels = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center, Children = { line } };
+        if (description is not null)
+        {
+            if (visible) labels.Children.Add(MurmurStyle.Text(description, "MurmurCaption"));
+            else line.Children.Add(Help(description));
+        }
         var grid = new Grid
         {
-            ColumnSpacing = 16,
-            Padding = new Thickness(0, 10, 0, 10),
+            ColumnSpacing = 16, MinHeight = 56, Padding = new Thickness(0, 8, 0, 8),
             ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } },
             Children = { labels, control }
         };
@@ -137,11 +202,12 @@ public sealed partial class SettingsWindow : Window
         page.Children.Add(grid);
     }
 
-    void Toggle(string title, string description, Setting<bool> setting, Action? changed = null)
+    void Toggle(string title, string description, Setting<bool> setting, Action? changed = null, bool visible = false)
     {
         var toggle = MurmurStyle.Named(new ToggleSwitch { IsOn = s.Settings.Get(setting), OnContent = null, OffContent = null, MinWidth = 0 }, title);
         toggle.Toggled += (_, _) => { s.Settings.Set(setting, toggle.IsOn); changed?.Invoke(); };
-        Row(title, description, toggle);
+        refreshRules.Add(() => toggle.IsOn = s.Settings.Get(setting));
+        Row(title, description, toggle, visible);
     }
 
     void Field(StackPanel fields, string header, string value, string placeholder, Action<string> save)
@@ -160,15 +226,26 @@ public sealed partial class SettingsWindow : Window
         return box;
     }
 
-    void Choice(string title, string? description, string[] items, int selected, Action<int> changed) =>
-        Row(title, description, Picker(title, items, selected, changed));
+    void Choice(string title, string? description, string[] items, int selected, Action<int> changed, bool visible = false) =>
+        Row(title, description, Picker(title, items, selected, changed), visible);
 
-    void RouteRow(RadioButton radio, Func<string> disclosure)
+    /// <summary>A label, then an underline-tab choice with its help text under it (the Mac's Cleanup style, indicator and route pickers).</summary>
+    Segmented SegmentedRow(string title, string? help, string[] items, int selected, Action<int> changed, Func<int, string>? note = null, int[]? cloud = null)
     {
-        var note = MurmurStyle.Text(disclosure(), "MurmurCaption");
-        note.Margin = new Thickness(28, 0, 0, 0);
-        refreshNotes.Add(() => note.Text = disclosure());
-        page.Children.Add(new StackPanel { Padding = new Thickness(0, 3, 0, 7), Children = { radio, note } });
+        Heading(title);
+        var tabs = new Segmented(title, items, selected, i => { changed(i); foreach (var refresh in refreshNotes) refresh(); }, cloud: cloud);
+        var row = new Grid { ColumnSpacing = 4, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { tabs } };
+        if (help is not null && note is not null) { var h = Help(help); Grid.SetColumn(h, 1); row.Children.Add(h); }
+        page.Children.Add(row);
+        if (note is not null)
+        {
+            var caption = MurmurStyle.Text(note(selected));
+            caption.Margin = new Thickness(0, 8, 0, 0);
+            refreshNotes.Add(() => caption.Text = note(tabs.SelectedIndex));
+            page.Children.Add(caption);
+        }
+        else if (help is not null) { var caption = MurmurStyle.Text(help); caption.Margin = new Thickness(0, 8, 0, 0); page.Children.Add(caption); }
+        return tabs;
     }
 
     // ---- routes ----
@@ -196,47 +273,64 @@ public sealed partial class SettingsWindow : Window
     void BuildTranscription()
     {
         Heading("Speech recognition");
-        var speechRow = new ModelRow(s, s.SpeechSlot, controller, () => Content.XamlRoot, go => { s.Local.Release(); go(); }, UpdateModelRoutes);
+        var speechRow = new ModelRow(s, s.SpeechSlot, controller, root, go => { s.Local.Release(); go(); }, UpdateModelRoutes);
         page.Children.Add(MurmurStyle.Card(speechRow.Panel));
-        Heading("Where transcription runs");
-        foreach (var (route, label) in TranscriptionChoices)
-        {
-            var radio = new RadioButton { Content = label, GroupName = "transcription", IsChecked = Routes.Transcription == route, IsEnabled = route != TranscriptionRoute.Local };
-            radio.Checked += (_, _) => SaveRoutes(r => r with { Transcription = route });
-            if (route == TranscriptionRoute.Local) modelRoutes[route] = radio;
-            RouteRow(MurmurStyle.Named(radio, label), () => TranscriptionNote(route));
-        }
+        var tabs = SegmentedRow("Where transcription runs", null, [.. TranscriptionChoices.Select(c => c.Label)], Array.FindIndex(TranscriptionChoices, c => c.Route == Routes.Transcription),
+            i => SaveRoutes(r => r with { Transcription = TranscriptionChoices[i].Route }), i => TranscriptionNote(TranscriptionChoices[i].Route));
+        tabs.SetEnabled(0, false);
+        modelRoutes[TranscriptionRoute.Local] = on => tabs.SetEnabled(0, on);
         BuildProvider(transcription: true);
     }
 
+    // The Mac's cleanup style over the existing flags (Controller+Settings.swift): Faithful is all rules off; Polish and Professional need a model route.
+    enum Style { Faithful, Natural, Polish, Professional }
+    static readonly Setting<bool>[] RuleFlags = [Prefs.CleanupFillers, Prefs.CleanupCorrections, Prefs.CleanupLists, Prefs.CleanupPunctuation, Prefs.CleanupSpoken];
+
+    Style CleanupStyleNow =>
+        !RuleFlags.Any(f => s.Settings.Get(f)) ? Style.Faithful : s.Settings.Get(Prefs.CleanupProfessional) ? Style.Professional : s.Settings.Get(Prefs.CleanupPolish) ? Style.Polish : Style.Natural;
+
+    void SetCleanupStyle(Style style)
+    {
+        if (style == Style.Faithful) foreach (var f in RuleFlags) s.Settings.Set(f, false);
+        else if (CleanupStyleNow == Style.Faithful) foreach (var f in RuleFlags) s.Settings.Set(f, true);
+        s.Settings.Set(Prefs.CleanupPolish, style is Style.Polish or Style.Professional);
+        s.Settings.Set(Prefs.CleanupProfessional, style == Style.Professional);
+    }
+
+    string StyleHelp(Style style) => style switch
+    {
+        Style.Faithful => "Keeps the words as dictated, apart from dictionary spellings: “Um, let’s meet Tuesday, no, I mean, Thursday, at the cafe.”",
+        Style.Natural => "Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”",
+        Style.Polish => "Also resolves backtracks and false starts, and fixes small grammar slips, keeping your voice: “Let’s meet Thursday at the cafe.”",
+        _ => "Rewrites into clear, professional writing of what you meant: “Let’s meet on Thursday at the café.”"
+    };
+
     void BuildCleanup()
     {
-        Heading("Cleanup runs on");
-        foreach (var (choice, label) in CleanupChoices)
-        {
-            var radio = new RadioButton { Content = label, GroupName = "cleanup", IsChecked = Routes.Cleanup == choice, IsEnabled = choice != CleanupChoice.LocalModel };
-            if (choice == CleanupChoice.LocalModel) modelRoutes[choice] = radio;
-            radio.Checked += (_, _) => SaveRoutes(r => r with { Cleanup = choice });
-            RouteRow(MurmurStyle.Named(radio, label), () => CleanupNote(choice));
-        }
-        Heading("Local cleanup model");
-        var cleanupRow = new ModelRow(s, s.CleanupSlot, controller, () => Content.XamlRoot, go => { LocalCleanupRunner.Shared.Shutdown(); go(); }, UpdateModelRoutes);
-        page.Children.Add(MurmurStyle.Card(cleanupRow.Panel));
-        Heading("Cleanup style");
-        Toggle("Polish", "Use an AI model to smooth the wording. Available on model routes.", Prefs.CleanupPolish);
-        Toggle("Professional", "Use an AI model to make the wording more formal. Available on model routes.", Prefs.CleanupProfessional);
-        Heading("Cleanup rules");
-        Toggle("Remove filler words", "Takes out “um”, “uh” and similar.", Prefs.CleanupFillers);
-        Toggle("Apply spoken corrections", "Uses your final wording for clear corrections. Ambiguous corrections stay.", Prefs.CleanupCorrections);
-        Toggle("Format spoken lists", "Turns “one, two, three” into a numbered list.", Prefs.CleanupLists);
-        Toggle("Fix punctuation and capitalization", "Adds commas, periods and capitals.", Prefs.CleanupPunctuation);
-        Toggle("Spoken commands and numbers", "Interprets “comma” and “new paragraph”, and writes spoken numbers as digits.", Prefs.CleanupSpoken);
+        styleTabs = SegmentedRow("Cleanup style", "Polish and Professional run on Murmur Cloud or a Custom Provider.", ["Faithful", "Natural", "Polish", "Professional"], (int)CleanupStyleNow,
+            i => { SetCleanupStyle((Style)i); foreach (var refresh in refreshRules) refresh(); }, i => StyleHelp((Style)i), cloud: [2, 3]);
+        var routeTabs = SegmentedRow("Cleanup runs on", null, [.. CleanupChoices.Select(c => c.Label)], Array.FindIndex(CleanupChoices, c => c.Choice == Routes.Cleanup),
+            i => SaveRoutes(r => r with { Cleanup = CleanupChoices[i].Choice }), i => CleanupNote(CleanupChoices[i].Choice));
+        routeTabs.SetEnabled(1, false);
+        modelRoutes[CleanupChoice.LocalModel] = on => routeTabs.SetEnabled(1, on);
+        page.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 16, 0, 8), Style = MurmurStyle.Style("MurmurRuleLine") });
+        Toggle("Remove filler words", "Takes out “um”, “uh” and similar.", Prefs.CleanupFillers, StyleChanged);
+        Toggle("Apply spoken corrections", "Uses your final wording for clear corrections. Ambiguous corrections stay.", Prefs.CleanupCorrections, StyleChanged);
+        Toggle("Format spoken lists", "Turns “one, two, three” into a numbered list.", Prefs.CleanupLists, StyleChanged);
+        Toggle("Fix punctuation and capitalization", "Adds commas, periods and capitals.", Prefs.CleanupPunctuation, StyleChanged);
+        Toggle("Spoken commands and numbers", "Interprets “comma” and “new paragraph”, and writes spoken numbers as digits.", Prefs.CleanupSpoken, StyleChanged);
         Toggle("Use screen context", "With Polish or Professional on a Custom Provider or Murmur Cloud, words from the screen can appear in the pasted text.", Prefs.ScreenContext);
         Note("Website modes use the focused page in Edge, Chrome, Brave, Vivaldi, Opera, Arc, or Firefox when Windows can read it. App matching still works in other browsers and when the page is unavailable.");
-        Heading("Learning");
-        Toggle("Learn from my corrections", "After a dictation, Murmur watches only that pasted text for about a minute. If you fix a word, such as a name, it can learn the spelling for next time. It never reads password fields, and nothing leaves this PC.", Prefs.LearningEnabled, controller.LearningSettingChanged);
-        Toggle("Learn only from readable fields", "Murmur first reads the text box through Windows accessibility. If an app does not allow that, it can instead follow the keys you type into it, in memory only, for that one dictation: keys are never saved, logged or sent. Turn this on to use accessibility only.", Prefs.ReadableLearning);
+        Heading("Local cleanup model");
+        var cleanupRow = new ModelRow(s, s.CleanupSlot, controller, root, go => { LocalCleanupRunner.Shared.Shutdown(); go(); }, UpdateModelRoutes);
+        page.Children.Add(MurmurStyle.Card(cleanupRow.Panel));
         BuildProvider(transcription: false);
+    }
+
+    void BuildLearning()
+    {
+        Toggle("Learn from my corrections", "After a dictation, Murmur watches only that pasted text for about a minute. If you fix a word, such as a name, it can learn the spelling for next time. It never reads password fields, and nothing leaves this PC.", Prefs.LearningEnabled, controller.LearningSettingChanged, visible: true);
+        Toggle("Learn only from readable fields", "Murmur first reads the text box through Windows accessibility. If an app does not allow that, it can instead follow the keys you type into it, in memory only, for that one dictation: keys are never saved, logged or sent. Turn this on to use accessibility only.", Prefs.ReadableLearning, visible: true);
     }
 
     /// <summary>Enables "Local (this PC)" and "Local model" only while their files are installed and pass the pinned checksums. Hashing runs off the UI thread (once per launch, then cached).</summary>
@@ -254,8 +348,8 @@ public sealed partial class SettingsWindow : Window
                 if (check != modelCheck) return;
                 speechFilesPresent = speechInstalled;
                 cleanupFilesPresent = cleanupInstalled;
-                modelRoutes[TranscriptionRoute.Local].IsEnabled = speech;
-                modelRoutes[CleanupChoice.LocalModel].IsEnabled = cleanup;
+                modelRoutes[TranscriptionRoute.Local](speech);
+                modelRoutes[CleanupChoice.LocalModel](cleanup);
                 foreach (var refresh in refreshNotes) refresh();
             });
         });
@@ -385,7 +479,7 @@ public sealed partial class SettingsWindow : Window
         Toggle("Start and stop sounds", "Play a short sound when recording starts or stops.", Prefs.RecordingSounds);
 
         Heading("Live words");
-        var liveWordsRow = new ModelRow(s, s.LiveWordsSlot, controller, () => Content.XamlRoot, go => go(), UpdateModelRoutes);
+        var liveWordsRow = new ModelRow(s, s.LiveWordsSlot, controller, root, go => go(), UpdateModelRoutes);
         page.Children.Add(MurmurStyle.Card(liveWordsRow.Panel));
         Toggle("Show live words while speaking", "Shows the words in the indicator as you speak. Needs the live words download.", Prefs.LiveWords);
         Toggle("Show live words on cloud routes", "Also shows live words while transcription runs in the cloud. Off by default.", Prefs.LiveWordsOnCloud);
@@ -402,7 +496,7 @@ public sealed partial class SettingsWindow : Window
         Heading("Transcript history");
         Choice("Keep history", HistoryModes.OffDisclosure, ["Save on this PC", "Off"],
             s.Settings.Get(Prefs.HistoryMode) == HistoryMode.On ? 0 : 1,
-            i => { s.Settings.Set(Prefs.HistoryMode, i == 0 ? HistoryMode.On : HistoryMode.Off); s.ApplyHistoryMode(); });
+            i => { s.Settings.Set(Prefs.HistoryMode, i == 0 ? HistoryMode.On : HistoryMode.Off); s.ApplyHistoryMode(); }, visible: true);
         var retentions = Enum.GetValues<HistoryRetention>();
         Choice("Keep transcripts for", null, retentions.Select(r => r.Label()).ToArray(), Array.IndexOf(retentions, s.Settings.Get(Prefs.Retention)), i => s.Settings.Set(Prefs.Retention, retentions[i]));
 
@@ -416,8 +510,8 @@ public sealed partial class SettingsWindow : Window
         Row("Backup and restore", "Save History, the dictionary and settings to a Murmur Backup folder. API keys and audio are excluded. Restore keeps your current provider routes.", new StackPanel
         {
             Orientation = Orientation.Horizontal, Spacing = 8, Children = { restore, backup }
-        });
-        Row("Delete all data", "Deletes History, settings and credentials from this PC. Downloaded models stay.", delete);
+        }, visible: true);
+        Row("Delete all data", "Deletes History, settings and credentials from this PC. Downloaded models stay.", delete, visible: true);
         page.Children.Add(status);
     }
 
@@ -432,13 +526,13 @@ public sealed partial class SettingsWindow : Window
     {
         var picker = new FolderPicker { SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
         picker.FileTypeFilter.Add("*");
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+        InitializeWithWindow.Initialize(picker, hwnd());
         return (await picker.PickSingleFolderAsync())?.Path;
     }
 
     async Task<bool> Confirm(string title, string body, string action)
     {
-        var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = title, Content = new TextBlock { Text = body, TextWrapping = TextWrapping.Wrap }, PrimaryButtonText = action, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
+        var dialog = new ContentDialog { XamlRoot = root(), Title = title, Content = new TextBlock { Text = body, TextWrapping = TextWrapping.Wrap }, PrimaryButtonText = action, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
         return await MurmurStyle.Named(dialog, title).ShowAsync() == ContentDialogResult.Primary;
     }
 
