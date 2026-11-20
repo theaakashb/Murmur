@@ -133,7 +133,7 @@ The earlier workers (32843b61, db434533, 1d14aebd) and this coordinator's sessio
 
 | Agent | Model | Worktree folder / branch | Assignment |
 | --- | --- | --- | --- |
-| `1fd6d415-f9a6-4cb4-81a3-e4fe7435fb6f` | Codex gpt-6.2-sol, medium | `windows-m3-live` / `windows-gpu` (a228fc5 pushed) | **GPU phase 2, finishing:** measured installer deltas (CI run 44716871878), cleanup CPU threads, fallback tests, re-running the harness, Mac checks. It holds the VM desktop. |
+| (GPU, done) | | `windows-gpu` | **Merged as `b59e1cf`; 1fd6d415 archived.** DirectML (rebuilt sherpa with ORT DML 1.24.4) and Vulkan cleanup are bundled. Setup +26.30 MB, installed +72.67 MB. GPU defaults ON with silent CPU fallback; cleanup is capped at min(8, physical cores). PC steps are parked in PLAN.md. |
 | `b8cf1636-b352-450d-82ef-858827f444b2` | Codex gpt-6.2-sol, medium | `windows-ui-fluent` / `windows-ui-parity` (5bd2519 local) | **UI parity:** cleanup gating, the pill waveform, the shimmer at release, status copy, the remaining outline audit, side-by-sides, the XamlParseException check. Next in line for the desktop. |
 | `dd241070-a8df-41c0-b49a-94ea15761c61` | Codex gpt-6.2-sol, medium | `windows-m4-core` / `windows-local-notes` (work uncommitted at hand-over) | **Notes benchmark, finishing:** every local model failed the 30- and 60-minute runs at the 768-token cap. Diagnosing that, running the 1200-token check, finishing the long and low-end runs, then the recommendation. Stops before pinning. |
 
@@ -209,5 +209,7 @@ Use a fresh branch from `windows` for each new task.
    - a possible harness flake: 18/21 once (Edge no-speech, Code clipboard-restored), 21/21 on the rerun;
    - the pass 5 gaps: panel drag and the Meeting indicator setting, search synonyms, Home info wording.
 4. **M6 with the user:** set up Azure Artifact Signing (UPDATES.md "Needs user"), then a test-repo release, then the first `windows-v*` draft. Velopack stays on 1.2.161 until a stable 1.3 ships.
+
+**DirectML on staged builds:** a plain `dotnet publish` ships the stock CPU sherpa. To get DirectML, pass `-p:MurmurSherpaDirectML=<dir>` with the native runtime: the CI artifact `sherpa-directml-win-x64` from run 44716871878 (kept 14 days, until about 2026-12-04), or build it with `windows/tools/build-sherpa-directml.ps1`, which needs VS and CMake. `windows/tools/package.ps1` builds it itself and fails if DirectML or Vulkan is missing.
 
 **PC staging recipe:** `create_agent` on `srv_XXiOqPoelqaJ`, workspace `wks_3d3a18a1cff53984`, mode `auto`. Run `dotnet publish windows\src\Murmur.App -c Release -r win-x64 -o <new folder>` from `T:\Paseo Project\Murmur\src`, with the cache env vars on T:. Always use a new folder; never touch a running build. `archive_agent` can't reach PC agents.
