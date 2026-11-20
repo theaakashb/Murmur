@@ -170,6 +170,13 @@ internal sealed partial class Controller : IDisposable
 
     void Released(double t) => Apply(machine.Release(t));
 
+    public bool Listening => phase == Phase.Listening;
+
+    /// <summary>Home's Start Dictation (Controller.startDictationFromHome on the Mac): a toggled recording; Stop or the shortcut finishes it.</summary>
+    public void StartDictationFromHome() { if (machine.State == ShortcutState.Idle && !IsBusy) Apply(machine.StartToggled()); }
+
+    public void StopRecording() => Apply(machine.Finish());
+
     /// <summary>Right Ctrl+C and the like: a key pressed during the first moments of a hold means a shortcut, not dictation.</summary>
     void OtherKeyWhileHeld()
     {

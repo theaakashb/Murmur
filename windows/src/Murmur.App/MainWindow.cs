@@ -59,7 +59,7 @@ internal sealed partial class MainWindow : Window
         switch (next)
         {
             case Page.Home: content.Content = HomePage(); break;
-            case Page.Insights: content.Content = InsightsPage(); break;
+            case Page.Insights: content.Content = new InsightsView(s, () => { settingsPane = "Privacy & Storage"; Navigate(Page.Settings); }).Build(); break;
             case Page.Meetings:
                 meetings = new MeetingsView(s, controller, Root, () => WindowNative.GetWindowHandle(this));
                 content.Content = meetings.View;
@@ -75,6 +75,28 @@ internal sealed partial class MainWindow : Window
                 content.Content = settings.View;
                 break;
         }
+    }
+
+    UIElement HomePage()
+    {
+        HomeView? view = null;
+        view = new HomeView(s, controller, new HomeView.Actions(StartDictationFromHome, () => Navigate(Page.Meetings), () => Navigate(Page.History),
+            (pane, tab) => { settingsPane = pane; Navigate(Page.Settings); settings!.Show(pane, TabIndex(pane, tab)); Highlight(pane); },
+            () => ((App)Application.Current).ShowWelcome())) { Refresh = () => { if (page == Page.Home) content.Content = HomePage(); } };
+        return view.Build();
+    }
+
+    static int TabIndex(string pane, string tab) => pane == "Dictation" ? Array.IndexOf(["Recording", "Transcription", "Insertion"], tab) : 0;
+
+    /// <summary>The Mac hides Murmur, then starts a toggled dictation so the words go to the app that was in front.</summary>
+    void StartDictationFromHome()
+    {
+        (AppWindow.Presenter as Microsoft.UI.Windowing.OverlappedPresenter)?.Minimize();
+        var timer = s.UI.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(300);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => controller.StartDictationFromHome();
+        timer.Start();
     }
 
     // ---- sidebars ----
@@ -163,71 +185,5 @@ internal sealed partial class MainWindow : Window
             item.Style = MurmurStyle.Style(key == pane ? "MurmurNavOn" : "MurmurNavOff");
             if (item.Child is Button { Tag: TextBlock label } && !label.Text.All(char.IsUpper)) { label.Style = MurmurStyle.Style(key == pane ? "MurmurSettingLabel" : "MurmurTabOff"); label.FontSize = 16; }
         }
-    }
-
-    // ---- Home and Insights (minimal; Insights counts come from Murmur.Core) ----
-
-    static StackPanel Page_(string title, string lede)
-    {
-        var heading = new TextBlock { Text = title, FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("ms-appx:///Fonts/InstrumentSerif-Regular.ttf#Instrument Serif"), FontSize = 64, CharacterSpacing = -20, Style = MurmurStyle.Style("MurmurHeading") };
-        heading.FontSize = 64; heading.FontWeight = Microsoft.UI.Text.FontWeights.Normal;
-        AutomationProperties.SetHeadingLevel(heading, AutomationHeadingLevel.Level1);
-        var lead = MurmurStyle.Text(lede, "MurmurDescription");
-        lead.FontSize = 16; lead.Margin = new Thickness(0, 6, 0, 0);
-        return new StackPanel { Padding = new Thickness(40, 24, 40, 32), MaxWidth = 960, HorizontalAlignment = HorizontalAlignment.Left, Children = { heading, lead } };
-    }
-
-    UIElement HomePage()
-    {
-        var panel = Page_("Home", "Dictate anywhere the cursor is.");
-        var label = MurmurStyle.Text("SHORTCUT", "MurmurSection"); label.Margin = new Thickness(0, 28, 0, 0);
-        var shortcut = MurmurStyle.Text(ShortcutSpec.Label(s.Settings.Get(Prefs.Shortcut)), "MurmurSettingLabel");
-        shortcut.FontSize = 28; shortcut.FontWeight = Microsoft.UI.Text.FontWeights.Bold; shortcut.Margin = new Thickness(0, 8, 0, 0);
-        var how = MurmurStyle.Text(s.Settings.Get(Prefs.PressToToggle) ? "Press to start, press again to stop. Escape cancels." : "Hold to record and release to stop. Escape cancels.");
-        how.Margin = new Thickness(0, 8, 0, 0);
-        panel.Children.Add(label); panel.Children.Add(shortcut); panel.Children.Add(how);
-        return MurmurStyle.Named(new ScrollViewer { Content = panel }, "Home");
-    }
-
-    UIElement InsightsPage()
-    {
-        var panel = Page_("Insights", "Counted on this PC from the dictations History keeps. Nothing is sent anywhere.");
-        Insights result;
-        try { result = Insights.Compute(s.History.Entries().Select(InsightsItem.FromHistory), s.Settings.Get(Prefs.HistoryMode) == HistoryMode.On, DateTimeOffset.Now, TimeZoneInfo.Local); }
-        catch (Exception) { result = new Insights.Empty(); }
-        switch (result)
-        {
-            case Insights.HistoryOff:
-                panel.Children.Add(Notice("History is off", "Insights counts only what History keeps on this PC, so there is nothing to count. Turn History on in Privacy & Storage to see your words, pace and streaks."));
-                break;
-            case Insights.Stats stats:
-                var wrap = new VariableSizedWrapGrid { Orientation = Orientation.Horizontal, ItemWidth = 200, ItemHeight = 104, MaximumRowsOrColumns = 4, Margin = new Thickness(0, 28, 0, 0) };
-                foreach (var (name, value) in new[]
-                {
-                    ("WORDS DICTATED", stats.Words.ToString("N0")), ("DICTATIONS", stats.Dictations.ToString("N0")),
-                    ("RECORDING TIME", stats.RecordingSeconds is { } r ? Insights.Duration(r) : "—"),
-                    ("SPEAKING PACE", stats.WordsPerMinute is { } w ? $"{Math.Round(w)} WPM" : "—"),
-                    ("EST. TIME SAVED", stats.SecondsSaved is { } t ? Insights.Duration(t) : "—"),
-                    ("WORDS / DICTATION", stats.AverageWords.ToString("0.0")), ("WORDS CHANGED", stats.WordsChanged.ToString("N0")),
-                    ("CURRENT STREAK", $"{stats.CurrentStreak} {(stats.CurrentStreak == 1 ? "day" : "days")}"), ("LONGEST STREAK", $"{stats.LongestStreak} {(stats.LongestStreak == 1 ? "day" : "days")}"),
-                })
-                {
-                    var value_ = MurmurStyle.Text(value, "MurmurSettingLabel"); value_.FontSize = 24; value_.FontWeight = Microsoft.UI.Text.FontWeights.Bold;
-                    wrap.Children.Add(new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 12, 0), Children = { MurmurStyle.Text(name, "MurmurSection"), value_ } });
-                }
-                panel.Children.Add(wrap);
-                break;
-            default:
-                panel.Children.Add(Notice("Nothing to count", "History has no dictations right now: either you have not dictated yet, or older dictations have expired."));
-                break;
-        }
-        return MurmurStyle.Named(new ScrollViewer { Content = panel }, "Insights");
-    }
-
-    static UIElement Notice(string title, string detail)
-    {
-        var heading = MurmurStyle.Text(title, "MurmurSettingLabel");
-        heading.FontSize = 22; heading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
-        return new StackPanel { Spacing = 12, Margin = new Thickness(0, 28, 0, 0), Children = { heading, MurmurStyle.Text(detail) } };
     }
 }
