@@ -20,6 +20,7 @@ The Windows app has three test-only hooks, used by `windows/harness/`. Each one 
 - `paste` (adds `status`: verified, unverified or failed; plus `reason` when it failed, and `historyId`)
 - `clipboard-restored`
 - `error` (adds `stage` and `reason`)
+- `learning-watch` (adds `route`: ax, keys or none; `miss` names why the readable route was not used), `learning-edit` (adds `outcome`), `learning-settled` and `learning-end` (add `learned`, a count, and `reason`)
 
 The data is content-free: no transcript text, no audio, no keys.
 
