@@ -44,6 +44,13 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - User override: keep using Claude past the 20% threshold; the user resets it. Use Codex when it has headroom.
   - Otherwise, at 20% or less in any window, pause new work and prefer the other provider.
   - At 10% or less, write a checkpoint into PLAN.md Status, push, and stop.
+- **Providers (user directive, 2026-11-20 about 10:10Z):**
+  - Prefer Codex workers for all work while Codex has headroom.
+  - When Codex reaches 10% or less in its 5h or weekly window, or hits rate-limit errors, switch the affected workstreams to Claude (Sonnet by default) at once and keep going.
+  - Hand over through checkpoint commits, with one owner per branch.
+  - Switch back to Codex after its reset.
+  - The Claude override still stands: keep working past 20%.
+  - The UI polish worker (Sonnet) was already mid-task, so it finishes on Claude; new work starts on Codex.
 - **Needs user:** park anything that needs the user and continue other work. Report at each milestone exit or blocker.
 - **Star Labs PC rules** (from the user):
   - Every install and all project work goes under `T:\Paseo Project\` (the drive labelled "Tools").
