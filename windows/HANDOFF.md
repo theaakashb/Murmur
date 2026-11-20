@@ -107,7 +107,7 @@ The Codex workers `73cf71a2`, `a7240d06` and `660ac734` are archived. Worktree f
 | # | Agent ID | Worktree / branch | Assignment | Start point |
 | --- | --- | --- | --- | --- |
 | A | `89746ba4` (archived) | `windows-m4-core` | M4 core ports. | **Merged** as `4aab0c6`: 22,609 Mac tests, 75/75 parity, goldens the same. Still open: Tips/ProfessionalHint persistence isn't compared with Swift UserDefaults; the EditShortcut reserved lists are app-supplied; the IVoiceEditTarget/EditChord seams are tested only with fakes. Next: the voice edit and welcome guide app/UI wiring (Codex, after the reset, with the Mac-look UI rework). |
-| B | `c90225b7-881f-4b75-b91f-e14cf650764d` | `.../windows-m3-live` / `windows-m4-sites` | Website matching: Chrome root cause, then the Firefox and Brave matrix rows. Holds the VM desktop. | `9e9d5c1`, fast-forwarded to `windows` |
+| B | `c90225b7-881f-4b75-b91f-e14cf650764d` (idle) | `.../windows-m3-live` / `windows-m4-sites` | Website matching. | Checkpoint committed locally; not merged yet. The Chrome failures weren't the reader: the window wasn't foregrounded (test fixed with AttachThreadInput/SwitchToThisWindow), and one Esc left the omnibox focused (test now presses Esc twice). After the fixes the normal read always matches, and one full pass matched every case. Still open: intermittent 'address bar did not take focus' after Ctrl+L (probe timing). Firefox and Brave not run. Next owner: Codex. |
 | C | `774c3946-7c5e-4143-87f1-411be3e0c079` (idle) | `.../windows-ui-fluent` / `windows-m4-learning` | Learning observer. | Code complete, local commits `c13d175` and `f4ac58f`. Mac tests pass (22,250). **Blocked on the VM:** the Windows build/publish/App tests haven't run, nor have the readable and unreadable field tests. Known gaps: clicks are detected with GetAsyncKeyState (can miss; the focus check is the backstop); no History `AfterPaste` record and no tips update; no dictionary refresh and no "learned" notice. |
 
 **Queued (no worker yet):** the UI rework to match the Mac app's look (PLAN.md "UI workstream"; user direction 2026-11-19). It starts on a Codex worker after the Codex reset (schedule `aae94043`, 02:40Z) when a slot is free.
@@ -136,7 +136,7 @@ The Codex workers `73cf71a2`, `a7240d06` and `660ac734` are archived. Worktree f
 
 ## Open bugs
 
-- **VM unreachable since about 02:00Z, 2026-11-20:** sshd answers and completes key exchange, then resets at `ssh-userauth`. Ping gets no reply (it may always be blocked). It dropped during the website worker's Chrome/Firefox/Brave runs. Possible causes: low disk (about 8 GB free before the browser installs) or resource exhaustion. Needs the user to restart or inspect it.
+- **VM SSH drops (twice, about 02:00Z, 2026-11-20):** sshd resets at `ssh-userauth`. Both times it came right after Chrome probe runs, and it recovered on its own without a reboot. Afterwards: 4.6 GB disk and 6.8 GB RAM free, no chrome.exe left. Cause unknown. Avoid long browser-probe loops, and close browsers by PID.
 
 - **The app freezes while downloading a model:** fix merged in `c8dd54f`. Progress is now sampled at 10 Hz with one pending UI update, and status and removal work run off the dispatcher. Verified on the VM with a synthetic transfer. Still to confirm: a real download on the user's PC.
 - **Golden check "hang": not a bug.** A full `generate.sh --check` takes about 15 minutes, and longer under load; all 21 generators pass. Run it per generator name.
