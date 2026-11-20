@@ -74,10 +74,22 @@ public sealed partial class SettingsWindow : Window
         PaneScroll.ChangeView(null, 0, null, true);
     }
 
-    void BuildGeneral() => Choice("Dictation indicator",
-        "Where the recording indicator and its notices appear.",
-        ["Top of the screen", "Bottom of the screen"], s.Settings.Get(Prefs.DictationIndicator) == DictationIndicator.Top ? 0 : 1,
-        i => s.Settings.Set(Prefs.DictationIndicator, i == 0 ? DictationIndicator.Top : DictationIndicator.Bottom));
+    void BuildGeneral()
+    {
+        Choice("Dictation indicator", "Where the recording indicator and its notices appear.",
+            ["Top of the screen", "Bottom of the screen"], s.Settings.Get(Prefs.DictationIndicator) == DictationIndicator.Top ? 0 : 1,
+            i => s.Settings.Set(Prefs.DictationIndicator, i == 0 ? DictationIndicator.Top : DictationIndicator.Bottom));
+
+        Heading("Tips");
+        var tips = new Tips(s.Settings);
+        var enabled = MurmurStyle.Named(new ToggleSwitch { IsOn = tips.Enabled, OnContent = null, OffContent = null, MinWidth = 0 }, "Show tips");
+        enabled.Toggled += (_, _) => tips.SetEnabled(enabled.IsOn);
+        Row("Show tips", "Milestones and occasional tips about features you have not tried.", enabled);
+        var reset = MurmurStyle.Named(new Button { Content = "Show Tips Again" }, "Show Tips Again");
+        reset.Click += (_, _) => { tips.Reset(); enabled.IsOn = tips.Enabled; };
+        reset.HorizontalAlignment = HorizontalAlignment.Left;
+        page.Children.Add(reset);
+    }
 
     readonly Dictionary<object, RadioButton> modelRoutes = [];
     bool speechFilesPresent, cleanupFilesPresent;
