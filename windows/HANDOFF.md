@@ -100,25 +100,37 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - the welcome guide.
 - **M5 and M6:** not started.
 
-## Active workers (Codex `gpt-6.2-sol`, medium effort, full-access, on the Mac host; started 2026-11-20 02:38Z after the Codex reset)
+## Active workers (as of 2026-11-20 03:10Z)
 
-Merged since the last handoff: voice edit and learning extras `10cbd2a` (Notepad 2/2 with a fake provider; Murmur Cloud tested only at Core level; learning extras not exercised in a live app session), M4 core `4aab0c6`, learning observer `67e4ed3`, Chrome probe fixes `b3fcd18`, and the Insights time-zone fix for Windows `ad1212c`. CI had been red from `4aab0c6` to `ad1212c`. The Claude workers `89746ba4`, `c90225b7` and `774c3946` are archived. Worktree folder names no longer match branches.
+| # | Agent ID | Worktree folder / branch | Assignment | Start point |
+| --- | --- | --- | --- | --- |
+| UI | `33161254-7ebc-4901-8f17-7ea1f29d70a9` (Claude Sonnet 5.5, medium) | `windows-m4-core` / `windows-ui-maclook` | Match the Mac look: one shared main window with the Mac sidebar (Home, Insights, History, Settings), the Mac settings sidebar, underline-tab controls, History search/collapsed rows/footer, re-capture all screens, then the harness. App.xaml.cs granted narrowly. | `b756625`. Checkpoint in `~/murmur-m3/checkpoints/ui-maclook.md`. Pairs and tooling in `/tmp/murmur-maclook/`. `3d841c7` passed the harness 6/6. |
 
-| # | Agent ID | Worktree folder / branch (from `ad1212c`) | Assignment |
-| --- | --- | --- | --- |
-| UI | `011b034c-1275-4d94-9ab7-df651151be2a` (checkpoint `3d841c7`; coordinator review sent it back: Settings sidebar, underline-tab controls, Tips, a main window with the Mac sidebar holding History/Settings, the bubble pill and card) | `windows-m4-core` / `windows-ui-maclook` | Rework Settings, History, the bubble and the tray to match the Mac app's look (PLAN.md "UI workstream"), with Mac-vs-Windows pairs in `/tmp/murmur-maclook`. |
-| Sites | `b84929e5` (archived) | `windows-m4-sites` | Website matching. | **Merged** as `8b1b363`. Chrome passed 2/2 and Edge 1/1 on the VM matrix at 125%. Firefox 160 doesn't match: the probe couldn't foreground the window (launcher process), so the reader is unverified there. Brave won't install on the VM (0x80040719, silent setup timed out). Both are pending on the user's PC. |
-| M5 core | `c281bc63-eaf3-4166-b2af-4a9c1ceae103` | `windows-ui-fluent` / `windows-m5-core` (from `10cbd2a`) | M5 core ports: MeetingStreamFeed, MeetingStore, MeetingNotes and corpus, MeetingExport with exact escaping, speakers, the CallDetection logic. |
+**Merged this session (all pushed to `windows`):**
+- live words `8535cb1`;
+- Fluent UI and the download-freeze fix `c8dd54f`;
+- website matching `fcceafc` and `8b1b363`;
+- M4 core `4aab0c6`;
+- learning `67e4ed3`;
+- voice edit and the learning extras `10cbd2a`;
+- M5 core `5ddfdc6`.
 
-**Usage, 02:59Z:** Codex 5h at 30% (resets 07:37Z), dropping about 3.5%/min with three workers. Codex workers checkpoint at ≤15%, then the rest moves to Claude Sonnet until Claude weekly (28%) reaches 20%.
+The Codex workers `011b034c`, `b84929e5` and `c281bc63` are archived.
 
-**Ops:** the VM's C: drive dropped to about 700 MB during parallel builds. The archived workers' `C:\src\w-*` folders were deleted, freeing about 2.5 GB. Workers clean their own outputs and check free disk before building.
+**M5 core (`5ddfdc6`):** the meetings chunk feed and recovery, store, notes (Custom Provider) with the corpus checks, export with exact escaping, speakers, and the call detector. Not verified: live capture, call-process enumeration, diarization, real provider calls. Checkpoint `~/murmur-m3/checkpoints/m5-core.md`.
 
-**After these:** the welcome guide UI (in the Mac look) with the Right Ctrl step, then the M4 exit on the user's PC (browser matrix, learning on readable and unreadable fields).
+**Usage, 03:10Z:** Codex 5h at 15% (resets 07:37Z), weekly 58%. Claude 5h at 81%, weekly 28%. One Claude worker only, to conserve the weekly allowance. At Claude weekly ≤20%, stop starting Claude work. New work goes to Codex after 07:37Z.
 
-**Before merging App changes:** run the VM `dotnet publish` (trimmed) as well as `dotnet test windows/Murmur.App.slnx`. The Mac solution doesn't build Murmur.App, and the Mac doesn't catch Windows-only test failures such as time zone IDs under InvariantGlobalization.
+**Next (Codex after the reset, or Claude while above 20% weekly):**
+1. The M5 platform: process-loopback capture (COM interop, silence fill), WASAPI session enumeration for call detection, and the meetings UI in the Mac look. The VM has no audio devices, so the real test is on the user's PC.
+2. The welcome guide UI with the Right Ctrl step, after the UI shell lands.
+3. The M4 exit on the user's PC: Firefox and Brave website matching, and learning on readable and unreadable fields.
 
-**Desktop:** the UI worker holds it; Sites and VoiceEdit queue after it.
+**Before merging App changes:** run the VM `dotnet publish` (trimmed) as well as `dotnet test windows/Murmur.App.slnx`. The Mac solution doesn't build Murmur.App, and the Mac doesn't catch Windows-only test failures such as time zone IDs or accent folding under InvariantGlobalization.
+
+**Ops:** the VM's C: drive dropped to about 700 MB during parallel builds. Workers clean their own `C:\src\w-*` outputs and keep more than 1.5 GB free.
+
+**Desktop:** free; only the UI worker uses it.
 
 **Pause, 2026-11-19 23:45Z:** Codex's 5h window is at 10% (it resets 02:31Z); Codex weekly is 72%. Claude's 5h window is at 100%, weekly 29%. All Codex workers are paused. The one-shot Paseo schedule `aae94043` (02:40Z) wakes the coordinator to resume them. On resume: `paseo usage --json --refresh`, then resume workers 1, 2 and 3 from their checkpoints.
 
