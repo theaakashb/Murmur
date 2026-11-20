@@ -21,7 +21,7 @@ record Dictation(string Id, string Target, double Seconds, List<Check> Checks, d
     public bool Passed => Checks.All(c => c.Result != "fail");
 }
 record Fixture(string Id, string Wav, string Spoken, string Cleanup, double Seconds);
-record Config(string DataDir, string OutDir, string ProviderUrl, string FixturesDir, string PageFile, int Count);
+record Config(string DataDir, string OutDir, string ProviderUrl, string FixturesDir, string PageFile, int Count, bool Trigger = false);
 
 static class Program
 {
@@ -54,6 +54,8 @@ static class Program
         var fixtures = JsonSerializer.Deserialize<List<Fixture>>(File.ReadAllText(Path.Combine(cfg.FixturesDir, "manifest.json")), new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
         var pageUrl = new Uri(Path.GetFullPath(cfg.PageFile)).AbsoluteUri;
         var targets = new List<Target> { new NotepadTarget(), new EdgeTarget { PageUrl = pageUrl }, new CodeTarget() };
+        var modeCase = fixtures.FirstOrDefault(f => f.Id == "mode-email");
+        fixtures = fixtures.Where(f => !f.Id.StartsWith("mode-")).ToList(); // mode fixtures are the extra case below, not part of the N dictations
         var plan = fixtures.Take(cfg.Count).Select((f, i) => (f, t: targets[i % targets.Count])).ToList();
         var eventsPath = Path.Combine(cfg.DataDir, "diagnostics", "events.jsonl");
         var synth = Path.Combine(cfg.DataDir, "synthetic");
@@ -99,8 +101,15 @@ static class Program
             }
         }
         finally { foreach (var t in started) t.Close(); }
+        if (cfg.Trigger && modeCase is not null && started.Count > 0)
+        {
+            // The extra case: the spoken mode trigger, in the first target that started (Notepad).
+            var t = started[0]; t.Start(cfg.OutDir);
+            try { var d = await Dictate(cfg, t, modeCase, synth, http, ev, clip); results.Add(d); Console.WriteLine($"  {(d.Passed ? "PASS" : "FAIL")} {modeCase.Id} " + string.Join(" ", d.Checks.Where(c => c.Result == "fail").Select(c => $"[{c.Name}: {c.Detail}]"))); }
+            finally { t.Close(); }
+        }
         WriteResults(cfg, results, screenshots, historyNote);
-        return results.All(r => r.Passed) && results.Count == Math.Min(cfg.Count, fixtures.Count) ? 0 : 1;
+        return results.All(r => r.Passed) && results.Count == Math.Min(cfg.Count, fixtures.Count) + (cfg.Trigger && modeCase is not null ? 1 : 0) ? 0 : 1;
     }
 
     static async Task<Dictation> Dictate(Config cfg, Target t, Fixture f, string synth, HttpClient http, EventTail ev, ClipboardWatcher clip)
@@ -155,6 +164,7 @@ static class Program
             if (finalText is null) { Add("history-entry", false, "history entry/finalText not found for " + historyId); finalText = f.Cleanup; }
             else Add("history-entry", true);
             clip.DictationTexts = new() { finalText.Trim() };
+            if (f.Id == "mode-email") checks.AddRange(await ModeChecks(cfg, http, f, historyId));
             // Advisory, never a failure: the guard may reject the fake rewrite and fall back to local rules, exactly as on the Mac.
             if (finalText.Trim() == f.Cleanup.Trim()) Add("cleanup-matches-manifest", true);
             else Skip("cleanup-matches-manifest", "advisory: the guard kept a fallback instead of the fake provider's rewrite (cleanupFallback in History)");
@@ -200,6 +210,29 @@ static class Program
         }
         catch (Exception e) { Add("driver-exception", false, e.GetType().Name + ": " + e.Message); }
         return new(f.Id, t.Name, f.Seconds, checks, latency, status, t.ReadMethod);
+    }
+
+    // Spoken mode trigger (Controller.SpokenMode): Email mode chosen, trigger cut from the cleanup text but kept in History's rawText.
+    // The request text comes from the fake provider's in-memory log of synthetic fixtures; nothing here is written to disk.
+    static async Task<List<Check>> ModeChecks(Config cfg, HttpClient http, Fixture f, string? historyId)
+    {
+        var c = new List<Check>();
+        void Add(string n, bool ok, string d = "") => c.Add(new(n, ok ? "pass" : "fail", d));
+        string? name = null, raw = null;
+        var file = Path.Combine(cfg.DataDir, "history", historyId + ".json");
+        try { using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(file)); name = doc.RootElement.TryGetProperty("writingModeName", out var n) ? n.GetString() : null; raw = doc.RootElement.TryGetProperty("rawText", out var r) ? r.GetString() : null; }
+        catch (Exception e) when (e is IOException or JsonException) { }
+        Add("mode-name-is-email", name == "Email", "writingModeName=" + (name ?? "null"));
+        Add("raw-text-keeps-trigger", raw is not null && raw.TrimStart().StartsWith("email mode", StringComparison.OrdinalIgnoreCase), "rawText starts with the trigger: " + (raw is not null && raw.TrimStart().StartsWith("email mode", StringComparison.OrdinalIgnoreCase)));
+        var arr = JsonDocument.Parse(await http.GetStringAsync("/control/chat-texts")).RootElement.EnumerateArray().Where(e => e.GetProperty("fixture").GetString() == f.Id).ToList();
+        Add("cleanup-request-made", arr.Count >= 1, $"{arr.Count} chat request(s) for {f.Id}");
+        var msgs = arr.SelectMany(e => e.GetProperty("messages").EnumerateArray()).Select(m => (Role: m.GetProperty("role").GetString(), Text: m.GetProperty("text").GetString() ?? "")).ToList();
+        var user = string.Join("\n", msgs.Where(m => m.Role == "user").Select(m => m.Text));
+        var system = string.Join("\n", msgs.Where(m => m.Role == "system").Select(m => m.Text));
+        Add("trigger-not-sent-to-cleanup", arr.Count >= 1 && user.Length > 0 && !user.Contains("email mode", StringComparison.OrdinalIgnoreCase) && user.Contains("send me the report", StringComparison.OrdinalIgnoreCase), "the user message lacks the trigger and has the body");
+        // Marker from the email transform frame ("Write {purpose}." with purpose "ready-to-paste email text"; shared/cleanup_prompt.json).
+        Add("email-transform-prompt-used", system.Contains("Write ready-to-paste email text", StringComparison.Ordinal), "system prompt has the email transform frame");
+        return c;
     }
 
     static async Task<string?> ReadHistoryFinal(string dataDir, string? id)

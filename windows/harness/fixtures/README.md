@@ -1,6 +1,6 @@
 # Harness fixtures
 
-23 short synthetic dictations used by the M2 exit harness (and later by M3's WER comparison).
+24 short synthetic dictations used by the M2 exit harness (and later by M3's WER comparison).
 
 - **Voice:** macOS `say -v Samantha` (US English, built-in synthetic voice), default rate.
 - **Generated on:** macOS 27.0.1 (Darwin 27.0.0), `afconvert -f WAVE -d LEI16@16000 -c 1`.
