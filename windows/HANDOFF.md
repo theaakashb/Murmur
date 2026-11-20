@@ -165,6 +165,7 @@ Use a fresh branch from `windows` for each new task.
 
 ## Needs user
 
+- **GPU budget (asked the orchestrator at about 09:55Z):** the plan is `a4e89f4` on `windows-gpu`. The PC has an RTX 3080 (12 GB, driver 616.92, D3D 12_2). DirectML needs a sherpa native rebuild, about +9 MB compressed / +18 MB installed. Vulkan cleanup is +17.4 MB / +55 MB. CUDA is deferred. Recommended: wait for the Live Words CPU-fix numbers; that fix needs no packages and the worker has it in progress. No GPU packages until the user's OK.
 - **PC offline overnight (from 2026-11-20 about 09:45Z, user's call).** Parked until it's back: the GPU probe on its NVIDIA card (if unfinished), the GPU worker's PC measurements, and staging app-next3. The VM stays up.
 
 - **M4 and M5 exits on the PC:** the user-run steps are in `windows/PC-CHECKLIST.md`.
