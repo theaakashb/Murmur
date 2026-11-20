@@ -110,6 +110,50 @@ public class ModelHelperTests
     }
 
     [Fact]
+    public async Task LiveWordsGpuStartupFailurePreservesQueuedAudioForCpu()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var helper = Path.Combine(Dir("live-fallback"), "helper.sh");
+        File.WriteAllText(helper, """
+            #!/bin/sh
+            if [ "$4" = "--gpu" ]; then exit 1; fi
+            echo '{"ready":true}'
+            bytes=$(wc -c | tr -d ' ')
+            printf '{"partial":"%s"}\n' "$bytes"
+            """);
+        Executable(helper);
+        var samples = System.Threading.Channels.Channel.CreateUnbounded<float[]>();
+        Assert.True(samples.Writer.TryWrite([1, 2, 3]));
+        samples.Writer.Complete();
+        var partials = new List<string>();
+        await ModelHelper.StreamAsync(helper, ModelFolder(), samples.Reader, partials.Add, default, preferGpu: true);
+        Assert.Equal(["12"], partials);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WarmSpeechRetriesGpuFailureOnCpu(bool failAfterReady)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var helper = Path.Combine(Dir("warm-fallback"), "helper.sh");
+        var gpu = failAfterReady ? "echo '{\"ready\":true}'; read line; exit 1" : "exit 1";
+        File.WriteAllText(helper, $$"""
+            #!/bin/sh
+            if [ "$3" = "--gpu" ]; then {{gpu}}; fi
+            echo '{"ready":true}'
+            while read line; do
+                echo '{"text":"cpu"}'
+            done
+            """);
+        Executable(helper);
+        var launch = HelperLaunch.Make(ModelFolder(), preferGpu: true)!;
+        using var runner = new WarmRunner(readySeconds: 10, requestSeconds: 10);
+        var answer = await runner.TranscribeAsync("synthetic.wav", helper, launch);
+        Assert.Equal("cpu", ModelHelper.StringField(ModelHelper.Answer(answer), "text"));
+    }
+
+    [Fact]
     public async Task OneShotReturnsTheLastLineOrNull()
     {
         if (OperatingSystem.IsWindows()) return;

@@ -8,6 +8,7 @@ param(
     [Parameter(Mandatory)][string]$Version,
     [Parameter(Mandatory)][string]$Out,
     [string]$Shortcuts = 'Desktop,StartMenuRoot',
+    [string]$SherpaDirectML = '',
     [switch]$NoPortable
 )
 $ErrorActionPreference = 'Stop'
@@ -22,8 +23,26 @@ if (-not (Test-Path (Join-Path $tools 'vpk.exe'))) {
 }
 if ((& (Join-Path $tools 'vpk.exe') -h 2>&1 | Out-String) -notmatch [regex]::Escape($VpkVersion)) { Write-Warning "vpk is not $VpkVersion" }
 
-dotnet publish (Join-Path $repo 'windows\src\Murmur.App') -c Release -r win-x64 -p:Version=$Version -o $publish
+$scratch = $null
+if (!$SherpaDirectML) {
+    $scratch = Join-Path ([System.IO.Path]::GetTempPath()) ('murmur-sherpa-' + [Guid]::NewGuid().ToString('N'))
+    $SherpaDirectML = Join-Path $scratch runtime
+}
+try {
+    if ($scratch) {
+        & (Join-Path $PSScriptRoot 'build-sherpa-directml.ps1') -WorkDir $scratch -Out $SherpaDirectML
+    }
+    $native = (Resolve-Path $SherpaDirectML).ProviderPath
+    dotnet publish (Join-Path $repo 'windows\src\Murmur.App') -c Release -r win-x64 -p:Version=$Version "-p:MurmurSherpaDirectML=$native" -o $publish
+}
+finally {
+    if ($scratch -and (Test-Path $scratch)) { Remove-Item $scratch -Recurse -Force }
+}
 if ($LASTEXITCODE) { throw 'publish failed' }
+if (!(Test-Path (Join-Path $publish 'Speech\DirectML.dll'))) { throw 'Publish did not contain DirectML' }
+if (!(Test-Path (Join-Path $publish 'Cleanup\runtimes\win-x64\native\vulkan\ggml-vulkan.dll'))) {
+    throw 'Publish did not contain the Vulkan backend'
+}
 
 $vpkArgs = @('pack', '--packId', 'MurmurApp', '--packVersion', $Version, '--packDir', $publish,
     '--mainExe', 'Murmur.exe', '--packTitle', 'Murmur', '--outputDir', $Out, '--runtime', 'win-x64', '--shortcuts', $Shortcuts)

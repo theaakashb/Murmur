@@ -11,30 +11,34 @@ namespace Murmur.Speech;
 // Nothing here logs a transcript, a path, a term or an exception message: every failure is a content-free line.
 static class Program
 {
-    const string Usage = "Usage: MurmurSpeech MODEL_DIRECTORY (AUDIO_FILE [--single] | --serve | --stream SAMPLE_RATE | --diarize KEPT_WAV THRESHOLD --embedding EMBEDDING_ONNX) [--vocabulary VOCABULARY_JSON] [--lexicon WORD_LIST]";
+    const string Usage = "Usage: MurmurSpeech MODEL_DIRECTORY (AUDIO_FILE [--single] | --serve | --stream SAMPLE_RATE | --diarize KEPT_WAV THRESHOLD --embedding EMBEDDING_ONNX) [--gpu] [--vocabulary VOCABULARY_JSON] [--lexicon WORD_LIST]";
 
     static readonly Stream StdOut = Console.OpenStandardOutput();
 
     static int Main(string[] argv)
     {
         var args = argv.ToList();
+        bool gpu = args.Remove("--gpu");
         string? vocabulary = Take(args, "--vocabulary"), lexicon = Take(args, "--lexicon"), embedding = Take(args, "--embedding");
         // The Mac's CTC dictionary model has no Windows counterpart: dictionary support here is hotwords on the same model.
         if (args.Contains("--ctc") || args.Contains("--vocabulary") || args.Contains("--lexicon")) return Fail(Usage);
         try
         {
+            if (gpu && (!OperatingSystem.IsWindows() || !File.Exists(Path.Combine(AppContext.BaseDirectory, "DirectML.dll"))))
+                return Fail("GPU runtime unavailable");
+            var provider = gpu ? "directml" : "cpu";
             if (args.Count == 3 && args[1] == "--stream" && double.TryParse(args[2], System.Globalization.CultureInfo.InvariantCulture, out var rate) && rate is >= 8000 and <= 192000 && vocabulary is null)
-                return Live(args[0], rate);
+                return Live(args[0], rate, provider);
             if (args.Count == 4 && args[1] == "--diarize")
             {
                 if (embedding is null || !double.TryParse(args[3], System.Globalization.CultureInfo.InvariantCulture, out var threshold) || !(threshold > 0 && threshold < 2)) return Fail(Usage);
                 Emit(new() { ["segments"] = Diarizer.Run(args[0], embedding, args[2], threshold) });
                 return 0;
             }
-            if (args.Count == 2 && args[1] == "--serve") return Serve(args[0], vocabulary, lexicon);
+            if (args.Count == 2 && args[1] == "--serve") return Serve(args[0], vocabulary, lexicon, provider);
             bool single = args.Count == 3 && args[2] == "--single";
             if (args.Count != 2 && !single) return Fail(Usage);
-            return Once(args[0], args[1], single, vocabulary, lexicon);
+            return Once(args[0], args[1], single, vocabulary, lexicon, provider);
         }
         catch (Exception) { return Fail("transcription failed"); }
     }
@@ -49,10 +53,10 @@ static class Program
         var value = args[i + 1]; args.RemoveRange(i, 2); return value;
     }
 
-    static int Once(string models, string audio, bool single, string? vocabulary, string? lexicon)
+    static int Once(string models, string audio, bool single, string? vocabulary, string? lexicon, string provider)
     {
         var clock = Stopwatch.StartNew();
-        using var asr = new Asr(models, vocabulary, lexicon);
+        using var asr = new Asr(models, vocabulary, lexicon, provider);
         double load = clock.Elapsed.TotalSeconds; clock.Restart();
         var samples = WavReader.Read(audio);
         double prepare = clock.Elapsed.TotalSeconds; clock.Restart();
@@ -69,10 +73,10 @@ static class Program
     }
 
     /// <summary>Loads once, prints {"ready":true}, then answers one JSON line per request until stdin closes. A failed request answers {"error":…} and the loop goes on.</summary>
-    static int Serve(string models, string? vocabulary, string? lexicon)
+    static int Serve(string models, string? vocabulary, string? lexicon, string provider)
     {
         var clock = Stopwatch.StartNew();
-        using var asr = new Asr(models, vocabulary, lexicon);
+        using var asr = new Asr(models, vocabulary, lexicon, provider);
         Emit(new() { ["ready"] = true, ["load_seconds"] = clock.Elapsed.TotalSeconds, ["vocabulary_terms"] = asr.Terms, ["vocabulary_error"] = asr.VocabularyError });
         using var input = new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(false));
         while (input.ReadLine() is { } line)
@@ -123,22 +127,30 @@ static class Program
     }
 
     /// <summary>Live words, display only: raw mono little-endian Float32 at <paramref name="rate"/> from stdin, {"partial":TEXT} whenever the running transcript changes.</summary>
-    static int Live(string models, double rate)
+    static int Live(string models, double rate, string provider)
     {
         var c = new OnlineRecognizerConfig();
         var files = Asr.Files(models);
         foreach (var f in files) if (!File.Exists(f)) return Fail("transcription failed");
         c.ModelConfig.Transducer.Encoder = files[0]; c.ModelConfig.Transducer.Decoder = files[1]; c.ModelConfig.Transducer.Joiner = files[2];
-        c.ModelConfig.Tokens = files[3]; c.ModelConfig.NumThreads = Math.Min(4, Environment.ProcessorCount); c.ModelConfig.Provider = "cpu";
+        c.ModelConfig.Tokens = files[3]; c.ModelConfig.NumThreads = Math.Min(4, Environment.ProcessorCount);
+        c.ModelConfig.Provider = provider;
         c.DecodingMethod = "greedy_search";
         using var recognizer = new OnlineRecognizer(c);
         using var stream = recognizer.CreateStream();
+        if (stream.Handle == IntPtr.Zero) return Fail("transcription failed");
         Emit(new() { ["ready"] = true });
         using var input = Console.OpenStandardInput();
         var buffer = new byte[64 * 1024]; var carry = new List<byte>(); var last = "";
-        void Pump()
+        void Pump(bool finished = false)
         {
-            while (recognizer.IsReady(stream)) recognizer.Decode(stream);
+            var decoded = false;
+            while (recognizer.IsReady(stream))
+            {
+                recognizer.Decode(stream);
+                decoded = true;
+            }
+            if (!decoded && !finished) return;
             var text = recognizer.GetResult(stream).Text.Trim();
             if (text != last) { last = text; Emit(new() { ["partial"] = text }); }
         }
@@ -154,7 +166,7 @@ static class Program
             Pump();
         }
         stream.InputFinished();
-        Pump();
+        Pump(finished: true);
         return 0;
     }
 
