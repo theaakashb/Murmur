@@ -6,8 +6,7 @@ namespace Murmur.App;
 
 /// <summary>
 /// Meeting capture wiring (app/MeetingRecorder.swift, app/Controller.swift meeting parts): the Core <see cref="MeetingRecorder"/> over WASAPI, local chunk
-/// transcription through the warm speech helper, notes through the Custom Provider route, and the call detector. No visuals beyond two message boxes
-/// (consent, first notes question) and the tray entry; the Meetings screen and the call offer panel come from the UI worker.
+/// transcription through the warm speech helper, notes through the Custom Provider route, and the call detector. The consent and notes-route sheets are MeetingSheets; the Meetings screen and the call offer panel are views.
 /// </summary>
 internal sealed partial class Controller
 {
@@ -15,6 +14,8 @@ internal sealed partial class Controller
     readonly CallDetector callDetector = new();
     readonly Stopwatch meetingClock = Stopwatch.StartNew();
     Microsoft.UI.Dispatching.DispatcherQueueTimer? meetingTick;
+    MeetingSheets? sheets;
+    bool notesSheetOpen;
     int detectionBusy;
     double lastDetection;
     bool testing => Environment.GetEnvironmentVariable("MURMUR_DATA_DIR") is { Length: > 0 };
@@ -26,6 +27,7 @@ internal sealed partial class Controller
 
     void InitMeetings()
     {
+        sheets = new MeetingSheets(s);
         MeetingStore? store = null;
         try { store = new MeetingStore(s.Locations.Meetings); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or StoreError or RetentionError) { }
@@ -79,10 +81,16 @@ internal sealed partial class Controller
         if (!meetings.Start(source) && meetings.ConsentPending is { } pending)
         {
             meetings.ConsentPending = null;
-            if (Native.MessageBoxW(IntPtr.Zero, "Murmur records your microphone and the audio of the call or apps you choose, and transcribes both on this PC. Recording other people may require their consent where you or they are. You are responsible for letting participants know.\n\nStart recording?",
-                    "Before your first meeting notes", 0x24 | 0x40000) != 6) return false;
-            MeetingConsent.Acknowledge(s.Settings);
-            return meetings.Start(pending);
+            // The Mac's consent sheet: the meeting starts only after the box is ticked and Start is pressed.
+            sheets!.Consent(pending, yes =>
+            {
+                if (!yes) return;
+                MeetingConsent.Acknowledge(s.Settings);
+                meetings.Start(pending);
+                TestEvents.Emit(meetings.Live is null ? "meeting-not-started" : "meeting-started", ("callAudioProblem", meetings.SystemAudioProblem is not null));
+                ShowMeetingMessage();
+            });
+            return false;
         }
         TestEvents.Emit(meetings.Live is null ? "meeting-not-started" : "meeting-started", ("callAudioProblem", meetings.SystemAudioProblem is not null));
         ShowMeetingMessage();
@@ -101,16 +109,17 @@ internal sealed partial class Controller
         if (meetings.NotesChoicePending is not null) AskNotesRoute();
     }
 
-    /// <summary>The first-Stop question as a message box, until the Meetings screen has its own sheet. Yes sends the transcript to the Custom Provider; No keeps transcripts only.</summary>
+    /// <summary>The first-Stop question as the Mac's sheet; the chosen route is saved and handed to the recorder.</summary>
     void AskNotesRoute()
     {
-        var routes = RouteSettings.Load(s.Settings);
-        var host = Uri.TryCreate(routes.CustomAPIBaseURL, UriKind.Absolute, out var uri) ? uri.Host : null;
-        bool local = uri?.IsLoopback == true;
-        var text = MeetingNotesRoute.CustomProvider.Disclosure(host, local, null) + "\n\nWrite notes with your Custom Provider?";
-        var yes = Native.MessageBoxW(IntPtr.Zero, text, "Meeting notes", 0x24 | 0x40000) == 6;
-        s.Settings.Set("meetingNotesRoute", yes ? "custom-api" : "none");
-        meetings.NotesRouteChosen(yes ? MeetingNotesRoute.CustomProvider : MeetingNotesRoute.None);
+        if (notesSheetOpen) return;
+        notesSheetOpen = true;
+        sheets!.NotesChoice(route =>
+        {
+            notesSheetOpen = false;
+            s.Settings.Set("meetingNotesRoute", route == MeetingNotesRoute.CustomProvider ? "custom-api" : "none");
+            meetings.NotesRouteChosen(route);
+        });
     }
 
     void MeetingTick()
