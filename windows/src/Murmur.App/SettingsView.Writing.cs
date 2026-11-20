@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Murmur.Core;
+using Murmur.Platform;
 
 namespace Murmur.App;
 
@@ -9,6 +10,65 @@ internal sealed partial class SettingsView
 {
     StackPanel modesPage = null!, dictionaryPage = null!, cuesPage = null!;
     Guid? editingMode, editingEntry, editingCue;
+
+    // ---- Voice edit shortcut (app/VoiceEditSettings.swift VoiceEditShortcutSettings) ----
+
+    static string EditLabel(string spec)
+    {
+        var parts = spec.Split(':');
+        if (parts.Length < 2 || !int.TryParse(parts[1], out var vk)) return "";
+        int mask = parts.Length == 3 && int.TryParse(parts[2], out var m) ? m : 0;
+        var names = new List<string>();
+        if ((mask & 1) != 0) names.Add("Ctrl");
+        if ((mask & 2) != 0) names.Add("Shift");
+        if ((mask & 4) != 0) names.Add("Alt");
+        if ((mask & 8) != 0) names.Add("Win");
+        names.Add(Native.KeyName(vk));
+        return string.Join("+", names);
+    }
+
+    void BuildVoiceEdit()
+    {
+        bool separate = s.Settings.Get(Prefs.VoiceEditShortcut) != EditTrigger.SameKey;
+        var recorded = MurmurStyle.Text(separate ? EditLabel(s.Settings.Get(Prefs.VoiceEditShortcut)) : "", "MurmurCaption");
+        var record = MurmurStyle.Named(new Button { Content = "Record key" }, "Record voice edit key");
+        var detail = new StackPanel { Spacing = 8, Visibility = separate ? Visibility.Visible : Visibility.Collapsed };
+        var picker = Picker("Voice edit shortcut", ["Same as dictation key, when text is selected", "A separate shortcut"], separate ? 1 : 0, i =>
+        {
+            detail.Visibility = i == 1 ? Visibility.Visible : Visibility.Collapsed;
+            if (i == 0) { s.Settings.Set(Prefs.VoiceEditShortcut, EditTrigger.SameKey); recorded.Text = ""; controller.ReloadVoiceEditShortcut(); }
+        });
+        picker.Width = 340;
+        Row("Voice edit shortcut", null, picker);
+        record.Click += async (_, _) =>
+        {
+            record.IsEnabled = false;
+            recorded.Text = "Press a key (Esc cancels)…";
+            var vk = await controller.RecordNextKey();
+            string? refusal = null;
+            if (vk != 0)
+            {
+                // Modifiers still held when the key arrives become part of the shortcut: Ctrl=1 Shift=2 Alt=4 Win=8.
+                int mask = (Held(Windows.System.VirtualKey.Control) ? 1 : 0) | (Held(Windows.System.VirtualKey.Shift) ? 2 : 0) | (Held(Windows.System.VirtualKey.Menu) ? 4 : 0)
+                    | (Held(Windows.System.VirtualKey.LeftWindows) || Held(Windows.System.VirtualKey.RightWindows) ? 8 : 0);
+                var spec = mask == 0 ? $"custom:{vk}" : $"custom:{vk}:{mask}";
+                int dictation = ShortcutSpec.KeyOf(s.Settings.Get(Prefs.Shortcut));
+                if (vk == dictation) refusal = "That is your dictation shortcut. Pick another key.";
+                else if (VoiceEditBinding.Parse(spec, dictation) is null) refusal = "That key can't start voice edit. Pick another key.";
+                else { s.Settings.Set(Prefs.VoiceEditShortcut, spec); controller.ReloadVoiceEditShortcut(); }
+            }
+            var current = s.Settings.Get(Prefs.VoiceEditShortcut);
+            recorded.Text = refusal ?? (current == EditTrigger.SameKey ? "" : EditLabel(current));
+            record.IsEnabled = true;
+        };
+        detail.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { recorded, record } });
+        detail.Children.Add(MurmurStyle.Text("A key that also edits text, such as Ctrl+E, is used only when text is selected. Otherwise it works as usual.", "MurmurCaption"));
+        page.Children.Add(detail);
+        page.Children.Add(MurmurStyle.Text("Select text, press the shortcut and say how to change it. To replace selected text by dictation, delete it first, or pick a separate voice edit shortcut. Works with a Custom Provider or Murmur Cloud; pasting the result makes rich text plain.", "MurmurCaption"));
+    }
+
+    static bool Held(Windows.System.VirtualKey key) =>
+        Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
 
     // ---- shared bits ----
 
