@@ -19,6 +19,7 @@ public partial class App : Application
     internal static Updater? Updater { get; private set; }
     AppServices? services;
     Controller? controller;
+    LiveMeetingPanel? liveMeetingPanel; // held for its refresh timer
     Bubble? bubble;
     TaskbarIcon? tray;
     MainWindow? main;
