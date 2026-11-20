@@ -110,6 +110,12 @@ public static partial class FocusProbe
             Prop<string>(element, NameProp) == "Address and search bar";
     }
 
+    internal static bool IsBrowserAddressBarFocused(string processName) =>
+        BrowserPage.Supported(processName) is { } family && Automation.Value is { } uia &&
+        uia.GetFocusedElement(out var element) == 0 && element is not null &&
+        ProcessName(Prop<int>(element, ProcessIdProp)) == processName &&
+        Prop<int>(element, ControlTypeProp) == EditControl && IsAddressBar(element, family);
+
     static IUIAutomationElement? FindAddressBar(IUIAutomationTreeWalker walker, IUIAutomationElement window,
         BrowserPage.Family family, Func<bool> inBudget)
     {
