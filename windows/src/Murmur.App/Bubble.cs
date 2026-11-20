@@ -15,12 +15,14 @@ internal sealed class Bubble
     readonly Border surface = new() { Style = MurmurStyle.Style("MurmurBubble") };
     static readonly double[] BarWeights = [0.6, 0.85, 1, 0.85, 0.6];
     readonly Border[] bars = new Border[BarWeights.Length];
-    readonly StackPanel waveform = new() { Width = 68, Height = 40, Orientation = Orientation.Horizontal, Spacing = 4.5, Padding = new Thickness(2.5, 0, 2.5, 0) };
+    readonly StackPanel waveform = new() { Width = 60, Height = 28, Orientation = Orientation.Horizontal, Spacing = 4, Padding = new Thickness(4.5, 0, 4.5, 0) };
     readonly TextBlock text = MurmurStyle.Text("", "MurmurSettingLabel");
     readonly TextBlock partial = MurmurStyle.Text("", "MurmurSettingLabel");
     readonly Border dot = new() { Width = 8, Height = 8, CornerRadius = new CornerRadius(4), VerticalAlignment = VerticalAlignment.Center };
     readonly TextBlock cardPreview = MurmurStyle.Text("", "MurmurDescription");
-    readonly StackPanel cardButtons = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
+    readonly Grid indicator;
+    readonly StackPanel card;
+    readonly TextBlock cardTitle = MurmurStyle.Text("", "BodyStrongTextBlockStyle");
     readonly DispatcherQueueTimer hideTimer;
     string? cardText;
     DisplayArea? display;
@@ -38,11 +40,11 @@ internal sealed class Bubble
 
         for (int i = 0; i < bars.Length; i++)
         {
-            var bar = new Border { Width = 9, Height = 13, CornerRadius = new CornerRadius(5), VerticalAlignment = VerticalAlignment.Center, Style = MurmurStyle.Style("MurmurBubbleDot") };
+            var bar = new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), VerticalAlignment = VerticalAlignment.Center, Style = MurmurStyle.Style("MurmurBubbleDot") };
             bars[i] = bar;
             waveform.Children.Add(bar);
         }
-        var row = new Grid
+        indicator = new Grid
         {
             ColumnDefinitions = { new ColumnDefinition { Width = GridLength.Auto }, new ColumnDefinition() },
             Children = { waveform, dot, text, partial }
@@ -52,15 +54,33 @@ internal sealed class Bubble
         partial.Margin = new Thickness(6, 0, 7, 0);
         partial.VerticalAlignment = VerticalAlignment.Center;
 
-        var copy = MurmurStyle.Named(new Button { Content = "Copy" }, "Copy dictation");
-        var dismiss = MurmurStyle.Named(new Button { Content = "Dismiss" }, "Dismiss dictation notice");
+        var copy = MurmurStyle.Named(new Button { Content = "Copy", Style = MurmurStyle.Style("AccentButtonStyle") }, "Copy dictation");
+        var dismiss = MurmurStyle.Named(new Button { Content = "×", Padding = new Thickness(6, 0, 6, 0) }, "Dismiss dictation notice");
         copy.Click += (_, _) => { if (cardText is not null) Native.CopyText(cardText); Hide(); };
         dismiss.Click += (_, _) => Hide();
-        cardButtons.Children.Add(copy);
-        cardButtons.Children.Add(dismiss);
-        partial.MaxLines = cardPreview.MaxLines = 2;
+
+        var header = new Grid
+        {
+            ColumnSpacing = 8,
+            ColumnDefinitions = { new ColumnDefinition { Width = GridLength.Auto }, new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } },
+            Children = { new SymbolIcon(Symbol.Paste) { VerticalAlignment = VerticalAlignment.Center }, cardTitle, dismiss }
+        };
+        cardTitle.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(cardTitle, 1);
+        Grid.SetColumn(dismiss, 2);
+        var hint = MurmurStyle.Text("Ctrl+Win+Shift+V pastes it too", "MurmurCaption");
+        hint.VerticalAlignment = VerticalAlignment.Center;
+        var footer = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } },
+            Children = { hint, copy }
+        };
+        Grid.SetColumn(copy, 1);
+        partial.MaxLines = 2;
+        cardPreview.MaxLines = 3;
         partial.TextTrimming = cardPreview.TextTrimming = TextTrimming.CharacterEllipsis;
-        surface.Child = new StackPanel { Spacing = 8, Children = { row, cardPreview, cardButtons } };
+        card = new StackPanel { Spacing = 8, Children = { header, cardPreview, footer } };
+        surface.Child = new Grid { Children = { indicator, card } };
         window.Content = surface;
         hideTimer = ui.CreateTimer();
         hideTimer.IsRepeating = false;
@@ -78,6 +98,7 @@ internal sealed class Bubble
     {
         cardText = copyText;
         cardPreview.Text = copyText;
+        cardTitle.Text = title.StartsWith("Could not paste", StringComparison.Ordinal) ? "Couldn’t paste here" : title;
         Present(title, dismissAfter, error: title != "Saved, not pasted", card: true);
     }
 
@@ -86,7 +107,7 @@ internal sealed class Bubble
     {
         double level = Math.Sqrt(Math.Clamp(peak, 0, 1));
         for (int i = 0; i < bars.Length; i++)
-            bars[i].Height = 13 + 27 * level * BarWeights[i];
+            bars[i].Height = 7 + 14 * level * BarWeights[i];
     }
 
     /// <summary>Shows live words on the UI thread while the indicator is listening.</summary>
@@ -97,7 +118,7 @@ internal sealed class Bubble
         if (partial.Text == words) return;
         partial.Text = words;
         partial.Visibility = words.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        surface.Width = words.Length > 0 ? 420 : 80;
+        surface.Width = words.Length > 0 ? 420 : 72;
         ResizeAndPlace();
     }
 
@@ -125,10 +146,11 @@ internal sealed class Bubble
         dot.Style = MurmurStyle.Style(error ? "MurmurBubbleError" : "MurmurBubbleDot");
         MurmurStyle.Named(surface, message);
         surface.Padding = listening || processing ? new Thickness(5, 2, 5, 2) : new Thickness(10);
-        surface.CornerRadius = new CornerRadius(listening || processing ? 22 : 18);
+        surface.CornerRadius = new CornerRadius(listening || processing ? 16 : 18);
         partial.Visibility = Visibility.Collapsed;
         partial.Text = "";
-        cardPreview.Visibility = cardButtons.Visibility = card ? Visibility.Visible : Visibility.Collapsed;
+        this.card.Visibility = card ? Visibility.Visible : Visibility.Collapsed;
+        indicator.Visibility = card ? Visibility.Collapsed : Visibility.Visible;
         if (!card) { cardText = null; cardPreview.Text = ""; }
         if (listening || processing) SetLevel(0);
 
@@ -141,7 +163,7 @@ internal sealed class Bubble
         display = foreground != 0
             ? DisplayArea.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(foreground), DisplayAreaFallback.Primary)
             : DisplayArea.Primary;
-        surface.Width = card ? 320 : error ? 240 : listening ? 80 : 220;
+        surface.Width = card ? 320 : error ? 240 : listening ? 72 : 220;
         ResizeAndPlace();
         visible = true;
         if (dismissAfter is { } seconds) { hideTimer.Interval = TimeSpan.FromSeconds(seconds); hideTimer.Start(); }
