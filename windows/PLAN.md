@@ -285,6 +285,27 @@ GPU-less Windows VM with 16 physical and logical cores. Each warm helper process
 
 CPU cleanup uses up to eight physical cores for each LLamaSharp thread setting. Eight preserved near-default latency in the VM run. The measured process peak still reached 1,433%, so the thread settings alone do not establish a process-wide CPU ceiling. Confirm the sustained and peak process CPU and end-to-end latency on the 5900X before drawing conclusions about whole-system load.
 
+### Star Labs PC results (RTX 3080, 2026-11-20, `b59e1cf`)
+
+Synthetic harness WAVs, helpers driven over their line protocols, runs alternating CPU and GPU. CPU % is on the one-core scale. Parity counts only word edits. About 400% of background CPU (NZXT CAM) was present. The raw CSVs are in `T:\Paseo Project\Murmur\bench-gpu\results`.
+
+| Path | CPU | GPU | Parity |
+| --- | --- | --- | --- |
+| Batch speech, 24 clips | 166 ms median, 510% mean CPU | DirectML 447 ms median, 130% CPU, 970 MB VRAM | 115/115 exact |
+| Live Words, 40 s real-time feed | first partial 1.6–2.2 s, drain 1.0–1.7 s, 440–456% CPU | DirectML first partial 1.6–1.7 s, drain 0.5–0.6 s, 65–76% CPU | finals 4/4; partials 476/480 in order |
+| Cleanup, 12 inputs × 4 | 357 ms median, 903% mean / 1,645% peak CPU | Vulkan 149 ms median, 66% CPU, 1.3 GB VRAM, 25/25 layers | 48/48 exact |
+
+Decisions:
+- Batch speech stays on CPU, because DirectML is slower for short clips. "Use GPU when available" now covers Live Words and cleanup.
+- Batch CPU threads stay at 4. Eight threads was about 7 ms faster at twice the CPU; 12 was slower.
+- Spin can't be tuned in sherpa 2.0.1 without a patch, so it's left alone.
+
+Open items:
+- The cleanup CPU cap of min(8, physical cores) didn't hold the peak (1,445–1,649%). OpenMP (`VCOMP140`) is suspected, but `OMP_NUM_THREADS` didn't change it. This only matters on CPU-only machines.
+- The first Vulkan request after context creation took 3.7 s once.
+- A cold-cache `dotnet publish` once left out `Cleanup\runtimes\win-x64\native\vulkan`. package.ps1 already fails in that case, but staged plain publishes must check it.
+- Live Words is off by default (`liveWords` has no Windows override). The app-next2 baseline most likely had it off or the streaming model not downloaded. That's unconfirmed, since the user's data wasn't read.
+
 ## Website matching for modes
 
 Required in v1, as on the Mac (`ScreenReading.swift:10-38`: the page URL from the browser's web area, read only for mode matching, never stored or logged).

@@ -67,7 +67,8 @@ internal sealed class LocalTranscriber : IDisposable
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { vocabulary = null; }
         }
-        return Verify() ? HelperLaunch.Make(ModelDirectory, vocabulary, preferGpu: s.Settings.Get(Prefs.UseGpuWhenAvailable)) : null;
+        // Batch speech stays on CPU: on an RTX 3080, DirectML ran 447 ms median against 166 ms on CPU (PLAN.md, GPU acceleration).
+        return Verify() ? HelperLaunch.Make(ModelDirectory, vocabulary) : null;
     }
 
     public ChunkJob StartChunks(string wavPath, CancellationToken ct)
