@@ -15,7 +15,7 @@ internal sealed partial class SettingsView
     static Button Btn(string text, Action click, string? name = null, bool plain = false)
     {
         var b = MurmurStyle.Named(new Button { Content = text, MinHeight = 30, Padding = new Thickness(12, 0, 12, 0), CornerRadius = new CornerRadius(5) }, name ?? text);
-        if (plain) b.BorderThickness = new Thickness(0);
+        if (plain) { b.BorderThickness = new Thickness(0); b.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent); }
         b.Click += (_, _) => click();
         return b;
     }

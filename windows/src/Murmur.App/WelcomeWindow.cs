@@ -96,7 +96,7 @@ internal sealed partial class WelcomeWindow : Window
     static Button Outline(string text, Action click, bool plain = false)
     {
         var b = MurmurStyle.Named(new Button { Content = text, MinHeight = 36, Padding = new Thickness(18, 0, 18, 0), CornerRadius = new CornerRadius(18) }, text);
-        if (plain) b.BorderThickness = new Thickness(0);
+        if (plain) { b.BorderThickness = new Thickness(0); b.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent); }
         b.Click += (_, _) => click();
         return b;
     }
