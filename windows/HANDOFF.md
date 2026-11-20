@@ -100,23 +100,21 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - the welcome guide.
 - **M5 and M6:** not started.
 
-## Active workers (Claude Sonnet 5.5, medium effort, bypassPermissions, on the Mac host; started 2026-11-20 ~01:58Z at the user's request while Codex's 5h window was at 5%)
+## Active workers (Codex `gpt-6.2-sol`, medium effort, full-access, on the Mac host; started 2026-11-20 02:38Z after the Codex reset)
 
-The Codex workers `73cf71a2`, `a7240d06` and `660ac734` are archived. Worktree folders were reused for Paseo workspaces, so folder names no longer match branches.
+Merged since the last handoff: M4 core `4aab0c6`, learning observer `67e4ed3`, Chrome probe fixes `b3fcd18`, and the Insights time-zone fix for Windows `ad1212c`. CI had been red from `4aab0c6` to `ad1212c`. The Claude workers `89746ba4`, `c90225b7` and `774c3946` are archived. Worktree folder names no longer match branches.
 
-| # | Agent ID | Worktree / branch | Assignment | Start point |
-| --- | --- | --- | --- | --- |
-| A | `89746ba4` (archived) | `windows-m4-core` | M4 core ports. | **Merged** as `4aab0c6`: 22,609 Mac tests, 75/75 parity, goldens the same. Still open: Tips/ProfessionalHint persistence isn't compared with Swift UserDefaults; the EditShortcut reserved lists are app-supplied; the IVoiceEditTarget/EditChord seams are tested only with fakes. Next: the voice edit and welcome guide app/UI wiring (Codex, after the reset, with the Mac-look UI rework). |
-| B | `c90225b7-881f-4b75-b91f-e14cf650764d` (idle) | `.../windows-m3-live` / `windows-m4-sites` | Website matching. | Checkpoint committed locally; not merged yet. The Chrome failures weren't the reader: the window wasn't foregrounded (test fixed with AttachThreadInput/SwitchToThisWindow), and one Esc left the omnibox focused (test now presses Esc twice). After the fixes the normal read always matches, and one full pass matched every case. Still open: intermittent 'address bar did not take focus' after Ctrl+L (probe timing). Firefox and Brave not run. Next owner: Codex. |
-| C | `774c3946-7c5e-4143-87f1-411be3e0c079` (idle) | `.../windows-ui-fluent` / `windows-m4-learning` | Learning observer. | Code complete, local commits `c13d175` and `f4ac58f`. Mac tests pass (22,250). **Blocked on the VM:** the Windows build/publish/App tests haven't run, nor have the readable and unreadable field tests. Known gaps: clicks are detected with GetAsyncKeyState (can miss; the focus check is the backstop); no History `AfterPaste` record and no tips update; no dictionary refresh and no "learned" notice. |
+| # | Agent ID | Worktree folder / branch (from `ad1212c`) | Assignment |
+| --- | --- | --- | --- |
+| UI | `011b034c-1275-4d94-9ab7-df651151be2a` | `windows-m4-core` / `windows-ui-maclook` | Rework Settings, History, the bubble and the tray to match the Mac app's look (PLAN.md "UI workstream"), with Mac-vs-Windows pairs in `/tmp/murmur-maclook`. |
+| Sites | `b84929e5-893a-42b5-a02b-07d8fb945fd3` | `windows-m3-live` / `windows-m4-sites` | Fix the Chrome Ctrl+L timing, re-run Edge, then the Firefox and Brave matrix rows. |
+| VoiceEdit | `c281bc63-eaf3-4166-b2af-4a9c1ceae103` | `windows-ui-fluent` / `windows-m4-voiceedit` | Voice edit end to end in the app (`Controller.VoiceEdit.cs`, UIA selection/replace), plus the learning extras: the History AfterPaste record and tips, the dictionary refresh and the "learned" notice. |
 
-**Queued (no worker yet):** the UI rework to match the Mac app's look (PLAN.md "UI workstream"; user direction 2026-11-19). It starts on a Codex worker after the Codex reset (schedule `aae94043`, 02:40Z) when a slot is free.
+**After these:** the welcome guide UI (in the Mac look) with the Right Ctrl step, then the M4 exit on the user's PC (browser matrix, learning on readable and unreadable fields).
 
-**Handback to Codex after the reset:** the Claude worker commits a checkpoint and stops, then a new Codex worker takes the branch. One owner per branch at a time.
+**Before merging App changes:** run the VM `dotnet publish` (trimmed) as well as `dotnet test windows/Murmur.App.slnx`. The Mac solution doesn't build Murmur.App, and the Mac doesn't catch Windows-only test failures such as time zone IDs under InvariantGlobalization.
 
-**Claude usage rule:** at ≤20% weekly, start no new Claude work; at ≤10%, checkpoint. It was 29% weekly at 01:58Z.
-
-**Desktop:** worker B holds it. Worker C asks for it after B.
+**Desktop:** the UI worker holds it; Sites and VoiceEdit queue after it.
 
 **Pause, 2026-11-19 23:45Z:** Codex's 5h window is at 10% (it resets 02:31Z); Codex weekly is 72%. Claude's 5h window is at 100%, weekly 29%. All Codex workers are paused. The one-shot Paseo schedule `aae94043` (02:40Z) wakes the coordinator to resume them. On resume: `paseo usage --json --refresh`, then resume workers 1, 2 and 3 from their checkpoints.
 
