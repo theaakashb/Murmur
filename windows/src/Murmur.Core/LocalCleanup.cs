@@ -105,6 +105,9 @@ public sealed class LocalCleanupRunner
     /// <summary>Full pinned-checksum check of the installed files, set by the app (for example <c>() =&gt; ModelVerificationCache.Shared.Verify(...)</c> wrapped to return false on <see cref="RetentionError"/>); null skips it.</summary>
     public static Func<bool>? Verifier { get; set; }
 
+    /// <summary>Set by the app so new helper processes use the current settings.</summary>
+    public Func<bool>? PreferGpu { get; set; }
+
     static ModelManifest? PinnedManifest
     {
         get
@@ -171,7 +174,7 @@ public sealed class LocalCleanupRunner
                 verified = true;
                 if (cancellationToken.IsCancellationRequested) throw new ProviderException(ProviderError.Cancelled);
             }
-            var (kind, text) = await RoundTrip(request).ConfigureAwait(false);
+            var (kind, text) = await RoundTrip(request, cancellationToken).ConfigureAwait(false);
             ScheduleIdle();
             if (cancellationToken.IsCancellationRequested) { Terminate(); throw new ProviderException(ProviderError.Cancelled); }
             return kind switch
@@ -201,9 +204,7 @@ public sealed class LocalCleanupRunner
                 if (!await Task.Run(() => check?.Invoke() ?? true).ConfigureAwait(false)) return;
                 verified = true;
             }
-            bool needsLaunch;
-            lock (sync) needsLaunch = process is null;
-            if (needsLaunch && Launch() && await NextLine(startupTimeout).ConfigureAwait(false) is null) Terminate();
+            await EnsureReady(CancellationToken.None).ConfigureAwait(false);
             ScheduleIdle();
         }
         finally { Release(); }
@@ -275,15 +276,29 @@ public sealed class LocalCleanupRunner
         queued?.TrySetResult(false);
     }
 
-    async Task<(Reply, string?)> RoundTrip(LocalCleanupRequest request)
+    async Task<Reply?> EnsureReady(CancellationToken cancellationToken)
     {
-        bool needsLaunch;
-        lock (sync) needsLaunch = process is null;
-        if (needsLaunch)
+        lock (sync) { if (process is not null) return null; }
+        var gpu = PreferGpu?.Invoke() == true;
+        var failure = Reply.Failed;
+        while (!cancellationToken.IsCancellationRequested)
         {
-            if (!Launch()) return (Reply.Failed, null);
-            if (await NextLine(startupTimeout).ConfigureAwait(false) is not { } hello || !hello.Contains("\"ready\":true")) { Terminate(); return (Reply.Timeout, null); }
+            var started = Launch(gpu);
+            if (started && !cancellationToken.IsCancellationRequested &&
+                ModelHelper.Answer(await NextLine(startupTimeout).ConfigureAwait(false))?["ready"]?.GetValueKind() == JsonValueKind.True)
+                return null;
+            failure = started ? Reply.Timeout : Reply.Failed;
+            Terminate();
+            if (!gpu || cancellationToken.IsCancellationRequested) break;
+            Trace.TraceInformation("Murmur cleanup: GPU initialization failed. Using CPU.");
+            gpu = false;
         }
+        return failure;
+    }
+
+    async Task<(Reply, string?)> RoundTrip(LocalCleanupRequest request, CancellationToken cancellationToken)
+    {
+        if (await EnsureReady(cancellationToken).ConfigureAwait(false) is { } startupError) return (startupError, null);
         int id;
         StreamWriter? writer;
         lock (sync) { id = nextId++; writer = input; }
@@ -303,7 +318,7 @@ public sealed class LocalCleanupRunner
         catch (JsonException) { Terminate(); return (Reply.Failed, null); }
     }
 
-    bool Launch()
+    bool Launch(bool gpu)
     {
         var path = Executable;
         if (!File.Exists(path)) return false;
@@ -314,6 +329,7 @@ public sealed class LocalCleanupRunner
             StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = new UTF8Encoding(false),
         };
         start.ArgumentList.Add(Directory);
+        if (gpu) start.ArgumentList.Add("--gpu");
         start.Environment["HF_HUB_OFFLINE"] = "1";
         Process task;
         try { task = Process.Start(start) ?? throw new InvalidOperationException(); }

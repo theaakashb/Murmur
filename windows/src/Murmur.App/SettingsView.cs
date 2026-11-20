@@ -336,6 +336,8 @@ internal sealed partial class SettingsView
         Heading("Speech recognition");
         var speechRow = new ModelRow(s, s.SpeechSlot, controller, root, go => { s.Local.Release(); go(); }, UpdateModelRoutes);
         page.Children.Add(MurmurStyle.Card(speechRow.Panel));
+        Toggle("Use GPU when available", "Accelerates on-device speech and local cleanup.", Prefs.UseGpuWhenAvailable,
+            LocalCleanupRunner.Shared.MemoryPressure, visible: true);
         var tabs = SegmentedRow("Where transcription runs", null, [.. TranscriptionChoices.Select(c => c.Label)], Array.FindIndex(TranscriptionChoices, c => c.Route == Routes.Transcription),
             i => SaveRoutes(r => r with { Transcription = TranscriptionChoices[i].Route }), i => TranscriptionNote(TranscriptionChoices[i].Route));
         tabs.SetEnabled(0, false);

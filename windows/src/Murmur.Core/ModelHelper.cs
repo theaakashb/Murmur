@@ -30,12 +30,23 @@ public static class ModelHelper
         answer?[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     /// <summary>Runs a display-only live helper until capture ends. The caller bounds the incoming audio queue.</summary>
-    public static async Task StreamAsync(string helper, string folder, ChannelReader<float[]> samples, Action<string> onPartial, CancellationToken ct)
+    public static async Task StreamAsync(string helper, string folder, ChannelReader<float[]> samples, Action<string> onPartial, CancellationToken ct, bool preferGpu = false)
     {
-        if (ct.IsCancellationRequested) return;
-        using var process = new Process { StartInfo = StartInfo(helper, [folder, "--stream", AudioFormat.SampleRate.ToString(System.Globalization.CultureInfo.InvariantCulture)], redirectInput: true) };
+        if (preferGpu && !ct.IsCancellationRequested)
+        {
+            if (await StreamAttempt(helper, folder, samples, onPartial, ct, gpu: true).ConfigureAwait(false) || ct.IsCancellationRequested) return;
+            Trace.TraceInformation("Murmur Live Words: GPU initialization failed. Using CPU.");
+        }
+        if (!ct.IsCancellationRequested) await StreamAttempt(helper, folder, samples, onPartial, ct, gpu: false).ConfigureAwait(false);
+    }
+
+    static async Task<bool> StreamAttempt(string helper, string folder, ChannelReader<float[]> samples, Action<string> onPartial, CancellationToken ct, bool gpu)
+    {
+        var arguments = new List<string> { folder, "--stream", AudioFormat.SampleRate.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+        if (gpu) arguments.Add("--gpu");
+        using var process = new Process { StartInfo = StartInfo(helper, arguments, redirectInput: true) };
         try { process.Start(); }
-        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { return; }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { return false; }
         process.ErrorDataReceived += static (_, _) => { };
         process.BeginErrorReadLine();
         using var stopping = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -57,11 +68,20 @@ public static class ModelHelper
             catch (Exception e) when (e is IOException or InvalidOperationException or OperationCanceledException) { Kill(process); }
         }
 
-        var writer = Write();
+        var reader = process.StandardOutput.BaseStream;
+        var pending = new List<byte>();
+        Task writer = Task.CompletedTask;
+        bool ready = false;
         try
         {
-            var pending = new List<byte>();
-            while (await ReadLineAsync(process.StandardOutput.BaseStream, pending, stopping.Token).ConfigureAwait(false) is { } line)
+            using (var startup = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token))
+            {
+                startup.CancelAfter(TimeSpan.FromSeconds(gpu ? 10 : 60));
+                ready = Answer(await ReadLineAsync(reader, pending, startup.Token).ConfigureAwait(false))?["ready"]?.GetValueKind() == System.Text.Json.JsonValueKind.True;
+            }
+            if (!ready) return false;
+            writer = Write();
+            while (await ReadLineAsync(reader, pending, stopping.Token).ConfigureAwait(false) is { } line)
                 if (StringField(Answer(line), "partial") is { } text && !stopping.IsCancellationRequested) onPartial(text);
         }
         catch (Exception e) when (e is IOException or OperationCanceledException) { }
@@ -71,6 +91,7 @@ public static class ModelHelper
             await writer.ConfigureAwait(false);
             await process.WaitForExitAsync().ConfigureAwait(false);
         }
+        return ready;
     }
 
     public static ProcessStartInfo StartInfo(string helper, IEnumerable<string> arguments, bool redirectInput)
@@ -137,10 +158,10 @@ public static class ModelHelper
 
 /// <summary>What the helper loads: the model folder plus, when the dictionary has enabled entries, <c>--vocabulary FILE</c> (and <c>--lexicon FILE</c> once a word list exists).
 /// <see cref="Key"/> changes whenever any of those change, which restarts the warm helper. Built only by <see cref="Make"/>, so the warm helper and the one-shot fallback agree.</summary>
-public sealed record HelperLaunch(string Models, IReadOnlyList<string> Arguments, string Key)
+public sealed record HelperLaunch(string Models, IReadOnlyList<string> Arguments, string Key, bool PreferGpu = false)
 {
     /// <summary>Null unless the model folder holds the four files. shortcut: presence only; hash verification arrives with the ModelDownload port.</summary>
-    public static HelperLaunch? Make(string models, string? vocabularyFile = null, string? lexiconFile = null)
+    public static HelperLaunch? Make(string models, string? vocabularyFile = null, string? lexiconFile = null, bool preferGpu = false)
     {
         if (!ModelHelper.HasModelFiles(models)) return null;
         var key = new StringBuilder(Path.GetFullPath(models));
@@ -152,7 +173,7 @@ public sealed record HelperLaunch(string Models, IReadOnlyList<string> Arguments
             key.Append('|').Append(Convert.ToHexString(SHA256.HashData(terms)));
             if (lexiconFile is not null && File.Exists(lexiconFile)) { arguments.AddRange(["--lexicon", lexiconFile]); key.Append('|').Append(Path.GetFullPath(lexiconFile)); }
         }
-        return new HelperLaunch(models, arguments, key.ToString());
+        return new HelperLaunch(models, arguments, key.ToString(), preferGpu);
     }
 
     public bool HasVocabulary => Arguments.Count > 0;

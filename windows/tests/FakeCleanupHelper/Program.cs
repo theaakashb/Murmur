@@ -11,6 +11,12 @@ var folder = args.Length > 0 ? args[0] : ".";
 Console.OutputEncoding = new System.Text.UTF8Encoding(false);
 File.WriteAllText(Path.Combine(folder, "pid"), Environment.ProcessId.ToString());
 if (File.Exists(Path.Combine(folder, "notready"))) { Console.Out.WriteLine("{\"ready\":false}"); return 3; }
+if (File.Exists(Path.Combine(folder, "reject-gpu")))
+{
+    var gpu = args.Contains("--gpu");
+    File.AppendAllLines(Path.Combine(folder, "attempts"), [gpu ? "gpu" : "cpu"]);
+    if (gpu) { Console.Out.WriteLine("{\"ready\":false}"); return 3; }
+}
 Console.Out.WriteLine("{\"ready\":true}");
 Console.Out.Flush();
 
