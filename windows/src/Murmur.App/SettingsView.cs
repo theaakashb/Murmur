@@ -53,7 +53,7 @@ internal sealed partial class SettingsView
         description.Margin = new Thickness(0, 6, 0, 0);
         View = MurmurStyle.Named(new ScrollViewer
         {
-            Content = new StackPanel { Padding = new Thickness(36, 28, 36, 32), MaxWidth = 772, HorizontalAlignment = HorizontalAlignment.Left, Children = { title, description, tabHost, content } }
+            Content = new StackPanel { Padding = new Thickness(36, 28, 36, 32), Width = 772, HorizontalAlignment = HorizontalAlignment.Left, Children = { title, description, tabHost, content } }
         }, "Settings pane");
         BuildPane("General", BuildGeneral);
         BuildPane("Recording", BuildRecording);

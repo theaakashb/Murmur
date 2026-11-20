@@ -60,6 +60,12 @@
                     <SolidColorBrush x:Key="MurmurAccent" Color="{ThemeResource SystemColorHighlightColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOff" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPointerOver" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPressed" Color="#FFFFFF" />
             <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#4D6FF0" />
             <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#4D6FF0" />
             <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#4D6FF0" />
