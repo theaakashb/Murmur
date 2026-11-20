@@ -22,6 +22,7 @@ public partial class App : Application
     LiveMeetingPanel? liveMeetingPanel; // held for its refresh timer
     Bubble? bubble;
     TaskbarIcon? tray;
+    readonly Windows.UI.ViewManagement.UISettings trayTheme = new(); // held so its change event keeps firing
     MainWindow? main;
     WelcomeWindow? welcome;
 
@@ -85,8 +86,8 @@ public partial class App : Application
             ToolTipText = "Murmur",
             LeftClickCommand = showMenu,
             RightClickCommand = showMenu,
-            IconSource = new GeneratedIconSource { Text = "M", Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Colors.White), Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(255, 77, 111, 240)), FontSize = 36 },
         };
+        TrayIcons.Keep(tray, queue, trayTheme);
         tray.TrayIcon.MessageWindow.KeyboardEventReceived += (_, e) =>
         {
             if (e.KeyboardEvent is KeyboardEvent.ContextMenu or KeyboardEvent.KeySelect)
