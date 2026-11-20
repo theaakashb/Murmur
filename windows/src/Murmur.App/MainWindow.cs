@@ -8,10 +8,10 @@ using WinRT.Interop;
 namespace Murmur.App;
 
 /// <summary>The one shared window, like the Mac's: a sidebar (Home, Insights, History, Settings, status), and Settings opens inside it with its own sidebar.
-/// Meetings joins the sidebar when M5 lands.</summary>
+/// </summary>
 internal sealed partial class MainWindow : Window
 {
-    enum Page { Home, Insights, History, Settings }
+    enum Page { Home, Insights, Meetings, History, Settings }
 
     readonly AppServices s;
     readonly Controller controller;
@@ -21,6 +21,7 @@ internal sealed partial class MainWindow : Window
     readonly Dictionary<string, Border> navItems = [];
     SettingsView? settings;
     HistoryView? history;
+    MeetingsView? meetings;
     Page page = Page.Home;
     string settingsPane = "General";
 
@@ -45,6 +46,7 @@ internal sealed partial class MainWindow : Window
     }
 
     public void ShowHome() { Navigate(Page.Home); Activate(); }
+    public void ShowMeetings() { Navigate(Page.Meetings); Activate(); }
     public void ShowHistory() { Navigate(Page.History); Activate(); }
     public void ShowSettings() { Navigate(Page.Settings); Activate(); }
 
@@ -58,6 +60,10 @@ internal sealed partial class MainWindow : Window
         {
             case Page.Home: content.Content = HomePage(); break;
             case Page.Insights: content.Content = InsightsPage(); break;
+            case Page.Meetings:
+                meetings = new MeetingsView(s, controller, Root, () => WindowNative.GetWindowHandle(this));
+                content.Content = meetings.View;
+                break;
             case Page.History:
                 history ??= new HistoryView(s, Root);
                 history.Reload();
@@ -106,6 +112,7 @@ internal sealed partial class MainWindow : Window
             {
                 NavItem("home", "", "HOME", () => Navigate(Page.Home), page == Page.Home, true),
                 NavItem("insights", "", "INSIGHTS", () => Navigate(Page.Insights), page == Page.Insights, true),
+                NavItem("meetings", "\uE716", "MEETINGS", () => Navigate(Page.Meetings), page == Page.Meetings, true),
                 NavItem("history", "", "HISTORY", () => Navigate(Page.History), page == Page.History, true),
                 NavItem("settings", "", "SETTINGS", () => Navigate(Page.Settings), false, true),
             }
@@ -139,7 +146,7 @@ internal sealed partial class MainWindow : Window
             Highlight(hit.Pane);
         };
         var list = new StackPanel { Spacing = 4, Margin = new Thickness(16, 0, 16, 0) };
-        (string Pane, string Glyph)[] panes = [("General", ""), ("Dictation", ""), ("Writing", ""), ("Privacy & Storage", ""), ("Providers", "")];
+        (string Pane, string Glyph)[] panes = [("General", ""), ("Dictation", ""), ("Writing", ""), ("Meetings", "\uE716"), ("Privacy & Storage", ""), ("Providers", "")];
         foreach (var (pane, glyph) in panes)
         {
             if (pane == "Privacy & Storage") list.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 14, 0, 14), Style = MurmurStyle.Style("MurmurRuleLine") });

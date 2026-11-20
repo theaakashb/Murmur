@@ -60,6 +60,7 @@ public partial class App : Application
         services = new AppServices(queue);
         bubble = new Bubble(queue);
         controller = new Controller(services, bubble);
+        _ = new CallOfferPanel(services, controller, queue); // held by the controller's CallOffered event
 
         var menu = new TrayMenu(OpenSettings, OpenHistory, Quit, () => { if (controller!.MeetingLive) controller.StopMeeting(); else controller.StartMeeting(); }, () => controller!.MeetingLive);
         var showMenu = new XamlUICommand();
