@@ -52,7 +52,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - The Claude override still stands: keep working past 20%.
   - The UI polish worker (Sonnet) was already mid-task, so it finishes on Claude; new work starts on Codex.
 - **Mac UI reference (user, 2026-11-20):**
-  - `~/Applications/Murmur.app` runs the latest main and is the reference for UI behaviour.
+  - `/Applications/Murmur.app` (0.3.3 build 37, tag v0.3.3 = `c70cdb1`; main is 7 commits ahead with backup/meetings-export/CI/docs fixes, and `67b37a7` is included) and is the reference for UI behaviour.
   - Check its Info.plist version and build against origin/main first, and report any mismatch.
   - Observe only. Don't change its settings; don't read History, dictations, dictionary or keys; don't quit or restart it.
   - `screencapture` from agents gives a black frame, and the panel PNG hooks drop glass, shadow and animation.
