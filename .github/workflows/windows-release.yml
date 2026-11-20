@@ -1,0 +1,58 @@
+# DRAFT. Manual only; never runs on push or tag. Follows windows/PLAN.md "Release flow" steps 1-4.
+# Signing and upload are off by default. The Mac flow still owns appcast.xml and the Mac ZIP.
+name: windows-release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version X.Y.Z (the tag becomes windows-vX.Y.Z)
+        required: true
+      sign:
+        description: Sign with Azure Artifact Signing (needs the secrets below)
+        type: boolean
+        default: false
+      upload:
+        description: Upload to a DRAFT GitHub release (publishing and "latest" stay manual)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write   # draft release upload only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      # 1. Build and test.
+      - run: dotnet build windows/Murmur.App.slnx -c Release
+      - run: dotnet test windows/Murmur.App.slnx -c Release --no-build
+      # 2. Previous Windows release, so vpk can build a delta. Continue on first release.
+      - name: Download previous release
+        shell: pwsh
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          dotnet tool install vpk --version 1.2.161 --tool-path windows/tools/.vpk
+          windows/tools/.vpk/vpk.exe download github --repoUrl "https://github.com/${{ github.repository }}" --channel win --outputDir releases --token $env:GH_TOKEN
+        continue-on-error: true
+      # 3. Pack (self-contained x64 publish + vpk pack). Signing flags: edit windows/tools/package.ps1 when enabling.
+      - name: Pack
+        shell: pwsh
+        run: windows/tools/package.ps1 -Version "${{ inputs.version }}" -Out releases
+      - name: Sign (disabled unless inputs.sign)
+        if: ${{ inputs.sign }}
+        shell: pwsh
+        run: Write-Error 'Signing is not wired yet: add --azureTrustedSignFile / --signParams in package.ps1 and the Azure login step first.'; exit 1
+      # 4. Draft upload only.
+      - name: Upload to draft release
+        if: ${{ inputs.upload }}
+        shell: pwsh
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: windows/tools/.vpk/vpk.exe upload github --repoUrl "https://github.com/${{ github.repository }}" --channel win --outputDir releases --tag "windows-v${{ inputs.version }}" --merge --token $env:GH_TOKEN
+      - uses: actions/upload-artifact@v4
+        with: { name: windows-release-${{ inputs.version }}, path: releases/*.nupkg }
