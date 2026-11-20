@@ -43,6 +43,15 @@ public class MeetingCaptureTests
     }
 
     [Fact]
+    public void SessionEnumerationAndMicrophoneStartCoexistInOneProcess()
+    {
+        // Two [ComImport] coclasses with one CLSID in a process break each other, so both paths must share the activation style.
+        _ = AudioSessions.Clients();
+        MicrophoneStartFailsCleanlyWithoutADevice();
+        _ = AudioSessions.Clients();
+    }
+
+    [Fact]
     public void MicrophoneStartFailsCleanlyWithoutADevice()
     {
         IMeetingStream? stream = null;

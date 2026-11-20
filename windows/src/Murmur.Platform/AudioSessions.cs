@@ -7,7 +7,8 @@ namespace Murmur.Platform;
 /// <summary>Audio sessions per process (IAudioSessionManager2) and the process list; the Windows input of the call detector and of target resolution. Reading them needs no permission.</summary>
 public static class AudioSessions
 {
-    [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorClass { }
+    // No [ComImport] coclass here: a second one with AudioCapture's CLSID makes the runtime fail with "cannot cast MMDeviceEnumeratorClass to MMDeviceEnumeratorClass".
+    static readonly Guid MMDeviceEnumeratorClsid = new("BCDE0395-E52F-467C-8E3D-C4579291692E");
 
     [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IMMDeviceEnumerator
@@ -70,7 +71,7 @@ public static class AudioSessions
         var found = new Dictionary<int, (bool Input, bool Output)>();
         try
         {
-            var enumerator = (IMMDeviceEnumerator)(object)new MMDeviceEnumeratorClass();
+            var enumerator = (IMMDeviceEnumerator)Activator.CreateInstance(Type.GetTypeFromCLSID(MMDeviceEnumeratorClsid)!)!;
             foreach (var flow in new[] { eCapture, eRender })
                 foreach (var pid in ActivePids(enumerator, flow))
                     found[pid] = found.TryGetValue(pid, out var seen) ? (seen.Input || flow == eCapture, seen.Output || flow == eRender) : (flow == eCapture, flow == eRender);
