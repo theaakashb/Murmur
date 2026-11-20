@@ -9,11 +9,10 @@ using WinRT.Interop;
 
 namespace Murmur.App;
 
-internal sealed class SettingsView
+internal sealed partial class SettingsView
 {
     public static readonly string[] Panes = ["General", "Dictation", "Writing", "Privacy & Storage", "Providers"];
-    // Sub-tabs: the Mac's Modes, Dictionary and Cues are not on Windows yet (recorded in pairs/README.md).
-    static readonly Dictionary<string, string[]> Tabs = new() { ["Dictation"] = ["Recording", "Transcription", "Insertion"], ["Writing"] = ["Cleanup", "Learning"] };
+    static readonly Dictionary<string, string[]> Tabs = new() { ["Dictation"] = ["Recording", "Transcription", "Insertion"], ["Writing"] = ["Cleanup", "Modes", "Dictionary", "Cues", "Learning"] };
     static readonly Dictionary<string, string> Descriptions = new()
     {
         ["General"] = "Make Murmur feel at home on your PC.",
@@ -58,6 +57,9 @@ internal sealed class SettingsView
         BuildPane("Transcription", BuildTranscription);
         BuildPane("Insertion", BuildInsertion);
         BuildPane("Cleanup", BuildCleanup);
+        BuildPane("Modes", BuildModes);
+        BuildPane("Dictionary", BuildDictionary);
+        BuildPane("Cues", BuildCues);
         BuildPane("Learning", BuildLearning);
         BuildPane("Privacy & Storage", BuildData);
         BuildPane("Providers", BuildKeys);
