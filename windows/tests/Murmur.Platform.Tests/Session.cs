@@ -40,9 +40,11 @@ sealed class NotepadWindow : IDisposable
     [DllImport("user32.dll")] static extern nint GetForegroundWindow();
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(nint hwnd, out uint pid);
 
-    public NotepadWindow()
+    public NotepadWindow(string? file = null)
     {
-        process = Process.Start(new ProcessStartInfo("notepad.exe") { UseShellExecute = true })!;
+        var start = new ProcessStartInfo("notepad.exe") { UseShellExecute = true };
+        if (file is not null) start.ArgumentList.Add(file);
+        process = Process.Start(start)!;
         for (int i = 0; i < 100; i++)
         {
             Thread.Sleep(100);

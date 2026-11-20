@@ -43,7 +43,7 @@ public sealed class VoiceEditDesktopTests
 
 
         const string original = "old draft", instruction = "make it formal";
-        string edited = moveSelection ? "Formal revision." : "Revised draft.";
+        string edited = $"Revised draft {Guid.NewGuid():N}.";
         var root = Directory.CreateDirectory(Path.Combine(testDir!, Guid.NewGuid().ToString("N"))).FullName;
         Process? app = null, provider = null;
         try
@@ -68,7 +68,7 @@ public sealed class VoiceEditDesktopTests
             {
                 transcriptionRoute = "cloud", cleanupChoice = "custom-api", customAPIBaseURL = url + "/v1",
                 customTranscriptionAPIBaseURL = url + "/v1", customAPIModel = "fake-cleanup", customTranscriptionModel = "fake-asr",
-                historyMode = "on", shortcut = "right-ctrl", voiceEditShortcut = separate ? "custom:69:5" : "same",
+                historyMode = "on", shortcut = "right-ctrl", voiceEditShortcut = separate ? "custom:69:1" : "same",
             }));
             var launch = new ProcessStartInfo(appPath!) { UseShellExecute = false };
             launch.Environment["MURMUR_DATA_DIR"] = data;
@@ -88,31 +88,26 @@ public sealed class VoiceEditDesktopTests
 
             // The shared LearningTests helper closes Notepad by name, so leave any existing window alone.
             Assert.Empty(Process.GetProcessesByName("notepad"));
-            using var notepad = new NotepadWindow();
-            foreach (char letter in original)
-            {
-                byte vk = (byte)char.ToUpperInvariant(letter);
-                Key(vk); Key(vk, up: true);
-                await Task.Delay(30);
-            }
-            // Select only the synthetic span, even if Notepad restored an existing tab.
-            Key(0xA0);
-            for (int i = 0; i < original.Length; i++) { Key(0x25); Key(0x25, up: true); await Task.Delay(25); }
-            Key(0xA0, up: true);
+            var draft = Path.Combine(root, "draft.txt");
+            File.WriteAllText(draft, original);
+            using var notepad = new NotepadWindow(draft);
+            await WaitFor(() => FocusProbe.LearningTarget.Capture(out _)?.Read()?.Value == original,
+                "Notepad did not open the synthetic draft");
+            Key(KeyEvent.VkLControl);
+            Key((byte)'A'); Key((byte)'A', up: true);
+            Key(KeyEvent.VkLControl, up: true);
             var target = FocusProbe.LearningTarget.Capture(out _);
-            var before = target?.Read();
-            Assert.NotNull(before);
-            Assert.True(before.Value.AsSpan(before.Selection.Location, before.Selection.Length).SequenceEqual(original), "fixture was not selected");
+            await WaitFor(() => target?.Read()?.Selection.Length == original.Length, "fixture was not selected");
+            var before = target!.Read()!;
 
             byte trigger = separate ? (byte)'E' : (byte)KeyEvent.VkRControl;
-            if (separate) { Key(KeyEvent.VkLControl); Key(KeyEvent.VkLMenu); }
+            if (separate) Key(KeyEvent.VkLControl);
             Key(trigger);
             try
             {
                 await WaitFor(() => Event("recording-started"), "voice edit did not start recording");
                 await Task.Delay(700);
                 Key(trigger, up: true);
-                if (separate) Key(KeyEvent.VkLMenu, up: true);
                 if (moveSelection)
                 {
                     // Ctrl is still held, so paste must wait. Change the selection only after the edit was staged.
@@ -124,7 +119,7 @@ public sealed class VoiceEditDesktopTests
             finally
             {
                 Key(trigger, up: true);
-                if (separate) { Key(KeyEvent.VkLMenu, up: true); Key(KeyEvent.VkLControl, up: true); }
+                if (separate) Key(KeyEvent.VkLControl, up: true);
             }
 
             await WaitFor(() => Event("voice-edit") || Event("error"),
@@ -136,10 +131,7 @@ public sealed class VoiceEditDesktopTests
             string expectedValue = moveSelection ? before.Value : before.Value.Remove(before.Selection.Location, before.Selection.Length)
                 .Insert(before.Selection.Location, edited);
             await WaitFor(() => target!.Read()?.Value == expectedValue, "Notepad did not have the expected value");
-            if (moveSelection)
-                await WaitFor(() => ClipboardPaste.ReadText() != edited, "failed edit did not restore the clipboard");
-            else
-                await WaitFor(() => Event("clipboard-restored"), "successful edit did not restore the clipboard");
+            await WaitFor(() => ClipboardPaste.ReadText() != edited, "the edited text was left on the clipboard");
             var history = new HistoryStore(MurmurDataLocations.Standard(data).History).Entries().Single();
             Assert.True(history.RawText == instruction && history.WritingModeName == "Voice edit", "instruction History entry missing");
             Assert.True(moveSelection ? history.EditOriginal is null && history.Status == InsertionStatus.SavedNotInserted
