@@ -102,13 +102,15 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 
 ## Active workers (Codex `gpt-6.2-sol`, medium effort, full-access, on the Mac host; started 2026-11-20 02:38Z after the Codex reset)
 
-Merged since the last handoff: M4 core `4aab0c6`, learning observer `67e4ed3`, Chrome probe fixes `b3fcd18`, and the Insights time-zone fix for Windows `ad1212c`. CI had been red from `4aab0c6` to `ad1212c`. The Claude workers `89746ba4`, `c90225b7` and `774c3946` are archived. Worktree folder names no longer match branches.
+Merged since the last handoff: voice edit and learning extras `10cbd2a` (Notepad 2/2 with a fake provider; Murmur Cloud tested only at Core level; learning extras not exercised in a live app session), M4 core `4aab0c6`, learning observer `67e4ed3`, Chrome probe fixes `b3fcd18`, and the Insights time-zone fix for Windows `ad1212c`. CI had been red from `4aab0c6` to `ad1212c`. The Claude workers `89746ba4`, `c90225b7` and `774c3946` are archived. Worktree folder names no longer match branches.
 
 | # | Agent ID | Worktree folder / branch (from `ad1212c`) | Assignment |
 | --- | --- | --- | --- |
 | UI | `011b034c-1275-4d94-9ab7-df651151be2a` | `windows-m4-core` / `windows-ui-maclook` | Rework Settings, History, the bubble and the tray to match the Mac app's look (PLAN.md "UI workstream"), with Mac-vs-Windows pairs in `/tmp/murmur-maclook`. |
 | Sites | `b84929e5-893a-42b5-a02b-07d8fb945fd3` | `windows-m3-live` / `windows-m4-sites` | Fix the Chrome Ctrl+L timing, re-run Edge, then the Firefox and Brave matrix rows. |
-| VoiceEdit | `c281bc63-eaf3-4166-b2af-4a9c1ceae103` | `windows-ui-fluent` / `windows-m4-voiceedit` | Voice edit end to end in the app (`Controller.VoiceEdit.cs`, UIA selection/replace), plus the learning extras: the History AfterPaste record and tips, the dictionary refresh and the "learned" notice. |
+| M5 core | `c281bc63-eaf3-4166-b2af-4a9c1ceae103` | `windows-ui-fluent` / `windows-m5-core` (from `10cbd2a`) | M5 core ports: MeetingStreamFeed, MeetingStore, MeetingNotes and corpus, MeetingExport with exact escaping, speakers, the CallDetection logic. |
+
+**Ops:** the VM's C: drive dropped to about 700 MB during parallel builds. The archived workers' `C:\src\w-*` folders were deleted, freeing about 2.5 GB. Workers clean their own outputs and check free disk before building.
 
 **After these:** the welcome guide UI (in the Mac look) with the Right Ctrl step, then the M4 exit on the user's PC (browser matrix, learning on readable and unreadable fields).
 
