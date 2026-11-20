@@ -13,6 +13,22 @@ on:
 permissions:
   contents: read
 jobs:
+  sherpa-directml:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build pinned sherpa-onnx DirectML runtime
+        run: windows/tools/build-sherpa-directml.ps1 -WorkDir "$env:RUNNER_TEMP/sherpa" -Out "$env:RUNNER_TEMP/sherpa-native"
+      - name: Upload native runtime for verification
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sherpa-directml-win-x64
+          path: ${{ runner.temp }}/sherpa-native
+          retention-days: 14
+          if-no-files-found: error
   core:
     strategy:
       matrix:
