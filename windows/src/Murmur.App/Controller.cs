@@ -77,6 +77,7 @@ internal sealed partial class Controller : IDisposable
         tick.Interval = TimeSpan.FromMilliseconds(100);
         tick.Tick += (_, _) => OnTick();
         ReloadShortcuts();
+        InitMeetings();
         // Injected keys are ignored (our own Ctrl+V, other tools) except under the synthetic-audio test hook, where the harness drives the key with SendInput.
         hook = new KeyboardHook(OnKey, ignoreInjected: Environment.GetEnvironmentVariable("MURMUR_SYNTHETIC_AUDIO") is not { Length: > 0 });
         TestEvents.Emit("hook-installed");
@@ -618,6 +619,7 @@ internal sealed partial class Controller : IDisposable
         tick.Stop();
         hook.Dispose();
         EndLearning();
+        ShutdownMeetings();
         try { session?.Recorder?.Stop(); } catch (Exception) { }
         s.Local.Dispose();
         LocalCleanupRunner.Shared.Shutdown();
