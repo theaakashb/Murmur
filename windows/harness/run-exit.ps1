@@ -130,7 +130,7 @@ try {
 
     # Driver config and run.
     $cfg = Join-Path $run 'driver-config.json'
-    @{ dataDir = $data; outDir = $run; providerUrl = $url; fixturesDir = "$harness\fixtures"; pageFile = "$harness\pages\textarea.html"; count = $Count } |
+    @{ dataDir = $data; outDir = $run; providerUrl = $url; fixturesDir = "$harness\fixtures"; pageFile = "$harness\pages\textarea.html"; count = $Count; trigger = (-not $LocalOnly -and -not $LocalAsr) } |
         ConvertTo-Json | Set-Content $cfg -Encoding UTF8
     $driverCmd = Join-Path $run 'run-driver.cmd'
     @('@echo off', $dotnetRoot, "`"$driverExe`" run `"$cfg`" > `"$run\driver.log`" 2>&1", "echo %ERRORLEVEL% > `"$run\driver-exit.txt`"") | Set-Content $driverCmd -Encoding ASCII

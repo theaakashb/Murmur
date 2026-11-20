@@ -159,5 +159,12 @@
     "spoken": "let us review the agenda",
     "cleanup": "Let us review the agenda.",
     "seconds": 1.61
+  },
+  {
+    "id": "mode-email",
+    "wav": "mode-email.wav",
+    "spoken": "email mode can you send me the report by friday",
+    "cleanup": "Can you send me the report by Friday?",
+    "seconds": 2.88
   }
 ]
