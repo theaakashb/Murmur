@@ -349,8 +349,31 @@ internal sealed partial class SettingsView
             }
         }
 
+        var blocked = processing.Ledger.Blocked;
+        if (blocked.Count > 0)
+        {
+            Heading("Not learned");
+            page.Children.Add(Caption("Skipped because your fixes conflicted or were undone.", 0));
+            page.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 8, 0, 0), Style = MurmurStyle.Style("MurmurRuleLine") });
+            foreach (var item in blocked)
+            {
+                var (word, why) = item switch
+                {
+                    CorrectionLedger.BlockedItem.Heard h => (h.Source, "Fixes for this heard form are not learned"),
+                    CorrectionLedger.BlockedItem.Spelling sp => (sp.Target, "This spelling is not learned"),
+                    _ => ("", "")
+                };
+                var name = MurmurStyle.Text(word, "MurmurSettingLabel"); name.FontSize = 16; name.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+                var unblock = Btn("Unblock", () => { processing.Ledger.Unblock(item); Render(dictionaryPage, RenderDictionary); }, "Unblock " + word);
+                var row = new Grid { MinHeight = 64, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Children = { name, MurmurStyle.Text(why, "MurmurCaption") } }, unblock } };
+                Grid.SetColumn(unblock, 1); unblock.VerticalAlignment = VerticalAlignment.Center;
+                page.Children.Add(row);
+                page.Children.Add(new Border { Height = 1, Style = MurmurStyle.Style("MurmurRuleLine") });
+            }
+        }
+
         var reset = Btn("Reset Learned…", () => _ = ResetLearned(processing, message), "Reset learned entries");
-        reset.IsEnabled = processing.Dictionary.Entries.Any(e => e.Source == EntrySource.Learned);
+        reset.IsEnabled = processing.Dictionary.Entries.Any(e => e.Source == EntrySource.Learned) || blocked.Count > 0;
         reset.Margin = new Thickness(0, 16, 0, 0); reset.HorizontalAlignment = HorizontalAlignment.Left;
         page.Children.Add(Caption("“Heard as” forms are always replaced. With cleanup on, sound-alikes get fixed too. Edits save immediately.", 16));
         page.Children.Add(reset);

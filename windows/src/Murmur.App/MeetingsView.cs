@@ -20,6 +20,9 @@ internal sealed partial class MeetingsView
     readonly TextBlock clock = MurmurStyle.Text("", "MurmurSection");
     readonly Microsoft.UI.Dispatching.DispatcherQueueTimer timer;
     readonly HashSet<string> chosen = [];
+    static readonly string[] DateChoices = ["All dates", "Today", "Last 7 days", "Last 30 days", "Date range…"];
+    int dateFilter;
+    DateTime fromDate = DateTime.Today.AddDays(-29), throughDate = DateTime.Today;
     string search = "", tabName = "Notes", signature = "";
     string? selectedId;
     bool selecting, showEcho;
@@ -61,25 +64,41 @@ internal sealed partial class MeetingsView
 
     // ---- small builders ----
 
-    static Button Btn(string text, Action click, bool filled = false, bool plain = false, string? name = null)
-    {
-        var b = MurmurStyle.Named(new Button { Content = text, MinHeight = 34, Padding = new Thickness(16, 0, 16, 0), CornerRadius = new CornerRadius(17) }, name ?? text);
-        if (filled)
-        {
-            b.Style = MurmurStyle.Style("AccentButtonStyle");
-            var accent = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 77, 111, 240));
-            foreach (var key in new[] { "AccentButtonBackground", "AccentButtonBackgroundPointerOver", "AccentButtonBackgroundPressed" }) b.Resources[key] = accent;
-        }
-        if (plain) { b.BorderThickness = new Thickness(0); b.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent); }
-        b.Click += (_, _) => click();
-        return b;
-    }
+    static Button Btn(string text, Action click, bool filled = false, bool plain = false, string? name = null) =>
+        MurmurStyle.Pill(text, click, filled ? MurmurStyle.PillKind.Filled : plain ? MurmurStyle.PillKind.Plain : MurmurStyle.PillKind.Outline, name, height: 34);
 
     static TextBlock Mono(string text, double size = 11, bool accent = false)
     {
         var t = MurmurStyle.Text(text, accent ? "MurmurSectionInk" : "MurmurSection");
         t.FontSize = size;
         return t;
+    }
+
+    /// <summary>The Mac's DisclosureGroup: a chevron and "Audio and privacy" that reveal one paragraph under it.</summary>
+    UIElement PrivacyDisclosure()
+    {
+        bool speakers = s.Settings.Get(SpeakerFacts.SettingKey) as bool? ?? false, room = s.Settings.Get(SpeakerFacts.RoomKey) as bool? ?? false;
+        string retry = RetryWindow.Text;
+        var body = Lede(speakers
+            ? room ? $"For calls, the call’s audio is kept until speakers are separated. For microphone-only recordings, microphone audio is kept instead. Both are deleted after separation, at most {retry}."
+                   : $"Your microphone as Me and the call’s audio as Them, transcribed on this PC. Your audio is deleted as soon as it is transcribed; the call’s is kept until its speakers are separated, at most {retry}."
+            : "Your microphone as Me and the call’s audio as Them, transcribed on this PC. Audio is deleted as soon as it is transcribed.");
+        body.Visibility = Visibility.Collapsed; body.Margin = new Thickness(18, 4, 0, 0); body.MaxWidth = 560;
+        var chevron = new FontIcon { Glyph = "\uE76C", FontSize = 10, Style = MurmurStyle.Style("MurmurMutedIcon") };
+        var label = MurmurStyle.Text("Audio and privacy", "MurmurSettingLabel"); label.FontSize = 13;
+        var header = new Button
+        {
+            Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { chevron, label } }, Padding = new Thickness(0, 2, 0, 2), MinHeight = 0, BorderThickness = new Thickness(0),
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent)
+        };
+        MurmurStyle.Named(header, "Audio and privacy");
+        header.Click += (_, _) =>
+        {
+            bool open = body.Visibility == Visibility.Collapsed;
+            body.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+            chevron.Glyph = open ? "\uE70D" : "\uE76C";
+        };
+        return new StackPanel { Children = { header, body } };
     }
 
     static TextBlock Lede(string text) => MurmurStyle.Text(text, "MurmurDescription");
@@ -97,11 +116,7 @@ internal sealed partial class MeetingsView
         var title = new TextBlock { Text = "Meetings", Style = MurmurStyle.Style("MurmurHeading"), FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("ms-appx:///Fonts/InstrumentSerif-Regular.ttf#Instrument Serif"), CharacterSpacing = -20 };
         title.FontSize = 48; title.FontWeight = Microsoft.UI.Text.FontWeights.Normal;
         AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level1);
-        var privacy = new Expander
-        {
-            Header = "Audio and privacy", IsExpanded = false, Padding = new Thickness(0, 4, 0, 4), HorizontalAlignment = HorizontalAlignment.Left, BorderThickness = new Thickness(0),
-            Content = Lede("Your microphone as Me and the call’s audio as Them, transcribed on this PC. Audio is deleted as soon as it is transcribed.")
-        };
+        var privacy = PrivacyDisclosure();
         var left = new StackPanel { Spacing = 4, Children = { title, Lede("Find transcripts and notes from your calls."), privacy } };
         FrameworkElement right;
         if (r.Live is { } live)
@@ -143,8 +158,30 @@ internal sealed partial class MeetingsView
 
     List<Meeting> Filtered()
     {
-        var all = Recorder.Meetings.OrderByDescending(m => m.RecordedAt).ToList();
-        return search.Trim().Length == 0 ? all : all.Where(m => m.Matches(search.Trim())).ToList();
+        var today = DateTime.Today;
+        (DateTime? from, DateTime? through) = dateFilter switch
+        {
+            1 => (today, today), 2 => (today.AddDays(-6), today), 3 => (today.AddDays(-29), today), 4 => (fromDate, throughDate), _ => ((DateTime?)null, (DateTime?)null)
+        };
+        return Recorder.Meetings.OrderByDescending(m => m.RecordedAt).Where(m => m.Matches(search.Trim(), from, through)).ToList();
+    }
+
+    bool Filtering => search.Trim().Length > 0 || dateFilter != 0;
+
+    UIElement DateFilterBar()
+    {
+        var combo = MurmurStyle.Named(new ComboBox { ItemsSource = DateChoices, SelectedIndex = dateFilter, MinHeight = 36 }, "Filter meetings by date");
+        combo.SelectionChanged += (_, _) => { if (combo.SelectedIndex >= 0 && combo.SelectedIndex != dateFilter) { dateFilter = combo.SelectedIndex; Render(); } };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { combo } };
+        if (dateFilter == 4)
+        {
+            var from = MurmurStyle.Named(new CalendarDatePicker { Date = new DateTimeOffset(fromDate), Header = "From" }, "From date");
+            var through = MurmurStyle.Named(new CalendarDatePicker { Date = new DateTimeOffset(throughDate), Header = "Through" }, "Through date");
+            from.DateChanged += (_, e) => { if (e.NewDate is { } d && d.Date != fromDate) { fromDate = d.Date; if (fromDate > throughDate) throughDate = fromDate; Render(); } };
+            through.DateChanged += (_, e) => { if (e.NewDate is { } d && d.Date != throughDate) { throughDate = d.Date; if (throughDate < fromDate) fromDate = throughDate; Render(); } };
+            row.Children.Add(from); row.Children.Add(through);
+        }
+        return row;
     }
 
     FrameworkElement Body()
@@ -153,10 +190,12 @@ internal sealed partial class MeetingsView
         var box = MurmurStyle.Named(new TextBox { PlaceholderText = "Search meetings", Text = search, MinHeight = 36 }, "Search meetings");
         box.TextChanged += (_, _) => { if (box.Text == search) return; search = box.Text; Render(); view.DispatcherQueue.TryEnqueue(() => { if (FindBox(view) is { } b) { b.Focus(FocusState.Programmatic); b.SelectionStart = b.Text.Length; } }); };
         var count = Mono($"{filtered.Count} of {Recorder.Meetings.Count} meetings", 12);
+        var counts = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { count } };
+        if (Filtering) counts.Children.Add(Btn("Clear filters", () => { search = ""; dateFilter = 0; Render(); }, plain: true));
         var select = selecting
             ? new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { Mono($"{chosen.Count} selected", 12), Btn("Select All", () => { foreach (var m in filtered.Where(m => m.Id != Recorder.Live?.Id)) chosen.Add(m.Id); Render(); }, plain: true), Btn("Cancel", () => { selecting = false; chosen.Clear(); Render(); }, plain: true), Btn("Delete Selected…", () => _ = ConfirmDelete(Recorder.Meetings.Where(m => chosen.Contains(m.Id)).ToList())) } }
             : new StackPanel { Orientation = Orientation.Horizontal, Children = { Btn("Select Meetings", () => { selecting = true; Render(); }, plain: true) } };
-        var bar = new Grid { Padding = new Thickness(40, 12, 40, 8), ColumnSpacing = 12, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { new StackPanel { Spacing = 6, Children = { box, count } }, select } };
+        var bar = new Grid { Padding = new Thickness(40, 12, 40, 8), ColumnSpacing = 12, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { new StackPanel { Spacing = 6, Children = { new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { box, DateFilterBar() } }, counts } }, select } };
         Grid.SetColumn(select, 1);
         select.VerticalAlignment = VerticalAlignment.Top;
 
@@ -325,8 +364,61 @@ internal sealed partial class MeetingsView
         panel.Children.Add(box);
     }
 
+    /// <summary>Separation progress with Skip, then each speaker with Rename and Merge into (app/MeetingsUI.swift speakers()).</summary>
+    void SpeakersSection(StackPanel panel, Meeting m)
+    {
+        if (SpeakerFacts.Status(m.Speakers, Recorder.Separating.Contains(m.Id), m.Source.MicOnly) is { } status)
+        {
+            var row = new Grid { ColumnSpacing = 12, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } } };
+            row.Children.Add(Lede(status));
+            if (m.Speakers?.State == SpeakerState.Pending) { var skip = Btn("Skip", () => Recorder.SkipSeparation(m.Id)); Grid.SetColumn(skip, 1); row.Children.Add(skip); }
+            panel.Children.Add(row);
+        }
+        var numbers = MeetingSpeakers.Numbers(m);
+        if (m.Speakers?.State != SpeakerState.Done || numbers.Length == 0) return;
+        panel.Children.Add(Mono("SPEAKERS", 11, accent: true));
+        var flow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        foreach (int number in numbers)
+        {
+            int n = number;
+            var menu = new MenuFlyout();
+            var rename = new MenuFlyoutItem { Text = "Rename…" };
+            rename.Click += (_, _) => _ = RenameSpeaker(m, n);
+            menu.Items.Add(rename);
+            if (numbers.Length > 1)
+            {
+                var merge = new MenuFlyoutSubItem { Text = "Merge into" };
+                foreach (int other in numbers.Where(o => o != n))
+                {
+                    int o = other;
+                    var item = new MenuFlyoutItem { Text = MeetingSpeakers.Label(o, m) };
+                    item.Click += (_, _) => Recorder.MergeSpeaker(n, o, m.Id);
+                    merge.Items.Add(item);
+                }
+                menu.Items.Add(merge);
+            }
+            var b = Btn(MeetingSpeakers.Label(n, m), () => { }, name: "Speaker " + MeetingSpeakers.Label(n, m));
+            b.Flyout = menu;
+            flow.Children.Add(b);
+        }
+        panel.Children.Add(new ScrollViewer { Content = flow, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled });
+        panel.Children.Add(MurmurStyle.Text("Names stay with this meeting. To move one line, use its speaker label.", "MurmurCaption"));
+    }
+
+    async Task RenameSpeaker(Meeting m, int number)
+    {
+        var box = MurmurStyle.Named(new TextBox { Text = m.Speakers?.Names.GetValueOrDefault(number) ?? "", PlaceholderText = $"Speaker {number}", MaxLength = 60 }, "Speaker name");
+        var dialog = new ContentDialog
+        {
+            XamlRoot = root(), Title = "Rename speaker", PrimaryButtonText = "Rename", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary,
+            Content = new StackPanel { Spacing = 10, Children = { MurmurStyle.Text($"The name is kept with this meeting only. Leave it empty to go back to “Speaker {number}”."), box } }
+        };
+        if (await MurmurStyle.Named(dialog, "Rename speaker").ShowAsync() == ContentDialogResult.Primary) Recorder.RenameSpeaker(number, box.Text, m.Id);
+    }
+
     void TranscriptTab(StackPanel panel, Meeting m)
     {
+        SpeakersSection(panel, m);
         if (m.Lines.Any(l => l.Shown != null))
         {
             var echo = new CheckBox { Content = "Show hidden echo", IsChecked = showEcho, FontSize = 13 };
@@ -336,12 +428,33 @@ internal sealed partial class MeetingsView
         if (m.Lines.Count == 0) panel.Children.Add(Lede("No words were transcribed."));
         foreach (var line in m.Lines.Where(l => showEcho || !l.IsHidden))
         {
-            var row = new Grid { ColumnSpacing = 12, ColumnDefinitions = { new ColumnDefinition { Width = new GridLength(56) }, new ColumnDefinition { Width = new GridLength(72) }, new ColumnDefinition() } };
+            var row = new Grid { ColumnSpacing = 12, ColumnDefinitions = { new ColumnDefinition { Width = new GridLength(56) }, new ColumnDefinition { Width = new GridLength(96) }, new ColumnDefinition() } };
             row.Children.Add(Mono(MeetingExport.Clock(line.Start)));
             var who = MurmurStyle.Text(MeetingSpeakers.Label(line, m), "MurmurSettingLabel"); who.FontSize = 13; who.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+            FrameworkElement whoCell = who;
+            var numbers = MeetingSpeakers.Numbers(m);
+            if (m.Speakers?.State == SpeakerState.Done && line.Stream == m.Source.SpeakerStream && line.Speaker is not null)
+            {
+                // The Mac's per-line menu: move this one line to another speaker or a new one.
+                var menu = new MenuFlyout();
+                foreach (int other in numbers.Where(o => o != line.Speaker))
+                {
+                    int o = other; int id = line.Id;
+                    var item = new MenuFlyoutItem { Text = "Move to " + MeetingSpeakers.Label(o, m) };
+                    item.Click += (_, _) => Recorder.ReassignLine(id, o, m.Id);
+                    menu.Items.Add(item);
+                }
+                var fresh = new MenuFlyoutItem { Text = "Move to a new speaker" };
+                int lineId = line.Id, next = (numbers.Length == 0 ? 0 : numbers.Max()) + 1;
+                fresh.Click += (_, _) => Recorder.ReassignLine(lineId, next, m.Id);
+                menu.Items.Add(fresh);
+                who.TextTrimming = TextTrimming.CharacterEllipsis;
+                whoCell = new Button { Content = who, Flyout = menu, Padding = new Thickness(0), MinHeight = 0, BorderThickness = new Thickness(0), Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent), HorizontalAlignment = HorizontalAlignment.Left };
+                MurmurStyle.Named(whoCell, MeetingSpeakers.Label(line, m) + ", change speaker");
+            }
             var words = MurmurStyle.Text(line.VisibleText, "MurmurSettingLabel"); words.FontSize = 14; words.IsTextSelectionEnabled = true;
-            Grid.SetColumn(who, 1); Grid.SetColumn(words, 2);
-            row.Children.Add(who); row.Children.Add(words);
+            Grid.SetColumn(whoCell, 1); Grid.SetColumn(words, 2);
+            row.Children.Add(whoCell); row.Children.Add(words);
             panel.Children.Add(row);
         }
     }

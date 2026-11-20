@@ -11,6 +11,18 @@ internal sealed partial class SettingsView
 
     void BuildMeetings()
     {
+        var transcription = new[] { MeetingTranscription.Local, MeetingTranscription.Cloud };
+        SegmentedRow("Meeting transcription", "A change applies to meetings started afterwards; a meeting in progress keeps its route. Dictation’s route is set separately in Transcription.",
+            ["On this PC (Parakeet)", "Cloud (Custom Provider)"], MeetingRoute.Load(s.Settings) == MeetingTranscription.Cloud ? 1 : 0,
+            i => s.Settings.Set("meetingTranscription", i == 1 ? "cloud" : "local"),
+            i =>
+            {
+                if (i == 0) return "Meeting audio is transcribed on this PC and never leaves it. This is the default.";
+                var plan = RoutePlan.Make(RouteSettings.Load(s.Settings) with { Transcription = TranscriptionRoute.Cloud }, false, s.Key);
+                return plan.Transcriber is null ? (plan.Refusal ?? "No cloud transcriber is set up.") + " Choose one and save its key in Settings → Transcription."
+                    : DisclosureText.Summary(plan, ProcessingStage.Transcription) ?? "Meeting audio is sent to the cloud transcriber.";
+            }, cloud: [1]);
+
         var routes = new[] { MeetingNotesRoute.None, MeetingNotesRoute.CustomProvider };
         int current = MeetingNotesRoutes.Load(s.Settings) == MeetingNotesRoute.CustomProvider ? 1 : 0;
         SegmentedRow("Meeting notes", null, [.. routes.Select(r => r.Label())], current,
