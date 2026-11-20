@@ -1,6 +1,6 @@
 # Murmur for Windows: coordinator handoff
 
-Rewritten 2026-11-20 03:55Z by coordinator `f9e7f4a7-3580-4cf3-a339-f14b44fbf5d9`. Current coordinator, since 04:00Z: `268d6a36-00e7-40c3-a2bd-0b2dacfa5718`. Read this first, then `windows/PLAN.md` (the Status section is current), `windows/CONTRIBUTING.md` and `~/.claude/CLAUDE.md`.
+Refreshed 2026-11-20 about 06:15Z by coordinator 3 (`268d6a36-00e7-40c3-a2bd-0b2dacfa5718`; it took over from `f9e7f4a7` at 04:00Z). The orchestrator is `8f691026-6ec3-41d4-8c14-4cba2ef6db44`. Read this first, then `windows/PLAN.md` (the Status section is current), `windows/CONTRIBUTING.md` and `~/.claude/CLAUDE.md`.
 
 ## Objective
 
@@ -39,7 +39,8 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 - **Privacy:** never print or commit keys, transcripts, History contents, audio, model weights or screenshots. The desktops can show personal windows.
 - **Concurrency:** at most 3 active workers.
 - **Usage:** run `paseo usage --json` at least every 30 minutes.
-  - At 20% or less in any window, pause new work and prefer the other provider.
+  - User override: keep using Claude past the 20% threshold; the user resets it. Use Codex when it has headroom.
+  - Otherwise, at 20% or less in any window, pause new work and prefer the other provider.
   - At 10% or less, write a checkpoint into PLAN.md Status, push, and stop.
 - **Needs user:** park anything that needs the user and continue other work. Report at each milestone exit or blocker.
 - **Star Labs PC rules** (from the user):
@@ -168,11 +169,17 @@ Use a fresh branch from `windows` for each new task.
 
 ## Next actions
 
-1. Review and merge UI pass 3 (`windows-ui-meetings`) with the checklist; look at the pairs yourself.
-2. Build a fresh unsigned app for the user's PC (CI artifact `Murmur-windows-x64-unsigned`) and give the user the M4 and M5 PC checklist. Don't touch the PC while the user is testing.
-3. Remaining parity gaps to schedule, on Codex after 07:37Z:
-   - Firefox reader activation;
-   - the RestartToUpdate tray item (only the Settings button is verified);
+1. **Waiting on the user's PC retest of app-next2 (`687fca8`).** It covers the meeting crash (Start meeting, tray right-click, Stop) and Email mode (start the dictation with "Email mode, …"). The switch steps went to the orchestrator.
+   - If the crash recurs: run a read-only PC agent for the Application event log (.NET Runtime 1026), `%TEMP%\Murmur-crash.txt` and `%LOCALAPPDATA%\CrashDumps`, as at 05:40Z. Never read History, transcripts or audio.
+   - Earlier PC results on app-next (`0a21433`): learning PASS, model download PASS. Still to run: voice edit, the browser matrix (Firefox and Brave matter most), the 30-minute meeting.
+2. **CI is green at `a186cfd`.** Before merging, run `dotnet build windows/Murmur.App.slnx -c Release` on the VM. It catches CsWinRT1032, which the Mac build and sometimes `publish` miss.
+3. **Remaining gaps to schedule** (Codex 5h was 13% until 07:37Z; Claude weekly about 24%):
+   - Firefox reader activation, if the matrix fails;
+   - the hyphenated "E-mail mode" trigger (one token; both apps);
+   - the RestartToUpdate tray item;
    - speaker threshold tuning on real calls;
-   - the pass 5 remaining gaps (UI workstream above).
-4. M6 with the user: signing, then a test-repo release, then the first `windows-v*` draft.
+   - a possible harness flake: 18/21 once (Edge no-speech, Code clipboard-restored), 21/21 on the rerun;
+   - the pass 5 gaps: panel drag and the Meeting indicator setting, search synonyms, Home info wording.
+4. **M6 with the user:** set up Azure Artifact Signing (UPDATES.md "Needs user"), then a test-repo release, then the first `windows-v*` draft. Velopack stays on 1.2.161 until a stable 1.3 ships.
+
+**PC staging recipe:** `create_agent` on `srv_XXiOqPoelqaJ`, workspace `wks_3d3a18a1cff53984`, mode `auto`. Run `dotnet publish windows\src\Murmur.App -c Release -r win-x64 -o <new folder>` from `T:\Paseo Project\Murmur\src`, with the cache env vars on T:. Always use a new folder; never touch a running build. `archive_agent` can't reach PC agents.
