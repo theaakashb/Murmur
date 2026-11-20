@@ -1,5 +1,7 @@
 # Murmur for Windows: coordinator handoff
 
+**Current coordinator: Coordinator 4 (`b080c3f1-b10a-47bb-9925-44e541f682ff`), from 2026-11-20 09:40Z. Workers report to it.**
+
 Refreshed 2026-11-20 about 09:50Z by coordinator 3 (`268d6a36-00e7-40c3-a2bd-0b2dacfa5718`; it took over from `f9e7f4a7` at 04:00Z). The orchestrator is `8f691026-6ec3-41d4-8c14-4cba2ef6db44`. Read this first, then `windows/PLAN.md` (the Status section is current), `windows/CONTRIBUTING.md` and `~/.claude/CLAUDE.md`.
 
 ## Objective
@@ -114,7 +116,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 
 ## Active workers (09:50Z)
 
-Workers report to coordinator `268d6a36`. A new coordinator should message each worker with its own ID, then check each one's activity directly.
+Workers report to coordinator `b080c3f1` (messaged 09:40Z). A new coordinator should message each worker with its own ID, then check each one's activity directly.
 
 | Agent | Model | Worktree folder / branch | Assignment |
 | --- | --- | --- | --- |
