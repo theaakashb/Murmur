@@ -157,7 +157,7 @@ Use a fresh branch from `windows` for each new task.
   
   Install the latest CI artifact or `T:\Paseo Project\Murmur` app-next after the next build.
 - **M6:** the signing account, the test-repo release runs and publishing. The setup steps are in `windows/UPDATES.md`, "Needs user". The pinned vpk 1.2.161 still needs signtool and the dlib; Velopack 1.3 or later signs directly.
-- **Velopack 1.3:** the user asked for stable 1.3.x, but none exists. The only 1.3 build is the prerelease 1.3.39-g8d2844f; the latest stable is 1.2.161. Waiting on the user's choice: stay on 1.2.161, pin the prerelease, or wait.
+- **Velopack 1.3:** the user asked for stable 1.3.x, but none exists. The only 1.3 build is the prerelease 1.3.39-g8d2844f; the latest stable is 1.2.161. Decided: stay on 1.2.161, and move to 1.3 when a stable release ships (UPDATES.md). The user may still override.
 - **Optional:** a bigger VM disk, so parallel builds don't run low.
 
 ## Next actions

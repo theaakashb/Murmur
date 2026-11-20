@@ -37,7 +37,8 @@ Nothing below has been done. Agents hold no Azure access and no keys.
 7. Send the coordinator the endpoint, the account name and the profile name. They go in a non-secret `metadata.json` (`Endpoint`, `CodeSigningAccountName`, `CertificateProfileName`).
 
 **Then the agents:**
-- Decide the Velopack version. With the pinned 1.2.161, `--azureTrustedSignFile` needs `signtool.exe` and the Artifact Signing dlib on a Windows runner. Velopack 1.3 or later signs directly. Moving to 1.3 means bumping both the NuGet package and vpk together and re-running the VM install, update and uninstall test.
+- Velopack stays on stable 1.2.161 (decided 2026-11-20). No stable 1.3 exists yet; the only 1.3 build is the prerelease 1.3.39-g8d2844f. With 1.2.161, `--azureTrustedSignFile` signs through `signtool.exe` plus the Artifact Signing dlib, on a Windows runner only. Install both in CI before `vpk pack`, and verify the flags against `vpk pack -h` on 1.2.161.
+- When a stable 1.3 ships, move to it. Bump NuGet and vpk together, then rerun `tools/test-update-flow.ps1` on the VM. From 1.3, vpk signs directly through DefaultAzureCredential, without signtool or the dlib.
 - Wire `azure/login` with OIDC and the flag into `tools/package.ps1` and `windows-release.yml`, then confirm `signtool verify /pa` on `Setup.exe` and `Murmur.exe`.
 
 **User approvals still needed:** a test-repo release run; the first `windows-v*` draft release; and publishing. Publishing is manual and the release is never marked latest.
