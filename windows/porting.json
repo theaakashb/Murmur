@@ -68,6 +68,13 @@
       ],
       "sha256": "3fbc27ef3178ac4e5bb277c34b0964c763e53d6105514f091dee7be013b10e24"
     },
+    "app/Controller+Settings.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/CleanupStyle.cs",
+        "windows/tests/Murmur.Core.Tests/CleanupStyleTests.cs"
+      ],
+      "sha256": "23cdbe385e8107b0c3c536b57c3337191b2730951565d2dd9fc18eae2c0f5fa8"
+    },
     "app/Credentials.swift": {
       "csharp": [
         "windows/src/Murmur.Core/Credentials.cs"
@@ -314,6 +321,13 @@
         "windows/src/Murmur.Core/JsonSettingsStore.cs"
       ],
       "sha256": "0860f7c917f89b70671c0709dbe3bc1b0fc2ea50680ef6f7dd9013512c1de809"
+    },
+    "app/SettingsView.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/CleanupStyle.cs",
+        "windows/tests/Murmur.Core.Tests/CleanupStyleTests.cs"
+      ],
+      "sha256": "2561aa53e7430c9816f806ec5d46476c1cf5fa684335137b03ff2245b45bce81"
     },
     "app/Shortcut.swift": {
       "csharp": [

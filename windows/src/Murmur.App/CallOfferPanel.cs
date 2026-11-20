@@ -56,7 +56,7 @@ internal sealed partial class CallOfferPanel
         Grid.SetColumn(title, 1); Grid.SetColumn(close, 2);
         var never = Quiet(found.NeverLabel, () => { CallDetectionSettings.AddNever(s.Settings, found.App.ProcessName); Hide(); });
         never.FontSize = 11;
-        var take = MurmurStyle.Named(new Button { Content = "Take Notes", FontSize = 12, MinHeight = 28, Style = MurmurStyle.Style("AccentButtonStyle") }, "Take Notes");
+        var take = MurmurStyle.Named(new Button { Content = "Take Notes", FontSize = 12, MinHeight = 28, BorderThickness = new Thickness(0), Style = MurmurStyle.Style("AccentButtonStyle") }, "Take Notes");
         var accent = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 77, 111, 240));
         foreach (var key in new[] { "AccentButtonBackground", "AccentButtonBackgroundPointerOver", "AccentButtonBackgroundPressed" }) take.Resources[key] = accent;
         take.Click += (_, _) => { Hide(); controller.StartMeeting(found.Source); };
