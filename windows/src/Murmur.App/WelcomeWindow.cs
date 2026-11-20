@@ -71,7 +71,7 @@ internal sealed partial class WelcomeWindow : Window
 
     bool Done(Step st) => st switch
     {
-        Step.Microphone => MicrophonePrivacy.Read() == MicrophonePrivacy.State.Allowed && micOk,
+        Step.Microphone => MicrophonePrivacy.Read() != MicrophonePrivacy.State.Blocked && micOk,
         Step.RecordShortcut => s.Settings.Get(Prefs.Shortcut).StartsWith("custom:", StringComparison.Ordinal),
         Step.Transcription or Step.Cleanup => guide.IsConfirmed(st),
         Step.Model => s.Local.ModelFilesPresent,
