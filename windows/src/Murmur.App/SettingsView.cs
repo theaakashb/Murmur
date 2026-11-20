@@ -574,7 +574,7 @@ internal sealed partial class SettingsView
             DataBackup.Restore(folder, s.Locations);
             foreach (var key in current.Keys.Where(k => !merged.ContainsKey(k) && !DataBackup.IsMachineSetting(k))) s.Settings.Remove(key);
             foreach (var (key, value) in merged) s.Settings.Set(key, value);
-            s.History.ClearSessionOnly(); s.ReopenData(); controller.ReloadShortcuts();
+            s.History.ClearSessionOnly(); s.ReopenData(); controller.ResetMeetings(); controller.ReloadShortcuts();
             ShowStatus("Backup restored. Reopen Settings to see the restored values.", true);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or RetentionError or StoreError) { ShowStatus("Restore failed: " + e.Message, false); }
@@ -597,6 +597,7 @@ internal sealed partial class SettingsView
         }, s.Settings);
         s.History.ClearSessionOnly();
         s.ReopenData();
+        controller.ResetMeetings();
         ShowStatus(report.Succeeded ? "All Murmur data was deleted." : "Some data could not be deleted: " + string.Join(" ", report.Failures), report.Succeeded);
     }
 }

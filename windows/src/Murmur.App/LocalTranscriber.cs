@@ -174,7 +174,12 @@ internal sealed class LocalTranscriber : IDisposable
     }
 
     /// <summary>Transcribes one meeting chunk (a 16 kHz WAV in the meeting's private folder). Null when the helper cannot answer, so the chunk stays on disk for a retry; silent chunks give empty text.</summary>
-    public async Task<ChunkText?> TranscribeChunkAsync(string wavPath, CancellationToken ct)
+    public Task<ChunkText?> TranscribeChunkAsync(string wavPath, CancellationToken ct) => ChunkAsync(wavPath, false, ct);
+
+    /// <summary>The same with word times, so a line can be split where the speaker changes (speaker separation on, this PC's route only).</summary>
+    public Task<ChunkText?> TranscribeChunkTimedAsync(string wavPath, CancellationToken ct) => ChunkAsync(wavPath, true, ct);
+
+    async Task<ChunkText?> ChunkAsync(string wavPath, bool timed, CancellationToken ct)
     {
         byte[] bytes;
         try { bytes = await File.ReadAllBytesAsync(wavPath, ct).ConfigureAwait(false); }
@@ -182,9 +187,15 @@ internal sealed class LocalTranscriber : IDisposable
         if (WAVAudio.Decode(bytes) is not { } audio) return null;
         if (AudioFormat.ShouldSkipForSilence(SecondPeak(audio.Samples), audio.Samples.Length / (double)audio.SampleRate)) return new("");
         if (!HelperPresent || await Task.Run(Launch, ct).ConfigureAwait(false) is not { } launch) return null;
-        var line = await warm.TranscribeAsync(wavPath, HelperPath, launch, ct).ConfigureAwait(false)
-            ?? await ModelHelper.RunOnceAsync(HelperPath, launch, wavPath, ct).ConfigureAwait(false);
-        return ModelHelper.StringField(ModelHelper.Answer(line), "text") is { } text ? new(text) : null;
+        var line = timed ? await warm.TranscribeTimedAsync(wavPath, HelperPath, launch, ct).ConfigureAwait(false) : await warm.TranscribeAsync(wavPath, HelperPath, launch, ct).ConfigureAwait(false);
+        // The one-shot helper has no word times: a timed chunk that falls back to it is assigned whole.
+        line ??= await ModelHelper.RunOnceAsync(HelperPath, launch, wavPath, ct).ConfigureAwait(false);
+        var answer = ModelHelper.Answer(line);
+        if (ModelHelper.StringField(answer, "text") is not { } text) return null;
+        double[][]? words = null;
+        if (timed && answer?["words"] is System.Text.Json.Nodes.JsonArray list)
+            try { words = list.Select(item => item!.AsArray().Select(v => v!.GetValue<double>()).ToArray()).ToArray(); } catch (Exception e) when (e is InvalidOperationException or FormatException) { }
+        return new(text, false, words);
     }
 
     /// <summary>Ends the warm helper so the model files can be deleted.</summary>

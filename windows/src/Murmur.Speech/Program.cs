@@ -11,21 +11,26 @@ namespace Murmur.Speech;
 // Nothing here logs a transcript, a path, a term or an exception message: every failure is a content-free line.
 static class Program
 {
-    const string Usage = "Usage: MurmurSpeech MODEL_DIRECTORY (AUDIO_FILE [--single] | --serve | --stream SAMPLE_RATE | --diarize KEPT_WAV THRESHOLD) [--vocabulary VOCABULARY_JSON] [--lexicon WORD_LIST]";
+    const string Usage = "Usage: MurmurSpeech MODEL_DIRECTORY (AUDIO_FILE [--single] | --serve | --stream SAMPLE_RATE | --diarize KEPT_WAV THRESHOLD --embedding EMBEDDING_ONNX) [--vocabulary VOCABULARY_JSON] [--lexicon WORD_LIST]";
 
     static readonly Stream StdOut = Console.OpenStandardOutput();
 
     static int Main(string[] argv)
     {
         var args = argv.ToList();
-        string? vocabulary = Take(args, "--vocabulary"), lexicon = Take(args, "--lexicon");
+        string? vocabulary = Take(args, "--vocabulary"), lexicon = Take(args, "--lexicon"), embedding = Take(args, "--embedding");
         // The Mac's CTC dictionary model has no Windows counterpart: dictionary support here is hotwords on the same model.
         if (args.Contains("--ctc") || args.Contains("--vocabulary") || args.Contains("--lexicon")) return Fail(Usage);
         try
         {
             if (args.Count == 3 && args[1] == "--stream" && double.TryParse(args[2], System.Globalization.CultureInfo.InvariantCulture, out var rate) && rate is >= 8000 and <= 192000 && vocabulary is null)
                 return Live(args[0], rate);
-            if (args.Count == 4 && args[1] == "--diarize") { Emit(new() { ["error"] = "speaker separation is not available" }); return 1; }
+            if (args.Count == 4 && args[1] == "--diarize")
+            {
+                if (embedding is null || !double.TryParse(args[3], System.Globalization.CultureInfo.InvariantCulture, out var threshold) || !(threshold > 0 && threshold < 2)) return Fail(Usage);
+                Emit(new() { ["segments"] = Diarizer.Run(args[0], embedding, args[2], threshold) });
+                return 0;
+            }
             if (args.Count == 2 && args[1] == "--serve") return Serve(args[0], vocabulary, lexicon);
             bool single = args.Count == 3 && args[2] == "--single";
             if (args.Count != 2 && !single) return Fail(Usage);

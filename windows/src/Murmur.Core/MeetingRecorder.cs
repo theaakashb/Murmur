@@ -1,6 +1,6 @@
 // Port of app/MeetingRecorder.swift: one meeting at a time, the microphone and the call's audio chunked into one pump.
-// Not ported here: speaker separation (diarization) and the cloud transcription route. Capture, clock, dispatch and the
-// transcriber come in through the wiring, so the state machine runs under test without audio devices.
+// Speaker separation (diarization after Stop) and the cloud transcription route are included. Capture, clock, dispatch, the
+// transcriber and the diarizer come in through the wiring, so the state machine runs under test without audio devices.
 namespace Murmur.Core;
 
 public sealed class MeetingCaptureException(string message) : Exception(message);
@@ -36,7 +36,12 @@ public sealed record MeetingRecorderWiring(
     MeetingStore? Store, string? AudioRoot, bool Persists, IMeetingAudio Audio,
     Func<string, CancellationToken, Task<ChunkText?>>? Transcribe, Func<double> Clock, Action<Action> Post,
     Func<string, string> ApplyDictionary, Func<MeetingNotesRoute?> NotesRoute,
-    Func<Meeting, bool, CancellationToken, Task<MeetingNotesWriter.Outcome>>? NotesWriter, Func<bool> ConsentNeeded);
+    Func<Meeting, bool, CancellationToken, Task<MeetingNotesWriter.Outcome>>? NotesWriter, Func<bool> ConsentNeeded,
+    string? SpeakerRoot = null,
+    /// <summary>A Them chunk with word times, so a line can be split where the voice changes.</summary>
+    Func<string, CancellationToken, Task<ChunkText?>>? TranscribeTimed = null,
+    /// <summary>Runs diarization on the kept WAV with the threshold; null segments mean it failed. Cancelled by Skip, deletion and quitting.</summary>
+    Func<string, double, CancellationToken, Task<IReadOnlyList<SpeakerSegment>?>>? Diarize = null);
 
 /// <summary>Everything runs on the thread that calls it. Pump results and stream failures come back through <c>Post</c>.</summary>
 public sealed class MeetingRecorder
@@ -45,6 +50,9 @@ public sealed class MeetingRecorder
 
     MeetingRecorderWiring w = null!;
     readonly Dictionary<string, MeetingPump> pumps = [];
+    /// <summary>Answers handed to Post but not yet applied: the pump is idle by then, yet the meeting is not done (a fast transcriber would otherwise start separation before its audio was kept).</summary>
+    readonly Dictionary<string, int> undelivered = [];
+    bool Busy(string id) { lock (undelivered) return pumps.TryGetValue(id, out var pump) && !pump.IsIdle || undelivered.GetValueOrDefault(id) > 0; }
     readonly HashSet<string> askOnDone = [];
     IMeetingStream? me, them;
     string? folder;
@@ -55,6 +63,14 @@ public sealed class MeetingRecorder
     StreamWatch meWatch = new(0), themWatch = new(0);
     MeterScale meScale = new(), themScale = new();
     bool Persists => w.Persists;
+    readonly Dictionary<string, CancellationTokenSource> separations = [];
+
+    /// <summary>Set while the speaker models are present and the switch is on. Read when a meeting starts, so a change never affects a meeting in progress.</summary>
+    public bool SpeakersAvailable { get; set; }
+    public bool SeparateRoomSpeakers { get; set; }
+    /// <summary>False once the switch is off or the model is removed: finished meetings still waiting are then skipped, so their call audio is not kept for nothing.</summary>
+    public bool SpeakersWanted { get; set; } = true;
+    public HashSet<string> Separating { get; } = [];
 
     public Meeting? Live { get; private set; }
     public List<Meeting> Meetings { get; private set; } = [];
@@ -74,7 +90,7 @@ public sealed class MeetingRecorder
     public string? Message { get; set; }
     public string? NotesChoicePending { get; set; }
     public event Action? Changed;
-    public bool HasPendingUpdateWork => Live is not null || Finishing.Count > 0 || NotesWriting.Count > 0;
+    public bool HasPendingUpdateWork => Live is not null || Finishing.Count > 0 || NotesWriting.Count > 0 || Separating.Count > 0;
 
     /// <summary>The one place the recorder is wired. Finishes records a crash left open.</summary>
     public void Wire(MeetingRecorderWiring wiring)
@@ -111,18 +127,22 @@ public sealed class MeetingRecorder
     void Notify() => Changed?.Invoke();
 
     /// <summary>Starts recording, or asks for consent first. Returns false when nothing started.</summary>
-    public bool Start(MeetingSource source)
+    /// <param name="cloud">The meeting's cloud transcriber, fixed for this meeting (null means this PC).</param>
+    public bool Start(MeetingSource source, Func<string, CancellationToken, Task<MeetingCloudResult>>? cloud = null, string? cloudName = null)
     {
         if (Live is not null) { Message = "A meeting is already being recorded."; return false; }
         if (!w.Audio.CallAudioSupported) source = MeetingSource.MicrophoneOnly;
         if (w.ConsentNeeded()) { ConsentPending = source; return false; }
         if (w.AudioRoot is not { } root || w.Transcribe is null) { Message = "Meeting notes are unavailable: private storage could not be opened."; return false; }
-        var meeting = new Meeting { Id = Guid.NewGuid().ToString("D"), RecordedAt = DateTime.UtcNow, Source = source };
+        var meeting = new Meeting { Id = Guid.NewGuid().ToString("D"), RecordedAt = DateTime.UtcNow, Source = source, TranscribedBy = cloud is null ? null : cloudName };
+        // Fixed when the meeting starts, like the route: keep the Them stream for diarization.
+        if ((!source.MicOnly || SeparateRoomSpeakers) && SpeakersAvailable && w.SpeakerRoot is not null && w.Diarize is not null)
+            meeting.Speakers = new(SpeakerState.Pending) { Threshold = MeetingSpeakers.Threshold };
         string dir;
         try { dir = MeetingAudio.Folder(root, meeting.Id); PrivateFiles.PrepareDirectory(dir); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or RetentionError)
         { Message = "Meeting notes could not create private storage."; return false; }
-        var pump = MakePump(meeting.Id);
+        var pump = MakePump(meeting.Id, cloud, meeting.Speakers is not null && cloud is null, source.SpeakerStream);
         started = lastVoice = lastSave = Now;
         SystemAudioProblem = null; Warning = null; AskEnded = false; Behind = false; Elapsed = 0; Message = null;
         callApp = source.BundleID; callWasUsingMic = false;
@@ -182,7 +202,9 @@ public sealed class MeetingRecorder
     {
         if (Live is not { } meeting) return;
         meeting.Source = meeting.Source with { MicOnly = true };
+        meeting.Speakers = null;
         SystemAudioProblem = null; Save(true);
+        DeleteKeptAudio(meeting.Id);
     }
 
     public void Stop() => Finish(true);
@@ -197,7 +219,7 @@ public sealed class MeetingRecorder
         Meetings.Insert(0, meeting);
         Write(meeting);
         if (manual) askOnDone.Add(meeting.Id);
-        if (pumps.TryGetValue(meeting.Id, out var pump) && !pump.IsIdle) Finishing.Add(meeting.Id); else pumps.Remove(meeting.Id);
+        if (Busy(meeting.Id)) Finishing.Add(meeting.Id); else { pumps.Remove(meeting.Id); Separate(meeting.Id); }
         AskEnded = false; Warning = null; MeLevel = ThemLevel = 0;
         Notify(); RefreshLeftovers();
         if (!pumps.ContainsKey(meeting.Id)) TranscriptDone(meeting.Id);
@@ -209,16 +231,26 @@ public sealed class MeetingRecorder
         StopStream(ref me); StopStream(ref them); folder = null; livePump = null;
         if (pumps.Remove(meeting.Id, out var pump)) pump.Stop();
         if (w.AudioRoot is { } root) try { FileLinks.DeleteTree(MeetingAudio.Folder(root, meeting.Id)); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        Unsaved.Remove(meeting.Id); Erase(meeting.Id);
+        Unsaved.Remove(meeting.Id); Erase(meeting.Id); DeleteKeptAudio(meeting.Id);
         Live = null; AskEnded = false; Warning = null; SystemAudioProblem = null;
         Notify();
     }
 
-    MeetingPump MakePump(string id)
+    /// <summary>Leftovers are always finished on this PC (<paramref name="cloud"/> null): nothing falls back to the cloud. <paramref name="timed"/>: the speaker stream's chunks also ask for word times.</summary>
+    MeetingPump MakePump(string id, Func<string, CancellationToken, Task<MeetingCloudResult>>? cloud = null, bool timed = false, MeetingStream timedStream = MeetingStream.Them)
     {
-        var transcribe = w.Transcribe;
-        var pump = new MeetingPump(path => transcribe is null ? Task.FromResult<ChunkText?>(null) : transcribe(path, CancellationToken.None),
-            (job, text) => w.Post(() => Deliver(id, job, text)));
+        var local = w.Transcribe ?? ((_, _) => Task.FromResult<ChunkText?>(null));
+        var transcriber = MeetingRoute.Transcriber(cloud, local);
+        if (timed && w.TranscribeTimed is { } timedLocal)
+        {
+            var baseTranscriber = transcriber;
+            transcriber = (path, token) => MeetingAudio.Parse(path)?.Stream == timedStream ? timedLocal(path, token) : baseTranscriber(path, token);
+        }
+        var pump = new MeetingPump(path => transcriber(path, CancellationToken.None), (job, text) =>
+        {
+            lock (undelivered) undelivered[id] = undelivered.GetValueOrDefault(id) + 1;
+            w.Post(() => { lock (undelivered) undelivered[id]--; Deliver(id, job, text); });
+        });
         pumps[id] = pump;
         return pump;
     }
@@ -233,6 +265,7 @@ public sealed class MeetingRecorder
             // A leftover finished after notes were written: they no longer cover the whole transcript.
             if (SwiftText.TrimWhitespaceAndNewlines(spelled).Length > 0) meeting.MarkNotesOutdated();
         });
+        if (job.Stream == (Any(id)?.Source.SpeakerStream ?? MeetingStream.Them)) KeepAudio(id, job);
         try { File.Delete(job.Path); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         Settle(id);
     }
@@ -241,15 +274,16 @@ public sealed class MeetingRecorder
 
     void Settle(string id)
     {
-        if (Live?.Id == id || pumps.TryGetValue(id, out var pump) && !pump.IsIdle) return;
+        if (Live?.Id == id || Busy(id)) return;
         pumps.Remove(id); Finishing.Remove(id); RefreshLeftovers();
+        Separate(id);
         TranscriptDone(id);
     }
 
     /// <summary>The transcript is complete: write notes on the chosen route, or ask for one the first time.</summary>
     void TranscriptDone(string id)
     {
-        if (pumps.ContainsKey(id) || Finishing.Contains(id) || Meetings.FirstOrDefault(meeting => meeting.Id == id) is not { } meeting) return;
+        if (pumps.ContainsKey(id) || Finishing.Contains(id) || Meetings.FirstOrDefault(meeting => meeting.Id == id) is not { } meeting || meeting.Speakers?.State == SpeakerState.Pending) return;
         askOnDone.Remove(id);
         if (meeting.Notes is not null || !meeting.Lines.Any(line => !line.IsHidden)) return;
         switch (w.NotesRoute())
@@ -263,7 +297,7 @@ public sealed class MeetingRecorder
     /// <summary>Writes (or rewrites) a finished meeting's notes. Failure keeps the meeting and says why.</summary>
     public void WriteNotes(string id, bool lecture = false)
     {
-        if (w.NotesWriter is not { } writer || NotesWriting.Contains(id) || Finishing.Contains(id) || Meetings.FirstOrDefault(m => m.Id == id) is not { } meeting) return;
+        if (w.NotesWriter is not { } writer || NotesWriting.Contains(id) || Finishing.Contains(id) || Meetings.FirstOrDefault(m => m.Id == id) is not { } meeting || meeting.Speakers?.State == SpeakerState.Pending) return;
         if (!meeting.Lines.Any(line => !line.IsHidden)) { NotesProblem[id] = "There is no transcript to write notes from."; return; }
         NotesWriting.Add(id); NotesProblem.Remove(id);
         _ = Task.Run(async () =>
@@ -463,7 +497,7 @@ public sealed class MeetingRecorder
             try { store.Delete(id); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Message = "Could not delete this meeting."; return; }
         Unsaved.Remove(id);
         if (pumps.Remove(id, out var pump)) pump.Stop();
-        Finishing.Remove(id); NotesProblem.Remove(id);
+        Finishing.Remove(id); NotesProblem.Remove(id); CancelSeparation(id); DeleteKeptAudio(id);
         if (NotesChoicePending == id) NotesChoicePending = null;
         if (w.AudioRoot is { } root) try { FileLinks.DeleteTree(MeetingAudio.Folder(root, id)); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         Meetings.RemoveAll(meeting => meeting.Id == id);
@@ -478,7 +512,7 @@ public sealed class MeetingRecorder
             foreach (var meeting in Meetings.Where(m => m.RecordedAt <= at).ToArray())
             {
                 if (pumps.Remove(meeting.Id, out var pump)) pump.Stop();
-                Finishing.Remove(meeting.Id); Unsaved.Remove(meeting.Id);
+                Finishing.Remove(meeting.Id); Unsaved.Remove(meeting.Id); CancelSeparation(meeting.Id);
                 if (Persists) Erase(meeting.Id);
             }
             Meetings.RemoveAll(meeting => meeting.RecordedAt <= at);
@@ -494,6 +528,14 @@ public sealed class MeetingRecorder
         if (Live is { } live) active.Add(live.Id);
         int undeleted = MeetingAudio.Purge(root, Meetings.Select(meeting => meeting.Id).ToHashSet(), active);
         RefreshLeftovers();
+        // Kept Them audio: only for meetings still waiting for diarization, and never past RetryWindow.Text.
+        if (SpeakerRoot is { } speakerRoot)
+        {
+            var pending = Meetings.Concat(Live is null ? [] : [Live]).Where(m => m.Speakers?.State == SpeakerState.Pending).Select(m => m.Id).ToHashSet();
+            undeleted += SpeakerAudio.Purge(speakerRoot, pending, active.Union(Separating).ToHashSet());
+            // Resumes a separation that quitting interrupted, and fails one whose audio expired.
+            foreach (var id in pending.Where(id => !active.Contains(id))) Separate(id);
+        }
         if (undeleted > 0) Message = $"Murmur could not delete {undeleted} expired meeting audio {(undeleted == 1 ? "file" : "files")}. It will try again; you can also remove everything with Delete All Data.";
     }
 
@@ -510,5 +552,94 @@ public sealed class MeetingRecorder
         if (Live is not null) Finish(false);
         RetryUnsaved();
         foreach (var pump in pumps.Values) pump.Stop();
+        // A separation still pending runs again at the next launch while its audio is under RetryWindow.Text old.
+        foreach (var id in separations.Keys.ToArray()) CancelSeparation(id);
     }
+
+    // --- speaker separation ---
+    /// <summary><c>retry-audio\speakers</c>, beside the chunk folder, so Delete All Data's retry-audio step removes it.</summary>
+    string? SpeakerRoot => w.SpeakerRoot;
+
+    void KeepAudio(string id, MeetingPump.Job job)
+    {
+        if (Any(id)?.Speakers?.State != SpeakerState.Pending || SpeakerRoot is not { } root) return;
+        try { SpeakerAudio.Write(File.ReadAllBytes(job.Path), job.Start, SpeakerAudio.File(root, id)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or RetentionError) { /* the meeting keeps its transcript; separation fails for lack of audio */ }
+    }
+
+    /// <summary>Runs diarization once a finished meeting has no chunks left to transcribe. Without the models (separation turned off or removed since), the audio waits, at most RetryWindow.Text.</summary>
+    void Separate(string id)
+    {
+        if (Live?.Id == id || pumps.ContainsKey(id) || Separating.Contains(id) || SpeakerRoot is not { } root ||
+            Meetings.FirstOrDefault(m => m.Id == id) is not { Speakers.State: SpeakerState.Pending } meeting) return;
+        var audio = SpeakerAudio.File(root, id);
+        try
+        {
+            if (!File.Exists(audio)) { FinishSeparation(id, null, "no-call-audio"); return; }
+            SpeakerAudio.Finish(audio);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { FinishSeparation(id, null, "no-call-audio"); return; }
+        if (w.Diarize is not { } diarize || !SpeakersAvailable) { if (!SpeakersWanted) SkipSeparation(id); return; }
+        var cts = separations[id] = new CancellationTokenSource();
+        Separating.Add(id);
+        var threshold = meeting.Speakers?.Threshold ?? MeetingSpeakers.Threshold;
+        _ = Task.Run(async () =>
+        {
+            IReadOnlyList<SpeakerSegment>? segments = null;
+            try { segments = await diarize(audio, threshold, cts.Token).ConfigureAwait(false); }
+            catch (Exception) { }
+            // A cancelled run (Skip, deletion, quitting) answers nothing; its meeting is handled by the canceller.
+            if (!cts.IsCancellationRequested) w.Post(() => { if (separations.TryGetValue(id, out var current) && current == cts) FinishSeparation(id, segments, "helper-failed"); });
+        });
+    }
+
+    void FinishSeparation(string id, IReadOnlyList<SpeakerSegment>? segments, string reason)
+    {
+        separations.Remove(id); Separating.Remove(id);
+        if (Meetings.FirstOrDefault(m => m.Id == id)?.Speakers?.State != SpeakerState.Pending) return;
+        Update(id, meeting =>
+        {
+            if (segments is not null)
+            {
+                MeetingSpeakers.Apply(segments, meeting);
+                // Written before separation: they say Them, not the speakers.
+                meeting.MarkNotesOutdated();
+            }
+            else
+            {
+                meeting.Speakers = meeting.Speakers! with { State = SpeakerState.Failed, Failure = reason };
+                meeting.DropWordTimes();
+            }
+        });
+        DeleteKeptAudio(id);
+        Notify();
+        TranscriptDone(id);
+    }
+
+    public void SkipSeparation(string id)
+    {
+        if (Any(id) is not { Speakers.State: SpeakerState.Pending }) return;
+        CancelSeparation(id);
+        Update(id, meeting => { meeting.Speakers = meeting.Speakers! with { State = SpeakerState.Skipped }; meeting.DropWordTimes(); });
+        DeleteKeptAudio(id);
+        Notify();
+        TranscriptDone(id);
+    }
+
+    void CancelSeparation(string id)
+    {
+        if (separations.Remove(id, out var cts)) cts.Cancel();
+        Separating.Remove(id);
+    }
+
+    void DeleteKeptAudio(string id)
+    {
+        if (SpeakerRoot is not { } root) return;
+        try { File.Delete(SpeakerAudio.File(root, id)); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
+    // Renaming, merging and reassigning are per meeting and saved with it. A rename or merge relabels notes already written; a reassignment marks them out of date.
+    public void RenameSpeaker(int number, string name, string id) => Update(id, meeting => meeting.RenameSpeaker(number, name));
+    public void MergeSpeaker(int from, int into, string id) => Update(id, meeting => meeting.MergeSpeaker(from, into));
+    public void ReassignLine(int line, int speaker, string id) => Update(id, meeting => meeting.ReassignLine(line, speaker));
 }
