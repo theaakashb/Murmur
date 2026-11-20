@@ -131,7 +131,7 @@ internal sealed partial class Controller
             while (true)
             {
                 w.Signal.Wait(TimeSpan.FromSeconds(PollSeconds));
-                if (w.Aborted) return;
+                if (w.Aborted) break;
                 LearningTick(w, w.Ending);
                 if (w.Observation.Stopped) break;
             }
