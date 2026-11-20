@@ -95,7 +95,8 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - `tools\dotnet`: the .NET 10.0.404 SDK;
   - `cache`;
   - `models`: empty.
-- **Cache environment:** set `NUGET_PACKAGES`, `DOTNET_CLI_HOME` and `TEMP` to `T:` paths, in each process only.
+- **Cache environment:** set `DOTNET_CLI_HOME`, `NUGET_PACKAGES`, `NUGET_SCRATCH`, `TEMP` and `TMP` to `T:` paths in EVERY process, including `dotnet build-server shutdown`, so nothing lands on C:. The user requires nothing left on C:. The 2026-11-20 GPU bench left `C:\Users\aakash\.dotnet` (3 sentinel files), `%TEMP%\NuGetScratch` and three temp entries. Cleanup is pending.
+- **PC launch rule:** don't launch staged builds while the user's Murmur runs (single-instance). Verify staged builds by their files and hashes.
 
 ## Milestones
 
