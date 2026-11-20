@@ -127,15 +127,15 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - Pass 5, merged 2026-11-20 (`749dcc9`): meeting app picker, live floating meeting panel with pill, Lecture tab, settings search overlay (Ctrl+K), Home row opens its History entry, app display names. Harness 6/6 (median 330 ms). Remaining: the panel isn't draggable and the Meeting indicator setting does nothing; search has no synonyms; Home info wording. Unviewed: search jump-to-result, Not learned, a real live meeting.
   - Merge check: CsWinRT1032 shows up in `dotnet build -c Release` (and CI) but not always in `dotnet publish`. Run the Release build on the VM before pushing.
 
-## Active workers (09:50Z)
+## Active workers (21:40Z, 2026-11-20)
 
-Workers report to coordinator `b080c3f1` (messaged 09:40Z). A new coordinator should message each worker with its own ID, then check each one's activity directly.
+The earlier workers (32843b61, db434533, 1d14aebd) and this coordinator's session all closed at about 10:20Z; the cause is unknown. Their work was preserved, and Codex replacements resumed it at 21:40Z. All report to `b080c3f1`.
 
 | Agent | Model | Worktree folder / branch | Assignment |
 | --- | --- | --- | --- |
-| `1d14aebd-7c63-48e4-bda9-fe8d3ebfda9a` | Codex gpt-6.2-sol, medium | `windows-m4-core` / `windows-local-notes` | **Local meeting notes, phase 1.** It reads the Mac notes contract, verifies candidate GGUFs (2–8B plus the Vedu Scribe baseline), benchmarks them on the corpus and heldout set (Mac Metal and VM CPU), writes `windows/bench/notes/NOTES_MODEL_BENCHMARK.md`, and recommends. The user approved the workstream. Take the model choice to the orchestrator before pinning or uploading; uploads need the user's OK. Phase 2: a Settings › Models row with the fixed downloader, the notes route uses it, and a clear "not downloaded" message. |
-| `32843b61-bf04-45dd-a2ce-5edf491660f3` | Codex gpt-6.2-sol, medium | `windows-m3-live` / `windows-gpu` | **GPU acceleration, "Use GPU when available"** with CPU fallback (user-approved). Phase 1: a read-only PC GPU probe through one PC agent; which providers the sherpa-onnx/ORT and LLamaSharp packages ship (DirectML and Vulkan as defaults, CUDA optional); why live words load the CPU; a plan in PLAN.md "GPU acceleration". It must come back with package-size numbers before adding large packages. Phase 2: build, then measure CPU vs GPU (CPU %, latency, parity) on the PC. |
-| `db434533-d541-45d9-a6b5-8728e40bb8a5` | Codex gpt-6.2-sol, medium | `windows-ui-fluent` / `windows-ui-parity` | **UI parity (user PC feedback):** the Mac's cleanup gating per route (Core logic and tests), the pill waveform, the processing shimmer at release (`67b37a7`), status copy without internal terms ("Cleaned up on Murmur Cloud"), and the remaining outline audit. Mac side-by-sides; check the intermittent XamlParseException in published builds. UI polish (`5329bb55`) merged as `0aa7860` and was archived. |
+| `1fd6d415-f9a6-4cb4-81a3-e4fe7435fb6f` | Codex gpt-6.2-sol, medium | `windows-m3-live` / `windows-gpu` (a228fc5 pushed) | **GPU phase 2, finishing:** measured installer deltas (CI run 44716871878), cleanup CPU threads, fallback tests, re-running the harness, Mac checks. It holds the VM desktop. |
+| `b8cf1636-b352-450d-82ef-858827f444b2` | Codex gpt-6.2-sol, medium | `windows-ui-fluent` / `windows-ui-parity` (5bd2519 local) | **UI parity:** cleanup gating, the pill waveform, the shimmer at release, status copy, the remaining outline audit, side-by-sides, the XamlParseException check. Next in line for the desktop. |
+| `dd241070-a8df-41c0-b49a-94ea15761c61` | Codex gpt-6.2-sol, medium | `windows-m4-core` / `windows-local-notes` (work uncommitted at hand-over) | **Notes benchmark, finishing:** every local model failed the 30- and 60-minute runs at the 768-token cap. Diagnosing that, running the 1200-token check, finishing the long and low-end runs, then the recommendation. Stops before pinning. |
 
 **When all three are merged:** stage the result on the PC as **app-next3**, in a new folder; never touch the running build. Send the switch steps to the orchestrator.
 
