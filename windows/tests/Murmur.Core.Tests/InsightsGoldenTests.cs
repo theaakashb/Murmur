@@ -22,7 +22,7 @@ public class InsightsGoldenTests
         var items = c.GetProperty("items").EnumerateArray().Select(x => new InsightsItem(
             DateTimeOffset.FromUnixTimeMilliseconds((long)Math.Round(x.GetProperty("recordedAt").GetDouble() * 1000)), x.GetProperty("raw").GetString()!, x.GetProperty("final").GetString()!,
             Number(x, "seconds"), GoldenFiles.Optional(x, "app"), x.GetProperty("expanded").GetBoolean())).ToList();
-        var zone = TimeZoneInfo.FindSystemTimeZoneById(c.GetProperty("zone").GetString()!);
+        var zone = InsightsTests.Zone(c.GetProperty("zone").GetString()!);
         var result = Insights.Compute(items, c.GetProperty("historyOn").GetBoolean(), DateTimeOffset.FromUnixTimeMilliseconds((long)Math.Round(c.GetProperty("now").GetDouble() * 1000)), zone);
         switch (c.GetProperty("result").GetString())
         {
