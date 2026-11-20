@@ -170,6 +170,12 @@ internal sealed partial class Controller : IDisposable
 
     void Released(double t) => Apply(machine.Release(t));
 
+    (WritingMode Mode, string Text)? SpokenMode(string transcript)
+    {
+        try { return WritingModes.Trigger(WritingModes.Load(s.Settings), transcript); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or StoreError) { return null; }
+    }
+
     public bool Listening => phase == Phase.Listening;
 
     /// <summary>Home's Start Dictation (Controller.startDictationFromHome on the Mac): a toggled recording; Stop or the shortcut finishes it.</summary>
@@ -433,6 +439,10 @@ internal sealed partial class Controller : IDisposable
 
         var mode = await ss.Mode;
         if (Stale(ss)) return;
+        // Mac parity (Controller.deliver): a spoken trigger ("Email mode. …") beats the app or website matched at start. It is cut from the
+        // text sent to cleanup, never from History's raw transcript.
+        var text = transcript.Text;
+        if (ss.VoiceEdit is null && SpokenMode(text) is { } said) (mode, text) = said;
 
         // Raw goes to History first, so a crash during cleanup loses nothing.
         var entry = new HistoryEntry
@@ -462,7 +472,7 @@ internal sealed partial class Controller : IDisposable
 
         var engine = mode is null ? null : AIEngines.Derive(ss.Routes.Cleanup)?.Provider(ss.Routes, s.Key);
         var cleanupStart = Stopwatch.GetTimestamp();
-        var result = await s.Processor.ProcessAsync(new DictationRequest(transcript.Text, ss.Options, ss.Routes.Cleanup, ss.Plan.Cleaner, focus?.ProcessName, mode, engine), ss.Cts.Token);
+        var result = await s.Processor.ProcessAsync(new DictationRequest(text, ss.Options, ss.Routes.Cleanup, ss.Plan.Cleaner, focus?.ProcessName, mode, engine), ss.Cts.Token);
         if (Stale(ss)) return;
         TestEvents.Emit("cleaned", ("path", JsonNamingPolicy.CamelCase.ConvertName(result.Path.ToString())));
         entry = entry.With(result.FinalText, fallback: result.Fallback is { } f ? JsonNamingPolicy.CamelCase.ConvertName(f.ToString()) : null, rejected: result.RejectedOutput) with
