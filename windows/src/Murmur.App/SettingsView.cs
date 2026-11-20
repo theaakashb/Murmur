@@ -142,7 +142,7 @@ internal sealed class SettingsView
     bool speechFilesPresent, cleanupFilesPresent;
     int modelCheck;
     readonly List<Action> refreshRules = [];
-    Segmented? styleTabs;
+    Segmented? styleTabs, routeTabs;
     void StyleChanged() { styleTabs?.Select((int)CleanupStyleNow); foreach (var refresh in refreshNotes) refresh(); }
 
     RouteSettings Routes => RouteSettings.Load(s.Settings);
@@ -171,7 +171,7 @@ internal sealed class SettingsView
         var tip = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 320 };
         var help = new Button
         {
-            Content = new FontIcon { Glyph = "\uE897", FontSize = 15, Style = MurmurStyle.Style("MurmurTabOff") }, Padding = new Thickness(4), MinWidth = 0, MinHeight = 0,
+            Content = new FontIcon { Glyph = "\uE897", FontSize = 15, Style = MurmurStyle.Style("MurmurMutedIcon") }, Padding = new Thickness(4), MinWidth = 0, MinHeight = 0,
             Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
             Flyout = new Flyout { Content = tip }, VerticalAlignment = VerticalAlignment.Center
         };
@@ -308,8 +308,18 @@ internal sealed class SettingsView
     void BuildCleanup()
     {
         styleTabs = SegmentedRow("Cleanup style", "Polish and Professional run on Murmur Cloud or a Custom Provider.", ["Faithful", "Natural", "Polish", "Professional"], (int)CleanupStyleNow,
-            i => { SetCleanupStyle((Style)i); foreach (var refresh in refreshRules) refresh(); }, i => StyleHelp((Style)i), cloud: [2, 3]);
-        var routeTabs = SegmentedRow("Cleanup runs on", null, [.. CleanupChoices.Select(c => c.Label)], Array.FindIndex(CleanupChoices, c => c.Choice == Routes.Cleanup),
+            i =>
+            {
+                SetCleanupStyle((Style)i);
+                // As on the Mac: Polish and Professional run on a model route, so a local route moves to Murmur Cloud.
+                if ((Style)i >= Style.Polish && Routes.Cleanup is CleanupChoice.LocalRules or CleanupChoice.LocalModel)
+                {
+                    SaveRoutes(r => r with { Cleanup = CleanupChoice.MurmurCloud });
+                    routeTabs?.Select(Array.FindIndex(CleanupChoices, c => c.Choice == CleanupChoice.MurmurCloud));
+                }
+                foreach (var refresh in refreshRules) refresh();
+            }, i => StyleHelp((Style)i), cloud: [2, 3]);
+        routeTabs = SegmentedRow("Cleanup runs on", null, [.. CleanupChoices.Select(c => c.Label)], Array.FindIndex(CleanupChoices, c => c.Choice == Routes.Cleanup),
             i => SaveRoutes(r => r with { Cleanup = CleanupChoices[i].Choice }), i => CleanupNote(CleanupChoices[i].Choice));
         routeTabs.SetEnabled(1, false);
         modelRoutes[CleanupChoice.LocalModel] = on => routeTabs.SetEnabled(1, on);
