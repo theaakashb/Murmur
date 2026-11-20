@@ -342,7 +342,15 @@ internal sealed partial class SettingsView
             i => SaveRoutes(r => r with { Transcription = TranscriptionChoices[i].Route }), i => TranscriptionNote(TranscriptionChoices[i].Route));
         tabs.SetEnabled(0, false);
         modelRoutes[TranscriptionRoute.Local] = on => tabs.SetEnabled(0, on);
+        var body = page;
+        var providerSection = new StackPanel();
+        body.Children.Add(providerSection);
+        page = providerSection;
         BuildProvider(transcription: true);
+        page = body;
+        void RefreshProvider() => providerSection.Visibility = Routes.Transcription == TranscriptionRoute.Cloud ? Visibility.Visible : Visibility.Collapsed;
+        refreshNotes.Add(RefreshProvider);
+        RefreshProvider();
     }
 
     CleanupOptions SavedCleanupOptions => ProcessingSettings.Load(s.Settings).Options;
@@ -498,7 +506,7 @@ internal sealed partial class SettingsView
         {
             Header = "Custom Provider", Content = fields, HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            IsExpanded = !transcription || routes.Transcription == TranscriptionRoute.Cloud
+            IsExpanded = true
         }, transcription ? "Custom transcription provider" : "Custom cleanup provider"));
     }
 
