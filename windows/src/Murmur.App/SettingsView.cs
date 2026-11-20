@@ -51,7 +51,7 @@ internal sealed class SettingsView
         description.Margin = new Thickness(0, 6, 0, 0);
         View = MurmurStyle.Named(new ScrollViewer
         {
-            Content = new StackPanel { Padding = new Thickness(36, 28, 36, 32), MaxWidth = 832, HorizontalAlignment = HorizontalAlignment.Left, Children = { title, description, tabHost, content } }
+            Content = new StackPanel { Padding = new Thickness(36, 28, 36, 32), MaxWidth = 772, HorizontalAlignment = HorizontalAlignment.Left, Children = { title, description, tabHost, content } }
         }, "Settings pane");
         BuildPane("General", BuildGeneral);
         BuildPane("Recording", BuildRecording);
@@ -153,7 +153,7 @@ internal sealed class SettingsView
     void Heading(string title)
     {
         var heading = MurmurStyle.Text(title, "MurmurSettingLabel");
-        heading.FontSize = 17; heading.FontWeight = Microsoft.UI.Text.FontWeights.Medium;
+        heading.FontSize = 14; heading.FontWeight = Microsoft.UI.Text.FontWeights.Medium;
         heading.Margin = new Thickness(0, page.Children.Count > 0 ? 28 : 8, 0, 8);
         AutomationProperties.SetHeadingLevel(heading, AutomationHeadingLevel.Level2);
         page.Children.Add(heading);
@@ -169,9 +169,12 @@ internal sealed class SettingsView
     static Button Help(string text)
     {
         var tip = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 320 };
+        // The Mac's questionmark.circle: a 16 px ring with a small ?.
+        var mark = new TextBlock { Text = "?", FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Style = MurmurStyle.Style("MurmurTabOff") };
+        var ring = new Border { Width = 16, Height = 16, CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1.2), Style = MurmurStyle.Style("MurmurRuleTopStrong"), Child = mark };
         var help = new Button
         {
-            Content = new FontIcon { Glyph = "\uE897", FontSize = 15, Style = MurmurStyle.Style("MurmurMutedIcon") }, Padding = new Thickness(4), MinWidth = 0, MinHeight = 0,
+            Content = ring, Padding = new Thickness(4), MinWidth = 0, MinHeight = 0,
             Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
             Flyout = new Flyout { Content = tip }, VerticalAlignment = VerticalAlignment.Center
         };
@@ -183,7 +186,7 @@ internal sealed class SettingsView
     void Row(string title, string? description, FrameworkElement control, bool visible = false)
     {
         var label = MurmurStyle.Text(title, "MurmurSettingLabel");
-        label.VerticalAlignment = VerticalAlignment.Center; label.FontSize = 15;
+        label.VerticalAlignment = VerticalAlignment.Center; label.FontSize = 13;
         var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Children = { label } };
         var labels = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center, Children = { line } };
         if (description is not null)
@@ -193,7 +196,7 @@ internal sealed class SettingsView
         }
         var grid = new Grid
         {
-            ColumnSpacing = 16, MinHeight = 56, Padding = new Thickness(0, 8, 0, 8),
+            ColumnSpacing = 16, MinHeight = 64, Padding = new Thickness(0, 8, 0, 8),
             ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } },
             Children = { labels, control }
         };
