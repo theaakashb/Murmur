@@ -136,6 +136,9 @@ Use a fresh branch from `windows` for each new task.
 
 ## Open bugs
 
+- **CI is red since `4aab0c6`** (last green run `35d640d`). Five Murmur.Platform.Tests fail on windows-latest: the no-device audio tests and LearningTests.ReadableField. Because of this, no `Murmur-windows-x64-unsigned` artifact gets built. Worker `d3e95f6e` is fixing it on `windows-ci-fix` (assigned 04:10Z).
+- **The PC Paseo host `srv_XXiOqPoelqaJ` was offline at 04:05Z.** Staging app-next is still to do.
+
 - **VM SSH drops (twice, about 02:00Z, 2026-11-20):** sshd resets at `ssh-userauth`. Both times it came right after Chrome probe runs, and it recovered on its own without a reboot. Afterwards: 4.6 GB disk and 6.8 GB RAM free, no chrome.exe left. Cause unknown. Avoid long browser-probe loops, and close browsers by PID.
 
 - **The app freezes while downloading a model:** fix merged in `c8dd54f`. Progress is now sampled at 10 Hz with one pending UI update, and status and removal work run off the dispatcher. Verified on the VM with a synthetic transfer. Still to confirm: a real download on the user's PC.
@@ -154,6 +157,7 @@ Use a fresh branch from `windows` for each new task.
   
   Install the latest CI artifact or `T:\Paseo Project\Murmur` app-next after the next build.
 - **M6:** the signing account, the test-repo release runs and publishing. The setup steps are in `windows/UPDATES.md`, "Needs user". The pinned vpk 1.2.161 still needs signtool and the dlib; Velopack 1.3 or later signs directly.
+- **Velopack 1.3:** the user asked for stable 1.3.x, but none exists. The only 1.3 build is the prerelease 1.3.39-g8d2844f; the latest stable is 1.2.161. Waiting on the user's choice: stay on 1.2.161, pin the prerelease, or wait.
 - **Optional:** a bigger VM disk, so parallel builds don't run low.
 
 ## Next actions
