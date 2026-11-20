@@ -13,6 +13,18 @@
       ],
       "sha256": "23e0223dece88f206f2a8a9369186e04da985e65e053127aa3a6b29d8845e66d"
     },
+    "app/CallApps.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/CallApps.cs"
+      ],
+      "sha256": "ed940b631f549850978e6bae573d83b40466dbf2e4b213eacee84908591684cf"
+    },
+    "app/CallDetection.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/CallDetection.cs"
+      ],
+      "sha256": "37795fa917021be3ab2140ec6ae35918bc3269cc7b6349f33d618c3c05d692ff"
+    },
     "app/Capture.swift": {
       "csharp": [
         "windows/src/Murmur.Core/Chunker.cs"
@@ -139,6 +151,45 @@
         "windows/src/Murmur.Core/LocalCleanup.cs"
       ],
       "sha256": "dd6ad9dde0644e874e089d09ab6dd17feaedfe2c0c38f78dc0e08693a67f5fd1"
+    },
+    "app/MeetingCapture.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/MeetingStreamFeed.cs"
+      ],
+      "sha256": "2928bd5a9250ee35fd599e3d21c4379e2d319d02935bf857d4e32f3b7ff7b7ca"
+    },
+    "app/MeetingExport.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/MeetingExport.cs"
+      ],
+      "sha256": "f1338a263a32aba15f314ddf81de946540b9272c46fdae6bee831c0de10b8104"
+    },
+    "app/MeetingNotes.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/MeetingNotes.cs",
+        "windows/src/Murmur.Core/MeetingNotesWriter.cs",
+        "windows/src/Murmur.Core/NotesGrounding.cs"
+      ],
+      "sha256": "3e4594e63968463c1a478458e63b7ec4527f7c9fc9406acd3c6775133e55d911"
+    },
+    "app/MeetingSpeakers.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/MeetingSpeakers.cs"
+      ],
+      "sha256": "054033af9d1497e5b0bf3e4552541efaff9b7fe109c06516e9c8b3b9755a4dea"
+    },
+    "app/MeetingStore.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/MeetingStore.cs"
+      ],
+      "sha256": "271d929430e5ae2209cb96356f9d236d8fef991b6cbace282e008dd8fe9adf30"
+    },
+    "app/Meetings.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Meetings.cs",
+        "windows/src/Murmur.Core/MeetingStreamFeed.cs"
+      ],
+      "sha256": "e231940c517277aeac70a8dee97f9d07f8fca9489aeb0d5e2296c43a770bc72d"
     },
     "app/ModelDownload.swift": {
       "csharp": [
@@ -326,6 +377,12 @@
       ],
       "sha256": "7e4c4b69e47788366a752d05f6bfec190e5ff8a1fa0042d47764e5c69468ed56"
     },
+    "app/check_call_detection.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/CallDetectionTests.cs"
+      ],
+      "sha256": "a5c04998f96f4539d52e5c7c3360509a50396d71bcbbaa1b9f0c8e785cd057ad"
+    },
     "app/check_cleanup.swift": {
       "csharp": [
         "windows/tests/Murmur.Core.Tests/CleanupGuardTests.cs",
@@ -380,6 +437,14 @@
       ],
       "sha256": "b731f7e03aca5ff8520bf8d84c1088d23f35fa494b616c70b0b9edbe4f8bc163"
     },
+    "app/check_meetings.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/MeetingTests.cs",
+        "windows/tests/Murmur.Core.Tests/MeetingNotesTests.cs",
+        "windows/tests/Murmur.Core.Tests/MeetingGoldenTests.cs"
+      ],
+      "sha256": "19a8a200e557366518cd3fff090ccc483fd639b7d1be49873479d910b3e00b62"
+    },
     "app/check_model_download.swift": {
       "csharp": [
         "windows/tests/Murmur.Core.Tests/ModelDownloadTests.cs"
@@ -419,6 +484,12 @@
         "windows/tests/Murmur.Core.Tests/RoutesTests.cs"
       ],
       "sha256": "d56eddc9ac1a2bc5a6ef68bbb3d7c72fff28f7da2b2d139ae0449c026f49ef6c"
+    },
+    "app/check_speakers.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/MeetingTests.cs"
+      ],
+      "sha256": "73f754cbcae206c24bc64e8ef8b9a1c0ae97af76944fb2d98a1ffe3e1662ac13"
     },
     "app/check_tips.swift": {
       "csharp": [

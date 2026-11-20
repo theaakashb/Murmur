@@ -1,0 +1,221 @@
+[
+  {
+    "offers" : [
+      5,
+      38
+    ],
+    "ticks" : [
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 0,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 4,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 5,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 6,
+        "rearm" : false
+      },
+      {
+        "active" : false,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 12,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 16,
+        "rearm" : false
+      },
+      {
+        "active" : false,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 32,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 33,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 38,
+        "rearm" : false
+      }
+    ]
+  },
+  {
+    "offers" : [
+      6,
+      8
+    ],
+    "ticks" : [
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 0,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : true,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 5,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 6,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : true,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 7,
+        "rearm" : true
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 8,
+        "rearm" : false
+      }
+    ]
+  },
+  {
+    "offers" : [
+
+    ],
+    "ticks" : [
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 0,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : true,
+        "never" : false,
+        "now" : 5,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 6,
+        "rearm" : false
+      }
+    ]
+  },
+  {
+    "offers" : [
+      7
+    ],
+    "ticks" : [
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 0,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : false,
+        "meeting" : false,
+        "never" : false,
+        "now" : 5,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : true,
+        "now" : 6,
+        "rearm" : false
+      },
+      {
+        "active" : true,
+        "dictating" : false,
+        "enabled" : true,
+        "meeting" : false,
+        "never" : false,
+        "now" : 7,
+        "rearm" : false
+      }
+    ]
+  }
+]
