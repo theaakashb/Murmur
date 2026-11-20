@@ -116,8 +116,8 @@ public sealed class Tips(ISettingsStore settings)
 
     public static bool IsRewrite(string initial, string edited)
     {
-        var count = Insights.Words(initial).Count;
-        return count >= 4 && Insights.WordsChanged(initial, edited) >= Math.Max(3, (int)Math.Ceiling(count * 0.3));
+        var count = Insights.SplitWords(initial).Count;
+        return count >= 4 && Insights.ChangedWords(initial, edited) >= Math.Max(3, (int)Math.Ceiling(count * 0.3));
     }
 
     public bool NoteRewrite(DateTimeOffset now)

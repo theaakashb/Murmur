@@ -1,0 +1,5268 @@
+{
+  "reverts" : [
+    {
+      "inserted" : " Hi there.",
+      "raw" : "hi there",
+      "text" : " hi there"
+    },
+    {
+      "inserted" : "Hi there.",
+      "raw" : "hi there",
+      "text" : "hi there"
+    },
+    {
+      "inserted" : " Hi",
+      "raw" : " hi",
+      "text" : " hi"
+    },
+    {
+      "inserted" : " x",
+      "raw" : "",
+      "text" : " "
+    },
+    {
+      "inserted" : " É",
+      "raw" : "é",
+      "text" : " é"
+    }
+  ],
+  "runs" : [
+    {
+      "changes" : 1,
+      "final" : "So the meeting is at 3 PM.",
+      "raw" : "um so the meeting is at 3 pm",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "So"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "the meeting is at 3"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0,
+            1,
+            2
+          ],
+          "text" : "PM."
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "same words",
+      "raw" : "same words",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "same words"
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "Hello, world",
+      "raw" : "hello world",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0,
+            5
+          ],
+          "text" : "Hello,"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "world"
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "",
+      "raw" : "",
+      "runs" : [
+
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "new words",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "new words"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "gone words",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "gone words"
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "see the doc.",
+      "raw" : "see the doc",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "see the"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            3
+          ],
+          "text" : "doc."
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "ok Knock it",
+      "raw" : "ok knock it",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "ok"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "Knock"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "it"
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "hello there",
+      "raw" : "hello, there",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "hello"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "there"
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "on Tuesday. We",
+      "raw" : "on tuesday we",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "on"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0,
+            7
+          ],
+          "text" : "Tuesday."
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "We"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "So the",
+      "raw" : "um so the",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "So"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "see the doc.",
+      "raw" : "see teh doc",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "see"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "teh"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            3
+          ],
+          "text" : "doc."
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "a b c",
+      "raw" : "a  b\n\tc",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "a b c"
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "zoë 😀 Café",
+      "raw" : "Zoë 😀 café",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "zoë"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "😀"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "Café"
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "éx!",
+      "raw" : "éx",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            2
+          ],
+          "text" : "éx!"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "ship it to kubectl",
+      "raw" : "ship it to cube control",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "ship it to"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "cube control"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "kubectl"
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "!!!",
+      "raw" : "...",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "..."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "!!!"
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "It's 5 o’clock.",
+      "raw" : "it's 5 o'clock",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "It's"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "5"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            1,
+            7
+          ],
+          "text" : "o’clock."
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "a b, a The",
+      "raw" : "The A x1 b",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            1
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a The"
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "a b, doc a um",
+      "raw" : "A doc.",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a um"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "b, The the A x1 x1",
+      "raw" : "um a A b, doc x1",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um a A"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The the A"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "um b",
+      "raw" : "um a b b,",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "The b, b A",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The b, b A"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "doc. doc um The x1",
+      "raw" : "the b, b",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. doc um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b, b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        }
+      ]
+    },
+    {
+      "changes" : 8,
+      "final" : "doc um doc. A doc. the The b,",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc um doc. A doc. the The b,"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "doc The um",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc The um"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "x1 doc. x1 a um doc. the",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1 doc. x1 a um doc. the"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "doc. doc b, x1 The b,",
+      "raw" : "doc b,",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            3
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1 The b,"
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "doc b x1",
+      "raw" : "um b, A A",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "doc. a b, x1 A",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc. a b, x1 A"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "doc",
+      "raw" : "b",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "b x1 A a um b, b doc.",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b x1 A a um b, b doc."
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "a um b, A The The",
+      "raw" : "um A",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The The"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "um the b the",
+      "raw" : "b The The doc b, b",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "doc. x1 a doc. b x1",
+      "raw" : "a b, A um the doc. The doc.",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a b, A um the"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1 a"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b x1"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "b",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "um b, The b, The The doc",
+      "raw" : "b, doc. a the um x1 x1",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc. a"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um x1 x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, The The doc"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "a doc. the b, x1",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a doc. the b, x1"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "doc",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "The doc A A x1",
+      "raw" : "a",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The doc"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A x1"
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "b, doc",
+      "raw" : "b, b, A a",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b, A a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "b, b, b b",
+      "raw" : "doc x1 a x1 a doc.",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc x1 a x1 a doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, b, b b"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "doc. b A doc",
+      "raw" : "The x1 um A the b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The x1 um A the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A doc"
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "b, x1 um",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, x1 um"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "b b, A um x1",
+      "raw" : "A doc. A",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b b,"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um x1"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "doc the the doc. um a",
+      "raw" : "doc. A a the the doc doc A",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A a"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "the the"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            3
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "b A doc. x1 The The the b,",
+      "raw" : "b A b b, doc. b, The",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b A"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b b,"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The the b,"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "The um doc the um b, um",
+      "raw" : "a",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The um doc the um b, um"
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "The doc um",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The doc um"
+        }
+      ]
+    },
+    {
+      "changes" : 8,
+      "final" : "b doc A doc doc. b b um",
+      "raw" : "the x1 a doc a x1 x1 The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the x1 a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1 x1 The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc doc. b b um"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "the b A b, x1 a The",
+      "raw" : "the um x1 um A",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b A b,"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "doc. a um b",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. a um b"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "x1 b, the A doc x1",
+      "raw" : "x1",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, the A doc x1"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "a doc. b b, The a b The",
+      "raw" : "The doc. a b",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b b, The"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "a b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "x1",
+      "raw" : "b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "The a b the um A doc The",
+      "raw" : "The doc. the a doc. x1 b",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a b"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1 b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "The A b A b",
+      "raw" : "doc",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The A b A b"
+        }
+      ]
+    },
+    {
+      "changes" : 8,
+      "final" : "a x1 um A x1 um b x1",
+      "raw" : "doc",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a x1 um A x1 um b x1"
+        }
+      ]
+    },
+    {
+      "changes" : 11,
+      "final" : "x1 the x1 A A The doc. a",
+      "raw" : "b, doc. doc doc b The a x1",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b, doc. doc doc b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A A The doc. a"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "A The the The A The doc doc",
+      "raw" : "the b, A a b doc",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the b,"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The the The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "b,",
+      "raw" : "doc. doc doc.",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc. doc doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "The",
+      "raw" : "b b the A x1 The x1",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b b"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A x1 The x1"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "x1 A b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1 A b,"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "A b b A a x1 doc doc.",
+      "raw" : "a doc b the A A doc a",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "the a b The The the the doc.",
+      "raw" : "doc x1 A the The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the the doc."
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "The b, a",
+      "raw" : "A b doc b, doc the",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A b doc b, doc"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, a"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "a a a The doc A x1",
+      "raw" : "x1 the b doc b, The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a a a"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b, The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A x1"
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "doc doc. b",
+      "raw" : "b, doc A",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. b"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "um",
+      "raw" : "the doc. b a",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the doc. b a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "b The the b, A A um",
+      "raw" : "A doc. b, A doc um",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A doc."
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The the b,"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "b x1 b a The",
+      "raw" : "A a the x1",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b x1 b"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "the",
+      "raw" : "The The The the b, b",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The The the b, b"
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "",
+      "raw" : "",
+      "runs" : [
+
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "A",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "the b um A doc doc doc.",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the b um A doc doc doc."
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "",
+      "raw" : "",
+      "runs" : [
+
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "A x1 The doc b,",
+      "raw" : "doc. b",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A x1 The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            1
+          ],
+          "text" : "b,"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "doc",
+      "raw" : "The doc.",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "um doc.",
+      "raw" : "The x1 A x1 x1 The A",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The x1 A x1 x1 The A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um doc."
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "doc b, b, the a um doc. um",
+      "raw" : "a the The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc b, b,"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a um doc. um"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "A um x1 The doc.",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A um x1 The doc."
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "x1 x1 a The b x1",
+      "raw" : "doc. b, doc.",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1 x1 a The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "the The um the The the um",
+      "raw" : "b A a a A",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b A a a A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the The um the The the um"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "b b The doc. a b",
+      "raw" : "doc",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b b The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            3
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a b"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "a",
+      "raw" : "A doc um doc doc. b, doc.",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc um doc doc. b, doc."
+        }
+      ]
+    },
+    {
+      "changes" : 9,
+      "final" : "a b b, doc. um x1 um",
+      "raw" : "the The The the b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the The The the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, doc. um x1 um"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "the um x1 A A",
+      "raw" : "doc.",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the um x1 A A"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "the doc. um x1 the",
+      "raw" : "a The a b, a",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a b, a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. um x1 the"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "x1 A",
+      "raw" : "um",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1 A"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "doc",
+      "raw" : "The doc um b, doc a The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um b, doc a The"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "the The a",
+      "raw" : "a",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the The"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "b, doc. doc b x1 a b, um",
+      "raw" : "b, The A The doc x1 a x1",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The A The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            3
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc b"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1 a"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, um"
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "The b doc.",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The b doc."
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "doc. x1 x1 doc. The doc doc. A",
+      "raw" : "the A A a um doc. um",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. x1 x1 doc."
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A A a um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. A"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "b, A",
+      "raw" : "b, x1 x1 b, doc. b, x1 A",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1 x1 b, doc. b, x1"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        }
+      ]
+    },
+    {
+      "changes" : 8,
+      "final" : "A doc a the doc b, x1 doc.",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A doc a the doc b, x1 doc."
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "x1",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        }
+      ]
+    },
+    {
+      "changes" : 8,
+      "final" : "doc The um the um the The doc",
+      "raw" : "b, b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b, b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc The um the um the The doc"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "um doc. um a the b doc.",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um doc. um a the b doc."
+        }
+      ]
+    },
+    {
+      "changes" : 8,
+      "final" : "x1 x1 um doc. The",
+      "raw" : "the A the The A a um b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the A the The A a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1 x1"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. The"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "a A A b x1 doc the b,",
+      "raw" : "a b A a A doc.",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b x1"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the b,"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "b, The The a the doc b",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, The The a the doc b"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "um The A b, A a doc. um",
+      "raw" : "A b",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um The"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            1
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A a doc. um"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "um x1 doc. doc. doc. a",
+      "raw" : "b a a x1",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b a a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. doc. doc. a"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "b, doc x1 um",
+      "raw" : "the the um x1 A The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the the um"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, doc"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "x1 doc. a The um x1 x1 b,",
+      "raw" : "x1 a b,",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The um x1 x1"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "doc. the b, doc. the x1 The",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. the b, doc. the x1 The"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "x1 The b b x1 b the",
+      "raw" : "a",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1 The b b x1 b the"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "b x1",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b x1"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "the doc b, The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the doc b, The"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "The",
+      "raw" : "x1 The b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "doc. the x1 doc doc b, doc. b",
+      "raw" : "doc. doc. doc A b, b, x1",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the x1"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "doc doc. um a b, a the doc",
+      "raw" : "b, a b the x1",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc doc. um"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            1
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "doc b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc b,"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "A b the um b um",
+      "raw" : "a A the The b,",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "x1 um a x1",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1 um a x1"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "b, b, x1 a doc The",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, b, x1 a doc The"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "x1 the b um doc. b, A",
+      "raw" : "um x1",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the b um doc. b, A"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "a a",
+      "raw" : "A",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "The a A the The doc. um",
+      "raw" : "a A A doc",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            3
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "doc",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "The doc a b a doc",
+      "raw" : "A x1 The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A x1"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc a b a doc"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "a",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "The doc. A A a",
+      "raw" : "b um doc x1 doc.",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b um doc x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A A a"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "the b doc. the doc A um b",
+      "raw" : "b um x1",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. the doc A"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "doc um um the a doc.",
+      "raw" : "the the um a The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a doc."
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "A b, a The a doc.",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A b, a The a doc."
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "doc doc doc.",
+      "raw" : "um x1 doc. b, doc. doc. b",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um x1"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "A the b, the a b The b,",
+      "raw" : "a um b A",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            1
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b The b,"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "a The b, x1 The a",
+      "raw" : "the The a b A A",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the The"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            1
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1 The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "x1 b, a doc A",
+      "raw" : "",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1 b, a doc A"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "x1 the b, doc the b the",
+      "raw" : "b A a b b the b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b A a b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1 the"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            1
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "doc",
+      "raw" : "The the um the The The b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The the um the The The b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "A b doc The b, The b",
+      "raw" : "A the the the",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b doc"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "doc. The um b,",
+      "raw" : "x1 um doc",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1 um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            3
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The um b,"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "The x1 x1 A the A",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The x1 x1 A the A"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "b, doc A doc. x1 doc. b",
+      "raw" : "um um",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um um"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, doc A doc. x1 doc. b"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "b, x1 doc the A doc b, b,",
+      "raw" : "a b, The a",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "x1 doc"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc b, b,"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "doc a the The doc b, b, b",
+      "raw" : "doc. the doc The x1 a doc.",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1 a"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, b, b"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "A A a b, b, b, The um",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A A a b, b, b, The um"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "doc The The the",
+      "raw" : "A doc a The b",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The the"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "doc.",
+      "raw" : "a",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "A",
+      "raw" : "A b",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "b,",
+      "raw" : "The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        }
+      ]
+    },
+    {
+      "changes" : 0,
+      "final" : "b,",
+      "raw" : "b",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            1
+          ],
+          "text" : "b,"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "b the The doc. The a",
+      "raw" : "b The the The b, doc a",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The b,"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            3
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "um b,",
+      "raw" : "b, doc. b b, b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b, doc. b b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "b, b, the doc",
+      "raw" : "The The b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The The"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, the doc"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "the doc a b, doc. b",
+      "raw" : "x1 The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc a b, doc. b"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "doc um the b, b",
+      "raw" : "A um x1 the The doc the The",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A um x1 the The"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b, b"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "um",
+      "raw" : "doc. um the A b, a",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the A b, a"
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "doc The doc",
+      "raw" : "doc x1 x1 doc. b A A",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1 x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b A A"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "a The",
+      "raw" : "b, a The the doc. um",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "a The"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the doc. um"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "A doc. The The b, b a A",
+      "raw" : "x1 b x1 x1 a",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A doc. The The"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            1
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1 x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        }
+      ]
+    },
+    {
+      "changes" : 1,
+      "final" : "",
+      "raw" : "the b um",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the b um"
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "doc. the doc. x1 the the",
+      "raw" : "um b,",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. the doc. x1 the the"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "A a doc x1 doc.",
+      "raw" : "x1 b",
+      "runs" : [
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A a doc"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "um",
+      "raw" : "b b, um b doc. b, A",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b b,"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b doc. b, A"
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "x1 b doc. The",
+      "raw" : "doc doc doc A x1 b, A",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc doc doc A"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc. The"
+        }
+      ]
+    },
+    {
+      "changes" : 3,
+      "final" : "The doc b, um b",
+      "raw" : "The b, b, doc.",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "doc. x1 b, um b",
+      "raw" : "doc x1 b, The x1 x1 doc",
+      "runs" : [
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            3
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1 b,"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The x1 x1 doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um b"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "um doc.",
+      "raw" : "A the x1 A",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A the x1 A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um doc."
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "b A the b,",
+      "raw" : "b The b, A a",
+      "runs" : [
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "the"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "A a"
+        }
+      ]
+    },
+    {
+      "changes" : 2,
+      "final" : "um",
+      "raw" : "The a",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "The a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        }
+      ]
+    },
+    {
+      "changes" : 5,
+      "final" : "doc The The The A um doc.",
+      "raw" : "b, The um",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "The"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The The A"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "doc."
+        }
+      ]
+    },
+    {
+      "changes" : 6,
+      "final" : "The x1 the b, b x1",
+      "raw" : "um um A um doc a",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um um A um doc a"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "The x1 the b, b x1"
+        }
+      ]
+    },
+    {
+      "changes" : 7,
+      "final" : "a b, A um doc um x1 a",
+      "raw" : "the doc A doc. doc a x1",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "the doc"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "a"
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "doc. doc"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "b,"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            0
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "um doc um"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "x1"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a"
+        }
+      ]
+    },
+    {
+      "changes" : 4,
+      "final" : "A um doc. a A",
+      "raw" : "x1 b um doc um the",
+      "runs" : [
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "x1 b"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "A"
+        },
+        {
+          "kind" : "same",
+          "marks" : [
+
+          ],
+          "text" : "um"
+        },
+        {
+          "kind" : "tweaked",
+          "marks" : [
+            3
+          ],
+          "text" : "doc."
+        },
+        {
+          "kind" : "removed",
+          "marks" : [
+
+          ],
+          "text" : "um the"
+        },
+        {
+          "kind" : "added",
+          "marks" : [
+
+          ],
+          "text" : "a A"
+        }
+      ]
+    }
+  ]
+}
