@@ -44,6 +44,7 @@ internal sealed partial class Controller : IDisposable
         public Task<FocusInfo?> Focus { get; set; } = Task.FromResult<FocusInfo?>(null);
         public Task<WritingMode?> Mode { get; set; } = Task.FromResult<WritingMode?>(null);
         public double Tail { get; set; } = 0.2;
+        public double FinishedAt { get; set; }
         public CancellationTokenSource Cts { get; init; } = new();
     }
 
@@ -59,7 +60,6 @@ internal sealed partial class Controller : IDisposable
     volatile TaskCompletionSource<int>? recordingKey;
     bool dictationDown;
     double pressedAt;
-    volatile float level;
     Session? session;
     /// <summary>A recorder started from the hook thread at key down (spec/pipeline.md section 1: a hold never loses its first word). BeginSession adopts it; anything else drops it.</summary>
     sealed record EarlyStart(string WavPath, RecordingFeed Feed, Task<IRecorder> Recorder);
@@ -139,7 +139,7 @@ internal sealed partial class Controller : IDisposable
     {
         machine.PressToToggle = s.Settings.Get(Prefs.PressToToggle);
         if (!repeat) pressedAt = t;
-        Apply(machine.Press(t, repeat));
+        Apply(machine.Press(t, repeat), t);
         DropEarly(); // a press that did not start a session (finish, toggle, refused) leaves no recording behind
     }
 
@@ -155,10 +155,19 @@ internal sealed partial class Controller : IDisposable
         }));
     }
 
-    IRecorder CreateRecorder(string wavPath, Action<float[]> onSamples) =>
-        Environment.GetEnvironmentVariable("MURMUR_SYNTHETIC_AUDIO") is { Length: > 0 } folder
-            ? SyntheticRecorder.Start(folder, wavPath, p => level = p, onSamples)
-            : MicRecorder.Start(s.Settings.Get(Prefs.InputDeviceUID), wavPath, p => level = p, onSamples);
+    IRecorder CreateRecorder(string wavPath, Action<float[]> onSamples)
+    {
+        void Meter(float[] samples)
+        {
+            double energy = 0;
+            foreach (var sample in samples) energy += sample * sample;
+            if (samples.Length > 0) bubble.SetLevel((float)Math.Min(1, Math.Sqrt(energy / samples.Length) * 8));
+            onSamples(samples);
+        }
+        return Environment.GetEnvironmentVariable("MURMUR_SYNTHETIC_AUDIO") is { Length: > 0 } folder
+            ? SyntheticRecorder.Start(folder, wavPath, Meter)
+            : MicRecorder.Start(s.Settings.Get(Prefs.InputDeviceUID), wavPath, Meter);
+    }
 
     void DropEarly()
     {
@@ -168,7 +177,7 @@ internal sealed partial class Controller : IDisposable
         _ = e.Recorder.ContinueWith(t => { if (t.IsCompletedSuccessfully) { try { t.Result.Stop(); } catch (Exception) { } } try { File.Delete(e.WavPath); } catch (Exception) { } });
     }
 
-    void Released(double t) => Apply(machine.Release(t));
+    void Released(double t) => Apply(machine.Release(t), t);
 
     (WritingMode Mode, string Text)? SpokenMode(string transcript)
     {
@@ -195,12 +204,12 @@ internal sealed partial class Controller : IDisposable
         else if (machine.State == ShortcutState.Processing && session is { } ss) CancelProcessing(ss);
     }
 
-    void Apply(ShortcutAction? action)
+    void Apply(ShortcutAction? action, double? eventTime = null)
     {
         switch (action)
         {
             case ShortcutAction.Start: if (!BeginSession()) machine.Cancel(); break;
-            case ShortcutAction.Finish: FinishSession(); break;
+            case ShortcutAction.Finish: FinishSession(eventTime); break;
             case ShortcutAction.Cancel: Discard(); break;
         }
     }
@@ -208,7 +217,6 @@ internal sealed partial class Controller : IDisposable
     void OnTick()
     {
         if (session is not { } ss || phase != Phase.Listening) { tick.Stop(); return; }
-        bubble.SetLevel(level);
         if (machine.DoublePressExpired(Now()) == ShortcutAction.Cancel) Discard();
         else if (ss.Clock.Elapsed.TotalSeconds >= RecordingLimit && machine.Finish() == ShortcutAction.Finish) { ss.Tail = 0; FinishSession(); }
     }
@@ -223,8 +231,7 @@ internal sealed partial class Controller : IDisposable
         var edit = ProbeVoiceEdit(routes);
         if (edit?.Result is VoiceEdit.SessionResult.Refused refused) return StartFailed("voice-edit-refused", refused.Message);
         var activeEdit = edit?.Active;
-        var options = new CleanupOptions(s.Settings.Get(Prefs.CleanupFillers), s.Settings.Get(Prefs.CleanupCorrections), s.Settings.Get(Prefs.CleanupLists),
-            s.Settings.Get(Prefs.CleanupPunctuation), s.Settings.Get(Prefs.CleanupPolish), s.Settings.Get(Prefs.CleanupProfessional), s.Settings.Get(Prefs.CleanupSpoken));
+        var options = routes.Cleanup.EffectiveOptions(ProcessingSettings.Load(s.Settings).Options with { TrustModel = false });
         var plan = RoutePlan.Make(routes, activeEdit is null && options.AnyEnabled, s.Key);
         if (plan.Refusal is { } refusal) return StartFailed("route-refused", refusal);
         // A cloud route that is not configured never falls back to local; a local route needs the model files and the helper.
@@ -263,7 +270,7 @@ internal sealed partial class Controller : IDisposable
             });
         }
         session = ss;
-        level = 0;
+        bubble.SetLevel(0);
         // The password check goes through UI Automation, which can block: it runs beside the recording, and a password field discards it.
         ss.Focus = Task.Run(() => FocusProbe.Capture(readText: false));
         if (activeEdit is null) ss.Mode = Task.Run(() => s.SelectModeAsync(ss.Focus, ss.Cts.Token));
@@ -355,15 +362,15 @@ internal sealed partial class Controller : IDisposable
         bubble.ShowNotice("Canceled.", 2);
     }
 
-    void FinishSession()
+    void FinishSession(double? eventTime = null)
     {
         if (session is not { } ss) return;
+        ss.FinishedAt = eventTime ?? Now();
         tick.Stop();
         phase = Phase.Processing;
         ss.StopLive();
-        bubble.SetPartial(null);
         if (s.Settings.Get(Prefs.RecordingSounds)) Native.Cue(start: false);
-        bubble.ShowProcessing("Transcribing...");
+        bubble.ShowProcessing();
         _ = RunAsync(ss);
     }
 
@@ -392,7 +399,8 @@ internal sealed partial class Controller : IDisposable
     async Task RunCore(Session ss)
     {
         // Audio is cut at release plus a 0.2 s tail.
-        if (ss.Tail > 0) await Task.Delay(TimeSpan.FromSeconds(ss.Tail));
+        double remaining = ss.FinishedAt + ss.Tail - Now();
+        if (remaining > 0) await Task.Delay(TimeSpan.FromSeconds(remaining));
         var capture = await Task.Run(() =>
         {
             try
@@ -468,7 +476,6 @@ internal sealed partial class Controller : IDisposable
             return;
         }
         KeepOrDelete(ss.WavPath, entry.Id);
-        bubble.ShowProcessing("Cleaning up...");
 
         var engine = mode is null ? null : AIEngines.Derive(ss.Routes.Cleanup)?.Provider(ss.Routes, s.Key);
         var cleanupStart = Stopwatch.GetTimestamp();

@@ -166,8 +166,7 @@
             </Style>
             <Style x:Key="MurmurTrayMenu" TargetType="MenuFlyoutPresenter">
                 <Setter Property="Background" Value="{ThemeResource MurmurPaper}" />
-                <Setter Property="BorderBrush" Value="{ThemeResource MurmurRule}" />
-                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="CornerRadius" Value="8" />
                 <Setter Property="Padding" Value="5" />
             </Style>
