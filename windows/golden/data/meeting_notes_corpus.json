@@ -1,0 +1,1281 @@
+{
+  "analytics-review" : {
+    "actions" : [
+
+    ],
+    "decisions" : [
+      [
+        6
+      ]
+    ],
+    "dropped" : 1,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "reasons" : {
+      "unknownLine" : 1
+    }
+  },
+  "board-prep" : {
+    "actions" : [
+      [
+        5,
+        6
+      ],
+      [
+        6
+      ]
+    ],
+    "decisions" : [
+      [
+        3,
+        4
+      ]
+    ],
+    "dropped" : 3,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "reasons" : {
+      "addressedToNotes" : 1,
+      "unknownLine" : 2
+    }
+  },
+  "budget-review" : {
+    "actions" : [
+      [
+        7,
+        8
+      ]
+    ],
+    "decisions" : [
+      [
+        5,
+        6
+      ]
+    ],
+    "dropped" : 5,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ],
+      [
+        8
+      ],
+      [
+        10
+      ],
+      [
+        11
+      ]
+    ],
+    "reasons" : {
+      "addressedToNotes" : 1,
+      "unknownLine" : 4
+    }
+  },
+  "contract-renewal" : {
+    "actions" : [
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "decisions" : [
+      [
+        2,
+        3,
+        4
+      ]
+    ],
+    "dropped" : 3,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "reasons" : {
+      "addressedToNotes" : 1,
+      "unknownLine" : 2
+    }
+  },
+  "customer-escalation" : {
+    "actions" : [
+      [
+        5,
+        6
+      ],
+      [
+        7
+      ]
+    ],
+    "decisions" : [
+
+    ],
+    "dropped" : 5,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ],
+      [
+        9
+      ]
+    ],
+    "reasons" : {
+      "addressedToNotes" : 1,
+      "noAgreement" : 1,
+      "unknownLine" : 3
+    }
+  },
+  "design-critique" : {
+    "actions" : [
+      [
+        5
+      ]
+    ],
+    "decisions" : [
+      [
+        3,
+        4,
+        5
+      ]
+    ],
+    "dropped" : 0,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ],
+      [
+        8
+      ]
+    ],
+    "reasons" : {
+
+    }
+  },
+  "hiring-loop" : {
+    "actions" : [
+      [
+        6,
+        7
+      ]
+    ],
+    "decisions" : [
+      [
+        3,
+        4,
+        5
+      ]
+    ],
+    "dropped" : 0,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ],
+      [
+        8
+      ],
+      [
+        9
+      ]
+    ],
+    "reasons" : {
+
+    }
+  },
+  "ho-api-deprecation" : {
+    "actions" : [
+      [
+        6
+      ]
+    ],
+    "decisions" : [
+      [
+        3,
+        4,
+        5
+      ]
+    ],
+    "dropped" : 0,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ]
+    ],
+    "reasons" : {
+
+    }
+  },
+  "ho-bug-triage" : {
+    "actions" : [
+      [
+        4,
+        5
+      ]
+    ],
+    "decisions" : [
+      [
+        2,
+        3
+      ]
+    ],
+    "dropped" : 3,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ]
+    ],
+    "reasons" : {
+      "addressedToNotes" : 1,
+      "unknownLine" : 2
+    }
+  },
+  "ho-catering" : {
+    "actions" : [
+      [
+        6,
+        7
+      ]
+    ],
+    "decisions" : [
+      [
+        4,
+        5
+      ]
+    ],
+    "dropped" : 2,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ]
+    ],
+    "reasons" : {
+      "addressedToNotes" : 1,
+      "unknownLine" : 1
+    }
+  },
+  "ho-content-calendar" : {
+    "actions" : [
+      [
+        4,
+        5
+      ]
+    ],
+    "decisions" : [
+      [
+        2,
+        3
+      ]
+    ],
+    "dropped" : 1,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "reasons" : {
+      "unknownLine" : 1
+    }
+  },
+  "ho-onboarding-buddy" : {
+    "actions" : [
+      [
+        3,
+        4
+      ],
+      [
+        5
+      ]
+    ],
+    "decisions" : [
+
+    ],
+    "dropped" : 1,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "reasons" : {
+      "unknownLine" : 1
+    }
+  },
+  "ho-sales-forecast" : {
+    "actions" : [
+      [
+        6
+      ]
+    ],
+    "decisions" : [
+      [
+        4,
+        5
+      ]
+    ],
+    "dropped" : 0,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "reasons" : {
+
+    }
+  },
+  "ho-security-review" : {
+    "actions" : [
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "decisions" : [
+      [
+        4,
+        5
+      ]
+    ],
+    "dropped" : 3,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "reasons" : {
+      "addressedToNotes" : 1,
+      "unknownLine" : 2
+    }
+  },
+  "ho-travel" : {
+    "actions" : [
+      [
+        4
+      ]
+    ],
+    "decisions" : [
+      [
+        1,
+        2,
+        3
+      ]
+    ],
+    "dropped" : 1,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ]
+    ],
+    "reasons" : {
+      "unknownLine" : 1
+    }
+  },
+  "ho-wifi" : {
+    "actions" : [
+      [
+        6
+      ]
+    ],
+    "decisions" : [
+      [
+        4,
+        5
+      ]
+    ],
+    "dropped" : 1,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        6
+      ]
+    ],
+    "reasons" : {
+      "noSharedWord" : 1
+    }
+  },
+  "incident-review" : {
+    "actions" : [
+      [
+        5,
+        6
+      ]
+    ],
+    "decisions" : [
+      [
+        3,
+        4
+      ]
+    ],
+    "dropped" : 2,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ]
+    ],
+    "reasons" : {
+      "addressedToNotes" : 1,
+      "unknownLine" : 1
+    }
+  },
+  "interview-debrief" : {
+    "actions" : [
+      [
+        6,
+        7
+      ]
+    ],
+    "decisions" : [
+      [
+        4,
+        5
+      ]
+    ],
+    "dropped" : 1,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ]
+    ],
+    "reasons" : {
+      "unknownLine" : 1
+    }
+  },
+  "launch-sync" : {
+    "actions" : [
+      [
+        3,
+        4
+      ],
+      [
+        5
+      ]
+    ],
+    "decisions" : [
+      [
+        8,
+        9
+      ]
+    ],
+    "dropped" : 1,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ],
+      [
+        8
+      ],
+      [
+        9
+      ]
+    ],
+    "reasons" : {
+      "unknownLine" : 1
+    }
+  },
+  "legal-review" : {
+    "actions" : [
+      [
+        6
+      ],
+      [
+        7
+      ]
+    ],
+    "decisions" : [
+      [
+        4,
+        5
+      ]
+    ],
+    "dropped" : 0,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ]
+    ],
+    "reasons" : {
+
+    }
+  },
+  "marketing-sync" : {
+    "actions" : [
+      [
+        6
+      ]
+    ],
+    "decisions" : [
+      [
+        4,
+        5
+      ]
+    ],
+    "dropped" : 0,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ]
+    ],
+    "reasons" : {
+
+    }
+  },
+  "office-move" : {
+    "actions" : [
+      [
+        6
+      ]
+    ],
+    "decisions" : [
+      [
+        4,
+        5
+      ]
+    ],
+    "dropped" : 1,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ]
+    ],
+    "reasons" : {
+      "unknownLine" : 1
+    }
+  },
+  "one-on-one" : {
+    "actions" : [
+      [
+        5
+      ],
+      [
+        7,
+        8
+      ]
+    ],
+    "decisions" : [
+      [
+        3,
+        4,
+        5
+      ]
+    ],
+    "dropped" : 0,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ],
+      [
+        8
+      ]
+    ],
+    "reasons" : {
+
+    }
+  },
+  "partner-intro" : {
+    "actions" : [
+
+    ],
+    "decisions" : [
+      [
+        6,
+        7
+      ]
+    ],
+    "dropped" : 1,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ]
+    ],
+    "reasons" : {
+      "unknownOwner" : 1
+    }
+  },
+  "pricing-debate" : {
+    "actions" : [
+      [
+        5,
+        6
+      ]
+    ],
+    "decisions" : [
+      [
+        4
+      ]
+    ],
+    "dropped" : 2,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "reasons" : {
+      "unknownLine" : 2
+    }
+  },
+  "research-sync" : {
+    "actions" : [
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "decisions" : [
+      [
+        4
+      ]
+    ],
+    "dropped" : 0,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "reasons" : {
+
+    }
+  },
+  "roadmap-planning" : {
+    "actions" : [
+      [
+        7
+      ]
+    ],
+    "decisions" : [
+      [
+        4,
+        5
+      ],
+      [
+        6,
+        7
+      ]
+    ],
+    "dropped" : 1,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ],
+      [
+        8
+      ]
+    ],
+    "reasons" : {
+      "unknownLine" : 1
+    }
+  },
+  "sprint-retro" : {
+    "actions" : [
+
+    ],
+    "decisions" : [
+      [
+        5,
+        6,
+        7
+      ]
+    ],
+    "dropped" : 1,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ],
+      [
+        8
+      ]
+    ],
+    "reasons" : {
+      "unknownLine" : 1
+    }
+  },
+  "standup" : {
+    "actions" : [
+      [
+        3
+      ],
+      [
+        4
+      ]
+    ],
+    "decisions" : [
+
+    ],
+    "dropped" : 0,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ]
+    ],
+    "reasons" : {
+
+    }
+  },
+  "support-handoff" : {
+    "actions" : [
+      [
+        4
+      ],
+      [
+        5,
+        6
+      ]
+    ],
+    "decisions" : [
+
+    ],
+    "dropped" : 0,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ]
+    ],
+    "reasons" : {
+
+    }
+  },
+  "vendor-call" : {
+    "actions" : [
+      [
+        8
+      ]
+    ],
+    "decisions" : [
+      [
+        5,
+        6
+      ]
+    ],
+    "dropped" : 5,
+    "points" : [
+      [
+        1
+      ],
+      [
+        2
+      ],
+      [
+        3
+      ],
+      [
+        4
+      ],
+      [
+        5
+      ],
+      [
+        6
+      ],
+      [
+        7
+      ],
+      [
+        8
+      ]
+    ],
+    "reasons" : {
+      "addressedToNotes" : 1,
+      "unknownLine" : 3,
+      "unknownOwner" : 1
+    }
+  }
+}
