@@ -488,7 +488,7 @@ internal sealed partial class Controller : IDisposable
 
         var target = await Task.Run(() => FocusProbe.Capture(readText: ss.LeadingSpace));
         if (Stale(ss)) return;
-        if (target is { IsMurmur: true }) { ShowNotPasted(entry, result.FinalText); return; }
+        if (target is { IsMurmur: true } && !SetupShowing) { ShowNotPasted(entry, result.FinalText); return; }
         var text = ss.LeadingSpace ? TextRules.WithLeadingSpace(result.FinalText, target?.Value, target?.Selection) : result.FinalText;
         entry = entry.With(text, fallback: entry.CleanupFallback, rejected: entry.CleanupRejectedOutput);
         bubble.Hide();
@@ -537,7 +537,7 @@ internal sealed partial class Controller : IDisposable
 
     PasteOutcome PasteAndVerifyCore(string text)
     {
-        var pasted = s.Paste.Paste(text, stillTarget: () => FocusProbe.Capture(readText: false) is not { IsMurmur: true });
+        var pasted = s.Paste.Paste(text, stillTarget: () => FocusProbe.Capture(readText: false) is not { IsMurmur: true } || SetupShowing);
         if (!pasted.Pasted) return new PasteOutcome(InsertionStatus.Failed, pasted.Failure);
         _ = WatchClipboardRestore();
         for (int i = 0; i < 20; i++)
