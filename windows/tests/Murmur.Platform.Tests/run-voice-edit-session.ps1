@@ -6,5 +6,7 @@ $env:MURMUR_VOICE_EDIT_TEST_APP = "$windows\src\Murmur.App\bin\Release\net10.0-w
 $env:MURMUR_VOICE_EDIT_TEST_PROVIDER = "$windows\harness\FakeProvider\bin\Release\net10.0\FakeProvider.dll"
 $env:MURMUR_VOICE_EDIT_TEST_ROOT = "$(Split-Path $windows -Parent)\voice-edit-test-runs"
 $null = New-Item -ItemType Directory -Force $env:MURMUR_VOICE_EDIT_TEST_ROOT
-dotnet test "$PSScriptRoot\Murmur.Platform.Tests.csproj" -c Release --no-build --filter FullyQualifiedName~VoiceEditDesktopTests *> "$env:MURMUR_VOICE_EDIT_TEST_ROOT\session-test.log"
+$project = "$PSScriptRoot\Murmur.Platform.Tests.csproj"
+$log = "$env:MURMUR_VOICE_EDIT_TEST_ROOT\session-test.log"
+cmd /d /c "dotnet test `"$project`" -c Release --no-build --filter FullyQualifiedName~VoiceEditDesktopTests > `"$log`" 2>&1"
 exit $LASTEXITCODE
