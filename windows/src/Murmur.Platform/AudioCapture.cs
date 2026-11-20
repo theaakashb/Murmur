@@ -134,6 +134,7 @@ public sealed class AudioCapture : IDisposable
     readonly object gate = new();
     readonly Action<float[]>? onSamples;
     readonly Action<float>? onLevel;
+    readonly bool retainSamples; // meetings stream the audio onward and must not keep hours of it in memory
     volatile bool stopping;
     Exception? failure;
     bool disposed;
@@ -147,17 +148,19 @@ public sealed class AudioCapture : IDisposable
     /// <param name="wavPath">Retry audio file, created exclusively (never overwrites) inside a hardened folder; null to skip the file.</param>
     /// <param name="onSamples">16 kHz mono blocks, on the capture thread.</param>
     /// <param name="onLevel">Peak per block, on the capture thread.</param>
-    public static AudioCapture Start(string? endpointId = null, string? wavPath = null, Action<float[]>? onSamples = null, Action<float>? onLevel = null)
+    /// <param name="retainSamples">False for meetings: <see cref="Stop"/> then returns no samples.</param>
+    public static AudioCapture Start(string? endpointId = null, string? wavPath = null, Action<float[]>? onSamples = null, Action<float>? onLevel = null, bool retainSamples = true)
     {
         var enumerator = Enumerator();
         IMMDevice device;
         int hr = endpointId is null ? enumerator.GetDefaultAudioEndpoint(eCapture, eConsole, out device) : enumerator.GetDevice(endpointId, out device);
         if (hr != 0) throw Map(hr, "device");
-        return new AudioCapture(device, wavPath, onSamples, onLevel);
+        return new AudioCapture(device, wavPath, onSamples, onLevel, retainSamples);
     }
 
-    AudioCapture(IMMDevice device, string? wavPath, Action<float[]>? onSamples, Action<float>? onLevel)
+    AudioCapture(IMMDevice device, string? wavPath, Action<float[]>? onSamples, Action<float>? onLevel, bool retainSamples)
     {
+        this.retainSamples = retainSamples;
         this.onSamples = onSamples;
         this.onLevel = onLevel;
         var iid = IAudioClientId;
@@ -246,7 +249,7 @@ public sealed class AudioCapture : IDisposable
         if (block.Length == 0) return;
         float peak = 0;
         foreach (var s in block) peak = Math.Max(peak, Math.Abs(s));
-        lock (gate) samples.AddRange(block);
+        if (retainSamples) lock (gate) samples.AddRange(block);
         Peak = peak;
         onSamples?.Invoke(block);
         onLevel?.Invoke(peak);

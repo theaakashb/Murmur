@@ -61,7 +61,7 @@ public partial class App : Application
         bubble = new Bubble(queue);
         controller = new Controller(services, bubble);
 
-        var menu = new TrayMenu(OpenSettings, OpenHistory, Quit);
+        var menu = new TrayMenu(OpenSettings, OpenHistory, Quit, () => { if (controller!.MeetingLive) controller.StopMeeting(); else controller.StartMeeting(); }, () => controller!.MeetingLive);
         var showMenu = new XamlUICommand();
         showMenu.ExecuteRequested += (_, _) => menu.Show();
         tray = new TaskbarIcon
@@ -83,6 +83,7 @@ public partial class App : Application
         var launchArgs = Environment.GetCommandLineArgs();
         if (launchArgs.Contains("--settings")) OpenSettings();
         if (launchArgs.Contains("--history")) OpenHistory();
+        if (launchArgs.Contains("--start-meeting")) controller.StartMeeting();
     }
 
     void OpenSettings()
