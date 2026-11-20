@@ -53,7 +53,7 @@ public sealed class BrowserPageTests
     }
 }
 
-/// <summary>Opens synthetic loopback pages in an isolated Chromium profile. Never writes URLs to test output.</summary>
+/// <summary>Opens synthetic loopback pages in an isolated browser profile. Never writes URLs to test output.</summary>
 [Collection("Browser desktop")]
 public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
 {
@@ -96,12 +96,22 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
     [BrowserDesktopFact]
     public async Task ReadsFocusedPageAndSkipsAddressBar()
     {
-        bool chrome = Environment.GetEnvironmentVariable("MURMUR_BROWSER_PROBE_CHROME") == "1";
-        var processName = chrome ? "chrome" : "msedge";
-        var relative = chrome ? @"Google\Chrome\Application\chrome.exe" : @"Microsoft\Edge\Application\msedge.exe";
-        var exe = new[] { Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles) }
+        var processName = Environment.GetEnvironmentVariable("MURMUR_BROWSER_PROBE") ??
+            (Environment.GetEnvironmentVariable("MURMUR_BROWSER_PROBE_CHROME") == "1" ? "chrome" : "msedge");
+        bool firefox = processName == "firefox";
+        var relative = processName switch
+        {
+            "msedge" => @"Microsoft\Edge\Application\msedge.exe",
+            "chrome" => @"Google\Chrome\Application\chrome.exe",
+            "brave" => @"BraveSoftware\Brave-Browser\Application\brave.exe",
+            "firefox" => @"Mozilla Firefox\firefox.exe",
+            _ => throw new ArgumentException("Unknown browser probe target")
+        };
+        var exe = Environment.GetEnvironmentVariable("MURMUR_BROWSER_PROBE_EXE") ??
+            new[] { Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.LocalApplicationData }
+            .Select(Environment.GetFolderPath)
             .Select(root => Path.Combine(root, relative)).FirstOrDefault(File.Exists);
-        Assert.True(exe is not null, "Chromium executable unavailable");
+        Assert.True(File.Exists(exe), "Browser executable unavailable");
 
         using var server = new TcpListener(IPAddress.Loopback, 0);
         server.Start();
@@ -109,26 +119,32 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
         using var stop = new CancellationTokenSource();
         var serving = ServePages(server, stop.Token);
         string profile = Path.Combine(Path.GetTempPath(), "murmur-browser-probe-" + Guid.NewGuid().ToString("N"));
-        using var browser = Launch(exe!, profile, $"http://127.0.0.1:{port}/first", "--new-window");
+        Directory.CreateDirectory(profile);
+        Process? browser = null;
         try
         {
+            if (firefox)
+                File.WriteAllText(Path.Combine(profile, "user.js"), """
+                    user_pref("browser.aboutwelcome.enabled", false);
+                    user_pref("browser.shell.checkDefaultBrowser", false);
+                    """);
+            browser = Launch(exe!, profile, $"http://127.0.0.1:{port}/first", "--new-window");
             Assert.True(await WaitForPage(processName, "/first", startWindow: browser), "normal window did not match its active page");
             Assert.True(FocusProbe.ReadBrowserPage(FocusProbe.Capture(false), out bool addressBar) is not null, "normal window read vanished");
             output.WriteLine(addressBar ? "Normal: address ValuePattern" : "Normal: document value");
             output.WriteLine($"Foreground DPI: {GetDpiForWindow(GetForegroundWindow())}");
-            var pageFocus = FocusProbe.Capture(readText: false);
             Assert.True(await WaitForPage(processName, "/first", addressOnly: true), "address ValuePattern fallback did not match");
             output.WriteLine("Address ValuePattern: matched");
 
-            Press(0x4c, control: true); // Ctrl+L
-            Assert.True(SpinWait.SpinUntil(() => FocusProbe.Capture(false) is { } bar && bar.ProcessName == processName &&
-                pageFocus is not null && !pageFocus.SameElement(bar), TimeSpan.FromSeconds(3)), "address bar did not take focus");
+            var pageFocus = FocusProbe.Capture(readText: false);
+            Assert.NotNull(pageFocus);
+            Assert.True(await FocusAddressBar(processName), "address bar did not take focus");
             Assert.True(FocusProbe.ReadBrowserPage(FocusProbe.Capture(false)) is null, "address bar focus must not read a page");
             Assert.True(FocusProbe.ReadBrowserPage(pageFocus) is null, "stale page focus must not read a page");
             output.WriteLine("Address-bar and stale-focus gates: passed");
 
             Press(0x1b); Press(0x1b); // Chrome keeps omnibox focus after the first Escape.
-            using var tab = Launch(exe!, profile, $"http://127.0.0.1:{port}/tab");
+            using var tab = Launch(exe!, profile, $"http://127.0.0.1:{port}/tab", firefox ? ["--new-tab"] : []);
             Assert.True(await WaitForPage(processName, "/tab"), "new tab did not match its active page");
             Press(0x09, control: true); // Ctrl+Tab returns to the first tab.
             Assert.True(await WaitForPage(processName, "/first"), "tab switch did not match the first page");
@@ -136,9 +152,10 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
 
             Press(0x7a); // F11
             await Task.Delay(500);
-            Assert.True(await WaitForPage(processName, "/first"), "full screen did not match document with toolbar hidden");
+            bool fullScreenMatched = await WaitForPage(processName, "/first", seconds: firefox ? 3 : 18);
             Press(0x7a);
-            output.WriteLine("Full screen: matched");
+            if (!firefox) Assert.True(fullScreenMatched, "full screen did not match document with toolbar hidden");
+            output.WriteLine(fullScreenMatched ? "Full screen: matched" : "Full screen: no match");
 
             using var second = Launch(exe!, profile, $"http://127.0.0.1:{port}/second", "--new-window");
             Assert.True(await WaitForPage(processName, "/second"), "second window did not match its own page");
@@ -148,31 +165,70 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
             Assert.True(await WaitForPage(processName, "/embedded"), "focused iframe did not match its top-level page");
             output.WriteLine("Iframe page: matched");
 
-            using var privateWindow = Launch(exe!, profile, $"http://127.0.0.1:{port}/private", chrome ? "--incognito" : "--inprivate", "--new-window");
+            string[] privateFlags = processName switch
+            {
+                "firefox" => ["--private-window"],
+                "msedge" => ["--inprivate", "--new-window"],
+                _ => ["--incognito", "--new-window"]
+            };
+            using var privateWindow = Launch(exe!, profile, $"http://127.0.0.1:{port}/private", privateFlags);
             Assert.True(await WaitForPage(processName, "/private"), "private window did not match its own page");
             output.WriteLine("Private window: matched");
 
-            using var app = Launch(exe!, profile, null, $"--app=http://127.0.0.1:{port}/app");
-            Assert.True(await WaitForPage(processName, "/app"), "standalone app window did not match its page");
-            output.WriteLine("App window: matched");
+            if (!firefox)
+            {
+                using var app = Launch(exe!, profile, null, $"--app=http://127.0.0.1:{port}/app");
+                Assert.True(await WaitForPage(processName, "/app"), "standalone app window did not match its page");
+                output.WriteLine("App window: matched");
+            }
         }
         finally
         {
-            if (!browser.HasExited)
+            if (browser is { HasExited: false })
             {
                 browser.Kill(entireProcessTree: true);
                 await browser.WaitForExitAsync();
             }
+            browser?.Dispose();
             await stop.CancelAsync();
             await serving;
-            try { Directory.Delete(profile, recursive: true); } catch (IOException) { }
+            for (int attempt = 0; Directory.Exists(profile); attempt++)
+            {
+                try { Directory.Delete(profile, recursive: true); }
+                catch (IOException) when (attempt < 10) { await Task.Delay(100); }
+            }
         }
     }
 
-    static Process Launch(string edge, string profile, string? page, params string[] flags)
+    static async Task<bool> FocusAddressBar(string processName)
     {
-        var info = new ProcessStartInfo(edge) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "--user-data-dir=" + profile, "--no-first-run", "--no-default-browser-check", "--disable-sync", "--disable-extensions", "--disable-search-engine-choice-screen" }.Concat(flags))
+        var window = GetForegroundWindow();
+        if (GetWindowThreadProcessId(window, out uint pid) == 0) return false;
+        using var process = Process.GetProcessById((int)pid);
+        if (process.ProcessName != processName) return false;
+
+        var wait = Stopwatch.StartNew();
+        var nextPress = TimeSpan.Zero;
+        while (wait.Elapsed < TimeSpan.FromSeconds(5) && GetForegroundWindow() == window)
+        {
+            if (FocusProbe.IsBrowserAddressBarFocused(processName)) return true;
+            if (wait.Elapsed >= nextPress)
+            {
+                Press(0x4c, control: true); // Ctrl+L
+                nextPress = wait.Elapsed + TimeSpan.FromSeconds(1);
+            }
+            await Task.Delay(100);
+        }
+        return false;
+    }
+
+    static Process Launch(string exe, string profile, string? page, params string[] flags)
+    {
+        var info = new ProcessStartInfo(exe) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+        string[] profileArgs = Path.GetFileName(exe).Equals("firefox.exe", StringComparison.OrdinalIgnoreCase)
+            ? ["--wait-for-browser", "--profile", profile]
+            : ["--user-data-dir=" + profile, "--no-first-run", "--no-default-browser-check", "--disable-sync", "--disable-extensions", "--disable-search-engine-choice-screen"];
+        foreach (var arg in profileArgs.Concat(flags))
             info.ArgumentList.Add(arg);
         if (page is not null) info.ArgumentList.Add(page);
         var process = Process.Start(info)!;
@@ -183,12 +239,12 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
         return process;
     }
 
-    static async Task<bool> WaitForPage(string processName, string path, bool addressOnly = false, Process? startWindow = null)
+    static async Task<bool> WaitForPage(string processName, string path, bool addressOnly = false, Process? startWindow = null, int seconds = 18)
     {
         var wait = Stopwatch.StartNew();
         var app = new WritingMode { Apps = [processName] };
         var site = new WritingMode { Websites = ["127.0.0.1" + path] };
-        while (wait.Elapsed.TotalSeconds < 18)
+        while (wait.Elapsed.TotalSeconds < seconds)
         {
             if (FocusProbe.Capture(false) is { } focus && focus.ProcessName == processName)
             {
@@ -211,7 +267,10 @@ public sealed class ChromiumBrowserPageTests(ITestOutputHelper output)
         {
             while (!ct.IsCancellationRequested)
             {
-                using var client = await server.AcceptTcpClientAsync(ct);
+                TcpClient accepted;
+                try { accepted = await server.AcceptTcpClientAsync(ct); }
+                catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset) { continue; }
+                using var client = accepted;
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 deadline.CancelAfter(TimeSpan.FromSeconds(1));
                 try
