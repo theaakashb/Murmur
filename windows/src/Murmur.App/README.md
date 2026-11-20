@@ -26,6 +26,16 @@ $env:MURMUR_DATA_DIR = "C:\tmp\murmur-test"; $env:MURMUR_SYNTHETIC_AUDIO = "C:\t
 
 Put a `settings.json` in the data dir first to choose a route (for example `transcriptionRoute: "cloud"` with `customTranscriptionAPIBaseURL` and `customTranscriptionModel`).
 
+## Privacy: learning from corrections
+
+Settings → Writing → Learning. On by default; the first switch turns off everything below.
+
+- **Readable fields (preferred).** After a paste, Murmur reads the one text box you pasted into through Windows UI Automation, for up to 60 seconds, to see whether you fixed a word of the dictated text. Only that dictated span is compared; the rest of the field is not kept. Password fields are never read.
+- **Fallback for unreadable fields.** If an app does not expose its text (some code editors and web canvases), Murmur can follow the keys you type into that same field, for that one dictation only. This uses the keyboard hook that hold-to-talk already needs. The keys are interpreted in memory as edits to the dictated words and are never stored, logged or sent. It stops on a mouse click, a focus change, a password field, an input method (IME) or dead key, a shortcut such as undo, the next dictation, or after 60 seconds. "Learn only from readable fields" turns this fallback off.
+- A correction is kept only after it settles and passes the same filter as on the Mac; learned spellings live in the dictionary, separate from History. Nothing is sent anywhere.
+- Diagnostics (test events) record only fixed event names and counts.
+- Because this combines a global keyboard hook with clipboard paste, some antivirus tools may flag unsigned builds; see `windows/PLAN.md`.
+
 ## UI
 
 The tray opens Settings and History. In Settings, the speech model is under **Dictation → Transcription**, and the cleanup model is under **Writing**. Manage cloud keys under **Providers**.

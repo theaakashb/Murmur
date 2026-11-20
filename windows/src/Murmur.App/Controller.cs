@@ -13,7 +13,7 @@ internal enum Phase { Ready, Listening, Processing, Error, Saved }
 /// The dictation controller (app/Controller.swift, spec/pipeline.md). Bound to the UI thread: the keyboard hook thread only posts events here.
 /// Every stage checks the session's generation token, so a cancel or a newer session drops stale results.
 /// </summary>
-internal sealed class Controller : IDisposable
+internal sealed partial class Controller : IDisposable
 {
     sealed class Session
     {
@@ -117,6 +117,7 @@ internal sealed class Controller : IDisposable
             ui.TryEnqueue(() => { if (down) Pressed(t, repeat); else Released(t); });
             return !ShortcutSpec.IsModifier(vk);
         }
+        OfferLearningKey(e);
         if (e.IsDown)
         {
             if (e.VirtualKey == KeyEvent.VkEscape) ui.TryEnqueue(EscapePressed);
@@ -503,6 +504,14 @@ internal sealed class Controller : IDisposable
     /// <summary>Pastes where the cursor is now, then reads the field back for up to 0.5 s to mark verified or unverified (History only; never a reason to paste twice).</summary>
     PasteOutcome PasteAndVerify(string text)
     {
+        var learn = BeginLearning();
+        var outcome = PasteAndVerifyCore(text);
+        _ = Task.Run(() => StartLearning(learn, text, outcome.Status));
+        return outcome;
+    }
+
+    PasteOutcome PasteAndVerifyCore(string text)
+    {
         var pasted = s.Paste.Paste(text, stillTarget: () => FocusProbe.Capture(readText: false) is not { IsMurmur: true });
         if (!pasted.Pasted) return new PasteOutcome(InsertionStatus.Failed, pasted.Failure);
         _ = WatchClipboardRestore();
@@ -584,6 +593,7 @@ internal sealed class Controller : IDisposable
         session?.Feed.Attach(null);
         tick.Stop();
         hook.Dispose();
+        EndLearning();
         try { session?.Recorder?.Stop(); } catch (Exception) { }
         s.Local.Dispose();
         LocalCleanupRunner.Shared.Shutdown();

@@ -210,6 +210,9 @@ public sealed partial class SettingsWindow : Window
         Toggle("Spoken commands and numbers", "Interprets “comma” and “new paragraph”, and writes spoken numbers as digits.", Prefs.CleanupSpoken);
         Toggle("Use screen context", "With Polish or Professional on a Custom Provider or Murmur Cloud, words from the screen can appear in the pasted text.", Prefs.ScreenContext);
         Note("Website modes use the focused page in Edge, Chrome, Brave, Vivaldi, Opera, Arc, or Firefox when Windows can read it. App matching still works in other browsers and when the page is unavailable.");
+        Heading("Learning");
+        Toggle("Learn from my corrections", "After a dictation, Murmur watches only that pasted text for about a minute. If you fix a word, such as a name, it can learn the spelling for next time. It never reads password fields, and nothing leaves this PC.", Prefs.LearningEnabled, controller.LearningSettingChanged);
+        Toggle("Learn only from readable fields", "Murmur first reads the text box through Windows accessibility. If an app does not allow that, it can instead follow the keys you type into it, in memory only, for that one dictation: keys are never saved, logged or sent. Turn this on to use accessibility only.", Prefs.ReadableLearning);
         BuildProvider(transcription: false);
     }
 
