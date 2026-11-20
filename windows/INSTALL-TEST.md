@@ -112,6 +112,12 @@ Needs a PC with a speaker or headset and a microphone, and a Teams or Zoom call 
 
 **Passes when:** aligned Me/Them for the full 30 minutes, recovery after the kill, and notes (or the transcript alone) saved.
 
+**Speaker separation and the cloud route (also on the PC):**
+- Download both speaker models (Models: segmentation, embedding) and turn on "Separate speakers after a meeting" (stored as `meetingSpeakers`; the Settings row is the UI worker's). Run a call with two or more other people. After Stop, lines should be labelled Speaker 1, Speaker 2, and the kept call audio (`retry-audio\speakers\<id>.wav`) disappears when separation finishes. Note how many speakers it finds against how many really spoke; the clustering threshold (stored 0.6, sherpa cosine distance) is a starting value from one 16 s two-speaker sample, not tuned.
+- Kill Murmur right after Stop while "Separating speakers" shows: on the next launch the separation resumes from the kept audio (or fails and the audio is deleted after 24 hours).
+- Cloud: set `meetingTranscription` to cloud with a Custom Provider or Murmur Cloud transcriber configured. Chunks go to the provider; a failed chunk is transcribed here and marked. With the cloud route, speaker separation still splits the whole lines by speaker but without word times.
+- Quit during a meeting: a confirmation appears; Yes stops and saves it.
+
 ## Uninstall
 
 - Quit Murmur from the tray.

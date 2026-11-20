@@ -19,6 +19,9 @@ internal sealed class AppServices
     public ModelSlot SpeechSlot { get; }
     public ModelSlot LiveWordsSlot { get; }
     public ModelSlot CleanupSlot { get; }
+    /// <summary>Speaker separation downloads two models (segmentation and embedding); the feature needs both.</summary>
+    public ModelSlot SpeakerSegmentationSlot { get; }
+    public ModelSlot SpeakerEmbeddingSlot { get; }
     public HistoryRouter<HistoryEntry> History { get; private set; } = null!;
     /// <summary>Null when the dictionary or ledger can't be read: only cleanup and the dictionary stop, and dictations are held in History (app/Controller.swift:348-351).</summary>
     public ProcessingCoordinator? Processing { get; private set; }
@@ -42,7 +45,9 @@ internal sealed class AppServices
         SpeechSlot = ModelSlot.Create(ModelFacts.Batch, Root);
         LiveWordsSlot = ModelSlot.Create(ModelFacts.LiveWords, Root);
         CleanupSlot = ModelSlot.Create(ModelFacts.LocalCleanup, Root);
-        foreach (var slot in new[] { SpeechSlot, LiveWordsSlot, CleanupSlot }) if (slot.Downloader is { } downloader) slot.Status = downloader.Status();
+        SpeakerSegmentationSlot = ModelSlot.Create(ModelFacts.SpeakerSegmentation, Root);
+        SpeakerEmbeddingSlot = ModelSlot.Create(ModelFacts.SpeakerEmbedding, Root);
+        foreach (var slot in new[] { SpeechSlot, LiveWordsSlot, CleanupSlot, SpeakerSegmentationSlot, SpeakerEmbeddingSlot }) if (slot.Downloader is { } downloader) slot.Status = downloader.Status();
         ConfigureCleanupRunner();
         Local = new LocalTranscriber(this);
         ReopenData();
