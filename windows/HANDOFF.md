@@ -135,10 +135,11 @@ Use a fresh branch from `windows` for each new task.
 
 ## Open bugs
 
-- **Fixed on `windows-crash-trigger` (`b9982cb`), not yet merged:**
+- **Fixed and merged (2026-11-20), and staged on the PC as app-next2 (`687fca8`):**
   - Start meeting crashed the app on the PC. The cause was the call-audio client being created on the UI thread (STA) and used on the MTA capture thread, so Drain threw E_NOINTERFACE. The fix creates and uses it on one MTA thread. The regression test `CallAudioStartedFromAnStaThreadKeepsCapturing` crashes the old code on the VM and passes on the fix. Background-thread crashes now go to CrashLog.
   - The spoken mode trigger ("email mode …") was never called on Windows. It's now applied after transcription, as in the Mac's Controller.deliver.
-  - Harness worker `45827cee` is adding an "email mode" fixture and running the full harness. app-next2 is being staged on the PC.
+  - Harness: the `mode-email` case passes 5/5 checks. The full run passed 21/21 (median 289 ms). An earlier run passed 18/21 with three undiagnosed failures (Edge long-report no-speech, Code filler-think clipboard-restored, one more in Edge). Watch for a flake.
+  - Waiting on the user to retest on the PC: the meeting crash and email mode.
 - **Mac note (read-only):** "E-mail mode" (with a hyphen) is one token and won't match the trigger "email mode" (Dictionary.swift:27). The same applies on Windows. It's unfixed.
 
 - **CI was red from `4aab0c6` to `1e316b0`.** The `windows-ci-fix` merge fixed it. The root cause was a real bug: `AudioCapture` and `AudioSessions` activated MMDeviceEnumerator in two different ways in one process, so whichever ran second threw InvalidCastException, both in the app and in the tests. The fix also added CsWinRT1032 casts and gates the learning keystroke test on CI.
