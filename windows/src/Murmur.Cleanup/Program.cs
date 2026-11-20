@@ -36,14 +36,24 @@ static string Header(string tone, IEnumerable<string> terms)
 static string Chatml(string prompt) =>
     $"<|im_start|>system\n{System_}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n";
 
-if (Environment.GetEnvironmentVariable("MURMUR_CLEANUP_DEBUG") != "1") NativeLogConfig.llama_log_set((_, _) => { });
-
 // The app passes the model folder (as the Mac's runner does); the folder holds exactly the pinned GGUF.
 var modelPath = Directory.Exists(args[0]) ? Directory.EnumerateFiles(args[0], "*.gguf").FirstOrDefault() ?? args[0] : args[0];
+bool gpu = args.Length > 1 && args[1] == "--gpu";
+var contextParams = new ModelParams(modelPath) { ContextSize = 2048, GpuLayerCount = gpu ? int.MaxValue : 0 };
 LLamaWeights weights;
-try { weights = LLamaWeights.LoadFromFile(new ModelParams(modelPath) { ContextSize = 2048, GpuLayerCount = 0 }); }
+try
+{
+    NativeLibraryConfig.All.WithCuda(false).WithVulkan(gpu).WithAutoFallback(!gpu);
+    if (Environment.GetEnvironmentVariable("MURMUR_CLEANUP_DEBUG") != "1") NativeLogConfig.llama_log_set((_, _) => { });
+    if (gpu && !NativeApi.llama_supports_gpu_offload()) { Send(new { ready = false }); return 3; }
+    weights = LLamaWeights.LoadFromFile(contextParams);
+    if (gpu)
+    {
+        using var probe = weights.CreateContext(contextParams);
+    }
+}
 catch (Exception e) { if (Environment.GetEnvironmentVariable("MURMUR_CLEANUP_DEBUG") == "1") Console.Error.WriteLine(e); Send(new { ready = false }); return 3; }
-var contextParams = new ModelParams(modelPath) { ContextSize = 2048, GpuLayerCount = 0 };
+using var loadedWeights = weights;
 
 if (args.Length > 1 && args[1] == "--tokenize")   // Parity test aid: prints token IDs of each stdin line (JSON string) for plain and templated text.
 {

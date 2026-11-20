@@ -67,7 +67,7 @@ internal sealed class LocalTranscriber : IDisposable
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { vocabulary = null; }
         }
-        return Verify() ? HelperLaunch.Make(ModelDirectory, vocabulary) : null;
+        return Verify() ? HelperLaunch.Make(ModelDirectory, vocabulary, preferGpu: s.Settings.Get(Prefs.UseGpuWhenAvailable)) : null;
     }
 
     public ChunkJob StartChunks(string wavPath, CancellationToken ct)
@@ -115,14 +115,22 @@ internal sealed class LocalTranscriber : IDisposable
 
     public void StartLiveWords(ChannelReader<float[]> samples, Action<string> onPartial, CancellationToken ct)
     {
-        if (!HelperPresent || s.LiveWordsSlot is not { Manifest: { } manifest, Downloader.Target: { } folder } ||
-            !ModelHelper.HasModelFiles(folder)) return;
+        if (!HelperPresent) { TestEvents.Emit("live-words-skipped", ("reason", "helper-unavailable")); return; }
+        if (s.LiveWordsSlot is not { Manifest: { } manifest, Downloader.Target: { } folder } || !ModelHelper.HasModelFiles(folder))
+        {
+            TestEvents.Emit("live-words-skipped", ("reason", "model-files-unavailable"));
+            return;
+        }
         var helper = HelperPath;
         _ = Task.Run(async () =>
         {
             try { ModelVerificationCache.Shared.Verify(folder, manifest); }
-            catch (Exception e) when (e is RetentionError or IOException or UnauthorizedAccessException) { return; }
-            await ModelHelper.StreamAsync(helper, folder, samples, onPartial, ct).ConfigureAwait(false);
+            catch (Exception e) when (e is RetentionError or IOException or UnauthorizedAccessException)
+            {
+                TestEvents.Emit("live-words-skipped", ("reason", "model-verification-failed"));
+                return;
+            }
+            await ModelHelper.StreamAsync(helper, folder, samples, onPartial, ct, s.Settings.Get(Prefs.UseGpuWhenAvailable)).ConfigureAwait(false);
         });
     }
 

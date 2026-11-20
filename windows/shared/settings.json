@@ -189,6 +189,12 @@
       "type" : "bool"
     },
     {
+      "key" : "useGpuWhenAvailable",
+      "mac" : false,
+      "type" : "bool",
+      "windows" : true
+    },
+    {
       "key" : "voiceEditShortcut",
       "mac" : "same",
       "type" : "string"
