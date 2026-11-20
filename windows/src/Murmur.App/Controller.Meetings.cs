@@ -6,7 +6,7 @@ namespace Murmur.App;
 
 /// <summary>
 /// Meeting capture wiring (app/MeetingRecorder.swift, app/Controller.swift meeting parts): the Core <see cref="MeetingRecorder"/> over WASAPI, local chunk
-/// transcription through the warm speech helper, notes through the Custom Provider route, and the call detector. No visuals beyond two message boxes
+/// transcription through the warm speech helper or the cloud transcriber, speaker separation, notes through the Custom Provider route, and the call detector. No visuals beyond two message boxes
 /// (consent, first notes question) and the tray entry; the Meetings screen and the call offer panel come from the UI worker.
 /// </summary>
 internal sealed partial class Controller
@@ -26,13 +26,7 @@ internal sealed partial class Controller
 
     void InitMeetings()
     {
-        MeetingStore? store = null;
-        try { store = new MeetingStore(s.Locations.Meetings); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or StoreError or RetentionError) { }
-        meetings.Wire(new(store, store is null ? null : s.Locations.MeetingAudio, s.Settings.Get(Prefs.HistoryMode).PersistsTranscripts(),
-            new WasapiMeetingAudio(() => s.Settings.Get(Prefs.InputDeviceUID) is { Length: > 0 } id ? id : null),
-            s.Local.HelperPresent ? s.Local.TranscribeChunkAsync : null, () => meetingClock.Elapsed.TotalSeconds, action => ui.TryEnqueue(() => action()),
-            text => s.Dictionary?.Apply(text) ?? text, LoadNotesRoute, WriteMeetingNotes, () => !testing && MeetingConsent.Needed(s.Settings)));
+        WireMeetings();
         meetings.Changed += OnMeetingChanged;
         meetings.Purge(s.Settings.Get(Prefs.Retention).Cutoff(DateTime.UtcNow));
         meetings.RecoverLeftovers();
@@ -42,23 +36,66 @@ internal sealed partial class Controller
         meetingTick.Start();
     }
 
+    /// <summary>(Re)points the recorder at the current data folders. Everything it needs comes in here, so Delete All and Restore can wire it again.</summary>
+    void WireMeetings()
+    {
+        MeetingStore? store = null;
+        try { store = new MeetingStore(s.Locations.Meetings); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or StoreError or RetentionError) { }
+        meetings.Wire(new(store, store is null ? null : s.Locations.MeetingAudio, s.Settings.Get(Prefs.HistoryMode).PersistsTranscripts(),
+            new WasapiMeetingAudio(() => s.Settings.Get(Prefs.InputDeviceUID) is { Length: > 0 } id ? id : null),
+            s.Local.HelperPresent ? s.Local.TranscribeChunkAsync : null, () => meetingClock.Elapsed.TotalSeconds, action => ui.TryEnqueue(() => action()),
+            text => s.Dictionary?.Apply(text) ?? text, LoadNotesRoute, WriteMeetingNotes, () => !testing && MeetingConsent.Needed(s.Settings),
+            Path.Combine(s.Locations.RetryAudio, "speakers"), s.Local.HelperPresent ? s.Local.TranscribeChunkTimedAsync : null, DiarizeAsync));
+        RefreshSpeakerModels();
+    }
+
     void ShutdownMeetings()
     {
         meetingTick?.Stop();
         meetings.Shutdown();
     }
 
-    /// <summary>Delete All or Restore replaced the data folders: forget everything held in memory and open the new ones. (Call after <c>AppServices.ReopenData</c>.)</summary>
+    /// <summary>Delete All or Restore replaced the data folders: forget everything held in memory and open the new ones. (Called after <c>AppServices.ReopenData</c>.)</summary>
     public void ResetMeetings()
     {
         meetings.Cancel();
         meetings.Shutdown();
         meetings.Meetings.Clear();
-        MeetingStore? store = null;
-        try { store = new MeetingStore(s.Locations.Meetings); } catch (Exception e) when (e is IOException or UnauthorizedAccessException or StoreError or RetentionError) { }
-        meetings.Wire(new(store, store is null ? null : s.Locations.MeetingAudio, s.Settings.Get(Prefs.HistoryMode).PersistsTranscripts(), new WasapiMeetingAudio(() => null), null,
-            () => meetingClock.Elapsed.TotalSeconds, action => ui.TryEnqueue(() => action()), t => t, LoadNotesRoute, null, () => false));
+        WireMeetings();
     }
+
+    // --- speaker separation ---
+    string SegmentationFolder => s.SpeakerSegmentationSlot.Downloader?.Target ?? "";
+    string EmbeddingModel => Path.Combine(s.SpeakerEmbeddingSlot.Downloader?.Target ?? "", ModelFacts.SpeakerEmbeddingFile);
+    bool SpeakerSwitch(string key) => s.Settings.Get(key) as bool? ?? false;
+
+    bool SpeakerModelsVerified()
+    {
+        try
+        {
+            if (!File.Exists(Path.Combine(SegmentationFolder, ModelFacts.SpeakerSegmentationFile)) || !File.Exists(EmbeddingModel)) return false;
+            foreach (var slot in new[] { s.SpeakerSegmentationSlot, s.SpeakerEmbeddingSlot })
+            {
+                if (slot is not { Downloader: { } downloader, Manifest: { } manifest }) return false;
+                ModelVerificationCache.Shared.Verify(downloader.Target, manifest);
+            }
+            return true;
+        }
+        catch (RetentionError) { return false; }
+    }
+
+    /// <summary>Whether a meeting started now keeps the call's audio for separation: the switch is on and both models are present and match their pins. Read when a meeting starts. Settings calls this after the switch or a download changes.</summary>
+    public void RefreshSpeakerModels()
+    {
+        bool on = SpeakerSwitch(SpeakerFacts.SettingKey);
+        meetings.SpeakersAvailable = on && SpeakerModelsVerified();
+        meetings.SeparateRoomSpeakers = on && SpeakerSwitch(SpeakerFacts.RoomKey);
+        meetings.SpeakersWanted = on;
+    }
+
+    Task<IReadOnlyList<SpeakerSegment>?> DiarizeAsync(string audio, double threshold, CancellationToken ct) =>
+        SpeakerRunner.RunAsync(s.Local.HelperPath, SegmentationFolder, EmbeddingModel, audio, threshold, SpeakerModelsVerified, ct);
 
     MeetingNotesRoute? LoadNotesRoute() => MeetingNotesRoutes.Load(s.Settings) ?? (testing ? MeetingNotesRoute.None : null);
 
@@ -76,15 +113,43 @@ internal sealed partial class Controller
     public bool StartMeeting(MeetingSource? source = null)
     {
         source ??= MeetingSource.Everything;
-        if (!meetings.Start(source) && meetings.ConsentPending is { } pending)
+        if (meetings.Live is not null) { meetings.Message = "A meeting is already being recorded."; ShowMeetingMessage(); return false; }
+        RefreshSpeakerModels();
+        // The route is fixed when the meeting starts. A cloud route that is not configured refuses; it never falls back to this PC.
+        Func<string, CancellationToken, Task<MeetingCloudResult>>? cloud = null;
+        string? cloudName = null;
+        if (MeetingRoute.Load(s.Settings) == MeetingTranscription.Cloud)
+        {
+            var plan = RoutePlan.Make(RouteSettings.Load(s.Settings) with { Transcription = TranscriptionRoute.Cloud }, false, s.Key);
+            if (plan.Transcriber is not { } provider)
+            {
+                meetings.Message = (plan.Refusal ?? "The cloud transcriber is not set up.") + " Set it up in Settings > Transcription, or choose This PC for meetings.";
+                ShowMeetingMessage();
+                return false;
+            }
+            cloudName = provider.Id.DisplayName();
+            cloud = async (path, ct) => await CloudTranscription.RunAsync(provider, path, ct).ConfigureAwait(false) switch
+            {
+                CloudTranscriptionOutcome.Transcript t => new MeetingCloudResult.Text(t.Text),
+                CloudTranscriptionOutcome.NoSpeech => new MeetingCloudResult.NoSpeech(),
+                _ => new MeetingCloudResult.Failed(),
+            };
+        }
+        else if (!s.Local.HelperPresent || !s.Local.ModelFilesPresent)
+        {
+            meetings.Message = "Meeting notes transcribe on this PC. Download the speech model in Settings first.";
+            ShowMeetingMessage();
+            return false;
+        }
+        if (!meetings.Start(source, cloud, cloudName) && meetings.ConsentPending is { } pending)
         {
             meetings.ConsentPending = null;
             if (Native.MessageBoxW(IntPtr.Zero, "Murmur records your microphone and the audio of the call or apps you choose, and transcribes both on this PC. Recording other people may require their consent where you or they are. You are responsible for letting participants know.\n\nStart recording?",
                     "Before your first meeting notes", 0x24 | 0x40000) != 6) return false;
             MeetingConsent.Acknowledge(s.Settings);
-            return meetings.Start(pending);
+            return meetings.Start(pending, cloud, cloudName);
         }
-        TestEvents.Emit(meetings.Live is null ? "meeting-not-started" : "meeting-started", ("callAudioProblem", meetings.SystemAudioProblem is not null));
+        TestEvents.Emit(meetings.Live is null ? "meeting-not-started" : "meeting-started", ("callAudioProblem", meetings.SystemAudioProblem is not null), ("cloud", cloud is not null), ("speakers", meetings.Live?.Speakers is not null));
         ShowMeetingMessage();
         return meetings.Live is not null;
     }
