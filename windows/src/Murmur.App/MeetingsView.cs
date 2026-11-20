@@ -64,19 +64,8 @@ internal sealed partial class MeetingsView
 
     // ---- small builders ----
 
-    static Button Btn(string text, Action click, bool filled = false, bool plain = false, string? name = null)
-    {
-        var b = MurmurStyle.Named(new Button { Content = text, MinHeight = 34, Padding = new Thickness(16, 0, 16, 0), CornerRadius = new CornerRadius(17) }, name ?? text);
-        if (filled)
-        {
-            b.Style = MurmurStyle.Style("AccentButtonStyle");
-            var accent = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 77, 111, 240));
-            foreach (var key in new[] { "AccentButtonBackground", "AccentButtonBackgroundPointerOver", "AccentButtonBackgroundPressed" }) b.Resources[key] = accent;
-        }
-        if (plain) { b.BorderThickness = new Thickness(0); b.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent); }
-        b.Click += (_, _) => click();
-        return b;
-    }
+    static Button Btn(string text, Action click, bool filled = false, bool plain = false, string? name = null) =>
+        MurmurStyle.Pill(text, click, filled ? MurmurStyle.PillKind.Filled : plain ? MurmurStyle.PillKind.Plain : MurmurStyle.PillKind.Outline, name, height: 34);
 
     static TextBlock Mono(string text, double size = 11, bool accent = false)
     {
