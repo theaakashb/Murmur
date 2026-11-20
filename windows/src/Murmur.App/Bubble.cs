@@ -39,7 +39,9 @@ internal sealed partial class Bubble
         appWindow.SetPresenter(OverlappedPresenter.CreateForContextMenu());
         appWindow.IsShownInSwitchers = false;
         var style = Native.GetWindowLongPtr(hwnd, Native.GwlExStyle);
-        Native.SetWindowLongPtr(hwnd, Native.GwlExStyle, (nint)((long)style | Native.WsExNoActivate | Native.WsExToolWindow | Native.WsExTransparent | Native.WsExTopmost));
+        Native.SetWindowLongPtr(hwnd, Native.GwlExStyle, (nint)((long)style | Native.WsExNoActivate | Native.WsExToolWindow | Native.WsExTransparent | Native.WsExTopmost | Native.WsExLayered));
+        // WS_EX_TRANSPARENT only lets clicks through on a layered window.
+        Native.SetLayeredWindowAttributes(hwnd, 0, 255, 2);
         // The pill has no background of its own (the Mac's minimal pill is five dots and nothing else): a clear backdrop gives per-pixel alpha with smooth edges.
         window.SystemBackdrop = new ClearBackdrop();
         surface.Background = null;
