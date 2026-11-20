@@ -108,15 +108,14 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - Pass 2, `de97c81`: switches, (?) icons, column width, Modes/Dictionary/Cues, welcome guide.
   - Pass 3, merged 2026-11-20 (merge of `windows-ui-meetings` plus a microphone-step fix). It adds the Meetings screen, sheets, call offer, Settings Meetings and Updates, Open at login, tray Restart to update, the voice edit shortcut row and dictionary suggestions. Harness 6/6 (median 318 ms). Known gaps: no meeting date filter, Lecture tab, speaker rename or live floating panel; no cloud meeting-transcription row; no "Not learned" list; the call offer isn't exercised live.
 
-## Active workers (03:55Z)
+## Active workers (04:20Z, coordinator 268d6a36)
 
 | Agent | Model | Worktree folder / branch | Assignment |
 | --- | --- | --- | --- |
-| `33161254-7ebc-4901-8f17-7ea1f29d70a9` | Claude Sonnet 5.5, medium | `.../windows-m4-core` / `windows-ui-meetings` (from `de97c81`) | UI pass 3. Meetings screen and sheets; call offer panel (`CallOffered`); welcome guide mic privacy (read-only Platform helper) and test dictation (`Controller.Setup.cs` if needed); Dictionary suggestions and reset; the speaker model rows and switches (`meetingSpeakers`, `meetingRoomSpeakers`, `RefreshSpeakerModels()`); an Updates pane, Open at login, tray "Restart to update". Then merge `origin/windows`, re-capture, and run the 6-dictation harness on the merged build. |
+| `d3e95f6e-41b9-4236-951e-f43589eacf74` | Claude Sonnet 5.5, medium | `windows-m3-live` / `windows-restart-update` | Run RestartToUpdate and the tray item on the VM: install vA, update to vB through the local feed, check data and Run value. It holds the VM desktop. |
+| `67bab2d6-767e-499a-8030-229f159b1632` | Claude Sonnet 5.5, medium | `windows-ui-fluent` / `windows-ui-pass4` | UI pass 4: Home, Insights and streak, settings search highlight, pass-3 leftovers. It asks for the desktop before using it. |
 
-All other workers are archived. Free workspaces to reuse:
-- `wks_50c7ffeb2fda107c`, folder `windows-m3-live`, branch `windows-m6-velopack` (merged);
-- `wks_f5364d96a43c462c`, folder `windows-ui-fluent`, branch `windows-m5-speakers` (merged).
+All other workers are archived. A free workspace to reuse: `wks_eef3d710acd15c9a`, folder `windows-m4-core`, branch `windows-ui-meetings` (merged).
 
 Use a fresh branch from `windows` for each new task.
 
@@ -155,7 +154,7 @@ Use a fresh branch from `windows` for each new task.
   - a 30-minute meeting following `INSTALL-TEST.md` "Meetings";
   - a real model download (the freeze fix).
   
-  Install the latest CI artifact or `T:\Paseo Project\Murmur` app-next after the next build.
+  CI is green at `0d1e491`, and its artifact is `Murmur-windows-x64-unsigned`. Staging app-next on the PC waits for the PC host to come back online.
 - **M6:** the signing account, the test-repo release runs and publishing. The setup steps are in `windows/UPDATES.md`, "Needs user". The pinned vpk 1.2.161 still needs signtool and the dlib; Velopack 1.3 or later signs directly.
 - **Velopack 1.3:** the user asked for stable 1.3.x, but none exists. The only 1.3 build is the prerelease 1.3.39-g8d2844f; the latest stable is 1.2.161. Decided: stay on 1.2.161, and move to 1.3 when a stable release ships (UPDATES.md). The user may still override.
 - **Optional:** a bigger VM disk, so parallel builds don't run low.
