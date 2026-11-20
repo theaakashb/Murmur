@@ -71,7 +71,8 @@ public partial class App : Application
         Updater.UpdateReady += version => TestEvents.Emit("update-ready", ("version", version));
         Updater.Start();
 
-        var menu = new TrayMenu(OpenSettings, OpenHistory, Quit, () => { if (controller!.MeetingLive) controller.StopMeeting(); else controller.StartMeeting(); }, () => controller!.MeetingLive);
+        var menu = new TrayMenu(OpenSettings, OpenHistory, Quit, () => { if (controller!.MeetingLive) controller.StopMeeting(); else controller.StartMeeting(); }, () => controller!.MeetingLive,
+            () => { if (Updater?.RestartToUpdate() is { } message) bubble.ShowNotice(message, 5); }, () => Updater?.ReadyVersion);
         var showMenu = new XamlUICommand();
         showMenu.ExecuteRequested += (_, _) => menu.Show();
         tray = new TaskbarIcon

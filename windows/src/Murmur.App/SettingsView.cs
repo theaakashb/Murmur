@@ -11,7 +11,7 @@ namespace Murmur.App;
 
 internal sealed partial class SettingsView
 {
-    public static readonly string[] Panes = ["General", "Dictation", "Writing", "Meetings", "Privacy & Storage", "Providers"];
+    public static readonly string[] Panes = ["General", "Dictation", "Writing", "Meetings", "Privacy & Storage", "Providers", "Updates"];
     static readonly Dictionary<string, string[]> Tabs = new() { ["Dictation"] = ["Recording", "Transcription", "Insertion"], ["Writing"] = ["Cleanup", "Modes", "Dictionary", "Cues", "Learning"] };
     static readonly Dictionary<string, string> Descriptions = new()
     {
@@ -20,6 +20,7 @@ internal sealed partial class SettingsView
         ["Writing"] = "Shape your text and keep your own voice.",
         ["Meetings"] = "Notes and transcripts for your calls.",
         ["Privacy & Storage"] = "Choose what Murmur saves on this PC, and for how long.",
+        ["Updates"] = "Keep Murmur current, and choose whether it starts with Windows.",
         ["Providers"] = "Needed only for cloud routes. Stored in Windows Credential Manager.",
     };
 
@@ -68,6 +69,7 @@ internal sealed partial class SettingsView
         BuildPane("Meetings", BuildMeetings);
         BuildPane("Privacy & Storage", BuildData);
         BuildPane("Providers", BuildKeys);
+        BuildPane("Updates", BuildUpdates);
         UpdateModelRoutes();
         Show("General");
     }
