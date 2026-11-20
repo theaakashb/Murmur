@@ -28,7 +28,7 @@ public sealed class LearningTests(ITestOutputHelper output)
         Thread.Sleep(200);
     }
 
-    [InputFact]
+    [SessionFact]
     public void ReadableFieldGivesTheSpanOffsetAndTheEditedText()
     {
         using var notepad = new NotepadWindow();
@@ -38,12 +38,14 @@ public sealed class LearningTests(ITestOutputHelper output)
         Assert.NotNull(target);
         var before = target!.Read();
         Assert.NotNull(before);
-        Assert.Equal(6, before!.Selection.Location);
+        // Notepad may restore earlier text, so the span's offset is wherever the caret is.
+        int at = before!.Selection.Location;
+        Assert.True(at >= 6 && before.Value[(at - 6)..at] == "Start ", "caret not after the typed prefix");
         Type("git hub rocks");   // stands in for the pasted span
         var after = target.Read();
         Assert.NotNull(after);
-        Assert.Equal(before.Value + "git hub rocks", after!.Value.TrimEnd('\r', '\n'));
-        var observation = DictationObservation.Create(after.Value, new Utf16Range(6, 13), 0);
+        Assert.Equal(before.Value.Insert(at, "git hub rocks"), after!.Value);
+        var observation = DictationObservation.Create(after.Value, new Utf16Range(at, 13), 0);
         Assert.NotNull(observation);
         // The user fixes "git hub" -> "GitHub": caret is at the span end; go back 6 words-worth by Ctrl+Left twice then retype.
         for (int i = 0; i < 6; i++) Tap(0x25); // Left x6 puts the caret before " rocks"
@@ -56,7 +58,7 @@ public sealed class LearningTests(ITestOutputHelper output)
         Assert.Equal("GitHub rocks", observation.Edited);
     }
 
-    [InputFact]
+    [SessionFact]
     public void PasswordFieldIsNeverCaptured()
     {
         using var window = ScriptWindow.Open("$t = New-Object Windows.Forms.TextBox; $t.UseSystemPasswordChar = $true; $t.Text = 'synthetic-secret'; $t.Dock = 'Fill'; $f.Controls.Add($t); $f.Add_Shown({ $t.Focus() })");
@@ -66,7 +68,7 @@ public sealed class LearningTests(ITestOutputHelper output)
         Assert.True(password);
     }
 
-    [InputFact]
+    [SessionFact]
     public void UnreadableFieldIsCapturedButNotReadAndKeysAreFollowedByTheHook()
     {
         using var window = ScriptWindow.Open("$b = New-Object Windows.Forms.Button; $b.Text = 'x'; $b.Dock = 'Fill'; $f.Controls.Add($b); $f.Add_Shown({ $b.Focus() })");
