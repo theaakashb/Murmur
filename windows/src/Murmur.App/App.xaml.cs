@@ -64,6 +64,7 @@ public partial class App : Application
         bubble = new Bubble(queue);
         controller = new Controller(services, bubble);
         _ = new CallOfferPanel(services, controller, queue); // held by the controller's CallOffered event
+        liveMeetingPanel = new LiveMeetingPanel(services, controller, queue);
 
         // Mac parity (main.swift:28): start at login is on after the first launch, then the user's choice.
         if (!services.Settings.Get(Prefs.OpenAtLoginDefaulted)) { if (LoginItem.Set(true)) services.Settings.Set(Prefs.OpenAtLoginDefaulted, true); }
