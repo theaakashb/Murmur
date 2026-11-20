@@ -20,7 +20,7 @@ The run folder `C:\src\harness-run-<timestamp>` holds `results.json`, `summary.t
 
 | Piece | What it is |
 | --- | --- |
-| `fixtures/` | 23 synthetic WAVs plus `manifest.json` (see its README) |
+| `fixtures/` | 24 synthetic WAVs plus `manifest.json` (see its README) |
 | `FakeProvider/` | Loopback-only (127.0.0.1) server: `POST /v1/audio/transcriptions`, `POST /v1/chat/completions`, `GET /v1/models`, `POST /control/next {"id"}`, `GET /control/requests`. Logs multipart field names and audio byte counts only. `dotnet run --project FakeProvider -- --selftest` checks it. |
 | `Driver/` | Session-1 UI driver: launches each target, presses Right Ctrl with `SendInput`, reads back through UI Automation, watches the clipboard, reads Win+V history. |
 | `pages/textarea.html` | The `file://` page with a `<textarea>` that Edge opens. |
@@ -50,6 +50,12 @@ Targets: Notepad (7 dictations), Edge textarea (7), VS Code with a new untitled 
 Read-back method per target: UI Automation `ValuePattern` on the Notepad document, the Edge `textarea` (name `dictation`), and VS Code's editor input (`native-edit-context`). VS Code is launched with a throwaway profile, `--force-renderer-accessibility`, `editor.accessibilitySupport` on and AI features off (a Chat box would otherwise take the focus; the driver only accepts the editor named `Untitled-…`), and it declines the first-run sign-in and theme screens. All three targets are opened before the first dictation and kept open: closing one hands the foreground to the next window in z-order, and on the VM that is an elevated PowerShell, which injected input cannot reach. If an editor ever exposes no text, the driver falls back to select-all + copy, used only for verification, and says so in the result.
 
 `release-to-paste latency` is the time from key release to the app's `paste` event timestamp. With the stub app it is about 0.3 s (the stub's own 150 ms wait included), so it is a harness check, not a performance claim.
+
+## Spoken mode trigger case (the "+1")
+
+On cloud-route runs (not `-LocalOnly` / `-LocalAsr`) the driver adds one dictation after the N: fixture `mode-email` ("email mode can you send me the report by friday") in Notepad. Presets only apply on AI routes; the Custom Provider on the fake is one, so the Email transform runs. Extra checks: `mode-name-is-email` (History `writingModeName`), `raw-text-keeps-trigger` (History `rawText` starts with "email mode"), `cleanup-request-made`, `trigger-not-sent-to-cleanup` (the chat user message has no "email mode" but has the body), `email-transform-prompt-used` (the system message contains "Write ready-to-paste email text", the email transform frame from `shared/cleanup_prompt.json`). Fixtures whose id starts with `mode-` are excluded from the N.
+
+To read the request text the fake provider keeps chat messages in memory (`GET /control/chat-texts`, loopback only). It is for synthetic fixtures only, is never written to `provider-requests.json`, the log or disk, and must not be used with real user content.
 
 ## Driver dev commands
 
