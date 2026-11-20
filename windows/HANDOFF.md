@@ -105,6 +105,8 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 | # | Agent ID | Worktree folder / branch | Assignment | Start point |
 | --- | --- | --- | --- | --- |
 | UI | `33161254-7ebc-4901-8f17-7ea1f29d70a9` (Claude Sonnet 5.5, medium) | `windows-m4-core` / `windows-ui-maclook` | Match the Mac look: one shared main window with the Mac sidebar (Home, Insights, History, Settings), the Mac settings sidebar, underline-tab controls, History search/collapsed rows/footer, re-capture all screens, then the harness. App.xaml.cs granted narrowly. | `b756625`. Checkpoint in `~/murmur-m3/checkpoints/ui-maclook.md`. Pairs and tooling in `/tmp/murmur-maclook/`. `3d841c7` passed the harness 6/6. |
+| M5 platform | `de4d6235-00f4-448e-87ad-1eb15492aa49` (Claude Sonnet 5.5, medium) | `windows-ui-fluent` / `windows-m5-platform` | Process-loopback Them capture with silence fill, Me capture, IAudioSessionManager2 call-detection input, a recorder in `Controller.Meetings.cs`, tests, and a PC checklist for the 30-minute call. No visuals. | `1b14fc1` |
+| M6 local | `68cee5b1-a6bc-46bc-b172-569af8fee551` (Claude Sonnet 5.5, medium) | `windows-m3-live` / `windows-m6-velopack` | Velopack in the app (pinned), the updater with an injectable source, start at login, `windows/tools/package.ps1`, and a draft `windows-release.yml` with signing and upload off. A VM install → delta update → uninstall test from a local feed. No signing, no uploads. | `1b14fc1`. It asks before installing to `%LOCALAPPDATA%\MurmurApp` on the VM. |
 
 **Merged this session (all pushed to `windows`):**
 - live words `8535cb1`;
@@ -118,6 +120,8 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 The Codex workers `011b034c`, `b84929e5` and `c281bc63` are archived.
 
 **M5 core (`5ddfdc6`):** the meetings chunk feed and recovery, store, notes (Custom Provider) with the corpus checks, export with exact escaping, speakers, and the call detector. Not verified: live capture, call-process enumeration, diarization, real provider calls. Checkpoint `~/murmur-m3/checkpoints/m5-core.md`.
+
+**User override (2026-11-20):** ignore the 20% Claude weekly threshold; the user resets Claude themselves. Keep HANDOFF and the worker checkpoint commits current at each step, and use Codex too after its reset.
 
 **Usage, 03:10Z:** Codex 5h at 15% (resets 07:37Z), weekly 58%. Claude 5h at 81%, weekly 28%. One Claude worker only, to conserve the weekly allowance. At Claude weekly ≤20%, stop starting Claude work. New work goes to Codex after 07:37Z.
 
