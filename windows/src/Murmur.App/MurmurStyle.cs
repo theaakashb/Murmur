@@ -17,6 +17,13 @@ internal static class MurmurStyle
     public static TextBlock Text(string text, string style = "MurmurDescription") =>
         new() { Text = text, Style = Style(style), TextWrapping = TextWrapping.Wrap };
 
+    /// <summary>A brush from the element's current theme dictionary; resources set in code do not follow theme changes by themselves.</summary>
+    public static Microsoft.UI.Xaml.Media.Brush ThemeBrush(string key, FrameworkElement context)
+    {
+        var name = context.ActualTheme == ElementTheme.Dark ? "Default" : "Light";
+        return (Microsoft.UI.Xaml.Media.Brush)((ResourceDictionary)Application.Current.Resources.ThemeDictionaries[name])[key];
+    }
+
     public enum PillKind { Filled, Outline, Plain }
 
     /// <summary>The Mac's InkButtonStyle: an ink capsule (filled), an ink outline, or plain ink text. The Button is only a hit target around the styled Border.</summary>

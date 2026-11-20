@@ -82,6 +82,33 @@ internal sealed partial class MeetingsView
         return t;
     }
 
+    /// <summary>The Mac's DisclosureGroup: a chevron and "Audio and privacy" that reveal one paragraph under it.</summary>
+    UIElement PrivacyDisclosure()
+    {
+        bool speakers = s.Settings.Get(SpeakerFacts.SettingKey) as bool? ?? false, room = s.Settings.Get(SpeakerFacts.RoomKey) as bool? ?? false;
+        string retry = RetryWindow.Text;
+        var body = Lede(speakers
+            ? room ? $"For calls, the call’s audio is kept until speakers are separated. For microphone-only recordings, microphone audio is kept instead. Both are deleted after separation, at most {retry}."
+                   : $"Your microphone as Me and the call’s audio as Them, transcribed on this PC. Your audio is deleted as soon as it is transcribed; the call’s is kept until its speakers are separated, at most {retry}."
+            : "Your microphone as Me and the call’s audio as Them, transcribed on this PC. Audio is deleted as soon as it is transcribed.");
+        body.Visibility = Visibility.Collapsed; body.Margin = new Thickness(18, 4, 0, 0); body.MaxWidth = 560;
+        var chevron = new FontIcon { Glyph = "\uE76C", FontSize = 10, Style = MurmurStyle.Style("MurmurMutedIcon") };
+        var label = MurmurStyle.Text("Audio and privacy", "MurmurSettingLabel"); label.FontSize = 13;
+        var header = new Button
+        {
+            Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { chevron, label } }, Padding = new Thickness(0, 2, 0, 2), MinHeight = 0, BorderThickness = new Thickness(0),
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent)
+        };
+        MurmurStyle.Named(header, "Audio and privacy");
+        header.Click += (_, _) =>
+        {
+            bool open = body.Visibility == Visibility.Collapsed;
+            body.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+            chevron.Glyph = open ? "\uE70D" : "\uE76C";
+        };
+        return new StackPanel { Children = { header, body } };
+    }
+
     static TextBlock Lede(string text) => MurmurStyle.Text(text, "MurmurDescription");
 
     // ---- render ----
@@ -97,11 +124,7 @@ internal sealed partial class MeetingsView
         var title = new TextBlock { Text = "Meetings", Style = MurmurStyle.Style("MurmurHeading"), FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("ms-appx:///Fonts/InstrumentSerif-Regular.ttf#Instrument Serif"), CharacterSpacing = -20 };
         title.FontSize = 48; title.FontWeight = Microsoft.UI.Text.FontWeights.Normal;
         AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level1);
-        var privacy = new Expander
-        {
-            Header = "Audio and privacy", IsExpanded = false, Padding = new Thickness(0, 4, 0, 4), HorizontalAlignment = HorizontalAlignment.Left, BorderThickness = new Thickness(0),
-            Content = Lede("Your microphone as Me and the call’s audio as Them, transcribed on this PC. Audio is deleted as soon as it is transcribed.")
-        };
+        var privacy = PrivacyDisclosure();
         var left = new StackPanel { Spacing = 4, Children = { title, Lede("Find transcripts and notes from your calls."), privacy } };
         FrameworkElement right;
         if (r.Live is { } live)
