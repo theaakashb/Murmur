@@ -9,7 +9,7 @@ namespace Murmur.App;
 /// <summary>Home as on the Mac (home in app/HomeView.swift): route line, milestone, shortcut with Start Dictation, meeting notes, readiness rows and recent dictations.</summary>
 internal sealed class HomeView(AppServices s, Controller controller, HomeView.Actions go)
 {
-    internal sealed record Actions(Action StartDictation, Action OpenMeetings, Action OpenHistory, Action<string, string> OpenSettings, Action ReplayWelcome);
+    internal sealed record Actions(Action StartDictation, Action OpenMeetings, Action OpenHistory, Action<string, string> OpenSettings, Action ReplayWelcome, Action<string> OpenEntry);
 
     static TextBlock Eyebrow(string text) => MurmurStyle.Text(text.ToUpperInvariant(), "MurmurEyebrow");
 
@@ -160,7 +160,7 @@ internal sealed class HomeView(AppServices s, Controller controller, HomeView.Ac
         Grid.SetColumn(body, 1);
         var button = new Button { Content = g, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(0), BorderThickness = new Thickness(0), CornerRadius = new CornerRadius(0), Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent) };
         MurmurStyle.Named(button, "Open in History: " + Relative(e.RecordedAt));
-        button.Click += (_, _) => go.OpenHistory();
+        button.Click += (_, _) => go.OpenEntry(e.Id);
         return new StackPanel { Children = { button, MurmurStyle.HRule(true) } };
     }
 
