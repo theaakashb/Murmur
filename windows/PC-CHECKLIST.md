@@ -39,7 +39,7 @@ Setup: a working cleanup provider, either Murmur Cloud or a Custom Provider with
 3. With nothing selected, Right Ctrl should dictate as usual.
 4. Note the time from releasing the key to the new text appearing.
 
-The Settings row for a separate voice edit shortcut isn't on Windows yet. The same key with a selection is the default, and that's what this run tests.
+Using the same key with a selection is the default, and that's what this run tests. Optional: Settings > Dictation > Recording > Voice edit shortcut > pick a separate key, then repeat step 2 with that key.
 
 ## 4. A real model download (about 5 min)
 
