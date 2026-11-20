@@ -1,0 +1,308 @@
+{
+  "durations" : [
+    {
+      "seconds" : 0,
+      "text" : "0 minutes"
+    },
+    {
+      "seconds" : 29,
+      "text" : "0 minutes"
+    },
+    {
+      "seconds" : 30,
+      "text" : "1 minute"
+    },
+    {
+      "seconds" : 89,
+      "text" : "1 minute"
+    },
+    {
+      "seconds" : 90,
+      "text" : "2 minutes"
+    },
+    {
+      "seconds" : 840,
+      "text" : "14 minutes"
+    },
+    {
+      "seconds" : 3540,
+      "text" : "59 minutes"
+    },
+    {
+      "seconds" : 3569,
+      "text" : "59 minutes"
+    },
+    {
+      "seconds" : 3570,
+      "text" : "1 hour"
+    },
+    {
+      "seconds" : 3600,
+      "text" : "1 hour"
+    },
+    {
+      "seconds" : 5400,
+      "text" : "1.5 hours"
+    },
+    {
+      "seconds" : 9000,
+      "text" : "2.5 hours"
+    },
+    {
+      "seconds" : 9100,
+      "text" : "2.5 hours"
+    },
+    {
+      "seconds" : 10800,
+      "text" : "3 hours"
+    },
+    {
+      "seconds" : 36000,
+      "text" : "10 hours"
+    },
+    {
+      "seconds" : 360000,
+      "text" : "100 hours"
+    }
+  ],
+  "next" : [
+    {
+      "after" : 0,
+      "next" : 1000
+    },
+    {
+      "after" : 1000,
+      "next" : 5000
+    },
+    {
+      "after" : 5000,
+      "next" : 10000
+    },
+    {
+      "after" : 10000,
+      "next" : 25000
+    },
+    {
+      "after" : 25000,
+      "next" : 50000
+    },
+    {
+      "after" : 50000,
+      "next" : 100000
+    },
+    {
+      "after" : 100000,
+      "next" : 250000
+    },
+    {
+      "after" : 250000,
+      "next" : 500000
+    },
+    {
+      "after" : 500000,
+      "next" : 1000000
+    },
+    {
+      "after" : 1000000,
+      "next" : null
+    },
+    {
+      "after" : 1000001,
+      "next" : null
+    }
+  ],
+  "rewrites" : [
+    {
+      "edited" : "The launch moved to Monday next week.",
+      "initial" : "the launch is on friday this week",
+      "rewrite" : true
+    },
+    {
+      "edited" : "the launch is on Friday this week",
+      "initial" : "the launch is on friday this week",
+      "rewrite" : false
+    },
+    {
+      "edited" : "no",
+      "initial" : "ok sure",
+      "rewrite" : false
+    },
+    {
+      "edited" : "a b c d e f g",
+      "initial" : "a b c d",
+      "rewrite" : true
+    },
+    {
+      "edited" : "x y z d",
+      "initial" : "a b c d",
+      "rewrite" : true
+    },
+    {
+      "edited" : "a b c d e f g x y z",
+      "initial" : "a b c d e f g h i j",
+      "rewrite" : true
+    },
+    {
+      "edited" : "a b c d e f g h x y",
+      "initial" : "a b c d e f g h i j",
+      "rewrite" : false
+    },
+    {
+      "edited" : "x",
+      "initial" : "",
+      "rewrite" : false
+    },
+    {
+      "edited" : "",
+      "initial" : "one two three four",
+      "rewrite" : true
+    },
+    {
+      "edited" : "zoë cafe tokyo team!",
+      "initial" : "Zoë café 東京 team",
+      "rewrite" : true
+    }
+  ],
+  "saved" : [
+    {
+      "final" : "",
+      "saved" : 0,
+      "seconds" : null
+    },
+    {
+      "final" : "",
+      "saved" : 0,
+      "seconds" : 0
+    },
+    {
+      "final" : "",
+      "saved" : 0,
+      "seconds" : -1
+    },
+    {
+      "final" : "",
+      "saved" : -10,
+      "seconds" : 10
+    },
+    {
+      "final" : "",
+      "saved" : -100,
+      "seconds" : 100
+    },
+    {
+      "final" : "",
+      "saved" : 0,
+      "seconds" : "inf"
+    },
+    {
+      "final" : "",
+      "saved" : 0,
+      "seconds" : "nan"
+    },
+    {
+      "final" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "saved" : 0,
+      "seconds" : null
+    },
+    {
+      "final" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "saved" : 0,
+      "seconds" : 0
+    },
+    {
+      "final" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "saved" : 0,
+      "seconds" : -1
+    },
+    {
+      "final" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "saved" : 50.512024825446083,
+      "seconds" : 10
+    },
+    {
+      "final" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "saved" : -39.487975174553917,
+      "seconds" : 100
+    },
+    {
+      "final" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "saved" : 0,
+      "seconds" : "inf"
+    },
+    {
+      "final" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "saved" : 0,
+      "seconds" : "nan"
+    },
+    {
+      "final" : "Zoë 😀 café 東京",
+      "saved" : 0,
+      "seconds" : null
+    },
+    {
+      "final" : "Zoë 😀 café 東京",
+      "saved" : 0,
+      "seconds" : 0
+    },
+    {
+      "final" : "Zoë 😀 café 東京",
+      "saved" : 0,
+      "seconds" : -1
+    },
+    {
+      "final" : "Zoë 😀 café 東京",
+      "saved" : -6.9743987587276957,
+      "seconds" : 10
+    },
+    {
+      "final" : "Zoë 😀 café 東京",
+      "saved" : -96.974398758727702,
+      "seconds" : 100
+    },
+    {
+      "final" : "Zoë 😀 café 東京",
+      "saved" : 0,
+      "seconds" : "inf"
+    },
+    {
+      "final" : "Zoë 😀 café 東京",
+      "saved" : 0,
+      "seconds" : "nan"
+    },
+    {
+      "final" : "é",
+      "saved" : 0,
+      "seconds" : null
+    },
+    {
+      "final" : "é",
+      "saved" : 0,
+      "seconds" : 0
+    },
+    {
+      "final" : "é",
+      "saved" : 0,
+      "seconds" : -1
+    },
+    {
+      "final" : "é",
+      "saved" : -9.7672614429790539,
+      "seconds" : 10
+    },
+    {
+      "final" : "é",
+      "saved" : -99.767261442979049,
+      "seconds" : 100
+    },
+    {
+      "final" : "é",
+      "saved" : 0,
+      "seconds" : "inf"
+    },
+    {
+      "final" : "é",
+      "saved" : 0,
+      "seconds" : "nan"
+    }
+  ]
+}

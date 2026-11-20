@@ -50,11 +50,11 @@ public abstract record Insights
             var local = TimeZoneInfo.ConvertTime(item.RecordedAt, timeZone);
             var day = DateOnly.FromDateTime(local.DateTime);
             stats.Dictations++;
-            var words = Words(final).Count;
+            var words = SplitWords(final).Count;
             stats.Words += words;
             stats.DailyWords[day] = stats.DailyWords.GetValueOrDefault(day) + words;
             stats.HourlyDictations[local.Hour]++;
-            if (!item.Expanded) stats.WordsChanged += WordsChanged(item.RawText, final);
+            if (!item.Expanded) stats.WordsChanged += ChangedWords(item.RawText, final);
             if (item.Seconds is > 0 and var length && double.IsFinite(length))
             {
                 stats.TimedDictations++;
@@ -84,13 +84,13 @@ public abstract record Insights
         return stats;
     }
 
-    public static IReadOnlyList<string> Words(string text) => Strings.Split(text, SwiftText.IsWhitespace);
+    public static IReadOnlyList<string> SplitWords(string text) => Strings.Split(text, SwiftText.IsWhitespace);
 
     public static double StandardWords(string text) => SwiftText.Count(SwiftText.TrimWhitespaceAndNewlines(text)) / 5.0;
 
-    public static int WordsChanged(string raw, string final)
+    public static int ChangedWords(string raw, string final)
     {
-        var (removed, inserted) = WordDifference.Of(Words(raw).Select(Strings.Key).ToArray(), Words(final).Select(Strings.Key).ToArray());
+        var (removed, inserted) = WordDifference.Of(SplitWords(raw).Select(Strings.Key).ToArray(), SplitWords(final).Select(Strings.Key).ToArray());
         return Math.Max(removed.Count, inserted.Count);
     }
 

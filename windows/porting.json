@@ -74,6 +74,24 @@
       ],
       "sha256": "76cf8aba3d225445681eba888fd07525f9c350324ba11f165b45a17860a18b1a"
     },
+    "app/EditPrompt.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/EditPrompt.cs"
+      ],
+      "sha256": "450d1d1e45d5307497e0c7420ba8f4aa2691f2ddb3f33716886d3c25bf1e680c"
+    },
+    "app/EditShortcut.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/EditShortcut.cs"
+      ],
+      "sha256": "880b83f5c58e59260d4a5accc21a8a3be982d64ab5b08cbc2c9ee2ba9fdf059d"
+    },
+    "app/EditTrigger.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/EditTrigger.cs"
+      ],
+      "sha256": "74756972502593db0caf9e20b04afd3f26b379851a379263044dc5fa99689827"
+    },
     "app/History.swift": {
       "csharp": [
         "windows/src/Murmur.Core/History.cs"
@@ -85,6 +103,12 @@
         "windows/src/Murmur.Core/HistoryRouter.cs"
       ],
       "sha256": "f7f1a94c42dbf4362744825296045cca23a65444f0e0d9c1bd6e71c5f90a28b3"
+    },
+    "app/Insights.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Insights.cs"
+      ],
+      "sha256": "63ab1073a43fc815ecbec0e3780f13099d3825ce33b6fcf5ca10fd5ba40710df"
     },
     "app/KeyCheck.swift": {
       "csharp": [
@@ -153,6 +177,12 @@
       ],
       "sha256": "ec9535468a61497fd4817840f92cf8a18ae3487035515122cde1449d9113792c"
     },
+    "app/MurmurCloudEdit.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/MurmurCloudEdit.cs"
+      ],
+      "sha256": "8aaddb423a377b464cc92a8651960e512311980d90aefa4c73f6794d1285b727"
+    },
     "app/Observation.swift": {
       "csharp": [
         "windows/src/Murmur.Core/Observation.cs"
@@ -176,6 +206,12 @@
         "windows/src/Murmur.Core/Processing.cs"
       ],
       "sha256": "7e85b3ff83adbf6e73af8a6f84ac4c44e0a6f280e61ebc22695e9586d54e9e2f"
+    },
+    "app/ProfessionalHint.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/ProfessionalHint.cs"
+      ],
+      "sha256": "01074e9aa97f47eb4b71834f2c0b87dfa4b2cd0e18639608bc9fb655b315b83b"
     },
     "app/ProviderHTTP.swift": {
       "csharp": [
@@ -227,11 +263,41 @@
       ],
       "sha256": "fb269e130b6293df75d41c07d6bbef22a0dcd879629e66e1896b28a6c0e189e0"
     },
+    "app/Tips.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/Tips.cs"
+      ],
+      "sha256": "f77c1831ea04148150abde9ff561bda53c296000f99a93f908cd6103816f2db1"
+    },
     "app/VoiceCues.swift": {
       "csharp": [
         "windows/src/Murmur.Core/VoiceCues.cs"
       ],
       "sha256": "25309a7176c49970b34c25690ef6d09f12dbf26e8a6061b5bc7aa20773d1d96d"
+    },
+    "app/VoiceEdit.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/VoiceEdit.cs"
+      ],
+      "sha256": "145edd5926fb0008eac68fd85cb671ec8f3f2d82da210d8ce2d20022c187d1fa"
+    },
+    "app/VoiceEditSettings.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/VoiceEditSettings.cs"
+      ],
+      "sha256": "13df2d0be794f9f978261f077099091407e137e1b82af4746b493d601fbb95ee"
+    },
+    "app/WelcomeGuide.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/WelcomeGuide.cs"
+      ],
+      "sha256": "d0397a07e30417e0f7ef44573e976b1513b4591be91846cb0ac3060296f25e0a"
+    },
+    "app/WordDiff.swift": {
+      "csharp": [
+        "windows/src/Murmur.Core/WordDiff.cs"
+      ],
+      "sha256": "a3aa317d6f0f4c302ffc3b76f2ffa8fcf20e08d185a7c3ce8867c708e4e63b30"
     },
     "app/WritingModes.swift": {
       "csharp": [
@@ -242,7 +308,8 @@
     "app/check_app_services.swift": {
       "csharp": [
         "windows/tests/Murmur.Core.Tests/RetentionTests.cs",
-        "windows/tests/Murmur.Core.Tests/BackupTests.cs"
+        "windows/tests/Murmur.Core.Tests/BackupTests.cs",
+        "windows/tests/Murmur.Core.Tests/WelcomeGuideTests.cs"
       ],
       "sha256": "bc924b3c45ca50f2cd4085d0afc99d29a2d37a5732dfcc40034c4d2400c61210"
     },
@@ -293,6 +360,13 @@
       ],
       "sha256": "5cdc24ddb4c9a198e1ef53c051d5608d86336b62ffb976c43566540e16098137"
     },
+    "app/check_insights.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/InsightsTests.cs",
+        "windows/tests/Murmur.Core.Tests/InsightsGoldenTests.cs"
+      ],
+      "sha256": "35d7fec4119a85c4cb791ea4ec65d0d7176d70f057ca244c56e7e721579a70f2"
+    },
     "app/check_local_cleanup.swift": {
       "csharp": [
         "windows/tests/Murmur.Core.Tests/LocalCleanupTests.cs"
@@ -320,6 +394,13 @@
       ],
       "sha256": "9f512fe33c37ccfda3a74b5fa8ff2ac43f66df257a4a1195be73f37709231fff"
     },
+    "app/check_professional_hint.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/ProfessionalHintTests.cs",
+        "windows/tests/Murmur.Core.Tests/ProfessionalHintGoldenTests.cs"
+      ],
+      "sha256": "e56480a38acd8071fb2976df51d12b7ece1a79c226c778b1c09438d57931cf30"
+    },
     "app/check_providers.swift": {
       "csharp": [
         "windows/tests/Murmur.Core.Tests/ProvidersTests.cs"
@@ -332,11 +413,38 @@
       ],
       "sha256": "d56eddc9ac1a2bc5a6ef68bbb3d7c72fff28f7da2b2d139ae0449c026f49ef6c"
     },
+    "app/check_tips.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/TipsTests.cs",
+        "windows/tests/Murmur.Core.Tests/TipsGoldenTests.cs"
+      ],
+      "sha256": "5aaee00c5ad080068b0222bbf1fba006ba8bafae58d07c37caa3459638e368f2"
+    },
     "app/check_voice_cues.swift": {
       "csharp": [
         "windows/tests/Murmur.Core.Tests/VoiceCuesTests.cs"
       ],
       "sha256": "3501435fb787cb4e7d5b0c2cb91fae2f0701d123d381d14f985fc90132fccb3b"
+    },
+    "app/check_voice_edit.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/VoiceEditTests.cs",
+        "windows/tests/Murmur.Core.Tests/VoiceEditGoldenTests.cs"
+      ],
+      "sha256": "e5570bed7331868be8b2c3fc07ed87500263f5e70ecd77bfe618df6131cbf54c"
+    },
+    "app/check_voice_edit_trigger.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/VoiceEditTriggerTests.cs"
+      ],
+      "sha256": "09a71bea906cb482c4f69629889a1a9f06096397ae4449265721281c47fcd0ee"
+    },
+    "app/check_worddiff.swift": {
+      "csharp": [
+        "windows/tests/Murmur.Core.Tests/WordDiffTests.cs",
+        "windows/tests/Murmur.Core.Tests/WordDiffGoldenTests.cs"
+      ],
+      "sha256": "8a3c5a7df68d566b9297639790dd55cbd52281dcf85f9520eea04b203696b929"
     },
     "module-one/cleanup/Runner/Sources/LocalCleanupRunner/main.swift": {
       "csharp": [

@@ -14,7 +14,7 @@ public static class WordDiff
         .Where(c => SwiftText.IsLetter(c) || SwiftText.IsNumber(c)));
 
     public static IReadOnlyList<Run> Runs(string raw, string final) =>
-        Diff(Insights.Words(raw), Insights.Words(final), word => Core(word) is { Length: > 0 } core ? core : word);
+        Diff(Insights.SplitWords(raw), Insights.SplitWords(final), word => Core(word) is { Length: > 0 } core ? core : word);
 
     // The display diff pairs on canonical keys, but keeps the source spelling and the Swift removal-first tie break.
     static int[,] Alignment(string[] a, string[] b)
@@ -72,14 +72,14 @@ public static class WordDiff
 
     public static int ChangeCount(string raw, string final)
     {
-        static string[] Cores(string text) => Insights.Words(text).Select(Core).Where(w => w.Length > 0).ToArray();
+        static string[] Cores(string text) => Insights.SplitWords(text).Select(Core).Where(w => w.Length > 0).ToArray();
         int count = 0, pendingRemoved = 0;
         foreach (var run in Diff(Cores(raw), Cores(final), w => w))
         {
             switch (run.Kind)
             {
-                case Kind.Removed: pendingRemoved = Insights.Words(run.Text).Count; break;
-                case Kind.Added: count += Math.Max(pendingRemoved, Insights.Words(run.Text).Count); pendingRemoved = 0; break;
+                case Kind.Removed: pendingRemoved = Insights.SplitWords(run.Text).Count; break;
+                case Kind.Added: count += Math.Max(pendingRemoved, Insights.SplitWords(run.Text).Count); pendingRemoved = 0; break;
                 default: if (pendingRemoved > 0) count++; pendingRemoved = 0; break;
             }
         }

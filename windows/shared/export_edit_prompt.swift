@@ -1,4 +1,4 @@
-// deps: CleanupTypes CleanupText CleanupGuard RuleCleaner EditPrompt
+// deps: CleanupTypes CleanupText CleanupGuard RuleCleaner CleanupPrompt EditPrompt
 import Foundation
 
 @main struct Gen {

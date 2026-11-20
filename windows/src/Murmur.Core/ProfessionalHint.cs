@@ -18,7 +18,7 @@ public static class ProfessionalSignal
     public static int LongestRun(string text)
     {
         int best = 0, run = 0;
-        foreach (var word in Insights.Words(text))
+        foreach (var word in Insights.SplitWords(text))
         {
             best = Math.Max(best, ++run);
             if (SwiftText.Characters(word)[^1] is "." or "?" or "!") run = 0;
