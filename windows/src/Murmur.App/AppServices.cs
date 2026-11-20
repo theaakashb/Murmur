@@ -59,6 +59,7 @@ internal sealed class AppServices
     /// <summary>Points the cleanup runner at this data root (it defaults to the real one, not a test run's) and checks the pinned checksums before the helper first reads the model.</summary>
     void ConfigureCleanupRunner()
     {
+        LocalCleanupRunner.Shared.PreferGpu = () => Settings.Get(Prefs.UseGpuWhenAvailable);
         if (CleanupSlot is not { Downloader: { } downloader, Manifest: { } manifest }) return;
         LocalCleanupRunner.ModelDirectory = downloader.Target;
         LocalCleanupRunner.Verifier = () =>

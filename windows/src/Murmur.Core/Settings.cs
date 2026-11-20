@@ -127,6 +127,7 @@ public static class Prefs
     public static readonly Setting<bool> KeepRecordings = Bool("keepRecordings");
     public static readonly Setting<bool> LiveWords = Bool("liveWords");
     public static readonly Setting<bool> LiveWordsOnCloud = Bool("liveWordsOnCloud");
+    public static readonly Setting<bool> UseGpuWhenAvailable = Bool("useGpuWhenAvailable");
     public static readonly Setting<int> SettingsSection = Int("settingsSection");
     public static readonly Setting<bool> SidebarCollapsed = Bool("sidebarCollapsed");
     public static readonly Setting<bool> ShowDetailedSettingsInfo = Bool("showDetailedSettingsInfo");

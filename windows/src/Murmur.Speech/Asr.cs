@@ -27,22 +27,24 @@ sealed class Asr : IDisposable
     // Tuning knob for the benchmark; the default is sherpa-onnx's own.
     static float HotwordsScore => float.TryParse(Environment.GetEnvironmentVariable("MURMUR_HOTWORDS_SCORE"), System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 1.5f;
 
-    static OfflineRecognizerConfig Config(string dir, string method, string? hotwordsFile, string? bpeVocab)
+    static OfflineRecognizerConfig Config(string dir, string method, string? hotwordsFile, string? bpeVocab, string provider)
     {
         var files = Files(dir);
         foreach (var f in files) if (!File.Exists(f)) throw new FileNotFoundException("model file missing");
         var c = new OfflineRecognizerConfig();
         c.ModelConfig.Transducer.Encoder = files[0]; c.ModelConfig.Transducer.Decoder = files[1]; c.ModelConfig.Transducer.Joiner = files[2];
         c.ModelConfig.Tokens = files[3]; c.ModelConfig.ModelType = "nemo_transducer";
-        c.ModelConfig.NumThreads = Threads; c.ModelConfig.Provider = "cpu"; c.ModelConfig.Debug = 0;
+        c.ModelConfig.NumThreads = Threads; c.ModelConfig.Provider = provider; c.ModelConfig.Debug = 0;
         c.DecodingMethod = method;
         if (hotwordsFile is not null) { c.HotwordsFile = hotwordsFile; c.ModelConfig.ModelingUnit = "bpe"; c.ModelConfig.BpeVocab = bpeVocab ?? "";  c.HotwordsScore = HotwordsScore; c.MaxActivePaths = 4; }
         return c;
     }
 
-    public Asr(string dir, string? vocabularyPath, string? lexiconPath)
+    public Asr(string dir, string? vocabularyPath, string? lexiconPath, string provider = "cpu")
     {
-        raw = new OfflineRecognizer(Config(dir, "greedy_search", null, null));
+        raw = new OfflineRecognizer(Config(dir, "greedy_search", null, null, provider));
+        using (var probe = raw.CreateStream())
+            if (probe.Handle == IntPtr.Zero) { raw.Dispose(); throw new InvalidDataException("Speech model initialization failed."); }
         // BoostFilter keeps a replacement only when a replaced word is not ordinary: the bundled English lexicon (Core) decides. --lexicon is accepted and ignored.
         isCommonWord = Lexicon.English.IsCommonWord;
         aliases = [];
@@ -59,7 +61,9 @@ sealed class Asr : IDisposable
             var hotwordsFile = Path.Combine(folder, "hotwords.txt"); var bpeFile = Path.Combine(folder, "bpe.vocab");
             File.WriteAllLines(hotwordsFile, words);
             File.WriteAllLines(bpeFile, File.ReadLines(Path.Combine(dir, "tokens.txt")).Select(l => l.LastIndexOf(' ') is var i and > 0 ? l[..i] : l).Where(p => p != "<unk>").Select(p => p + "\t-1"));
-            hot = new OfflineRecognizer(Config(dir, "modified_beam_search", hotwordsFile, bpeFile));
+            hot = new OfflineRecognizer(Config(dir, "modified_beam_search", hotwordsFile, bpeFile, provider));
+            using var probe = hot.CreateStream();
+            if (probe.Handle == IntPtr.Zero) throw new InvalidDataException("Dictionary model initialization failed.");
             Terms = vocabulary.Terms.Count;
             aliases = vocabulary.Terms.SelectMany(t => t.Aliases).Select(a => string.Join(" ", BoostFilter.Words(a).Select(w => w.Folded))).ToHashSet();
         }

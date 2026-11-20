@@ -1,0 +1,30 @@
+--- a/sherpa-onnx/csrc/session.cc
++++ b/sherpa-onnx/csrc/session.cc
+@@ -9,0 +10 @@
++#include <stdexcept>
+@@ -29,0 +31,3 @@
++#include <dxgi1_2.h>
++#include <wrl/client.h>
++#pragma comment(lib, "dxgi.lib")
+@@ -448,8 +452,10 @@
+-      int32_t device_id = 0;
+-      OrtStatus *status =
+-          OrtSessionOptionsAppendExecutionProvider_DML(sess_opts, device_id);
+-      if (status) {
+-        const auto &api = Ort::GetApi();
+-        const char *msg = api.GetErrorMessage(status);
+-        SHERPA_ONNX_LOGE("Failed to enable DirectML: %s. Fallback to cpu", msg);
+-        api.ReleaseStatus(status);
++      Microsoft::WRL::ComPtr<IDXGIFactory1> factory;
++      Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
++      DXGI_ADAPTER_DESC1 desc{};
++      // DirectML's adapter 0 can be WARP on a machine with no display driver.
++      if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))) ||
++          FAILED(factory->EnumAdapters1(0, &adapter)) ||
++          FAILED(adapter->GetDesc1(&desc)) ||
++          (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) ||
++          (desc.VendorId == 0x1414 && desc.DeviceId == 0x008c)) {
++        throw std::runtime_error("No hardware DirectML adapter");
+@@ -456,0 +463,2 @@
++      // Let the helper report initialization failure before accepting audio.
++      Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_DML(sess_opts, 0));
