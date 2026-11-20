@@ -81,6 +81,18 @@ public class VoiceEditTests
 
     static readonly RouteSettings Routes = new() { Cleanup = CleanupChoice.MurmurCloud };
 
+    [Theory]
+    [InlineData(CleanupChoice.MurmurCloud, "Murmur Cloud")]
+    [InlineData(CleanupChoice.CustomAPI, "your Custom Provider")]
+    public void StatusUsesTheMacEngineName(CleanupChoice route, string name)
+    {
+        var routes = Routes with { Cleanup = route, CustomAPIBaseURL = "https://provider.example/v1", CustomAPIModel = "internal-model" };
+        var result = VoiceEdit.CreateSession(false, route, routes, _ => Key, new FakeTarget(Field()), 99);
+        var edit = Assert.IsType<VoiceEdit.SessionResult.Ready>(result).Session;
+        Assert.Equal($"Editing with {name}…", edit.ProcessingLabel);
+        Assert.Equal($"Edited with {name}. Ctrl+Z in the app undoes it.", edit.CompletedLabel);
+    }
+
     [Fact]
     public void SessionRefusals()
     {

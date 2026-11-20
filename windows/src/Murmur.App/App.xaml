@@ -77,6 +77,9 @@
             <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="#4D6FF0" />
             <SolidColorBrush x:Key="RadioButtonOuterEllipseCheckedFill" Color="#4D6FF0" />
             <SolidColorBrush x:Key="HyperlinkButtonForeground" Color="#4D6FF0" />
+            <Style TargetType="Button">
+                <Setter Property="BorderThickness" Value="0" />
+            </Style>
             <Style x:Key="MurmurCard" TargetType="Border">
                 <Setter Property="Background" Value="{ThemeResource MurmurSidebar}" />
                 <Setter Property="BorderBrush" Value="{ThemeResource MurmurRule}" />
@@ -166,8 +169,7 @@
             </Style>
             <Style x:Key="MurmurTrayMenu" TargetType="MenuFlyoutPresenter">
                 <Setter Property="Background" Value="{ThemeResource MurmurPaper}" />
-                <Setter Property="BorderBrush" Value="{ThemeResource MurmurRule}" />
-                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="CornerRadius" Value="8" />
                 <Setter Property="Padding" Value="5" />
             </Style>

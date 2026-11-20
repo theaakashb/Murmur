@@ -14,7 +14,7 @@ internal sealed class TrayMenu
     readonly nint hwnd;
     readonly Grid anchor = new();
     readonly MenuFlyout menu = new() { MenuFlyoutPresenterStyle = MurmurStyle.Style("MurmurTrayMenu") };
-    bool open;
+    bool open, openedFromKeyboard;
     MenuFlyoutItem? meetingItem;
     Func<bool>? meetingLive;
     MenuFlyoutItem? updateItem;
@@ -29,12 +29,17 @@ internal sealed class TrayMenu
         var style = (long)Native.GetWindowLongPtr(hwnd, Native.GwlExStyle);
         Native.SetWindowLongPtr(hwnd, Native.GwlExStyle, (nint)(style | Native.WsExLayered));
         Native.SetLayeredWindowAttributes(hwnd, 0, 0, 2);
-        menu.Items.Add(Item("Settings…", settings));
+        var settingsItem = Item("Settings…", settings);
+        menu.Items.Add(settingsItem);
         menu.Items.Add(Item("History…", history));
         if (toggleMeeting is not null) { meetingItem = Item("Start meeting", toggleMeeting); menu.Items.Add(meetingItem); this.meetingLive = meetingLive; }
         if (restartToUpdate is not null) { updateItem = Item("Restart to update", restartToUpdate); updateItem.Visibility = Visibility.Collapsed; menu.Items.Add(updateItem); this.updateVersion = updateVersion; }
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(Item("Quit Murmur", quit));
+        menu.Opened += (_, _) =>
+        {
+            if (!openedFromKeyboard) settingsItem.Focus(FocusState.Pointer);
+        };
         menu.Closed += (_, _) =>
         {
             open = false;
@@ -47,6 +52,7 @@ internal sealed class TrayMenu
     {
         if (open) return;
         open = true;
+        openedFromKeyboard = fromKeyboard;
         if (updateItem is not null) updateItem.Visibility = updateVersion?.Invoke() is null ? Visibility.Collapsed : Visibility.Visible;
         if (meetingItem is not null) meetingItem.Text = meetingLive?.Invoke() == true ? "Stop meeting" : "Start meeting";
         GetCursorPos(out var cursor);

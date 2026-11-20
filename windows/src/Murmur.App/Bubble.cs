@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using WinRT.Interop;
 
 namespace Murmur.App;
@@ -15,7 +17,7 @@ internal sealed class Bubble
     readonly Border surface = new() { Style = MurmurStyle.Style("MurmurBubble") };
     static readonly double[] BarWeights = [0.6, 0.85, 1, 0.85, 0.6];
     readonly Border[] bars = new Border[BarWeights.Length];
-    readonly StackPanel waveform = new() { Width = 60, Height = 28, Orientation = Orientation.Horizontal, Spacing = 4, Padding = new Thickness(4.5, 0, 4.5, 0) };
+    readonly StackPanel waveform = new() { Width = 80, Height = 40, Orientation = Orientation.Horizontal, Padding = new Thickness(5, 0, 5, 0) };
     readonly TextBlock text = MurmurStyle.Text("", "MurmurSettingLabel");
     readonly TextBlock partial = MurmurStyle.Text("", "MurmurSettingLabel");
     readonly Border dot = new() { Width = 8, Height = 8, CornerRadius = new CornerRadius(4), VerticalAlignment = VerticalAlignment.Center };
@@ -26,7 +28,9 @@ internal sealed class Bubble
     readonly DispatcherQueueTimer hideTimer;
     string? cardText;
     DisplayArea? display;
-    bool visible, isListening;
+    bool visible, isListening, isAnimating;
+    volatile float voiceLevel;
+    readonly Windows.UI.ViewManagement.UISettings animations = new();
 
     public Bubble(DispatcherQueue ui)
     {
@@ -40,7 +44,7 @@ internal sealed class Bubble
 
         for (int i = 0; i < bars.Length; i++)
         {
-            var bar = new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), VerticalAlignment = VerticalAlignment.Center, Style = MurmurStyle.Style("MurmurBubbleDot") };
+            var bar = new Border { Width = 9, Height = 13, Margin = new Thickness(2.5, 0, 2.5, 0), CornerRadius = new CornerRadius(4.5), VerticalAlignment = VerticalAlignment.Center, Style = MurmurStyle.Style("MurmurBubbleDot") };
             bars[i] = bar;
             waveform.Children.Add(bar);
         }
@@ -89,7 +93,7 @@ internal sealed class Bubble
 
     public void ShowListening() => Present("Listening", dismissAfter: null, listening: true);
 
-    public void ShowProcessing(string message) => Present(message, null, processing: true);
+    public void ShowProcessing(string? message = null) => Present(message ?? "Processing", null, processing: true, showLabel: message is not null);
     public void ShowError(string message, double dismissAfter) => Present(message, dismissAfter, error: true);
     public void ShowNotice(string message, double dismissAfter) => Present(message, dismissAfter);
 
@@ -102,12 +106,29 @@ internal sealed class Bubble
         Present(title, dismissAfter, error: title != "Saved, not pasted", card: true);
     }
 
-    /// <summary>Peak 0..1 of the latest audio block.</summary>
-    public void SetLevel(float peak)
+    /// <summary>The latest normalized RMS level, written by the capture thread.</summary>
+    public void SetLevel(float level) => voiceLevel = level;
+
+    void DrawWaveform(object? sender, object args)
     {
-        double level = Math.Sqrt(Math.Clamp(peak, 0, 1));
+        double time = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
+        bool motion = animations.AnimationsEnabled;
+        double voice = Math.Sqrt(voiceLevel);
         for (int i = 0; i < bars.Length; i++)
-            bars[i].Height = 7 + 14 * level * BarWeights[i];
+        {
+            double wobble = motion ? 0.65 + 0.35 * Math.Sin(time * 9 + i * 1.7) : 1;
+            double sweep = motion ? Math.Exp(-Math.Pow(time * 0.8 % 1 * 7 - i * 1.2 - 0.6, 2)) : 1;
+            bars[i].Height = isListening ? 13 + 27 * voice * wobble * BarWeights[i] : 13;
+            bars[i].Opacity = isListening ? 1 : 0.35 + 0.65 * sweep;
+        }
+    }
+
+    void Animate(bool animate)
+    {
+        if (animate == isAnimating) return;
+        isAnimating = animate;
+        if (animate) CompositionTarget.Rendering += DrawWaveform;
+        else CompositionTarget.Rendering -= DrawWaveform;
     }
 
     /// <summary>Shows live words on the UI thread while the indicator is listening.</summary>
@@ -118,7 +139,7 @@ internal sealed class Bubble
         if (partial.Text == words) return;
         partial.Text = words;
         partial.Visibility = words.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        surface.Width = words.Length > 0 ? 420 : 72;
+        surface.Width = words.Length > 0 ? 420 : 80;
         ResizeAndPlace();
     }
 
@@ -126,6 +147,7 @@ internal sealed class Bubble
     {
         hideTimer.Stop();
         isListening = false;
+        Animate(false);
         partial.Text = cardPreview.Text = "";
         cardText = null;
         if (!visible) return;
@@ -133,26 +155,27 @@ internal sealed class Bubble
         Native.ShowWindow(hwnd, 0);
     }
 
-    void Present(string message, double? dismissAfter, bool listening = false, bool processing = false, bool error = false, bool card = false)
+    void Present(string message, double? dismissAfter, bool listening = false, bool processing = false, bool error = false, bool card = false, bool showLabel = false)
     {
         hideTimer.Stop();
         isListening = listening;
         text.Text = message;
         text.VerticalAlignment = VerticalAlignment.Center;
         waveform.Visibility = listening || processing ? Visibility.Visible : Visibility.Collapsed;
-        text.Visibility = listening ? Visibility.Collapsed : Visibility.Visible;
+        text.Visibility = listening || processing && !showLabel ? Visibility.Collapsed : Visibility.Visible;
         text.Margin = listening || processing ? new Thickness(6, 0, 7, 0) : new Thickness(8, 0, 0, 0);
         dot.Visibility = listening || processing ? Visibility.Collapsed : Visibility.Visible;
         dot.Style = MurmurStyle.Style(error ? "MurmurBubbleError" : "MurmurBubbleDot");
         MurmurStyle.Named(surface, message);
-        surface.Padding = listening || processing ? new Thickness(5, 2, 5, 2) : new Thickness(10);
+        surface.Padding = listening || processing ? new Thickness(0) : new Thickness(10);
         surface.CornerRadius = new CornerRadius(listening || processing ? 16 : 18);
         partial.Visibility = Visibility.Collapsed;
         partial.Text = "";
         this.card.Visibility = card ? Visibility.Visible : Visibility.Collapsed;
         indicator.Visibility = card ? Visibility.Collapsed : Visibility.Visible;
         if (!card) { cardText = null; cardPreview.Text = ""; }
-        if (listening || processing) SetLevel(0);
+        Animate(listening || processing);
+        if (isAnimating) DrawWaveform(null, EventArgs.Empty);
 
         // The card accepts clicks while WS_EX_NOACTIVATE keeps focus in the target app.
         var style = (long)Native.GetWindowLongPtr(hwnd, Native.GwlExStyle);
@@ -163,7 +186,7 @@ internal sealed class Bubble
         display = foreground != 0
             ? DisplayArea.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(foreground), DisplayAreaFallback.Primary)
             : DisplayArea.Primary;
-        surface.Width = card ? 320 : error ? 240 : listening ? 72 : 220;
+        surface.Width = card ? 320 : error ? 240 : listening || processing && !showLabel ? 80 : processing ? 300 : 220;
         ResizeAndPlace();
         visible = true;
         if (dismissAfter is { } seconds) { hideTimer.Interval = TimeSpan.FromSeconds(seconds); hideTimer.Start(); }
