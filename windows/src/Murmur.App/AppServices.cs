@@ -90,6 +90,24 @@ internal sealed class AppServices
     /// <summary>History switches take effect for new entries; existing ones stay where they are (HistoryRouter).</summary>
     public void ApplyHistoryMode() => History.PersistsTranscripts = Settings.Get(Prefs.HistoryMode).PersistsTranscripts();
 
+    public async Task<WritingMode?> SelectModeAsync(Task<FocusInfo?> focusTask, CancellationToken ct)
+    {
+        var focus = await focusTask.ConfigureAwait(false);
+        if (focus is null or { IsPassword: true } || ct.IsCancellationRequested) return null;
+        List<WritingMode> modes;
+        try { modes = WritingModes.Load(Settings); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or StoreError) { return null; }
+        var app = WritingModes.Match(modes, focus.ProcessName, null);
+        if (!WritingModes.NeedsURL(modes)) return app;
+        try
+        {
+            return await Task.Run(() => WritingModes.Match(modes, focus.ProcessName, FocusProbe.ReadBrowserPage(focus, ct)), ct)
+                .WaitAsync(TimeSpan.FromMilliseconds(350), ct).ConfigureAwait(false);
+        }
+        catch (TimeoutException) { return app; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { return null; }
+    }
+
     public APIKey? Key(ProviderID provider)
     {
         try { return CustomAPIKeyBinding.ReadKey(provider, RouteSettings.Load(Settings), Settings, Credentials); }

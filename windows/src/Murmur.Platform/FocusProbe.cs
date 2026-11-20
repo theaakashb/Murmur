@@ -28,6 +28,14 @@ public static partial class FocusProbe
         [PreserveSig] int ElementFromHandle(nint hwnd, out IUIAutomationElement element);
         [PreserveSig] int ElementFromPoint(long point, out IUIAutomationElement element);
         [PreserveSig] int GetFocusedElement(out IUIAutomationElement element);
+        [PreserveSig] int GetRootElementBuildCache(nint cache, out IUIAutomationElement root);
+        [PreserveSig] int ElementFromHandleBuildCache(nint hwnd, nint cache, out IUIAutomationElement element);
+        [PreserveSig] int ElementFromPointBuildCache(long point, nint cache, out IUIAutomationElement element);
+        [PreserveSig] int GetFocusedElementBuildCache(nint cache, out IUIAutomationElement element);
+        [PreserveSig] int CreateTreeWalker(nint condition, out IUIAutomationTreeWalker walker);
+        [PreserveSig] int get_ControlViewWalker(out IUIAutomationTreeWalker walker);
+        [PreserveSig] int get_ContentViewWalker(out IUIAutomationTreeWalker walker);
+        [PreserveSig] int get_RawViewWalker(out IUIAutomationTreeWalker walker);
     }
 
     [ComImport, Guid("d22108aa-8ac5-49a5-837b-37bbb3d7591e"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
