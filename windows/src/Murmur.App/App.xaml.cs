@@ -106,6 +106,7 @@ public partial class App : Application
         // First launch, as on the Mac. A throwaway data folder (tests, the harness) never opens it unprompted: it would take the focus.
         var forced = launchArgs.Contains("--welcome");
         if (forced || (string.IsNullOrWhiteSpace(dataDir) && new Murmur.Core.WelcomeGuide(services.Settings).OpensAtLaunch(services.Local.ModelFilesPresent))) OpenWelcome();
+        if (launchArgs.Contains("--bubble")) bubble.ShowListening();
         if (launchArgs.Contains("--start-meeting")) controller.StartMeeting();
     }
 
