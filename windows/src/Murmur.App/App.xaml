@@ -16,6 +16,7 @@
                     <SolidColorBrush x:Key="MurmurRule" Color="#DEDEDE" />
                     <SolidColorBrush x:Key="MurmurSelection" Color="#EEEEEE" />
                     <SolidColorBrush x:Key="MurmurAccent" Color="#4D6FF0" />
+                    <SolidColorBrush x:Key="MurmurAccentWash" Color="#1F4D6FF0" />
                     <SolidColorBrush x:Key="ToggleSwitchFillOff" Color="#D6D6D6" />
                     <SolidColorBrush x:Key="ToggleSwitchStrokeOff" Color="#BDBDBD" />
                     <SolidColorBrush x:Key="ToggleSwitchKnobFillOff" Color="#FFFFFF" />
@@ -37,6 +38,7 @@
                     <SolidColorBrush x:Key="MurmurRule" Color="#393939" />
                     <SolidColorBrush x:Key="MurmurSelection" Color="#242424" />
                     <SolidColorBrush x:Key="MurmurAccent" Color="#4D6FF0" />
+                    <SolidColorBrush x:Key="MurmurAccentWash" Color="#334D6FF0" />
                     <SolidColorBrush x:Key="ToggleSwitchFillOff" Color="#4A4A4A" />
                     <SolidColorBrush x:Key="ToggleSwitchStrokeOff" Color="#6A6A6A" />
                     <SolidColorBrush x:Key="ToggleSwitchKnobFillOff" Color="#FFFFFF" />
@@ -58,6 +60,7 @@
                     <SolidColorBrush x:Key="MurmurRule" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="MurmurSelection" Color="{ThemeResource SystemColorHighlightColor}" />
                     <SolidColorBrush x:Key="MurmurAccent" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="MurmurAccentWash" Color="{ThemeResource SystemColorWindowColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
             <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
@@ -108,6 +111,42 @@
             <Style x:Key="MurmurSection" TargetType="TextBlock" BasedOn="{StaticResource MurmurCaption}">
                 <Setter Property="FontFamily" Value="Consolas" />
                 <Setter Property="CharacterSpacing" Value="80" />
+            </Style>
+            <Style x:Key="MurmurEyebrow" TargetType="TextBlock" BasedOn="{StaticResource MurmurSection}">
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Foreground" Value="{ThemeResource MurmurAccent}" />
+            </Style>
+            <Style x:Key="MurmurAccentCard" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource MurmurAccentWash}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource MurmurAccent}" />
+                <Setter Property="BorderThickness" Value="3,0,0,0" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="Padding" Value="16" />
+            </Style>
+            <Style x:Key="MurmurAccentText" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{ThemeResource MurmurAccent}" />
+            </Style>
+            <Style x:Key="MurmurTrack" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource MurmurRule}" />
+            </Style>
+            <Style x:Key="MurmurBar" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource MurmurAccent}" />
+            </Style>
+            <Style x:Key="MurmurAccentCardFlat" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource MurmurAccentWash}" />
+            </Style>
+            <Style x:Key="MurmurPillWhite" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="#FFFFFF" />
+            </Style>
+            <Style x:Key="MurmurPillFilled" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource MurmurInk}" />
+            </Style>
+            <Style x:Key="MurmurPillOutline" TargetType="Border">
+                <Setter Property="BorderBrush" Value="{ThemeResource MurmurInk}" />
+                <Setter Property="BorderThickness" Value="1" />
+            </Style>
+            <Style x:Key="MurmurPillText" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{ThemeResource MurmurPaper}" />
             </Style>
             <Style x:Key="MurmurSectionInk" TargetType="TextBlock" BasedOn="{StaticResource MurmurSection}">
                 <Setter Property="Foreground" Value="{ThemeResource MurmurInk}" />

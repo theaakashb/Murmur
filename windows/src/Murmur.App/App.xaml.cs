@@ -107,6 +107,8 @@ public partial class App : Application
         return main;
     }
 
+    public void ShowWelcome() => OpenWelcome();
+
     void OpenWelcome()
     {
         if (welcome is null) { welcome = new WelcomeWindow(services!, controller!); welcome.Closed += (_, _) => welcome = null; }
