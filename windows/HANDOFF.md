@@ -2,6 +2,8 @@
 
 **Current coordinator: Coordinator 5 (`6d103697-2809-4c04-9ee1-2f8981dd2eaa`, on the Star Labs PC `srv_XXiOqPoelqaJ`), from 2026-11-20 23:42Z. Workers report to it.** Coordinator 4 (`b080c3f1`) and the orchestrator are offline with the Mac; when the Mac is back, the orchestrator (`8f691026` on `srv_c2AxDOwFn9yz`) messages coordinator 5.
 
+**PC checkout (user request, 2026-11-20 about 23:50Z):** Windows work now uses `T:\Paseo Project\Murmur\Murmur` (a full clone of `windows`), registered as Paseo workspace `wks_c227e9c5312b0db4` (project `prj_45f0c70bbdc987ad`) on `srv_XXiOqPoelqaJ`. New worktrees branch from it, as `T:\Paseo Project\Murmur\wt-<task>`. `T:\Paseo Project\Murmur\src` stays only until the in-flight `wt-fix2` worktree (worker 8aa2528c) is merged; then retire it. Never delete the `app*` folders.
+
 **Coordinator 5 workers (PC, 23:43Z):**
 - `8aa2528c-18d9-4cb8-acd3-94d0d6c7ca2a` (Sonnet 5.5): the Windows UI fix on `windows-ui-fix2`, in worktree `T:\Paseo Project\Murmur\wt-fix2`, staging **app-next5**. Briefed with the a66aace findings: no-background Mac pill (80×40 pt, five dots), DWM border colour to none, the lightning-glyph search, an offscreen render at 100%/150%, no interactive launch.
 - `fa8785fe-805d-484b-aaf9-4f96616acf47` (Sonnet): PC notes benchmark, running bounded runs (Phi on Vulkan first) under `bench-notes`. Its parent is the offline Mac agent dd241070, so coordinator 5 polls it. On finish, its aggregate results go to `windows/bench/notes/NOTES_MODEL_BENCHMARK.md` on `windows-local-notes`.
