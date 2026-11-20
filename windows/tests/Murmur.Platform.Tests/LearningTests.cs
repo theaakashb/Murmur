@@ -68,7 +68,7 @@ public sealed class LearningTests(ITestOutputHelper output)
         Assert.True(password);
     }
 
-    [SessionFact]
+    [InputFact] // injects keys into a foreground test window; hosted CI can't reliably foreground it
     public void UnreadableFieldIsCapturedButNotReadAndKeysAreFollowedByTheHook()
     {
         using var window = ScriptWindow.Open("$b = New-Object Windows.Forms.Button; $b.Text = 'x'; $b.Dock = 'Fill'; $f.Controls.Add($b); $f.Add_Shown({ $b.Focus() })");
