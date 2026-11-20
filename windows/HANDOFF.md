@@ -1,6 +1,10 @@
 # Murmur for Windows: coordinator handoff
 
-**Current coordinator: Coordinator 4 (`b080c3f1-b10a-47bb-9925-44e541f682ff`), from 2026-11-20 09:40Z. Workers report to it.**
+**Current coordinator: Coordinator 5 (`6d103697-2809-4c04-9ee1-2f8981dd2eaa`, on the Star Labs PC `srv_XXiOqPoelqaJ`), from 2026-11-20 23:42Z. Workers report to it.** Coordinator 4 (`b080c3f1`) and the orchestrator are offline with the Mac; when the Mac is back, the orchestrator (`8f691026` on `srv_c2AxDOwFn9yz`) messages coordinator 5.
+
+**Coordinator 5 workers (PC, 23:43Z):**
+- `8aa2528c-18d9-4cb8-acd3-94d0d6c7ca2a` (Sonnet 5.5): the Windows UI fix on `windows-ui-fix2`, in worktree `T:\Paseo Project\Murmur\wt-fix2`, staging **app-next5**. Briefed with the a66aace findings: no-background Mac pill (80×40 pt, five dots), DWM border colour to none, the lightning-glyph search, an offscreen render at 100%/150%, no interactive launch.
+- `fa8785fe-805d-484b-aaf9-4f96616acf47` (Sonnet): PC notes benchmark, running bounded runs (Phi on Vulkan first) under `bench-notes`. Its parent is the offline Mac agent dd241070, so coordinator 5 polls it. On finish, its aggregate results go to `windows/bench/notes/NOTES_MODEL_BENCHMARK.md` on `windows-local-notes`.
 
 Refreshed 2026-11-20 about 09:50Z by coordinator 3 (`268d6a36-00e7-40c3-a2bd-0b2dacfa5718`; it took over from `f9e7f4a7` at 04:00Z). The orchestrator is `8f691026-6ec3-41d4-8c14-4cba2ef6db44`. Read this first, then `windows/PLAN.md` (the Status section is current), `windows/CONTRIBUTING.md` and `~/.claude/CLAUDE.md`.
 
