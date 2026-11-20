@@ -10,7 +10,7 @@ using WinRT.Interop;
 namespace Murmur.App;
 
 /// <summary>A topmost, non-activating dictation indicator. Only the copy card accepts clicks.</summary>
-internal sealed class Bubble
+internal sealed partial class Bubble
 {
     readonly Window window = new();
     readonly nint hwnd;
@@ -39,8 +39,12 @@ internal sealed class Bubble
         appWindow.SetPresenter(OverlappedPresenter.CreateForContextMenu());
         appWindow.IsShownInSwitchers = false;
         var style = Native.GetWindowLongPtr(hwnd, Native.GwlExStyle);
-        Native.SetWindowLongPtr(hwnd, Native.GwlExStyle, (nint)((long)style | Native.WsExNoActivate | Native.WsExToolWindow | Native.WsExTransparent | Native.WsExTopmost | Native.WsExLayered));
-        Native.SetLayeredWindowAttributes(hwnd, 0, 255, 2);
+        Native.SetWindowLongPtr(hwnd, Native.GwlExStyle, (nint)((long)style | Native.WsExNoActivate | Native.WsExToolWindow | Native.WsExTransparent | Native.WsExTopmost));
+        // The pill has no background of its own (the Mac's minimal pill is five dots and nothing else): a clear backdrop gives per-pixel alpha with smooth edges.
+        window.SystemBackdrop = new ClearBackdrop();
+        surface.Background = null;
+        // The light outline is Windows 11's own window border (and the DWM shadow behind it); turn both off and keep the corners square, because XAML rounds the card.
+        Native.RemoveWindowChrome(hwnd);
 
         for (int i = 0; i < bars.Length; i++)
         {
@@ -140,6 +144,7 @@ internal sealed class Bubble
         partial.Text = words;
         partial.Visibility = words.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         surface.Width = words.Length > 0 ? 420 : 80;
+        ApplyChrome(listening: true, filled: words.Length > 0);
         ResizeAndPlace();
     }
 
@@ -167,6 +172,8 @@ internal sealed class Bubble
         dot.Visibility = listening || processing ? Visibility.Collapsed : Visibility.Visible;
         dot.Style = MurmurStyle.Style(error ? "MurmurBubbleError" : "MurmurBubbleDot");
         MurmurStyle.Named(surface, message);
+        // The minimal pill (listening or processing, no label) is just the dots; every other state is a card.
+        ApplyChrome(listening || processing && !showLabel, filled: !(listening || processing && !showLabel));
         surface.Padding = listening || processing ? new Thickness(0) : new Thickness(10);
         surface.CornerRadius = new CornerRadius(listening || processing ? 16 : 18);
         partial.Visibility = Visibility.Collapsed;
@@ -192,18 +199,45 @@ internal sealed class Bubble
         if (dismissAfter is { } seconds) { hideTimer.Interval = TimeSpan.FromSeconds(seconds); hideTimer.Start(); }
     }
 
+    /// <summary>Minimal: transparent, no border. Card: the paper fill with a hairline so it reads without a shadow.</summary>
+    void ApplyChrome(bool listening, bool filled)
+    {
+        if (filled)
+        {
+            surface.Background = MurmurStyle.ThemeBrush("MurmurPaper", surface);
+            surface.BorderBrush = MurmurStyle.ThemeBrush("MurmurRule", surface);
+            surface.BorderThickness = new Thickness(1);
+            if (listening) surface.CornerRadius = new CornerRadius(22);
+        }
+        else
+        {
+            surface.Background = null;
+            surface.BorderBrush = null;
+            surface.BorderThickness = new Thickness(0);
+        }
+    }
+
+    /// <summary>Dip size to physical pixels at a display scale (80 x 40 pt is 80 x 40 px at 100% and 120 x 60 px at 150%).</summary>
+    internal static (int Width, int Height) PixelSize(double widthDip, double heightDip, double scale) =>
+        ((int)Math.Ceiling(widthDip * scale), (int)Math.Ceiling(heightDip * scale));
+
     void ResizeAndPlace()
     {
         var work = (display ?? DisplayArea.Primary).WorkArea;
         var scale = Math.Max(96, Native.GetDpiForWindow(hwnd)) / 96.0;
         surface.Measure(new Windows.Foundation.Size(surface.Width, double.PositiveInfinity));
-        int width = (int)Math.Ceiling(surface.DesiredSize.Width * scale);
-        int height = (int)Math.Ceiling(surface.DesiredSize.Height * scale);
+        var (width, height) = PixelSize(surface.DesiredSize.Width, surface.DesiredSize.Height, scale);
         int x = work.X + (work.Width - width) / 2;
-        int y = TopPlacement?.Invoke() == true ? work.Y + (int)(24 * scale) : work.Y + work.Height - height - (int)(48 * scale);
-        Native.SetWindowRgn(hwnd, Native.CreateRoundRectRgn(0, 0, width + 1, height + 1, (int)(2 * surface.CornerRadius.TopLeft * scale), (int)(2 * surface.CornerRadius.TopLeft * scale)), true);
+        // The Mac sits 24 pt above the bottom of the visible area (or below the top).
+        int y = TopPlacement?.Invoke() == true ? work.Y + (int)(24 * scale) : work.Y + work.Height - height - (int)(24 * scale);
+        if (Offscreen) { x = y = -32000; }
         Native.SetWindowPos(hwnd, Native.HwndTopmost, x, y, width, height, Native.SwpNoActivate | Native.SwpShowWindow);
+        // The window frame adds a few pixels of its own; size the client area itself so the pill is exactly its design size.
+        window.AppWindow.ResizeClient(new Windows.Graphics.SizeInt32(width, height));
     }
+
+    /// <summary>Render mode only: parks the window far off every screen.</summary>
+    internal bool Offscreen { get; set; }
 
     /// <summary>True when the dictation indicator sits at the top of the screen.</summary>
     public Func<bool>? TopPlacement { get; set; }
