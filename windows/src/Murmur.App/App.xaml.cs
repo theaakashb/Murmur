@@ -19,6 +19,7 @@ public partial class App : Application
     Bubble? bubble;
     TaskbarIcon? tray;
     MainWindow? main;
+    WelcomeWindow? welcome;
 
     public App()
     {
@@ -82,6 +83,9 @@ public partial class App : Application
         var launchArgs = Environment.GetCommandLineArgs();
         if (launchArgs.Contains("--settings")) OpenSettings();
         if (launchArgs.Contains("--history")) OpenHistory();
+        // First launch, as on the Mac. A throwaway data folder (tests, the harness) never opens it unprompted: it would take the focus.
+        var forced = launchArgs.Contains("--welcome");
+        if (forced || (string.IsNullOrWhiteSpace(dataDir) && new Murmur.Core.WelcomeGuide(services.Settings).OpensAtLaunch(services.Local.ModelFilesPresent))) OpenWelcome();
     }
 
     // One shared window: Settings and History are pages inside it.
@@ -89,6 +93,12 @@ public partial class App : Application
     {
         if (main is null) { main = new MainWindow(services!, controller!); main.Closed += (_, _) => main = null; }
         return main;
+    }
+
+    void OpenWelcome()
+    {
+        if (welcome is null) { welcome = new WelcomeWindow(services!, controller!); welcome.Closed += (_, _) => welcome = null; }
+        welcome.Activate();
     }
 
     void OpenSettings() => Main().ShowSettings();

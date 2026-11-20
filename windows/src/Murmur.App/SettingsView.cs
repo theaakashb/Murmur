@@ -40,6 +40,9 @@ internal sealed partial class SettingsView
     /// <summary>The pane area; the shell hosts it next to the Settings sidebar.</summary>
     public ScrollViewer View { get; }
 
+    /// <summary>One built pane (the welcome guide reuses Transcription and Cleanup).</summary>
+    public StackPanel Body(string pane) => panes[pane];
+
     internal SettingsView(AppServices services, Controller controller, Func<XamlRoot?> root, Func<nint> hwnd)
     {
         s = services;
