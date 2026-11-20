@@ -31,6 +31,7 @@ git init --quiet $source
 git -C $source fetch --quiet --depth 1 https://github.com/k2-fsa/sherpa-onnx.git $revision
 git -C $source checkout --quiet --detach FETCH_HEAD
 if ((git -C $source rev-parse HEAD) -ne $revision) { throw 'Unexpected sherpa-onnx revision' }
+git -C $source apply --unidiff-zero (Join-Path $PSScriptRoot 'sherpa-directml.patch')
 
 cmake --version
 cmake -S $source -B $build -G 'Visual Studio 17 2022' -A x64 -T v143 `
@@ -44,4 +45,11 @@ $dll = Get-ChildItem $build -Recurse -Filter sherpa-onnx-c-api.dll | Select-Obje
 if (!$dll) { throw 'sherpa-onnx-c-api.dll was not built' }
 Copy-Item $dll.FullName, "$ort/runtimes/win-x64/native/onnxruntime.dll",
     "$ort/runtimes/win-x64/native/onnxruntime_providers_shared.dll", "$dml/bin/x64-win/DirectML.dll" $Out
+$notices = Join-Path $Out licenses
+New-Item -ItemType Directory -Force $notices | Out-Null
+Copy-Item "$source/LICENSE" "$notices/sherpa-onnx-LICENSE.txt"
+Copy-Item "$ort/LICENSE" "$notices/onnxruntime-LICENSE.txt"
+Copy-Item "$ort/ThirdPartyNotices.txt" "$notices/onnxruntime-ThirdPartyNotices.txt"
+Copy-Item "$dml/LICENSE.txt" "$notices/DirectML-LICENSE.txt"
+Copy-Item "$dml/ThirdPartyNotices.txt" "$notices/DirectML-ThirdPartyNotices.txt"
 Get-ChildItem $Out -Filter '*.dll' | Get-FileHash -Algorithm SHA256 | Format-Table -AutoSize
