@@ -165,7 +165,8 @@ Use a fresh branch from `windows` for each new task.
 
 ## Needs user
 
-- **GPU budget (asked the orchestrator at about 09:55Z):** the plan is `a4e89f4` on `windows-gpu`. The PC has an RTX 3080 (12 GB, driver 616.92, D3D 12_2). DirectML needs a sherpa native rebuild, about +9 MB compressed / +18 MB installed. Vulkan cleanup is +17.4 MB / +55 MB. CUDA is deferred. Recommended: wait for the Live Words CPU-fix numbers; that fix needs no packages and the worker has it in progress. No GPU packages until the user's OK.
+- **GPU: the user chose option (a), both (about 10:05Z).** DirectML (a pinned sherpa-onnx native rebuild) and Vulkan (LLamaSharp.Backend.Vulkan.Windows) are bundled in every install. The budget is about +26 MB compressed / +73 MB installed; measure the real installer. "Use GPU when available" defaults ON, with silent CPU fallback and the reason logged (no content). CUDA is deferred. Keep the Live Words CPU fix and measure CPU % before and after it, and on GPU (VM now, PC later). The plan is `a4e89f4` on `windows-gpu`; phase 2 is handed to 32843b61.
+- **Notes benchmark scope added:** a low-end CPU profile (the VM capped at about 4 threads with limited RAM). Per candidate: time to notes for 30- and 60-minute meetings, peak RAM and responsiveness. Then a hardware-aware default proposal (GPU vs CPU model, a low-RAM fallback, background low-priority generation, when to recommend Murmur Cloud). It goes to the orchestrator before pinning.
 - **PC offline overnight (from 2026-11-20 about 09:45Z, user's call).** Parked until it's back: the GPU probe on its NVIDIA card (if unfinished), the GPU worker's PC measurements, and staging app-next3. The VM stays up.
 
 - **M4 and M5 exits on the PC:** the user-run steps are in `windows/PC-CHECKLIST.md`.
