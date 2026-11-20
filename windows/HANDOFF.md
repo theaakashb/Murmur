@@ -93,7 +93,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - Cleanup parity with MLX: 399/400, with equal guard results.
   - The user accepted the quality by ear.
   - Live words and chunked transcription merged as `8535cb1` (VM key-free harness 20/20, 29.65 s fixture 10.3 s → 8.1 s release-to-paste). Not yet checked: real mic, cloud-route preview, Settings download flow in the live UI.
-- **M4: started.** Worker 3 is porting the core logic. The platform and UI parts haven't started:
+- **M4: in progress.** The core logic is merged (`4aab0c6`) and website matching (`fcceafc`). The platform and UI parts haven't started:
   - website matching from the browser address bar through UI Automation;
   - the voice edit UI;
   - the learning observer (UI Automation read-back plus scoped keystrokes);
@@ -106,7 +106,7 @@ The Codex workers `73cf71a2`, `a7240d06` and `660ac734` are archived. Worktree f
 
 | # | Agent ID | Worktree / branch | Assignment | Start point |
 | --- | --- | --- | --- | --- |
-| A | `89746ba4-5ba6-4470-baf6-d17098f82551` | `.../windows-m4-core` / `windows-m4-core` | M4 core ports. First fix the 2 CS0108 errors and the CleanupPrompt dep, then the goldens and Swift assertion ports. | `89d31cc` |
+| A | `89746ba4` (archived) | `windows-m4-core` | M4 core ports. | **Merged** as `4aab0c6`: 22,609 Mac tests, 75/75 parity, goldens the same. Still open: Tips/ProfessionalHint persistence isn't compared with Swift UserDefaults; the EditShortcut reserved lists are app-supplied; the IVoiceEditTarget/EditChord seams are tested only with fakes. Next: the voice edit and welcome guide app/UI wiring (Codex, after the reset, with the Mac-look UI rework). |
 | B | `c90225b7-881f-4b75-b91f-e14cf650764d` | `.../windows-m3-live` / `windows-m4-sites` | Website matching: Chrome root cause, then the Firefox and Brave matrix rows. Holds the VM desktop. | `9e9d5c1`, fast-forwarded to `windows` |
 | C | `774c3946-7c5e-4143-87f1-411be3e0c079` | `.../windows-ui-fluent` / `windows-m4-learning` | Learning observer, from the checkpoint's "Next" steps 1–4. | `22d064b` merged with `windows`; checkpoint in `~/murmur-m3/checkpoints/m4-learning.md` |
 
