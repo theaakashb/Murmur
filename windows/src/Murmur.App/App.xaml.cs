@@ -94,6 +94,9 @@ public partial class App : Application
         var launchArgs = Environment.GetCommandLineArgs();
         if (launchArgs.Contains("--settings")) OpenSettings();
         if (launchArgs.Contains("--history")) OpenHistory();
+        if (launchArgs.Contains("--home")) Main().ShowHome();
+        if (launchArgs.Contains("--insights")) Main().ShowInsights();
+        if (launchArgs.Contains("--meetings")) Main().ShowMeetings();
         // First launch, as on the Mac. A throwaway data folder (tests, the harness) never opens it unprompted: it would take the focus.
         var forced = launchArgs.Contains("--welcome");
         if (forced || (string.IsNullOrWhiteSpace(dataDir) && new Murmur.Core.WelcomeGuide(services.Settings).OpensAtLaunch(services.Local.ModelFilesPresent))) OpenWelcome();

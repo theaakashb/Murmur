@@ -46,6 +46,7 @@ internal sealed partial class MainWindow : Window
     }
 
     public void ShowHome() { Navigate(Page.Home); Activate(); }
+    public void ShowInsights() { Navigate(Page.Insights); Activate(); }
     public void ShowMeetings() { Navigate(Page.Meetings); Activate(); }
     public void ShowHistory() { Navigate(Page.History); Activate(); }
     public void ShowSettings() { Navigate(Page.Settings); Activate(); }
