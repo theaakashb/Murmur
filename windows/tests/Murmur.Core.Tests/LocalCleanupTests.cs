@@ -140,6 +140,22 @@ public class LocalCleanupTests
     static async Task WaitDead(int pid) { for (var i = 0; i < 50 && Alive(pid); i++) await Task.Delay(100); }
 
     [Fact]
+    public async Task GpuStartupFailureFallsBackToOneWarmCpuHelper()
+    {
+        using var f = new Fixtures();
+        File.WriteAllText(f.Dir.Combine("reject-gpu"), "");
+        var runner = f.Runner();
+        runner.PreferGpu = () => true;
+        try
+        {
+            var first = await runner.CleanAsync(Req("synthetic"));
+            Assert.Equal(first, await runner.CleanAsync(Req("synthetic")));
+            Assert.Equal(new[] { "gpu", "cpu" }, File.ReadAllLines(f.Dir.Combine("attempts")));
+        }
+        finally { runner.Shutdown(); }
+    }
+
+    [Fact]
     public async Task OneWarmHelperServesConsecutiveAndConcurrentRequests()
     {
         using var f = new Fixtures();

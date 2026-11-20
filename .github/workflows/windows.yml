@@ -13,6 +13,55 @@ on:
 permissions:
   contents: read
 jobs:
+  sherpa-directml:
+    if: github.ref == 'refs/heads/windows-gpu'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build pinned sherpa-onnx DirectML runtime
+        run: windows/tools/build-sherpa-directml.ps1 -WorkDir "$env:RUNNER_TEMP/sherpa" -Out "$env:RUNNER_TEMP/sherpa-native"
+      - name: Upload native runtime for verification
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sherpa-directml-win-x64
+          path: ${{ runner.temp }}/sherpa-native
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: "10.0.x"
+      - name: Measure baseline and GPU Velopack packages
+        run: |
+          $base = '6f371ad5bffbc33ec772f40a3a83ea44b6b738db'
+          git fetch --no-tags --depth 1 origin $base
+          git worktree add -b windows-gpu-size-baseline "$env:RUNNER_TEMP/murmur-base" $base
+          $before = "$env:RUNNER_TEMP/murmur-before"
+          $after = "$env:RUNNER_TEMP/murmur-after"
+          & "$env:RUNNER_TEMP/murmur-base/windows/tools/package.ps1" -Version 0.0.91 -Out $before -Shortcuts None -NoPortable
+          New-Item -ItemType Directory -Force $after | Out-Null
+          Copy-Item "$before/*" $after
+          & windows/tools/package.ps1 -Version 0.0.92 -Out $after -Shortcuts None -NoPortable -SherpaDirectML "$env:RUNNER_TEMP/sherpa-native"
+          $beforeSetup = (Get-ChildItem $before -Filter '*Setup.exe').Length
+          $afterSetup = (Get-ChildItem $after -Filter '*Setup.exe').Length
+          $beforePackage = Get-ChildItem $before -Filter '*0.0.91*full.nupkg'
+          $afterPackage = Get-ChildItem $after -Filter '*0.0.92*full.nupkg'
+          function PayloadSize($package) {
+              $zip = [IO.Compression.ZipFile]::OpenRead($package.FullName)
+              try { ($zip.Entries | Where-Object { $_.FullName -like 'lib/app/*' } | Measure-Object -Property Length -Sum).Sum }
+              finally { $zip.Dispose() }
+          }
+          [ordered]@{
+              SetupBefore = $beforeSetup
+              SetupAfter = $afterSetup
+              FullBefore = $beforePackage.Length
+              FullAfter = $afterPackage.Length
+              InstalledBefore = PayloadSize $beforePackage
+              InstalledAfter = PayloadSize $afterPackage
+              Delta = (Get-ChildItem $after -Filter '*0.0.92*delta.nupkg').Length
+          } | ConvertTo-Json
   core:
     strategy:
       matrix:

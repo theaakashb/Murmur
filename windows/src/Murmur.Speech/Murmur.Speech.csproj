@@ -16,4 +16,12 @@
   <ItemGroup>
     <ProjectReference Include="..\Murmur.Core\Murmur.Core.csproj" />
   </ItemGroup>
+  <Target Name="CopySherpaDirectML" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' == 'win-x64' and '$(MurmurSherpaDirectML)' != ''">
+    <ItemGroup>
+      <DirectMLRuntime Include="$(MurmurSherpaDirectML)/sherpa-onnx-c-api.dll;$(MurmurSherpaDirectML)/onnxruntime.dll;$(MurmurSherpaDirectML)/onnxruntime_providers_shared.dll;$(MurmurSherpaDirectML)/DirectML.dll" />
+      <DirectMLNotice Include="$(MurmurSherpaDirectML)/licenses/*.txt" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DirectMLRuntime)" DestinationFolder="$(PublishDir)" />
+    <Copy SourceFiles="@(DirectMLNotice)" DestinationFolder="$(PublishDir)licenses" />
+  </Target>
 </Project>

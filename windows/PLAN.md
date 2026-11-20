@@ -208,6 +208,83 @@ Why llama.cpp over ONNX Runtime GenAI: there is a written, tested-by-someone con
 5. **Validation:** run `cleanup-corpus.json` through the Mac's MLX helper and the Windows GGUF helper with greedy decoding, compare outputs case by case, and report exact-match rate and guard outcomes; add a local-model section to `CLEANUP_BENCHMARK.md`. Bar: guard pass rate and corpus results within a small, stated margin of the Mac's; any difference is listed, not hidden. Pick Q8_0 if it meets the bar, otherwise F16 (about 1.6 GB).
 6. **Pins and notices:** add the GGUF to `artifact-pins.json`; add LLamaSharp, llama.cpp and the model's modification notice to `THIRD_PARTY_NOTICES.md`.
 
+## GPU acceleration
+
+- **Settings.** **Use GPU when available** is persisted as `useGpuWhenAvailable` (default on). Changes apply when a helper next starts. GPU initialization failure falls back to CPU with a content-free diagnostic.
+- **Speech and Live Words.** Install a single rebuilt sherpa-onnx 2.0.1 runtime with ORT DirectML 1.24.4 and its matched headers, plus DirectML 1.15.4. [Native pins and artifact hashes](tools/sherpa-directml-pins.json) record the inputs and the reference Windows build. The [build script](tools/build-sherpa-directml.ps1) enables `SHERPA_ONNX_ENABLE_DIRECTML`, patches the default-adapter check to reject software rendering, and stages the x64 DLLs and notices. The CPU path uses this same runtime. The stock ORT 1.28.2 and rebuilt ORT scored 22 edits / 254 reference words (8.66% WER each). Batch outputs matched exactly on 23/24 clips. The single punctuation/whitespace difference had zero normalized word edits and repeated in three fresh-process runs. Both runtimes loaded the pinned segmentation and embedding models and output one segment on the check clip. No matching 1.28.x DirectML package was found in NuGet or the published upstream Windows release assets. CUDA stays deferred.
+- **Live Words CPU.** `LocalTranscriber` launches a fresh helper per capture. It feeds new samples at 16 kHz into one sherpa online stream and drains ready chunks incrementally. Retrieve the transcript only after a decode or final drain. Keep the existing four-thread limit and default spinning until the PC tests settle the latency tradeoff. Profile DirectML node placement on the pinned int8 graphs because operator placement and transfers can offset GPU gains.
+- **Cleanup.** Prefer LLamaSharp.Backend.Vulkan.Windows 0.30.0, Windows x64 only, with explicit GPU layer offload and the existing CPU backend retained. The package is 17.4 MB compressed and its x64 DLLs total 54.8 MB installed. CUDA 12/13 Windows packages at the same pin are 238.8/129.3 MB before external CUDA runtime requirements. Defer CUDA and reuse the backend for future local notes once that route exists. These are NuGet and DLL sizes, so measure the final installer/update size before shipping.
+- **Fallback and verification.** Probe the backend and model at helper load. When Vulkan is selected, also allocate a model context before declaring the helper ready. Resolve the backend before consuming the Live Words audio queue. Compare CPU and GPU on identical fixtures using process CPU %, first-partial latency, partial cadence, ASR output parity and cleanup output parity. Verify forced and natural fallback on the GPU-less VM, run Release builds and the six-dictation harness, and measure the Velopack setup and update assets. PC measurements use a separate staging directory. The approved budget is about 26 MB compressed and 73 MB installed for both backends, bundled in every installer.
+
+[CI run 44716871878](https://github.com/theaakashb/Murmur/actions/runs/44716871878) measured these Velopack sizes in bytes:
+
+| Artifact | CPU baseline | Bundled GPU | Increase |
+| --- | ---: | ---: | ---: |
+| Setup | 202,237,397 | 228,540,060 | 26,302,663 |
+| Full package | 194,723,285 | 221,025,948 | 26,302,663 |
+| Installed payload | 464,039,566 | 536,706,203 | 72,666,637 |
+
+PC verification is parked until the machine is available. In a separate staged build, compare DirectML and Vulkan with CPU on identical fixtures. Record per-process CPU, first partial, partial cadence, final latency and output parity. Label speech samples by helper mode (`--serve`, `--stream`, `--diarize`) and record Live Words and dictionary boosting separately. Compare four-thread default spin and no-spin before changing speech defaults.
+
+The GPU-less VM verified natural fallback and forced fallback with the DirectML and Vulkan binaries temporarily withheld. In both cases batch speech, Live Words and cleanup returned output via CPU and emitted a content-free initialization failure trace for each route.
+
+The six-dictation VM harness passed at `6d21ea8` and `a228fc5` with LocalOnly, Live Words and a seeded dictionary. The backend initialization fix changed the observed cleanup path from local rules on 6/6 to accepted model cleanup on 6/6.
+
+| Commit | Median ASR stage | Median cleanup stage | Median paste stage | Harness release-to-paste |
+| --- | ---: | ---: | ---: | ---: |
+| `6d21ea8` | 1,483 ms | 277 ms | 76 ms | 2,553 ms |
+| `a228fc5` | 1,333 ms | 1,379 ms | 79 ms | 4,733 ms |
+
+Stage medians use the midpoint of the two middle samples. The harness reports the upper middle of the six end-to-end samples.
+
+### Live Words VM CPU tradeoff
+
+Windows 11 QEMU VM, 16 vCPUs, sherpa-onnx 2.0.1 with ORT 1.28.2, two long synthetic harness fixtures fed in 100 ms blocks. Each run starts a new helper and samples one second of idle time after initialization. One fully occupied logical core is 100%. The decode CPU column is summed process CPU time divided by summed wall time through helper exit. Timing columns are medians in seconds. The VM fell behind real time, and baseline repeats varied by about 13 seconds at final partial.
+
+| Mode | Runs | Init wall | Init CPU | Idle CPU | Decode CPU | First partial | Median partial interval | Final partial |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Default spin, 4 threads | 4 | 2.49 | 2.70 | 3.1% | 413.5% | 3.69 | 1.06 | 35.02 |
+| No spin, 4 threads | 2 | 2.42 | 2.18 | 3.9% | 305.8% | 3.84 | 0.87 | 32.41 |
+| No spin, 2 threads | 2 | 3.00 | 3.01 | 4.7% | 183.6% | 6.47 | 2.03 | 72.58 |
+| No spin, 1 thread | 2 | 2.75 | 2.73 | 5.5% | 99.0% | 10.94 | 2.97 | 109.32 |
+| 100 μs intra-op spin, 4 threads | 2 | 2.92 | 2.92 | 4.7% | 336.8% | 4.69 | 1.24 | 39.72 |
+
+Final transcripts and ordered partial text matched across configurations on both fixtures. The first default-spin pair gave 3.30 s to first partial and 28.98 s to final partial. Against that pair, the four-thread no-spin setting added 0.54 s and 3.43 s respectively. The short VM fixture also regressed by about 0.46 s and 1.17 s with no spin. The polling-only run on that short fixture used 36.2 CPU seconds against 37.7 seconds across two default runs, with no observed latency increase on that clip. It is too small a sample to establish a general CPU reduction.
+
+The Star Labs baseline on app-next2 (`687fca8`), sampled at 1 Hz for 120 seconds, saw one stable speech-helper PID with 0% median, 29% mean, 220% p95 and a 1,345% maximum on the one-core scale. In that exact build, the warm batch helper runs `--serve`. Each eligible capture launches a separate `--stream` process, and diarization runs a separate `--diarize` process. Live Words requires an enabled preview, ready streaming model and an eligible route, and short-lived children can fall between samples. The persistent PID and spikes are consistent with warm batch work. The sample did not record helper arguments, so it cannot establish the cause.
+
+The pinned sherpa source passes `num_threads` to both ORT thread-count setters and applies the resulting options separately to the Parakeet encoder, decoder and joiner sessions. Both speech paths normally request four threads per session. The offline benchmark override `MURMUR_ASR_THREADS` can alter batch limits. Dictionary boosting loads a second three-session recognizer in the same warm process, so several per-session pools can coexist and spin within the same sampling interval. Diarization uses two threads per component in its own process. Dictation does not launch an ONNX VAD. Before changing the cap, compare process CPU by command line at sub-second resolution with Live Words and dictionary boosting toggled separately. Record launch, decode and partial events without capturing audio, text or model paths.
+
+### Warm batch CPU tradeoff
+
+GPU-less VM, stock ORT 1.28.2, 24 synthetic harness clips per run with a synthetic dictionary that loaded the second recognizer. Peak process CPU is sampled every 100 ms on the one-core scale. Latency is warm request-to-response, before cleanup or paste. All configurations returned identical text on 24/24 clips.
+
+| Mode | CPU seconds per corpus | Peak process CPU | Median latency | Worst latency |
+| --- | ---: | ---: | ---: | ---: |
+| Default spin, 4 threads (first run) | 116.9 | 821% | 961 ms | 8,102 ms |
+| No spin, 4 threads | 77.5 | 412% | 1,118 ms | 2,418 ms |
+| No spin, 2 threads | 56.2 | 233% | 1,326 ms | 2,628 ms |
+| No spin, 1 thread | 53.9 | 150% | 2,261 ms | 4,798 ms |
+| Default spin, 4 threads (repeat) | 101.5 | 867% | 880 ms | 1,629 ms |
+
+Four threads with no spin nearly halved peak CPU and increased median helper latency by 157–238 ms. Confirm the peak/latency tradeoff on the PC before changing the default. The user also saw whole-system CPU below about 3% during dictation and briefly around 80% on release with local CPU cleanup selected. That observation did not isolate the cleanup process. The cleanup measurements below isolate the helper process.
+
+### Local cleanup CPU tradeoff
+
+GPU-less Windows VM with 16 physical and logical cores. Each warm helper processed the same five short synthetic inputs. Peak is sampled every 100 ms on the one-core scale. Outputs matched byte-for-byte across all runs.
+
+| Generation and batch threads | CPU seconds per run | Peak process CPU | Median latency | Worst latency |
+| --- | ---: | ---: | ---: | ---: |
+| LLamaSharp defaults (first run) | 37.1 | 1,500% | 919 ms | 922 ms |
+| 4 | 31.6 | 600% | 1,537 ms | 1,653 ms |
+| 2 | 29.5 | 286% | 2,965 ms | 3,174 ms |
+| 8 | 39.4 | 1,433% | 965 ms | 1,006 ms |
+| LLamaSharp defaults (repeat) | 39.6 | 1,196% | 924 ms | 1,064 ms |
+| Physical-core cap (first run) | 37.2 | 1,150% | 916 ms | 955 ms |
+| Physical-core cap (repeat) | 37.0 | 1,314% | 855 ms | 994 ms |
+
+CPU cleanup uses up to eight physical cores for each LLamaSharp thread setting. Eight preserved near-default latency in the VM run. The measured process peak still reached 1,433%, so the thread settings alone do not establish a process-wide CPU ceiling. Confirm the sustained and peak process CPU and end-to-end latency on the 5900X before drawing conclusions about whole-system load.
+
 ## Website matching for modes
 
 Required in v1, as on the Mac (`ScreenReading.swift:10-38`: the page URL from the browser's web area, read only for mode matching, never stored or logged).

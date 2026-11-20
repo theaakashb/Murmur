@@ -47,6 +47,7 @@ func row(_ s: Setting<[Double]>) -> Row { Row(key: s.key, type: "doubleList", ma
             Row(key: "modelDirectory", type: "string", mac: .string(""), windows: nil),
             // New on Windows: the Mac's paste-last chord is fixed (Shortcut.swift:245).
             Row(key: "pasteLastShortcut", type: "string", mac: .string(""), windows: .string("ctrl-win-shift-v")),
+            Row(key: "useGpuWhenAvailable", type: "bool", mac: .bool(false), windows: .bool(true)),
         ]
         rows.sort { $0.key < $1.key }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]

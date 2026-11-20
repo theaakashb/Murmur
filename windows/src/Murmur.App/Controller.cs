@@ -287,8 +287,9 @@ internal sealed partial class Controller : IDisposable
         }
 
         Channel<float[]>? live = null;
-        if (ss.VoiceEdit is null && LiveWordsFacts.Starts(s.Settings.Get(Prefs.LiveWords), s.LiveWordsSlot.Row.IsReady,
-            ss.Plan.Transcriber is not null, s.Settings.Get(Prefs.LiveWordsOnCloud)))
+        var liveEnabled = s.Settings.Get(Prefs.LiveWords);
+        var liveReady = s.LiveWordsSlot.Row.IsReady;
+        if (ss.VoiceEdit is null && LiveWordsFacts.Starts(liveEnabled, liveReady, ss.Plan.Transcriber is not null, s.Settings.Get(Prefs.LiveWordsOnCloud)))
         {
             // Roughly two seconds of 20 ms blocks. A slow preview must never back up capture.
             var channel = Channel.CreateBounded<float[]>(new BoundedChannelOptions(96) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
@@ -302,6 +303,7 @@ internal sealed partial class Controller : IDisposable
                 if (!string.IsNullOrWhiteSpace(text)) TestEvents.Emit("partial");
             }), ss.Live.Token);
         }
+        else TestEvents.Emit("live-words-skipped", ("reason", !liveEnabled ? "disabled" : ss.VoiceEdit is not null ? "voice-edit" : !liveReady ? "model-not-ready" : "route-disabled"));
 
         ss.Feed.Attach(ss.Chunker is null && live is null ? null : samples =>
         {

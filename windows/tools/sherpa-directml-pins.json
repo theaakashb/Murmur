@@ -1,0 +1,59 @@
+{
+  "target": "win-x64",
+  "sherpa": {
+    "version": "2.0.1",
+    "revision": "af2d8d81dbfa61c4cea4c568da78f3982edca005",
+    "patch": "sherpa-directml.patch"
+  },
+  "onnxRuntimeDirectML": {
+    "version": "1.24.4",
+    "revision": "2d924974ef147392ced8409d36bd6d2e7fcc8a74",
+    "sha256": "57e9f11b73437bef7a309496135d4c1f96b1a8e9ddba60013fa27bfc1d788681"
+  },
+  "directML": {
+    "version": "1.15.4",
+    "sha256": "4e7cb7ddce8cf837a7a75dc029209b520ca0101470fcdf275c1f49736a3615b9"
+  },
+  "vulkan": {
+    "package": "LLamaSharp.Backend.Vulkan.Windows",
+    "version": "0.30.0"
+  },
+  "referenceBuild": {
+    "source": "94f6922",
+    "ciRun": 44714897512,
+    "runner": "windows-2022",
+    "cmake": "3.31.6",
+    "msvc": "19.44.35230.0",
+    "windowsSDK": "10.0.26100.0",
+    "files": [
+      {
+        "name": "DirectML.dll",
+        "size": 18527776,
+        "sha256": "9c9e6d822561c6c41b90e6994b3e8857cf1d66dbfb1e0c4c799c7c89b4e92da1"
+      },
+      {
+        "name": "onnxruntime.dll",
+        "size": 17328152,
+        "sha256": "e7eedec6a6f26dc39dc948276a75ef6d2bee3fff944d874ceed0bbd3b97bff40"
+      },
+      {
+        "name": "onnxruntime_providers_shared.dll",
+        "size": 22040,
+        "sha256": "265c8daf29637cb259cac8be9f08f2cd45f3883f0f0e4949cbfddd5b4cbec3b6"
+      },
+      {
+        "name": "sherpa-onnx-c-api.dll",
+        "size": 3672576,
+        "sha256": "fa301fe5a4533c1738d20da58f352470095a834a48cc424c07ae2aba9c9a862a"
+      }
+    ]
+  },
+  "cpuParity": {
+    "previousOrt": "1.28.2",
+    "exactFixtures": 23,
+    "totalFixtures": 24,
+    "oldAndNewWordEdits": 22,
+    "referenceWords": 254,
+    "difference": "Punctuation or whitespace, zero normalized word edits, reproduced in three fresh process reruns."
+  }
+}
