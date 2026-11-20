@@ -180,7 +180,7 @@ internal sealed partial class SettingsView
         foreach (var app in mode.Apps)
         {
             var a = app;
-            var row = new Grid { ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { MurmurStyle.Text(a, "MurmurSettingLabel"), Btn("Remove", () => { ChangeMode(id, x => x with { Apps = [.. x.Apps.Where(y => y != a)] }, true); }, "Remove " + a, plain: true) } };
+            var row = new Grid { ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { MurmurStyle.Text(a, "MurmurSettingLabel"), Btn("Remove", () => { ChangeMode(id, x => x with { Apps = (List<string>)[.. x.Apps.Where(y => y != a)] }, true); }, "Remove " + a, plain: true) } };
             Grid.SetColumn(row.Children[1] as FrameworkElement, 1);
             panel.Children.Add(row);
         }
@@ -191,7 +191,7 @@ internal sealed partial class SettingsView
         foreach (var app in running.Where(r => !mode.Apps.Contains(r)))
         {
             var item = new MenuFlyoutItem { Text = app };
-            item.Click += (_, _) => ChangeMode(id, x => x with { Apps = [.. x.Apps, app] }, true);
+            item.Click += (_, _) => ChangeMode(id, x => x with { Apps = (List<string>)[.. x.Apps, app] }, true);
             menu.Items.Add(item);
         }
         addApp.Flyout = menu;
@@ -312,7 +312,7 @@ internal sealed partial class SettingsView
         IReadOnlyList<DictionarySuggestion> suggestions = [];
         try
         {
-            suggestions = DictionarySuggestions.Find([.. s.History.Entries().Where(h => h.EditOriginal == null).Select(h => (h.RawText, h.FinalText))],
+            suggestions = DictionarySuggestions.Find((List<(string, string)>)[.. s.History.Entries().Where(h => h.EditOriginal == null).Select(h => (h.RawText, h.FinalText))],
                 processing.Dictionary.Entries, new HashSet<string>(s.Settings.Get(Prefs.DismissedSuggestions)), Lexicon.English.IsCommonWord);
         }
         catch (Exception) { /* History unreadable: no suggestions */ }
@@ -340,7 +340,7 @@ internal sealed partial class SettingsView
                     }
                     catch (StoreError ex) { message.Text = ex.Message; }
                 }, "Add " + it.Preferred);
-                var dismiss = Btn("Dismiss", () => { s.Settings.Set(Prefs.DismissedSuggestions, [.. s.Settings.Get(Prefs.DismissedSuggestions), .. it.Heard.Select(TermText.Fold)]); Render(dictionaryPage, RenderDictionary); }, "Dismiss " + it.Heard[0], plain: true);
+                var dismiss = Btn("Dismiss", () => { s.Settings.Set(Prefs.DismissedSuggestions, (List<string>)[.. s.Settings.Get(Prefs.DismissedSuggestions), .. it.Heard.Select(TermText.Fold)]); Render(dictionaryPage, RenderDictionary); }, "Dismiss " + it.Heard[0], plain: true);
                 var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center, Children = { addSuggestion, dismiss } };
                 var row = new Grid { MinHeight = 72, ColumnSpacing = 12, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center, Children = { spelling, detail } }, buttons } };
                 Grid.SetColumn(buttons, 1);
