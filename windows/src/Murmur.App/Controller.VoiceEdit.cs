@@ -34,13 +34,13 @@ internal sealed partial class Controller
             {
                 if (action == EditKeyAction.Release)
                 {
-                    Apply(VoiceEdit.ReleaseSeparate(machine, session?.SeparateEdit == true, time - editPressedAt));
+                    Apply(VoiceEdit.ReleaseSeparate(machine, session?.SeparateEdit == true, time - editPressedAt), time);
                     return;
                 }
                 if (IsBusy && session?.SeparateEdit != true) return;
                 editPressedAt = time;
                 separateEditStart = true;
-                try { Apply(VoiceEdit.PressSeparate(machine, true, IsBusy, session?.SeparateEdit == true)); }
+                try { Apply(VoiceEdit.PressSeparate(machine, true, IsBusy, session?.SeparateEdit == true), time); }
                 finally { separateEditStart = false; }
             });
         }
@@ -89,7 +89,7 @@ internal sealed partial class Controller
         var (words, error) = VoiceEdit.CheckInstruction(entry.RawText);
         if (words.Length > 0) new Tips(s.Settings).Completed(Tips.ID.VoiceEdit);
         if (error is not null) { Fail(ss, "voice-edit", "invalid-instruction", error); return; }
-        bubble.ShowProcessing($"Editing with {edit.EngineName} ({edit.Destination})…");
+        bubble.ShowProcessing(edit.ProcessingLabel);
 
         string output;
         try { output = await edit.Run(edit.Selection, words, ss.Cts.Token); }
@@ -138,7 +138,7 @@ internal sealed partial class Controller
                 try { history.Update(entry.With(apply.Text, InsertionStatus.Edited) with { EditOriginal = edit.Selection }); }
                 catch (Exception) { saved = false; }
                 ShowEditCard(Phase.Ready, saved
-                    ? "Original selection. Press Ctrl+Z in the app to undo the edit."
+                    ? edit.CompletedLabel
                     : "Edited. History could not be updated. Copy the original here.", edit.Selection);
                 TestEvents.Emit("voice-edit", ("status", "edited"), ("history-saved", saved));
                 break;

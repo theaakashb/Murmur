@@ -198,7 +198,7 @@ internal sealed partial class SettingsView
     bool speechFilesPresent, cleanupFilesPresent;
     int modelCheck;
     readonly List<Action> refreshRules = [];
-    Segmented? styleTabs, routeTabs;
+    Segmented? styleTabs;
     void StyleChanged() { styleTabs?.Select((int)CleanupStyleNow); foreach (var refresh in refreshNotes) refresh(); }
 
     RouteSettings Routes => RouteSettings.Load(s.Settings);
@@ -261,12 +261,13 @@ internal sealed partial class SettingsView
         page.Children.Add(grid);
     }
 
-    void Toggle(string title, string description, Setting<bool> setting, Action? changed = null, bool visible = false)
+    ToggleSwitch Toggle(string title, string description, Setting<bool> setting, Action? changed = null, bool visible = false)
     {
         var toggle = MurmurStyle.Named(new ToggleSwitch { IsOn = s.Settings.Get(setting), OnContent = null, OffContent = null, MinWidth = 0 }, title);
         toggle.Toggled += (_, _) => { s.Settings.Set(setting, toggle.IsOn); changed?.Invoke(); };
         refreshRules.Add(() => toggle.IsOn = s.Settings.Get(setting));
         Row(title, description, toggle, visible);
+        return toggle;
     }
 
     void Field(StackPanel fields, string header, string value, string placeholder, Action<string> save)
@@ -310,7 +311,7 @@ internal sealed partial class SettingsView
     // ---- routes ----
 
     static readonly (TranscriptionRoute Route, string Label)[] TranscriptionChoices = [(TranscriptionRoute.Local, "Local (this PC)"), (TranscriptionRoute.Cloud, "Custom Provider"), (TranscriptionRoute.MurmurCloud, "Murmur Cloud")];
-    static readonly (CleanupChoice Choice, string Label)[] CleanupChoices = [(CleanupChoice.LocalRules, "Local rules"), (CleanupChoice.LocalModel, "Local model (this PC)"), (CleanupChoice.CustomAPI, "Custom Provider"), (CleanupChoice.MurmurCloud, "Murmur Cloud")];
+    static readonly (CleanupChoice Choice, string Label)[] CleanupChoices = [(CleanupChoice.LocalRules, "Local rules"), (CleanupChoice.LocalModel, "Local model"), (CleanupChoice.CustomAPI, "Custom Provider"), (CleanupChoice.MurmurCloud, "Murmur Cloud")];
 
     string TranscriptionNote(TranscriptionRoute route)
     {
@@ -341,59 +342,107 @@ internal sealed partial class SettingsView
         BuildProvider(transcription: true);
     }
 
-    // The Mac's cleanup style over the existing flags (Controller+Settings.swift): Faithful is all rules off; Polish and Professional need a model route.
-    enum Style { Faithful, Natural, Polish, Professional }
-    static readonly Setting<bool>[] RuleFlags = [Prefs.CleanupFillers, Prefs.CleanupCorrections, Prefs.CleanupLists, Prefs.CleanupPunctuation, Prefs.CleanupSpoken];
+    CleanupOptions SavedCleanupOptions => ProcessingSettings.Load(s.Settings).Options;
+    CleanupStyle CleanupStyleNow => CleanupStyles.Current(Routes.Cleanup, SavedCleanupOptions);
 
-    Style CleanupStyleNow =>
-        !RuleFlags.Any(f => s.Settings.Get(f)) ? Style.Faithful : s.Settings.Get(Prefs.CleanupProfessional) ? Style.Professional : s.Settings.Get(Prefs.CleanupPolish) ? Style.Polish : Style.Natural;
-
-    void SetCleanupStyle(Style style)
+    void SetCleanupStyle(CleanupStyle style)
     {
-        if (style == Style.Faithful) foreach (var f in RuleFlags) s.Settings.Set(f, false);
-        else if (CleanupStyleNow == Style.Faithful) foreach (var f in RuleFlags) s.Settings.Set(f, true);
-        s.Settings.Set(Prefs.CleanupPolish, style is Style.Polish or Style.Professional);
-        s.Settings.Set(Prefs.CleanupProfessional, style == Style.Professional);
+        var (route, options) = CleanupStyles.Select(style, Routes.Cleanup, SavedCleanupOptions);
+        s.Settings.Set(Prefs.CleanupFillers, options.Fillers);
+        s.Settings.Set(Prefs.CleanupCorrections, options.Corrections);
+        s.Settings.Set(Prefs.CleanupLists, options.Lists);
+        s.Settings.Set(Prefs.CleanupPunctuation, options.Punctuation);
+        s.Settings.Set(Prefs.CleanupSpoken, options.Spoken);
+        s.Settings.Set(Prefs.CleanupPolish, options.Polish);
+        s.Settings.Set(Prefs.CleanupProfessional, options.Professional);
+        if (route != Routes.Cleanup) SaveRoutes(r => r with { Cleanup = route });
     }
 
-    string StyleHelp(Style style) => style switch
+    string StyleHelp(CleanupStyle style) => style switch
     {
-        Style.Faithful => "Keeps the words as dictated, apart from dictionary spellings: “Um, let’s meet Tuesday, no, I mean, Thursday, at the cafe.”",
-        Style.Natural => "Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”",
-        Style.Polish => "Also resolves backtracks and false starts, and fixes small grammar slips, keeping your voice: “Let’s meet Thursday at the cafe.”",
+        CleanupStyle.Faithful => "Keeps the words as dictated, apart from dictionary spellings: “Um, let’s meet Tuesday, no, I mean, Thursday, at the cafe.”",
+        CleanupStyle.Natural => "Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”",
+        CleanupStyle.Polish => "Also resolves backtracks and false starts, and fixes small grammar slips, keeping your voice: “Let’s meet Thursday at the cafe.”",
         _ => "Rewrites into clear, professional writing of what you meant: “Let’s meet on Thursday at the café.”"
     };
 
     void BuildCleanup()
     {
-        styleTabs = SegmentedRow("Cleanup style", "Polish and Professional run on Murmur Cloud or a Custom Provider.", ["Faithful", "Natural", "Polish", "Professional"], (int)CleanupStyleNow,
+        const string cloudHelp = "Polish and Professional run on Murmur Cloud or a Custom Provider.";
+        var offer = new StackPanel { Spacing = 8, Visibility = Visibility.Collapsed };
+        var offerText = MurmurStyle.Text("");
+        var getCloud = new Button { Content = MurmurCloud.PurchaseAvailable ? "Start a trial" : "Coming soon", IsEnabled = MurmurCloud.PurchaseAvailable };
+        getCloud.Click += async (_, _) => await Windows.System.Launcher.LaunchUriAsync(new Uri(MurmurCloud.BaseURL.Appending("/billing/checkout") + "?plan=basic"));
+        offer.Children.Add(offerText);
+        offer.Children.Add(getCloud);
+        styleTabs = SegmentedRow("Cleanup style", cloudHelp, ["Faithful", "Natural", "Polish", "Professional"], (int)CleanupStyleNow,
             i =>
             {
-                SetCleanupStyle((Style)i);
-                // As on the Mac: Polish and Professional run on a model route, so a local route moves to Murmur Cloud.
-                if ((Style)i >= Style.Polish && Routes.Cleanup is CleanupChoice.LocalRules or CleanupChoice.LocalModel)
+                var style = (CleanupStyle)i;
+                if (style.NeedsModel() && !Routes.Cleanup.CloudOnlyOK())
                 {
-                    SaveRoutes(r => r with { Cleanup = CleanupChoice.MurmurCloud });
-                    routeTabs?.Select(Array.FindIndex(CleanupChoices, c => c.Choice == CleanupChoice.MurmurCloud));
+                    offerText.Text = $"{style} runs on Murmur Cloud or a Custom Provider.";
+                    offer.Visibility = Visibility.Visible;
+                    styleTabs!.Select((int)CleanupStyleNow);
+                    return;
                 }
+                offer.Visibility = Visibility.Collapsed;
+                SetCleanupStyle(style);
                 foreach (var refresh in refreshRules) refresh();
-            }, i => StyleHelp((Style)i), cloud: [2, 3]);
-        routeTabs = SegmentedRow("Cleanup runs on", null, [.. CleanupChoices.Select(c => c.Label)], Array.FindIndex(CleanupChoices, c => c.Choice == Routes.Cleanup),
-            i => SaveRoutes(r => r with { Cleanup = CleanupChoices[i].Choice }), i => CleanupNote(CleanupChoices[i].Choice));
-        routeTabs.SetEnabled(1, false);
-        modelRoutes[CleanupChoice.LocalModel] = on => routeTabs.SetEnabled(1, on);
+                StyleChanged();
+            }, i => StyleHelp((CleanupStyle)i), cloud: [2, 3]);
+        page.Children.Add(offer);
+
+        var body = page;
+        var routeSection = new StackPanel();
+        body.Children.Add(routeSection);
+        page = routeSection;
+        SegmentedRow("Cleanup runs on", null, CleanupChoices.Select(c => c.Label).ToArray(), Array.FindIndex(CleanupChoices, c => c.Choice == Routes.Cleanup),
+            i =>
+            {
+                offer.Visibility = Visibility.Collapsed;
+                SaveRoutes(r => r with { Cleanup = CleanupChoices[i].Choice });
+                StyleChanged();
+            }, i => CleanupNote(CleanupChoices[i].Choice));
+        var naturalHelp = MurmurStyle.Text("");
+        routeSection.Children.Add(naturalHelp);
+        var cleanupRow = new ModelRow(s, s.CleanupSlot, controller, root, go => { LocalCleanupRunner.Shared.Shutdown(); go(); }, UpdateModelRoutes);
+        var modelCard = MurmurStyle.Card(cleanupRow.Panel);
+        routeSection.Children.Add(modelCard);
+        page = body;
         page.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 16, 0, 8), Style = MurmurStyle.Style("MurmurRuleLine") });
         Toggle("Remove filler words", "Takes out “um”, “uh” and similar.", Prefs.CleanupFillers, StyleChanged);
         Toggle("Apply spoken corrections", "Uses your final wording for clear corrections. Ambiguous corrections stay.", Prefs.CleanupCorrections, StyleChanged);
         Toggle("Format spoken lists", "Turns “one, two, three” into a numbered list.", Prefs.CleanupLists, StyleChanged);
         Toggle("Fix punctuation and capitalization", "Adds commas, periods and capitals.", Prefs.CleanupPunctuation, StyleChanged);
         Toggle("Spoken commands and numbers", "Interprets “comma” and “new paragraph”, and writes spoken numbers as digits.", Prefs.CleanupSpoken, StyleChanged);
-        Toggle("Use screen context", "With Polish or Professional on a Custom Provider or Murmur Cloud, words from the screen can appear in the pasted text.", Prefs.ScreenContext);
+        var screenContext = Toggle("Use screen context", "Available for Polish and Professional on Murmur Cloud or a Custom Provider. Modes can turn it on or off.", Prefs.ScreenContext);
         Note("Website modes use the focused page in Edge, Chrome, Brave, Vivaldi, Opera, Arc, or Firefox when Windows can read it. App matching still works in other browsers and when the page is unavailable.");
-        Heading("Local cleanup model");
-        var cleanupRow = new ModelRow(s, s.CleanupSlot, controller, root, go => { LocalCleanupRunner.Shared.Shutdown(); go(); }, UpdateModelRoutes);
-        page.Children.Add(MurmurStyle.Card(cleanupRow.Panel));
+        var providerSection = new StackPanel();
+        body.Children.Add(providerSection);
+        page = providerSection;
         BuildProvider(transcription: false);
+        page = body;
+        void RefreshGating()
+        {
+            var route = Routes.Cleanup;
+            var style = CleanupStyleNow;
+            routeSection.Visibility = style == CleanupStyle.Faithful ? Visibility.Collapsed : Visibility.Visible;
+            providerSection.Visibility = style != CleanupStyle.Faithful && route == CleanupChoice.CustomAPI ? Visibility.Visible : Visibility.Collapsed;
+            modelCard.Visibility = route == CleanupChoice.LocalModel ? Visibility.Visible : Visibility.Collapsed;
+            screenContext.IsEnabled = style.NeedsModel();
+            styleTabs.SetCloud(2, !route.CloudOnlyOK());
+            styleTabs.SetCloud(3, !route.CloudOnlyOK());
+            naturalHelp.Visibility = style == CleanupStyle.Natural ? Visibility.Visible : Visibility.Collapsed;
+            naturalHelp.Text = route switch
+            {
+                CleanupChoice.LocalRules => "Natural uses built-in rules on this PC.",
+                CleanupChoice.LocalModel => "Natural runs the Local model’s one cleanup under Murmur’s guard.",
+                _ => "On this route Natural uses built-in rules on this PC. Choose Polish or Professional to use the AI model.",
+            };
+        }
+        refreshNotes.Add(RefreshGating);
+        RefreshGating();
     }
 
     void BuildLearning()
@@ -402,7 +451,7 @@ internal sealed partial class SettingsView
         Toggle("Learn only from readable fields", "Murmur first reads the text box through Windows accessibility. If an app does not allow that, it can instead follow the keys you type into it, in memory only, for that one dictation: keys are never saved, logged or sent. Turn this on to use accessibility only.", Prefs.ReadableLearning, visible: true);
     }
 
-    /// <summary>Enables "Local (this PC)" and "Local model" only while their files are installed and pass the pinned checksums. Hashing runs off the UI thread (once per launch, then cached).</summary>
+    /// <summary>Enables local transcription only while its files are installed and pass the pinned checksums. Hashing runs off the UI thread (once per launch, then cached).</summary>
     void UpdateModelRoutes()
     {
         int check = ++modelCheck;
@@ -411,14 +460,12 @@ internal sealed partial class SettingsView
             var speechInstalled = s.Local.ModelFilesPresent;
             var cleanupInstalled = LocalCleanupRunner.InstalledStatus() is null;
             var speech = s.Local.HelperPresent && speechInstalled && s.Local.Verify();
-            var cleanup = cleanupInstalled && (LocalCleanupRunner.Verifier?.Invoke() ?? false);
             s.UI.TryEnqueue(() =>
             {
                 if (check != modelCheck) return;
                 speechFilesPresent = speechInstalled;
                 cleanupFilesPresent = cleanupInstalled;
                 modelRoutes[TranscriptionRoute.Local](speech);
-                modelRoutes[CleanupChoice.LocalModel](cleanup);
                 foreach (var refresh in refreshNotes) refresh();
             });
         });
@@ -448,7 +495,7 @@ internal sealed partial class SettingsView
         {
             Header = "Custom Provider", Content = fields, HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            IsExpanded = transcription ? routes.Transcription == TranscriptionRoute.Cloud : routes.Cleanup == CleanupChoice.CustomAPI
+            IsExpanded = !transcription || routes.Transcription == TranscriptionRoute.Cloud
         }, transcription ? "Custom transcription provider" : "Custom cleanup provider"));
     }
 

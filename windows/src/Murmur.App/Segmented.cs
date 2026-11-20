@@ -13,6 +13,7 @@ internal sealed class Segmented : Grid
     readonly List<Button> buttons = [];
     readonly List<Border> bars = [];
     readonly List<TextBlock> labels = [];
+    readonly Dictionary<int, FontIcon> clouds = [];
     int selected = -1;
     readonly double fontSize;
 
@@ -29,7 +30,11 @@ internal sealed class Segmented : Grid
             var text = new TextBlock { Text = items[i], FontSize = fontSize, VerticalAlignment = VerticalAlignment.Center };
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center, Children = { text } };
             if (cloud?.Contains(i) == true)
-                content.Children.Add(new FontIcon { Glyph = "", FontSize = 13, Foreground = (Brush)Application.Current.Resources["MurmurAccent"] });
+            {
+                var icon = new FontIcon { Glyph = "", FontSize = 13, Foreground = (Brush)Application.Current.Resources["MurmurAccent"] };
+                clouds[i] = icon;
+                content.Children.Add(icon);
+            }
             var bar = new Border { Height = 2, VerticalAlignment = VerticalAlignment.Bottom, Style = MurmurStyle.Style("MurmurBubbleDot"), Opacity = 0 };
             var button = new Button
             {
@@ -63,6 +68,8 @@ internal sealed class Segmented : Grid
             AutomationProperties.SetAccessibilityView(bars[i], Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         }
     }
+
+    public void SetCloud(int index, bool shown) => clouds[index].Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
 
     public void SetEnabled(int index, bool enabled) => buttons[index].IsEnabled = enabled;
 }

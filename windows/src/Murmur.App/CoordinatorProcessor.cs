@@ -12,6 +12,8 @@ internal sealed class CoordinatorProcessor(Func<ProcessingCoordinator?> coordina
         p.CloudCleaner = request.Cleaner;
         p.EngineCleaner = request.Engine;
         var style = p.Settings.Style(request.Mode);
+        if (!request.Cleanup.CloudOnlyOK())
+            style = style with { Options = request.Cleanup.EffectiveOptions(style.Options), Context = null };
         var result = p.Settings.Route == CleanupRoute.Local ? p.Process(request.RawTranscript, style) : await p.ProcessAsync(request.RawTranscript, style, cancellationToken);
         // Held only happens when processing is unavailable; a dictation is never held, so the raw transcript goes out (spec/pipeline.md section 9).
         return result.Outcome switch
