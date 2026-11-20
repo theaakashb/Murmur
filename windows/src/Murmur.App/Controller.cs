@@ -19,6 +19,8 @@ internal sealed partial class Controller : IDisposable
     {
         public required int Gen { get; init; }
         public required RoutePlan Plan { get; init; }
+        public ActiveEdit? VoiceEdit { get; init; }
+        public bool SeparateEdit { get; init; }
         public required RouteSettings Routes { get; init; }
         public required CleanupOptions Options { get; init; }
         public required bool Insert { get; init; }
@@ -42,7 +44,7 @@ internal sealed partial class Controller : IDisposable
         public Task<FocusInfo?> Focus { get; set; } = Task.FromResult<FocusInfo?>(null);
         public Task<WritingMode?> Mode { get; set; } = Task.FromResult<WritingMode?>(null);
         public double Tail { get; set; } = 0.2;
-        public CancellationTokenSource Cts { get; } = new();
+        public CancellationTokenSource Cts { get; init; } = new();
     }
 
     const double RecordingLimit = CaptureSession.RecordingLimit;
@@ -86,6 +88,7 @@ internal sealed partial class Controller : IDisposable
     public void ReloadShortcuts()
     {
         dictationVk = ShortcutSpec.KeyOf(s.Settings.Get(Prefs.Shortcut));
+        ReloadVoiceEditShortcut();
         pasteChord = Chord.PasteLast; // shortcut: pasteLastShortcut is fixed to Ctrl+Win+Shift+V until Settings can record chords
     }
 
@@ -107,6 +110,7 @@ internal sealed partial class Controller : IDisposable
             return true;
         }
         if (pasteChord.Matches(e)) { ui.TryEnqueue(PasteLast); return true; }
+        if (HandleVoiceEditKey(e)) return true;
         int vk = dictationVk;
         if (e.VirtualKey == vk)
         {
@@ -202,9 +206,12 @@ internal sealed partial class Controller : IDisposable
     bool BeginSession()
     {
         var routes = RouteSettings.Load(s.Settings);
+        var edit = ProbeVoiceEdit(routes);
+        if (edit?.Result is VoiceEdit.SessionResult.Refused refused) return StartFailed("voice-edit-refused", refused.Message);
+        var activeEdit = edit?.Active;
         var options = new CleanupOptions(s.Settings.Get(Prefs.CleanupFillers), s.Settings.Get(Prefs.CleanupCorrections), s.Settings.Get(Prefs.CleanupLists),
             s.Settings.Get(Prefs.CleanupPunctuation), s.Settings.Get(Prefs.CleanupPolish), s.Settings.Get(Prefs.CleanupProfessional), s.Settings.Get(Prefs.CleanupSpoken));
-        var plan = RoutePlan.Make(routes, options.AnyEnabled, s.Key);
+        var plan = RoutePlan.Make(routes, activeEdit is null && options.AnyEnabled, s.Key);
         if (plan.Refusal is { } refusal) return StartFailed("route-refused", refusal);
         // A cloud route that is not configured never falls back to local; a local route needs the model files and the helper.
         if (plan.UsesLocalModel)
@@ -223,6 +230,7 @@ internal sealed partial class Controller : IDisposable
         var ss = new Session
         {
             Gen = ++generation, Plan = plan, Routes = routes, Options = options, WavPath = wavPath, Feed = pre.Feed,
+            VoiceEdit = activeEdit, SeparateEdit = separateEditStart, Cts = activeEdit?.Cancellation ?? new(),
             Insert = s.Settings.Get(Prefs.AutomaticInsertion), LeadingSpace = s.Settings.Get(Prefs.IntelligentLeadingSpace),
             StartedUtc = DateTime.UtcNow, Clock = Stopwatch.StartNew(),
         };
@@ -244,7 +252,7 @@ internal sealed partial class Controller : IDisposable
         level = 0;
         // The password check goes through UI Automation, which can block: it runs beside the recording, and a password field discards it.
         ss.Focus = Task.Run(() => FocusProbe.Capture(readText: false));
-        ss.Mode = Task.Run(() => s.SelectModeAsync(ss.Focus, ss.Cts.Token));
+        if (activeEdit is null) ss.Mode = Task.Run(() => s.SelectModeAsync(ss.Focus, ss.Cts.Token));
         _ = WatchFocus(ss);
         phase = Phase.Listening;
         TestEvents.Emit("recording-started");
@@ -265,7 +273,7 @@ internal sealed partial class Controller : IDisposable
         }
 
         Channel<float[]>? live = null;
-        if (LiveWordsFacts.Starts(s.Settings.Get(Prefs.LiveWords), s.LiveWordsSlot.Row.IsReady,
+        if (ss.VoiceEdit is null && LiveWordsFacts.Starts(s.Settings.Get(Prefs.LiveWords), s.LiveWordsSlot.Row.IsReady,
             ss.Plan.Transcriber is not null, s.Settings.Get(Prefs.LiveWordsOnCloud)))
         {
             // Roughly two seconds of 20 ms blocks. A slow preview must never back up capture.
@@ -352,7 +360,11 @@ internal sealed partial class Controller : IDisposable
         try { await RunCore(ss); }
         catch (OperationCanceledException) { }
         catch (Exception) { Fail(ss, "pipeline", "unexpected", "Something went wrong. The dictation was not pasted."); }
-        finally { if (!Stale(ss)) { session = null; machine.ProcessingFinished(); } }
+        finally
+        {
+            if (ss.VoiceEdit is not null) TryDelete(ss.WavPath);
+            if (!Stale(ss)) { session = null; machine.ProcessingFinished(); }
+        }
     }
 
     void Fail(Session ss, string stage, string reason, string message, bool quick = false)
@@ -419,12 +431,24 @@ internal sealed partial class Controller : IDisposable
         {
             Id = Guid.NewGuid().ToString().ToUpperInvariant(), RecordedAt = ss.StartedUtc, RawText = transcript.Text, FinalText = transcript.Text,
             InsertionStatusRaw = InsertionStatus.SavedNotInserted.Raw(), Seconds = Math.Round(capture.Seconds, 2), App = focus?.ProcessName,
-            WritingModeID = mode?.Id.ToString().ToUpperInvariant(), WritingModeName = mode?.Name,
+            WritingModeID = mode?.Id.ToString().ToUpperInvariant(), WritingModeName = ss.VoiceEdit is not null ? "Voice edit" : mode?.Name,
             TranscriptionProvider = provider?.Id.RawValue() ?? LocalTranscriber.ProviderId, TranscriptionModel = provider is null ? LocalTranscriber.ModelId : provider.ModelID,
             Transcription = new TranscriptionDetail { ClipSeconds = detail.ClipSeconds },
         };
-        try { s.History.Save(entry); }
-        catch (Exception) { Fail(ss, "history", "save-failed", $"Could not save the transcript. Audio is saved for retry for up to {RetryWindow.Text}."); return; }
+        var history = s.History;
+        try { history.Save(entry); }
+        catch (Exception)
+        {
+            Fail(ss, "history", "save-failed", ss.VoiceEdit is null
+                ? $"Could not save the transcript. Audio is saved for retry for up to {RetryWindow.Text}."
+                : "Could not save the instruction. The selection was not changed.");
+            return;
+        }
+        if (ss.VoiceEdit is not null)
+        {
+            await RunVoiceEdit(ss, entry, history);
+            return;
+        }
         KeepOrDelete(ss.WavPath, entry.Id);
         bubble.ShowProcessing("Cleaning up...");
 
@@ -494,7 +518,7 @@ internal sealed partial class Controller : IDisposable
         var result = Delivery.Deliver<HistoryEntry, PasteOutcome>(ref entry, (e, status) => e with { InsertionStatusRaw = status }, InsertionStatus.InsertionPending.Raw(),
             e => s.History.Save(e), (ref HistoryEntry e) =>
             {
-                var outcome = PasteAndVerify(text);
+                var outcome = PasteAndVerify(text, e.Id);
                 if (outcome.Status != InsertionStatus.Failed) e = e with { App = target?.ProcessName ?? e.App };
                 return new Insertion<PasteOutcome>(outcome.Status.Raw(), outcome);
             });
@@ -502,11 +526,11 @@ internal sealed partial class Controller : IDisposable
     }
 
     /// <summary>Pastes where the cursor is now, then reads the field back for up to 0.5 s to mark verified or unverified (History only; never a reason to paste twice).</summary>
-    PasteOutcome PasteAndVerify(string text)
+    PasteOutcome PasteAndVerify(string text, string? historyId = null)
     {
         var learn = BeginLearning();
         var outcome = PasteAndVerifyCore(text);
-        _ = Task.Run(() => StartLearning(learn, text, outcome.Status));
+        _ = Task.Run(() => StartLearning(learn, text, outcome.Status, historyId));
         return outcome;
     }
 
