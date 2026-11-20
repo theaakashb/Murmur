@@ -13,7 +13,7 @@ internal sealed class TrayMenu
     readonly Window window = new();
     readonly nint hwnd;
     readonly Grid anchor = new();
-    readonly MenuFlyout menu = new();
+    readonly MenuFlyout menu = new() { MenuFlyoutPresenterStyle = MurmurStyle.Style("MurmurTrayMenu") };
     bool open;
 
     public TrayMenu(Action settings, Action history, Action quit)
@@ -25,10 +25,10 @@ internal sealed class TrayMenu
         var style = (long)Native.GetWindowLongPtr(hwnd, Native.GwlExStyle);
         Native.SetWindowLongPtr(hwnd, Native.GwlExStyle, (nint)(style | Native.WsExLayered));
         Native.SetLayeredWindowAttributes(hwnd, 0, 0, 2);
-        menu.Items.Add(Item("Settings", Symbol.Setting, settings));
-        menu.Items.Add(Item("History", Symbol.Clock, history));
+        menu.Items.Add(Item("Settings…", settings));
+        menu.Items.Add(Item("History…", history));
         menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(Item("Quit Murmur", Symbol.Cancel, quit));
+        menu.Items.Add(Item("Quit Murmur", quit));
         menu.Closed += (_, _) =>
         {
             open = false;
@@ -62,9 +62,9 @@ internal sealed class TrayMenu
         });
     }
 
-    MenuFlyoutItem Item(string text, Symbol icon, Action action)
+    MenuFlyoutItem Item(string text, Action action)
     {
-        var item = Fluent.Named(new MenuFlyoutItem { Text = text, Icon = new SymbolIcon(icon) }, text);
+        var item = MurmurStyle.Named(new MenuFlyoutItem { Text = text, FontSize = 13 }, text);
         item.Click += (_, _) =>
         {
             menu.Hide();
