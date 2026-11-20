@@ -1,0 +1,1318 @@
+{
+  "changed" : [
+    {
+      "count" : 3,
+      "final" : "So the meeting is at 3.",
+      "raw" : "um so the meeting is at three"
+    },
+    {
+      "count" : 0,
+      "final" : " same words",
+      "raw" : "same words"
+    },
+    {
+      "count" : 2,
+      "final" : "ship it to kubectl",
+      "raw" : "ship it to cube control"
+    },
+    {
+      "count" : 0,
+      "final" : "",
+      "raw" : ""
+    },
+    {
+      "count" : 3,
+      "final" : "",
+      "raw" : "a b c"
+    },
+    {
+      "count" : 2,
+      "final" : "zoë Café!",
+      "raw" : "Zoë café"
+    }
+  ],
+  "durations" : [
+    {
+      "seconds" : 0,
+      "text" : "0 s"
+    },
+    {
+      "seconds" : 0.40000000000000002,
+      "text" : "0 s"
+    },
+    {
+      "seconds" : 0.5,
+      "text" : "1 s"
+    },
+    {
+      "seconds" : 40,
+      "text" : "40 s"
+    },
+    {
+      "seconds" : 59.5,
+      "text" : "1 min"
+    },
+    {
+      "seconds" : 60,
+      "text" : "1 min"
+    },
+    {
+      "seconds" : 720,
+      "text" : "12 min"
+    },
+    {
+      "seconds" : 3600,
+      "text" : "1 h 0 min"
+    },
+    {
+      "seconds" : 3900,
+      "text" : "1 h 5 min"
+    },
+    {
+      "seconds" : 7260,
+      "text" : "2 h 1 min"
+    }
+  ],
+  "scenarios" : [
+    {
+      "historyOn" : false,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        }
+      ],
+      "label" : "history off",
+      "now" : 1792065600,
+      "result" : "historyOff",
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+
+      ],
+      "label" : "empty",
+      "now" : 1792065600,
+      "result" : "empty",
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "",
+          "raw" : "um",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        }
+      ],
+      "label" : "filler only",
+      "now" : 1792065600,
+      "result" : "empty",
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "abcd abcd abcd abcd abcd abcd abcd abcd abcd abcde",
+          "raw" : "abcd abcd abcd abcd abcd abcd abcd abcd abcd abcde",
+          "recordedAt" : 1792065600,
+          "seconds" : 6
+        }
+      ],
+      "label" : "paced",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+
+        ],
+        "averageWords" : 10,
+        "currentStreak" : 1,
+        "daily" : {
+          "2026-10-15" : 10
+        },
+        "dayCount" : 1,
+        "dictations" : 1,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 1,
+        "recordingSeconds" : 6,
+        "secondsSaved" : 5.6369278510473233,
+        "timedDictations" : 1,
+        "withoutApp" : 1,
+        "words" : 10,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : 100
+      },
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "raw" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "recordedAt" : 1792065600,
+          "seconds" : 6
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "raw" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "recordedAt" : 1792065600,
+          "seconds" : 18
+        }
+      ],
+      "label" : "pooled",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+
+        ],
+        "averageWords" : 1,
+        "currentStreak" : 1,
+        "daily" : {
+          "2026-10-15" : 2
+        },
+        "dayCount" : 1,
+        "dictations" : 2,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 1,
+        "recordingSeconds" : 24,
+        "secondsSaved" : 0,
+        "timedDictations" : 2,
+        "withoutApp" : 2,
+        "words" : 2,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : 50
+      },
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "short",
+          "raw" : "short",
+          "recordedAt" : 1792065600,
+          "seconds" : 60
+        }
+      ],
+      "label" : "slow",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+
+        ],
+        "averageWords" : 1,
+        "currentStreak" : 1,
+        "daily" : {
+          "2026-10-15" : 1
+        },
+        "dayCount" : 1,
+        "dictations" : 1,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 1,
+        "recordingSeconds" : 60,
+        "secondsSaved" : 0,
+        "timedDictations" : 1,
+        "withoutApp" : 1,
+        "words" : 1,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : 1
+      },
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "one two three",
+          "raw" : "one two three",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        }
+      ],
+      "label" : "untimed",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+
+        ],
+        "averageWords" : 3,
+        "currentStreak" : 1,
+        "daily" : {
+          "2026-10-15" : 3
+        },
+        "dayCount" : 1,
+        "dictations" : 1,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 1,
+        "recordingSeconds" : null,
+        "secondsSaved" : null,
+        "timedDictations" : 0,
+        "withoutApp" : 1,
+        "words" : 3,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : null
+      },
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "Hello",
+          "raw" : "um hello",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : true,
+          "final" : "https://example.com/a/b",
+          "raw" : "insert my link here",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        }
+      ],
+      "label" : "changed",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+
+        ],
+        "averageWords" : 1,
+        "currentStreak" : 1,
+        "daily" : {
+          "2026-10-15" : 2
+        },
+        "dayCount" : 1,
+        "dictations" : 2,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 1,
+        "recordingSeconds" : null,
+        "secondsSaved" : null,
+        "timedDictations" : 0,
+        "withoutApp" : 2,
+        "words" : 2,
+        "wordsChanged" : 2,
+        "wordsPerMinute" : null
+      },
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : "com.apple.TextEdit",
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        },
+        {
+          "app" : "com.apple.mail",
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        },
+        {
+          "app" : "Com.Apple.Mail",
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791979200,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791979200,
+          "seconds" : null
+        }
+      ],
+      "label" : "apps",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+          {
+            "app" : "Com.Apple.Mail",
+            "count" : 1,
+            "words" : 2
+          },
+          {
+            "app" : "com.apple.TextEdit",
+            "count" : 1,
+            "words" : 2
+          },
+          {
+            "app" : "com.apple.mail",
+            "count" : 1,
+            "words" : 2
+          }
+        ],
+        "averageWords" : 2,
+        "currentStreak" : 2,
+        "daily" : {
+          "2026-10-14" : 4,
+          "2026-10-15" : 4
+        },
+        "dayCount" : 2,
+        "dictations" : 4,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 2,
+        "recordingSeconds" : null,
+        "secondsSaved" : null,
+        "timedDictations" : 0,
+        "withoutApp" : 1,
+        "words" : 8,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : null
+      },
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : "a",
+          "expanded" : false,
+          "final" : "one two three",
+          "raw" : "one two three",
+          "recordedAt" : 1792065600,
+          "seconds" : 8
+        },
+        {
+          "app" : "b",
+          "expanded" : false,
+          "final" : "one",
+          "raw" : "one",
+          "recordedAt" : 1792065600,
+          "seconds" : "inf"
+        },
+        {
+          "app" : "b",
+          "expanded" : false,
+          "final" : "one two",
+          "raw" : "one two",
+          "recordedAt" : 1791979200,
+          "seconds" : -1
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "  ",
+          "raw" : "  ",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        }
+      ],
+      "label" : "activity",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+          {
+            "app" : "a",
+            "count" : 1,
+            "words" : 3
+          },
+          {
+            "app" : "b",
+            "count" : 2,
+            "words" : 3
+          }
+        ],
+        "averageWords" : 2,
+        "currentStreak" : 2,
+        "daily" : {
+          "2026-10-14" : 2,
+          "2026-10-15" : 4
+        },
+        "dayCount" : 2,
+        "dictations" : 3,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 2,
+        "recordingSeconds" : 8,
+        "secondsSaved" : 0,
+        "timedDictations" : 1,
+        "withoutApp" : 0,
+        "words" : 6,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : 19.5
+      },
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : "a",
+          "expanded" : false,
+          "final" : "one two three four",
+          "raw" : "one two three four",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        },
+        {
+          "app" : "b",
+          "expanded" : false,
+          "final" : "one",
+          "raw" : "one",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        },
+        {
+          "app" : "b",
+          "expanded" : false,
+          "final" : "two",
+          "raw" : "two",
+          "recordedAt" : 1791979200,
+          "seconds" : null
+        }
+      ],
+      "label" : "by words",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+          {
+            "app" : "a",
+            "count" : 1,
+            "words" : 4
+          },
+          {
+            "app" : "b",
+            "count" : 2,
+            "words" : 2
+          }
+        ],
+        "averageWords" : 2,
+        "currentStreak" : 2,
+        "daily" : {
+          "2026-10-14" : 1,
+          "2026-10-15" : 5
+        },
+        "dayCount" : 2,
+        "dictations" : 3,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 2,
+        "recordingSeconds" : null,
+        "secondsSaved" : null,
+        "timedDictations" : 0,
+        "withoutApp" : 0,
+        "words" : 6,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : null
+      },
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1792056960,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1792048320,
+          "seconds" : null
+        }
+      ],
+      "label" : "tokyo",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+
+        ],
+        "averageWords" : 2,
+        "currentStreak" : 1,
+        "daily" : {
+          "2026-10-15" : 6
+        },
+        "dayCount" : 1,
+        "dictations" : 3,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          1,
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "longestStreak" : 1,
+        "recordingSeconds" : null,
+        "secondsSaved" : null,
+        "timedDictations" : 0,
+        "withoutApp" : 3,
+        "words" : 6,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : null
+      },
+      "zone" : "Asia/Tokyo"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1792013760,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791979200,
+          "seconds" : null
+        }
+      ],
+      "label" : "new york",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+
+        ],
+        "averageWords" : 2,
+        "currentStreak" : 2,
+        "daily" : {
+          "2026-10-14" : 4,
+          "2026-10-15" : 2
+        },
+        "dayCount" : 2,
+        "dictations" : 3,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 2,
+        "recordingSeconds" : null,
+        "secondsSaved" : null,
+        "timedDictations" : 0,
+        "withoutApp" : 3,
+        "words" : 6,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : null
+      },
+      "zone" : "America/New_York"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1792065600,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791979200,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791892800,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791633600,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791547200,
+          "seconds" : null
+        }
+      ],
+      "label" : "streak",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+
+        ],
+        "averageWords" : 2,
+        "currentStreak" : 3,
+        "daily" : {
+          "2026-10-09" : 2,
+          "2026-10-10" : 2,
+          "2026-10-13" : 2,
+          "2026-10-14" : 2,
+          "2026-10-15" : 2
+        },
+        "dayCount" : 5,
+        "dictations" : 5,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 3,
+        "recordingSeconds" : null,
+        "secondsSaved" : null,
+        "timedDictations" : 0,
+        "withoutApp" : 5,
+        "words" : 10,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : null
+      },
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791979200,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791892800,
+          "seconds" : null
+        }
+      ],
+      "label" : "yesterday",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+
+        ],
+        "averageWords" : 2,
+        "currentStreak" : 2,
+        "daily" : {
+          "2026-10-13" : 2,
+          "2026-10-14" : 2
+        },
+        "dayCount" : 2,
+        "dictations" : 2,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 2,
+        "recordingSeconds" : null,
+        "secondsSaved" : null,
+        "timedDictations" : 0,
+        "withoutApp" : 2,
+        "words" : 4,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : null
+      },
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791892800,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791806400,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791720000,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1791633600,
+          "seconds" : null
+        }
+      ],
+      "label" : "missed",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+
+        ],
+        "averageWords" : 2,
+        "currentStreak" : 0,
+        "daily" : {
+          "2026-10-10" : 2,
+          "2026-10-11" : 2,
+          "2026-10-12" : 2,
+          "2026-10-13" : 2
+        },
+        "dayCount" : 4,
+        "dictations" : 4,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 4,
+        "recordingSeconds" : null,
+        "secondsSaved" : null,
+        "timedDictations" : 0,
+        "withoutApp" : 4,
+        "words" : 8,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : null
+      },
+      "zone" : "UTC"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1790579520,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1790665920,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1790752320,
+          "seconds" : null
+        },
+        {
+          "app" : null,
+          "expanded" : false,
+          "final" : "hello there",
+          "raw" : "hello there",
+          "recordedAt" : 1790838720,
+          "seconds" : null
+        }
+      ],
+      "label" : "dst",
+      "now" : 1793577600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+
+        ],
+        "averageWords" : 2,
+        "currentStreak" : 0,
+        "daily" : {
+          "2026-09-28" : 2,
+          "2026-09-29" : 2,
+          "2026-09-30" : 2,
+          "2026-10-01" : 2
+        },
+        "dayCount" : 4,
+        "dictations" : 4,
+        "hourly" : [
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 4,
+        "recordingSeconds" : null,
+        "secondsSaved" : null,
+        "timedDictations" : 0,
+        "withoutApp" : 4,
+        "words" : 8,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : null
+      },
+      "zone" : "America/New_York"
+    },
+    {
+      "historyOn" : true,
+      "items" : [
+        {
+          "app" : "app",
+          "expanded" : false,
+          "final" : "Zoë 😀 café́ 東京 team",
+          "raw" : "Zoë 😀 café́ 東京 team",
+          "recordedAt" : 1792065600,
+          "seconds" : 3
+        }
+      ],
+      "label" : "unicode",
+      "now" : 1792065600,
+      "result" : "stats",
+      "stats" : {
+        "apps" : [
+          {
+            "app" : "app",
+            "count" : 1,
+            "words" : 5
+          }
+        ],
+        "averageWords" : 5,
+        "currentStreak" : 1,
+        "daily" : {
+          "2026-10-15" : 5
+        },
+        "dayCount" : 1,
+        "dictations" : 1,
+        "hourly" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "longestStreak" : 1,
+        "recordingSeconds" : 3,
+        "secondsSaved" : 1.1892940263770369,
+        "timedDictations" : 1,
+        "withoutApp" : 0,
+        "words" : 5,
+        "wordsChanged" : 0,
+        "wordsPerMinute" : 72
+      },
+      "zone" : "UTC"
+    }
+  ]
+}

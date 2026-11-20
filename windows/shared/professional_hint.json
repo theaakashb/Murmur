@@ -1,0 +1,38 @@
+{
+  "correctionCues" : [
+    "no i mean",
+    "i mean",
+    "scratch that",
+    "or rather",
+    "wait no",
+    "no wait",
+    "actually no",
+    "sorry i meant"
+  ],
+  "fillers" : [
+    "um",
+    "uh",
+    "er",
+    "erm",
+    "ah",
+    "hmm",
+    "umm",
+    "uhh"
+  ],
+  "listWords" : [
+    "first",
+    "second",
+    "third",
+    "firstly",
+    "secondly",
+    "thirdly",
+    "finally",
+    "lastly"
+  ],
+  "sentenceParts" : {
+    "correction" : "keep only what you meant after your correction",
+    "fillers" : "tidy the filler words",
+    "list" : "set out the points you listed",
+    "runOn" : "break this long run-on into clear sentences"
+  }
+}
