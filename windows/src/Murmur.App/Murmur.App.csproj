@@ -23,6 +23,13 @@
     <ProjectReference Include="..\Murmur.Core\Murmur.Core.csproj" />
     <ProjectReference Include="..\Murmur.Platform\Murmur.Platform.csproj" />
   </ItemGroup>
+  <!-- Shared editorial fonts and their SIL Open Font License notices. -->
+  <ItemGroup>
+    <Content Include="..\..\..\app\Fonts\InstrumentSerif-Regular.ttf;..\..\..\app\Fonts\DMSans.ttf"
+             Link="Fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\..\app\Fonts\InstrumentSerif-OFL.txt;..\..\..\app\Fonts\DMSans-OFL.txt"
+          Link="Fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <!-- Artifact pins for BundledModels (shared with the Mac), beside Murmur.exe. -->
   <ItemGroup>
     <None Include="..\..\..\module-one\models\artifact-pins.json" Link="artifact-pins.json" CopyToOutputDirectory="PreserveNewest" />

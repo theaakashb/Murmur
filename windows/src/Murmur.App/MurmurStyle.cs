@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace Murmur.App;
 
-internal static class Fluent
+internal static class MurmurStyle
 {
     public static Style Style(string key) => (Style)Application.Current.Resources[key];
 
@@ -17,7 +17,7 @@ internal static class Fluent
     public static TextBlock Text(string text, string style = "MurmurDescription") =>
         new() { Text = text, Style = Style(style), TextWrapping = TextWrapping.Wrap };
 
-    public static Border Card(UIElement child) => new() { Child = child, Style = Style("MurmurCard") };
+    public static Border Card(UIElement child) => new() { Child = child, Style = Style("MurmurCard"), Margin = new Thickness(0, 0, 0, 8) };
 
     public static void SetTitleBar(Window window, TitleBar caption)
     {

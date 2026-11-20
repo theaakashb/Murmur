@@ -12,15 +12,17 @@ internal sealed class Bubble
 {
     readonly Window window = new();
     readonly nint hwnd;
-    readonly Border surface = new() { Style = Fluent.Style("MurmurBubble") };
-    readonly TextBlock text = Fluent.Text("", "BodyStrongTextBlockStyle");
+    readonly Border surface = new() { Style = MurmurStyle.Style("MurmurBubble") };
+    static readonly double[] BarWeights = [0.6, 0.85, 1, 0.85, 0.6];
+    readonly Border[] bars = new Border[BarWeights.Length];
+    readonly StackPanel waveform = new() { Width = 60, Height = 28, Orientation = Orientation.Horizontal, Spacing = 4, Padding = new Thickness(4.5, 0, 4.5, 0) };
+    readonly TextBlock text = MurmurStyle.Text("", "MurmurSettingLabel");
+    readonly TextBlock partial = MurmurStyle.Text("", "MurmurSettingLabel");
     readonly Border dot = new() { Width = 8, Height = 8, CornerRadius = new CornerRadius(4), VerticalAlignment = VerticalAlignment.Center };
-    readonly Border levelTrack = new() { Width = 64, Height = 4, CornerRadius = new CornerRadius(2), VerticalAlignment = VerticalAlignment.Center, Style = Fluent.Style("MurmurBubbleMeter") };
-    readonly Border levelFill = new() { Height = 4, CornerRadius = new CornerRadius(2), HorizontalAlignment = HorizontalAlignment.Left, Style = Fluent.Style("MurmurBubbleDot") };
-    readonly ProgressRing ring = new() { Width = 16, Height = 16, VerticalAlignment = VerticalAlignment.Center };
-    readonly TextBlock partial = Fluent.Text("", "MurmurCaption");
-    readonly TextBlock cardPreview = Fluent.Text("", "MurmurDescription");
-    readonly StackPanel cardButtons = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
+    readonly TextBlock cardPreview = MurmurStyle.Text("", "MurmurDescription");
+    readonly Grid indicator;
+    readonly StackPanel card;
+    readonly TextBlock cardTitle = MurmurStyle.Text("", "BodyStrongTextBlockStyle");
     readonly DispatcherQueueTimer hideTimer;
     string? cardText;
     DisplayArea? display;
@@ -36,25 +38,49 @@ internal sealed class Bubble
         Native.SetWindowLongPtr(hwnd, Native.GwlExStyle, (nint)((long)style | Native.WsExNoActivate | Native.WsExToolWindow | Native.WsExTransparent | Native.WsExTopmost | Native.WsExLayered));
         Native.SetLayeredWindowAttributes(hwnd, 0, 255, 2);
 
-        levelTrack.Child = levelFill;
-        var row = new Grid
+        for (int i = 0; i < bars.Length; i++)
         {
-            ColumnSpacing = 12,
-            ColumnDefinitions = { new ColumnDefinition { Width = GridLength.Auto }, new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } },
-            Children = { dot, Fluent.Named(ring, "Processing dictation"), text, levelTrack }
+            var bar = new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), VerticalAlignment = VerticalAlignment.Center, Style = MurmurStyle.Style("MurmurBubbleDot") };
+            bars[i] = bar;
+            waveform.Children.Add(bar);
+        }
+        indicator = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition { Width = GridLength.Auto }, new ColumnDefinition() },
+            Children = { waveform, dot, text, partial }
         };
         Grid.SetColumn(text, 1);
-        Grid.SetColumn(levelTrack, 2);
+        Grid.SetColumn(partial, 1);
+        partial.Margin = new Thickness(6, 0, 7, 0);
+        partial.VerticalAlignment = VerticalAlignment.Center;
 
-        var copy = Fluent.Named(new Button { Content = "Copy", Style = Fluent.Style("AccentButtonStyle") }, "Copy dictation");
-        var dismiss = Fluent.Named(new Button { Content = "Dismiss" }, "Dismiss dictation notice");
+        var copy = MurmurStyle.Named(new Button { Content = "Copy", Style = MurmurStyle.Style("AccentButtonStyle") }, "Copy dictation");
+        var dismiss = MurmurStyle.Named(new Button { Content = "×", Padding = new Thickness(6, 0, 6, 0) }, "Dismiss dictation notice");
         copy.Click += (_, _) => { if (cardText is not null) Native.CopyText(cardText); Hide(); };
         dismiss.Click += (_, _) => Hide();
-        cardButtons.Children.Add(copy);
-        cardButtons.Children.Add(dismiss);
-        partial.MaxLines = cardPreview.MaxLines = 2;
+
+        var header = new Grid
+        {
+            ColumnSpacing = 8,
+            ColumnDefinitions = { new ColumnDefinition { Width = GridLength.Auto }, new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } },
+            Children = { new SymbolIcon(Symbol.Paste) { VerticalAlignment = VerticalAlignment.Center }, cardTitle, dismiss }
+        };
+        cardTitle.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(cardTitle, 1);
+        Grid.SetColumn(dismiss, 2);
+        var hint = MurmurStyle.Text("Ctrl+Win+Shift+V pastes it too", "MurmurCaption");
+        hint.VerticalAlignment = VerticalAlignment.Center;
+        var footer = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } },
+            Children = { hint, copy }
+        };
+        Grid.SetColumn(copy, 1);
+        partial.MaxLines = 2;
+        cardPreview.MaxLines = 3;
         partial.TextTrimming = cardPreview.TextTrimming = TextTrimming.CharacterEllipsis;
-        surface.Child = new StackPanel { Spacing = 8, Children = { row, partial, cardPreview, cardButtons } };
+        card = new StackPanel { Spacing = 8, Children = { header, cardPreview, footer } };
+        surface.Child = new Grid { Children = { indicator, card } };
         window.Content = surface;
         hideTimer = ui.CreateTimer();
         hideTimer.IsRepeating = false;
@@ -72,11 +98,17 @@ internal sealed class Bubble
     {
         cardText = copyText;
         cardPreview.Text = copyText;
+        cardTitle.Text = title.StartsWith("Could not paste", StringComparison.Ordinal) ? "Couldn’t paste here" : title;
         Present(title, dismissAfter, error: title != "Saved, not pasted", card: true);
     }
 
     /// <summary>Peak 0..1 of the latest audio block.</summary>
-    public void SetLevel(float peak) => levelFill.Width = Math.Max(4, Math.Min(1, Math.Sqrt(peak) * 1.4) * levelTrack.Width);
+    public void SetLevel(float peak)
+    {
+        double level = Math.Sqrt(Math.Clamp(peak, 0, 1));
+        for (int i = 0; i < bars.Length; i++)
+            bars[i].Height = 7 + 14 * level * BarWeights[i];
+    }
 
     /// <summary>Shows live words on the UI thread while the indicator is listening.</summary>
     public void SetPartial(string? text)
@@ -86,6 +118,7 @@ internal sealed class Bubble
         if (partial.Text == words) return;
         partial.Text = words;
         partial.Visibility = words.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        surface.Width = words.Length > 0 ? 420 : 72;
         ResizeAndPlace();
     }
 
@@ -106,16 +139,20 @@ internal sealed class Bubble
         isListening = listening;
         text.Text = message;
         text.VerticalAlignment = VerticalAlignment.Center;
-        ring.IsActive = processing;
-        ring.Visibility = processing ? Visibility.Visible : Visibility.Collapsed;
-        dot.Visibility = processing ? Visibility.Collapsed : Visibility.Visible;
-        dot.Style = Fluent.Style(error ? "MurmurBubbleError" : "MurmurBubbleDot");
-        levelTrack.Visibility = listening ? Visibility.Visible : Visibility.Collapsed;
+        waveform.Visibility = listening || processing ? Visibility.Visible : Visibility.Collapsed;
+        text.Visibility = listening ? Visibility.Collapsed : Visibility.Visible;
+        text.Margin = listening || processing ? new Thickness(6, 0, 7, 0) : new Thickness(8, 0, 0, 0);
+        dot.Visibility = listening || processing ? Visibility.Collapsed : Visibility.Visible;
+        dot.Style = MurmurStyle.Style(error ? "MurmurBubbleError" : "MurmurBubbleDot");
+        MurmurStyle.Named(surface, message);
+        surface.Padding = listening || processing ? new Thickness(5, 2, 5, 2) : new Thickness(10);
+        surface.CornerRadius = new CornerRadius(listening || processing ? 16 : 18);
         partial.Visibility = Visibility.Collapsed;
         partial.Text = "";
-        cardPreview.Visibility = cardButtons.Visibility = card ? Visibility.Visible : Visibility.Collapsed;
+        this.card.Visibility = card ? Visibility.Visible : Visibility.Collapsed;
+        indicator.Visibility = card ? Visibility.Collapsed : Visibility.Visible;
         if (!card) { cardText = null; cardPreview.Text = ""; }
-        if (listening) SetLevel(0);
+        if (listening || processing) SetLevel(0);
 
         // The card accepts clicks while WS_EX_NOACTIVATE keeps focus in the target app.
         var style = (long)Native.GetWindowLongPtr(hwnd, Native.GwlExStyle);
@@ -126,7 +163,7 @@ internal sealed class Bubble
         display = foreground != 0
             ? DisplayArea.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(foreground), DisplayAreaFallback.Primary)
             : DisplayArea.Primary;
-        surface.Width = card || error ? 440 : listening ? 328 : 264;
+        surface.Width = card ? 320 : error ? 240 : listening ? 72 : 220;
         ResizeAndPlace();
         visible = true;
         if (dismissAfter is { } seconds) { hideTimer.Interval = TimeSpan.FromSeconds(seconds); hideTimer.Start(); }
@@ -141,7 +178,7 @@ internal sealed class Bubble
         int height = (int)Math.Ceiling(surface.DesiredSize.Height * scale);
         int x = work.X + (work.Width - width) / 2;
         int y = TopPlacement?.Invoke() == true ? work.Y + (int)(24 * scale) : work.Y + work.Height - height - (int)(48 * scale);
-        Native.SetWindowRgn(hwnd, Native.CreateRoundRectRgn(0, 0, width + 1, height + 1, (int)(24 * scale), (int)(24 * scale)), true);
+        Native.SetWindowRgn(hwnd, Native.CreateRoundRectRgn(0, 0, width + 1, height + 1, (int)(2 * surface.CornerRadius.TopLeft * scale), (int)(2 * surface.CornerRadius.TopLeft * scale)), true);
         Native.SetWindowPos(hwnd, Native.HwndTopmost, x, y, width, height, Native.SwpNoActivate | Native.SwpShowWindow);
     }
 
