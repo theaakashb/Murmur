@@ -166,6 +166,7 @@ internal sealed partial class MainWindow : Window
             settingsPane = hit.Pane;
             settings.Show(hit.Pane, hit.Tab);
             Highlight(hit.Pane);
+            settings.Reveal(search.Text);
         };
         var list = new StackPanel { Spacing = 4, Margin = new Thickness(16, 0, 16, 0) };
         (string Pane, string Glyph)[] panes = [("General", ""), ("Dictation", ""), ("Writing", ""), ("Meetings", "\uE716"), ("Privacy & Storage", ""), ("Providers", ""), ("Updates", "\uE777")];

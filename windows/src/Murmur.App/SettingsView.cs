@@ -108,6 +108,35 @@ internal sealed partial class SettingsView
         }
     }
 
+    /// <summary>After a search jump: scrolls to the first row whose label matches and tints it for a moment (the Mac scrolls to the setting; the tint says which one).</summary>
+    public void Reveal(string query)
+    {
+        query = query.Trim();
+        if (query.Length == 0 || content.Content is not Panel body) return;
+        foreach (var row in body.Children.OfType<FrameworkElement>())
+        {
+            if (!Texts(row).Any(x => x.Contains(query, StringComparison.OrdinalIgnoreCase))) continue;
+            var timer = s.UI.CreateTimer();
+            timer.Interval = TimeSpan.FromMilliseconds(60);
+            timer.IsRepeating = false;
+            timer.Tick += (_, _) =>
+            {
+                row.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = true, VerticalAlignmentRatio = 0.2 });
+                var wash = MurmurStyle.ThemeBrush("MurmurAccentWash", row);
+                if (row is Grid g) g.Background = wash;
+                else if (row is Panel p) p.Background = wash;
+                else if (row is Border b) b.Background = wash;
+                var fade = s.UI.CreateTimer();
+                fade.Interval = TimeSpan.FromSeconds(2.5);
+                fade.IsRepeating = false;
+                fade.Tick += (_, _) => { if (row is Panel q) q.Background = null; else if (row is Border b2) b2.Background = null; };
+                fade.Start();
+            };
+            timer.Start();
+            return;
+        }
+    }
+
     public void Show(string pane, int tab = -1)
     {
         current = pane;
