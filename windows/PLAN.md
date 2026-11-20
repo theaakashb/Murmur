@@ -103,7 +103,7 @@ Five projects, no more until a concrete need appears. Platform code (audio, hotk
 
 Recommendation: **WinUI 3** (Windows App SDK), unpackaged, self-contained.
 
-- It gives the Windows 11 look (Fluent controls, Mica, system accent, light/dark) that the Mac app's design standard (`app/DESIGN.md`) implies. WPF would need a third-party theme to look current.
+- It can draw the Mac app's own look (custom colours, type, cards and the bubble; see "UI workstream") with real Windows window chrome, tray and dialogs. WPF would need comparable custom styling.
 - The parts that are hard in either framework are the same Win32 work: a topmost, no-activate, click-through bubble window (`WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT`), the tray icon, the low-level keyboard hook. So WPF's maturity buys little here.
 - Cost: WinUI 3 cannot be built on macOS or Linux; its XAML compiler runs only on Windows **(verify)**. WPF can be compiled elsewhere with `EnableWindowsTargeting`. Since all logic lives in `Murmur.Core`, which builds anywhere, the shell being Windows-only to build is acceptable; Windows CI catches shell build breaks.
 - Risk: WinUI 3 has a history of rough edges (tray support needs a helper such as H.NotifyIcon, window-sizing APIs are thinner than WPF). If milestone M2's shell spike hits a blocker, switch to WPF at that point, before much UI exists.
@@ -358,20 +358,27 @@ Why this works, from Velopack's source (`velopack/velopack` branch `develop`, re
 
 The user called the first UI "incredibly ugly". This workstream runs across M3 to M6, screen by screen, once each screen's behaviour is stable. It doesn't wait for the end.
 
-- **Goal:** a proper Windows 11 Fluent app:
-  - Mica backdrop;
-  - the system type ramp (Segoe UI Variable) and the standard spacing grid;
-  - WinUI controls used as intended: NavigationView, SettingsCard/expander-style rows, InfoBar, ContentDialog, ProgressRing, ToggleSwitch;
-  - light and dark, the accent colour, high contrast, keyboard focus and screen reader names.
-- **Reference:** the Mac app's information architecture and copy:
-  - Settings panes in `app/SettingsView.swift`, `SettingsPanes.swift` and `SettingsPaneViews.swift`;
+- **Goal (user's direction, 2026-11-19; replaces the earlier "Windows 11 Fluent app" goal):** the Windows app **matches the Mac app's look** for the most part:
+  - layout and visual hierarchy;
+  - colours, spacing and typography feel (the bundled fonts in `app/Fonts` where licensing allows);
+  - the bubble/pill and the recording indicator;
+  - card styles;
+  - copy.
+  
+  It shouldn't look like a generic Fluent/WinUI app, nor like the Fluent test build (`c8dd54f`).
+- **Windows equivalents only where the platform requires them:** the tray instead of the menu bar, window chrome (title bar, min/max/close), system dialogs (file pickers, the Credential Manager prompt) and system scrollbars.
+- **Keep:** keyboard focus, screen reader names, high contrast and light/dark wherever the Mac app has them.
+- **Reference:** the Mac app's SwiftUI views and `app/DESIGN.md`:
+  - Settings in `SettingsView.swift`, `SettingsPanes.swift` and `SettingsPaneViews.swift`;
   - Home and History in `HomeView.swift` and `HistoryView.swift`;
   - the bubble in `Bubble.swift`;
   - the welcome guide in `WelcomeGuideView.swift`;
-  - `app/DESIGN.md`.
+  - tips in `TipsUI.swift`;
+  - meetings in `MeetingsUI.swift`.
   
-  Same sections, wording and order where Windows has the feature. Native Windows layout and controls, not a Mac clone.
-- **Evidence:** before-and-after screenshots of every screen in light and dark, taken in the logged-in session on the VM or PC. Screenshots stay off the repo, because the desktop can show personal windows.
+  The visual reference is the synthetic UI fixture rendered on this Mac with `app/check_ui.sh --snapshot`. It must run unattended; it shows synthetic data only.
+- **Method:** for each screen, put the Mac snapshot and the Windows screenshot side by side, at the same size and theme, then iterate until they match. Record the remaining deliberate differences per screen.
+- **Evidence:** Mac-vs-Windows side-by-side pairs of every screen in light and dark, taken in the logged-in session on the VM or PC. Screenshots stay off the repo, because the desktop can show personal windows.
 - **Order:**
   1. Settings, History, the bubble and the tray menu (now).
   2. The model rows and the modes, voice edit and learning screens (with M4).
