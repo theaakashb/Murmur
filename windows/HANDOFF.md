@@ -104,7 +104,7 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 
 | # | Agent ID | Worktree folder / branch | Assignment | Start point |
 | --- | --- | --- | --- | --- |
-| UI | `33161254-7ebc-4901-8f17-7ea1f29d70a9` (Claude Sonnet 5.5, medium) | `windows-m4-core` / `windows-ui-maclook-2` | Pass 2: the Mac's grey switches, the circled (?), the ~700 px content column and type scale, the Writing tabs Modes/Dictionary/Cues, the welcome guide window (Mac look, Windows steps, first launch), re-capture and the harness. | `2abe6ca`. Pass 1 merged: shared window, sidebars, underline tabs, Mac History; VM publish and tests clean. |
+| UI | `33161254-7ebc-4901-8f17-7ea1f29d70a9` (Claude Sonnet 5.5) | `windows-m4-core` / `windows-ui-meetings` | Pass 3: the Meetings screen (MeetingsUI.swift) with sheets replacing the message boxes, the call offer panel (CallOffered), the welcome guide's microphone privacy state (a read-only Platform helper) and test dictation (`Controller.Setup.cs` if IsMurmur refuses), Dictionary suggestions and reset, re-capture, harness. | `de97c81`. Pass 2 merged: Mac switches (blue-on, per `.tint(Palette.accent)`), circled (?), 700 px column, Modes/Dictionary/Cues tabs, the welcome guide on first launch. |
 | M5 next | `de4d6235-00f4-448e-87ad-1eb15492aa49` (Claude Sonnet 5.5) | `windows-ui-fluent` / `windows-m5-speakers` | Speaker separation (diarizer model pinned and downloaded, in the helper), meetings on the cloud route if the Mac has it, ResetMeetings on Delete All/Restore, quit confirmation during a meeting. | `c6c76be`. Platform merged: process loopback (activation works on the VM without audio devices), session enumeration, MeetingRecorder in Core, tray Start/Stop meeting. Real audio untested; the PC checklist is in INSTALL-TEST.md "Meetings". |
 | M6 local | `68cee5b1-a6bc-46bc-b172-569af8fee551` (Claude Sonnet 5.5) | `windows-m3-live` / `windows-m6-velopack` | Velopack 1.2.161 pinned, Updater, LoginItem, package.ps1, draft workflow, UPDATES.md (`cf241ad`). Waiting for the desktop to run the VM install → delta → uninstall test. | Hooks for the UI: `App.Updater.ReadyVersion`, `RestartToUpdate()`, `UpdateReady`, `Updater.Explanation`, `LoginItem.IsOn` and `LoginItem.Set(bool)`. |
 
@@ -117,7 +117,8 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
 - voice edit and the learning extras `10cbd2a`;
 - M5 core `5ddfdc6`;
 - the Mac-look UI, pass 1, `2abe6ca`;
-- the M5 platform `c6c76be`.
+- the M5 platform `c6c76be`;
+- the Mac-look UI, pass 2 (with the welcome guide), `de97c81`.
 
 The Codex workers `011b034c`, `b84929e5` and `c281bc63` are archived.
 
@@ -129,7 +130,6 @@ The Codex workers `011b034c`, `b84929e5` and `c281bc63` are archived.
 
 **Next (Codex after the reset, or Claude while above 20% weekly):**
 1. The M5 platform: process-loopback capture (COM interop, silence fill), WASAPI session enumeration for call detection, and the meetings UI in the Mac look. The VM has no audio devices, so the real test is on the user's PC.
-2. The welcome guide UI with the Right Ctrl step, after the UI shell lands.
 3. The M4 exit on the user's PC: Firefox and Brave website matching, and learning on readable and unreadable fields.
 
 **Before merging App changes:** run the VM `dotnet publish` (trimmed) as well as `dotnet test windows/Murmur.App.slnx`. The Mac solution doesn't build Murmur.App, and the Mac doesn't catch Windows-only test failures such as time zone IDs or accent folding under InvariantGlobalization.

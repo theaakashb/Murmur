@@ -10,7 +10,7 @@ namespace Murmur.App;
 
 /// <summary>The Meetings screen (MeetingsPage in app/MeetingsUI.swift): header with Start/Stop, search, the meeting list and the detail with Notes, My notes and Transcript.
 /// Redraws when the recorder's state changes shape; the elapsed clock has its own one-second timer.</summary>
-internal sealed class MeetingsView
+internal sealed partial class MeetingsView
 {
     readonly AppServices s;
     readonly Controller controller;
@@ -209,11 +209,11 @@ internal sealed class MeetingsView
             content = check;
         }
         var button = new Button { Content = content, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(12), CornerRadius = new CornerRadius(0), BorderThickness = new Thickness(0) };
-        button.Background = m.Id == selectedId && !selecting ? null : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
-        if (m.Id == selectedId && !selecting) button.Style = MurmurStyle.Style("MurmurNavOn");
+        button.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
         AutomationProperties.SetName(button, m.Title);
         if (!selecting) button.Click += (_, _) => { selectedId = m.Id; tabName = "Notes"; Render(); };
-        return new StackPanel { Children = { button, new Border { Height = 1, Style = MurmurStyle.Style("MurmurRuleLine") } } };
+        var wrap = new Border { Child = button, Style = MurmurStyle.Style(m.Id == selectedId && !selecting ? "MurmurNavOn" : "MurmurNavOff") };
+        return new StackPanel { Children = { wrap, new Border { Height = 1, Style = MurmurStyle.Style("MurmurRuleLine") } } };
     }
 
     // ---- detail ----
