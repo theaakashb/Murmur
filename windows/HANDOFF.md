@@ -51,6 +51,12 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - Switch back to Codex after its reset.
   - The Claude override still stands: keep working past 20%.
   - The UI polish worker (Sonnet) was already mid-task, so it finishes on Claude; new work starts on Codex.
+- **Mac UI reference (user, 2026-11-20):**
+  - `~/Applications/Murmur.app` runs the latest main and is the reference for UI behaviour.
+  - Check its Info.plist version and build against origin/main first, and report any mismatch.
+  - Observe only. Don't change its settings; don't read History, dictations, dictionary or keys; don't quit or restart it.
+  - `screencapture` from agents gives a black frame, and the panel PNG hooks drop glass, shadow and animation.
+  - For animation, use `app/check_ui.sh --snapshot` fixtures, or ask the orchestrator for a recording made by the user.
 - **Needs user:** park anything that needs the user and continue other work. Report at each milestone exit or blocker.
 - **Star Labs PC rules** (from the user):
   - Every install and all project work goes under `T:\Paseo Project\` (the drive labelled "Tools").
