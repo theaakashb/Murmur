@@ -2,10 +2,7 @@
     x:Class="Murmur.App.SettingsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Window.SystemBackdrop>
-        <MicaBackdrop />
-    </Window.SystemBackdrop>
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,*" Background="{ThemeResource MurmurPaper}">
         <TitleBar x:Name="Caption" Title="Murmur Settings" AutomationProperties.Name="Murmur Settings title bar" />
         <NavigationView
             x:Name="Navigation"
@@ -14,28 +11,56 @@
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="False"
             AlwaysShowHeader="False"
-            OpenPaneLength="188"
+            OpenPaneLength="216"
             ExpandedModeThresholdWidth="760"
             CompactModeThresholdWidth="560"
             SelectionChanged="SelectPane">
+            <NavigationView.Resources>
+                <StaticResource x:Key="NavigationViewContentBackground" ResourceKey="MurmurPaper" />
+                <StaticResource x:Key="NavigationViewContentGridBorderBrush" ResourceKey="MurmurRule" />
+                <StaticResource x:Key="ToggleSwitchFillOn" ResourceKey="MurmurAccent" />
+                <StaticResource x:Key="ToggleSwitchFillOnPointerOver" ResourceKey="MurmurAccent" />
+                <StaticResource x:Key="ToggleSwitchFillOnPressed" ResourceKey="MurmurAccent" />
+                <StaticResource x:Key="RadioButtonOuterEllipseCheckedFill" ResourceKey="MurmurAccent" />
+                <StaticResource x:Key="RadioButtonOuterEllipseCheckedFillPointerOver" ResourceKey="MurmurAccent" />
+                <StaticResource x:Key="RadioButtonOuterEllipseCheckedFillPressed" ResourceKey="MurmurAccent" />
+                <StaticResource x:Key="RadioButtonOuterEllipseCheckedStroke" ResourceKey="MurmurAccent" />
+                <StaticResource x:Key="RadioButtonOuterEllipseCheckedStrokePointerOver" ResourceKey="MurmurAccent" />
+                <StaticResource x:Key="RadioButtonOuterEllipseCheckedStrokePressed" ResourceKey="MurmurAccent" />
+                <StaticResource x:Key="NavigationViewExpandedPaneBackground" ResourceKey="MurmurSidebar" />
+                <StaticResource x:Key="NavigationViewItemBackgroundSelected" ResourceKey="MurmurSelection" />
+                <StaticResource x:Key="NavigationViewItemBackgroundSelectedPointerOver" ResourceKey="MurmurSelection" />
+                <StaticResource x:Key="NavigationViewSelectionIndicatorForeground" ResourceKey="MurmurAccent" />
+            </NavigationView.Resources>
+            <NavigationView.PaneHeader>
+                <TextBlock Text="Settings" Style="{StaticResource MurmurSettingLabel}" Margin="12,12,0,12" />
+            </NavigationView.PaneHeader>
             <NavigationView.MenuItems>
                 <NavigationViewItem Content="General" AutomationProperties.Name="General" Icon="Setting" />
                 <NavigationViewItem Content="Dictation" AutomationProperties.Name="Dictation" Icon="Microphone" />
                 <NavigationViewItem Content="Writing" AutomationProperties.Name="Writing" Icon="Edit" />
+                <NavigationViewItemSeparator />
                 <NavigationViewItem Content="Privacy &amp; Storage" AutomationProperties.Name="Privacy and Storage" Icon="Save" />
                 <NavigationViewItem Content="Providers" AutomationProperties.Name="Providers" Icon="Permissions" />
             </NavigationView.MenuItems>
             <ScrollViewer x:Name="PaneScroll" AutomationProperties.Name="Settings pane">
-                <StackPanel Spacing="8" Padding="24,16,24,24" MaxWidth="840">
-                    <TextBlock x:Name="PaneTitle" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1" />
-                    <TextBlock x:Name="PaneDescription" Style="{StaticResource MurmurDescription}" />
-                    <SelectorBar x:Name="DictationTabs" AutomationProperties.Name="Dictation settings tabs"
-                                 SelectionChanged="SelectDictationTab" Margin="0,4,0,4">
-                        <SelectorBarItem Text="Recording" AutomationProperties.Name="Recording" />
-                        <SelectorBarItem Text="Transcription" AutomationProperties.Name="Transcription" />
-                        <SelectorBarItem Text="Insertion" AutomationProperties.Name="Insertion" />
-                    </SelectorBar>
-                    <ContentControl x:Name="PaneContent" HorizontalContentAlignment="Stretch" IsTabStop="False" Margin="0,8,0,0" />
+                <StackPanel Padding="36,32,36,32" MaxWidth="832">
+                    <TextBlock x:Name="PaneTitle" Style="{StaticResource MurmurHeading}" AutomationProperties.HeadingLevel="Level1" />
+                    <TextBlock x:Name="PaneDescription" Margin="0,6,0,24" Style="{StaticResource MurmurDescription}" />
+                    <Border x:Name="DictationStrip" Margin="0,0,0,24" BorderBrush="{ThemeResource MurmurRule}" BorderThickness="0,0,0,1">
+                        <SelectorBar x:Name="DictationTabs" AutomationProperties.Name="Dictation settings tabs"
+                                     SelectionChanged="SelectDictationTab">
+                            <SelectorBar.Resources>
+                                <StaticResource x:Key="SelectorBarItemPillFill" ResourceKey="MurmurAccent" />
+                                <x:Double x:Key="SelectorBarItemPillHeight">2</x:Double>
+                                <x:Double x:Key="SelectorBarItemPillWidth">56</x:Double>
+                            </SelectorBar.Resources>
+                            <SelectorBarItem Text="Recording" FontSize="13" AutomationProperties.Name="Recording" />
+                            <SelectorBarItem Text="Transcription" FontSize="13" AutomationProperties.Name="Transcription" />
+                            <SelectorBarItem Text="Insertion" FontSize="13" AutomationProperties.Name="Insertion" />
+                        </SelectorBar>
+                    </Border>
+                    <ContentControl x:Name="PaneContent" HorizontalContentAlignment="Stretch" IsTabStop="False" />
                 </StackPanel>
             </ScrollViewer>
         </NavigationView>

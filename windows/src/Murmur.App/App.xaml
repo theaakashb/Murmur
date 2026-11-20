@@ -7,34 +7,92 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="MurmurPaper" Color="#FAFAFA" />
+                    <SolidColorBrush x:Key="MurmurSidebar" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="MurmurInk" Color="#202020" />
+                    <SolidColorBrush x:Key="MurmurMuted" Color="#555555" />
+                    <SolidColorBrush x:Key="MurmurRule" Color="#DEDEDE" />
+                    <SolidColorBrush x:Key="MurmurSelection" Color="#EEEEEE" />
+                    <SolidColorBrush x:Key="MurmurAccent" Color="#4D6FF0" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="MurmurPaper" Color="#181818" />
+                    <SolidColorBrush x:Key="MurmurSidebar" Color="#111111" />
+                    <SolidColorBrush x:Key="MurmurInk" Color="#FAFAFA" />
+                    <SolidColorBrush x:Key="MurmurMuted" Color="#BBBBBB" />
+                    <SolidColorBrush x:Key="MurmurRule" Color="#393939" />
+                    <SolidColorBrush x:Key="MurmurSelection" Color="#242424" />
+                    <SolidColorBrush x:Key="MurmurAccent" Color="#4D6FF0" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="MurmurPaper" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="MurmurSidebar" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="MurmurInk" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="MurmurMuted" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="MurmurRule" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="MurmurSelection" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="MurmurAccent" Color="{ThemeResource SystemColorHighlightColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
             <Style x:Key="MurmurCard" TargetType="Border">
-                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
-                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="Background" Value="{ThemeResource MurmurSidebar}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource MurmurRule}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
-                <Setter Property="Padding" Value="16" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Padding" Value="12" />
             </Style>
             <Style x:Key="MurmurDescription" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
-                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource MurmurMuted}" />
                 <Setter Property="TextWrapping" Value="Wrap" />
             </Style>
             <Style x:Key="MurmurCaption" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
-                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource MurmurMuted}" />
                 <Setter Property="TextWrapping" Value="Wrap" />
             </Style>
+            <Style x:Key="MurmurRuleLine" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource MurmurRule}" />
+            </Style>
+            <Style x:Key="MurmurHeading" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="25" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="Foreground" Value="{ThemeResource MurmurInk}" />
+            </Style>
+            <Style x:Key="MurmurSection" TargetType="TextBlock" BasedOn="{StaticResource MurmurCaption}">
+                <Setter Property="FontFamily" Value="Consolas" />
+                <Setter Property="CharacterSpacing" Value="80" />
+            </Style>
+            <Style x:Key="MurmurSettingLabel" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Foreground" Value="{ThemeResource MurmurInk}" />
+            </Style>
+            <Style x:Key="MurmurTranscript" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="ms-appx:///Fonts/DMSans.ttf#DM Sans" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="Foreground" Value="{ThemeResource MurmurInk}" />
+            </Style>
+            <Style x:Key="MurmurHistoryEmpty" TargetType="TextBlock" BasedOn="{StaticResource MurmurTranscript}">
+                <Setter Property="FontSize" Value="26" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+            <Style x:Key="MurmurTrayMenu" TargetType="MenuFlyoutPresenter">
+                <Setter Property="Background" Value="{ThemeResource MurmurPaper}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource MurmurRule}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Padding" Value="5" />
+            </Style>
             <Style x:Key="MurmurBubble" TargetType="Border" BasedOn="{StaticResource MurmurCard}">
-                <Setter Property="Background" Value="{ThemeResource SolidBackgroundFillColorBaseBrush}" />
-                <Setter Property="CornerRadius" Value="12" />
-                <Setter Property="Padding" Value="16,12" />
+                <Setter Property="Background" Value="{ThemeResource MurmurPaper}" />
+                <Setter Property="CornerRadius" Value="22" />
+                <Setter Property="Padding" Value="5,2" />
             </Style>
             <Style x:Key="MurmurBubbleDot" TargetType="Border">
-                <Setter Property="Background" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                <Setter Property="Background" Value="{ThemeResource MurmurAccent}" />
             </Style>
             <Style x:Key="MurmurBubbleError" TargetType="Border">
                 <Setter Property="Background" Value="{ThemeResource SystemFillColorCriticalBrush}" />
-            </Style>
-            <Style x:Key="MurmurBubbleMeter" TargetType="Border">
-                <Setter Property="Background" Value="{ThemeResource ControlStrongFillColorDefaultBrush}" />
             </Style>
         </ResourceDictionary>
     </Application.Resources>

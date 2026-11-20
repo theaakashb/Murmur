@@ -21,7 +21,7 @@ internal sealed class ModelRow
     readonly ModelFlow flow;
     readonly Answer answer = new();
     readonly Func<XamlRoot?> root;
-    readonly TextBlock status = Fluent.Text("", "BodyStrongTextBlockStyle");
+    readonly TextBlock status = MurmurStyle.Text("", "BodyStrongTextBlockStyle");
     readonly InfoBar message = new();
     readonly ProgressBar bar = new() { Maximum = 1, Visibility = Visibility.Collapsed };
     readonly Dictionary<ModelRowAction, Button> buttons = [];
@@ -44,9 +44,9 @@ internal sealed class ModelRow
             Release = go => release(go),
             DidRemove = () => { Forget(); changed(); },
         };
-        Panel.Children.Add(Fluent.Text(facts.Title, "BodyStrongTextBlockStyle"));
-        Fluent.Named(bar, $"{facts.Title} download progress");
-        Fluent.Named(message, $"{facts.Title} status");
+        Panel.Children.Add(MurmurStyle.Text(facts.Title, "BodyStrongTextBlockStyle"));
+        MurmurStyle.Named(bar, $"{facts.Title} download progress");
+        MurmurStyle.Named(message, $"{facts.Title} status");
         Panel.Children.Add(Small(slot.Summary));
         if (!string.IsNullOrEmpty(facts.Explanation)) Panel.Children.Add(Small(facts.Explanation));
         Panel.Children.Add(Small(slot.License is { } license ? "License: " + string.Join(", ", license.Declarations.Select(d => d.Name).DefaultIfEmpty("not recorded")) + ". Shown in full before any download." : ""));
@@ -55,7 +55,7 @@ internal sealed class ModelRow
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         foreach (var (action, label, click) in new (ModelRowAction, string, Func<Task>)[] { (ModelRowAction.Download, "Download", Download), (ModelRowAction.Retry, "Retry", Download), (ModelRowAction.Cancel, "Cancel", () => { flow.Cancel(); return Task.CompletedTask; }), (ModelRowAction.Remove, "Remove", Remove) })
         {
-            var button = Fluent.Named(new Button { Content = label }, $"{label} {facts.Title}");
+            var button = MurmurStyle.Named(new Button { Content = label }, $"{label} {facts.Title}");
             button.Click += async (_, _) => await click();
             buttons[action] = button; row.Children.Add(button);
         }
@@ -66,7 +66,7 @@ internal sealed class ModelRow
 
     static TextBlock Small(string text)
     {
-        var block = Fluent.Text(text, "MurmurCaption");
+        var block = MurmurStyle.Text(text, "MurmurCaption");
         block.Visibility = text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         return block;
     }
@@ -115,6 +115,6 @@ internal sealed class ModelRow
     {
         if (root() is not { } xaml) return false;
         var dialog = new ContentDialog { XamlRoot = xaml, Title = title, Content = new ScrollViewer { Content = new TextBlock { Text = body, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true }, MaxHeight = 360 }, PrimaryButtonText = action, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close };
-        return await Fluent.Named(dialog, title).ShowAsync() == ContentDialogResult.Primary;
+        return await MurmurStyle.Named(dialog, title).ShowAsync() == ContentDialogResult.Primary;
     }
 }
