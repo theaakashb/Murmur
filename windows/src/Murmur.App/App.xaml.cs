@@ -98,6 +98,9 @@ public partial class App : Application
 
     void Quit()
     {
+        // A meeting being recorded, or one that could not be saved, is at risk: ask first (MeetingRecorder.quitWarning on the Mac).
+        if (controller?.Meetings.QuitWarning() is { } warning &&
+            Native.MessageBoxW(IntPtr.Zero, warning.Detail + $"\n\nChoose Yes to {warning.Confirm.ToLowerInvariant()}, or No to go back.", warning.Title, 0x34 | 0x40000) != 6) return;
         controller?.Dispose();
         services?.Paste.FlushRestore();
         tray?.Dispose();
