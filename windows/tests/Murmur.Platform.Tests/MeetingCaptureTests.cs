@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using System.Media;
+using System.Runtime.InteropServices;
 using Murmur.Core;
 using Murmur.Platform;
 
@@ -70,12 +70,12 @@ public class MeetingCaptureTests
         // Everything except this process's parent, so this process's own playback is captured.
         int parent = AudioSessions.Processes().Single(p => p.Pid == Environment.ProcessId).ParentPid;
         long samples = 0;
-        using var tone = new MemoryStream(Wav(440, 2));
+        var tone = Wav(440, 2);
         var clock = Stopwatch.StartNew();
         var stream = ProcessLoopback.Start(new CallTarget.AllExcept(parent), block => Interlocked.Add(ref samples, block.Length));
         try
         {
-            new SoundPlayer(tone).PlaySync();
+            PlaySound(tone, 0, 0x6); // SND_MEMORY | SND_SYNC
             Assert.True(stream.HeardSignal, "the tone should be captured");
             Thread.Sleep(3000); // silence: no packets, so the fill must keep the count moving
         }
@@ -83,6 +83,8 @@ public class MeetingCaptureTests
         double captured = Interlocked.Read(ref samples) / (double)AudioFormat.SampleRate;
         Assert.InRange(captured, clock.Elapsed.TotalSeconds - 0.7, clock.Elapsed.TotalSeconds + 0.3);
     }
+
+    [DllImport("winmm.dll")] static extern bool PlaySound(byte[] sound, nint module, uint flags);
 
     static byte[] Wav(double hz, double seconds)
     {
