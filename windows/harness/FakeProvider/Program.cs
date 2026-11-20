@@ -34,6 +34,7 @@ public static WebApplication Build(Dictionary<string, (string Spoken, string Cle
     var app = builder.Build();
     string? current = null;
     var log = new List<object>();
+    var chatTexts = new List<object>(); // synthetic fixtures only; memory only, never in the request log or on disk
     var gate = new object();
     void Record(object entry) { lock (gate) log.Add(entry); }
 
@@ -51,6 +52,7 @@ public static WebApplication Build(Dictionary<string, (string Spoken, string Cle
         lock (gate) current = id;
         return Results.Ok(new { id });
     });
+    app.MapGet("/control/chat-texts", () => { lock (gate) return Results.Json(chatTexts.ToArray()); });
     app.MapGet("/control/requests", () => { lock (gate) return Results.Json(log.ToArray()); });
     app.MapGet("/v1/models", () => Results.Json(new { @object = "list", data = new[] { new { id = "fake-model", @object = "model" } } }));
 
@@ -72,6 +74,8 @@ public static WebApplication Build(Dictionary<string, (string Spoken, string Cle
         string? id; lock (gate) id = current;
         Record(new { path = "/v1/chat/completions", model = (string?)body?["model"], messages = body?["messages"]?.AsArray().Count ?? 0, fixture = id });
         if (id is null) return Results.BadRequest(new { error = "no fixture selected" });
+        var msgs = body?["messages"]?.AsArray().Select(m => new { role = (string?)m?["role"], text = (m?["content"] as JsonValue)?.ToString() ?? m?["content"]?.ToJsonString() }).ToArray() ?? [];
+        lock (gate) chatTexts.Add(new { fixture = id, messages = msgs });
         return Results.Json(new
         {
             id = "chatcmpl-fake", @object = "chat.completion", model = (string?)body?["model"] ?? "fake-model",
