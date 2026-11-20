@@ -171,7 +171,7 @@ internal sealed class InsightsView(AppServices s, Action openPrivacy)
         var days = Enumerable.Range(0, 30).Select(i => today.AddDays(i - 29)).ToList();
         var values = days.Select(d => st.DailyWords.GetValueOrDefault(d)).ToList();
         return Block(Heading("Daily activity", "Words per day over the last 30 days, in this PC’s time zone. Counts include only retained History."),
-            BarChart("Daily activity", values, i => days[i].ToString("MMM d", Culture), [0, 10, 20], i => $"{days[i].ToString("MMM d", Culture)}: {values[i]} words"));
+            BarChart("Daily activity", values, i => days[i].ToString("MMM d", Culture), (int[])[0, 10, 20], i => $"{days[i].ToString("MMM d", Culture)}: {values[i]} words"));
     }
 
     static UIElement Hourly(Insights.Stats st)
@@ -179,7 +179,7 @@ internal sealed class InsightsView(AppServices s, Action openPrivacy)
         string Hour(int h) => h == 0 ? "12am" : h < 12 ? $"{h}am" : h == 12 ? "12pm" : $"{h - 12}pm";
         var values = st.HourlyDictations.ToList();
         return Block(Heading("Busiest hours", "Dictations started in each hour, using this PC’s current time zone. Includes all retained History; not recording duration."),
-            BarChart("Busiest hours", values, Hour, [0, 6, 12, 18], i => $"{i}:00–{i}:59: {values[i]} dictations"));
+            BarChart("Busiest hours", values, Hour, (int[])[0, 6, 12, 18], i => $"{i}:00–{i}:59: {values[i]} dictations"));
     }
 
     UIElement StreakCard(Insights.Stats st)
