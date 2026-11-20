@@ -165,6 +165,8 @@ Use a fresh branch from `windows` for each new task.
 
 ## Needs user
 
+- **PC offline overnight (from 2026-11-20 about 09:45Z, user's call).** Parked until it's back: the GPU probe on its NVIDIA card (if unfinished), the GPU worker's PC measurements, and staging app-next3. The VM stays up.
+
 - **M4 and M5 exits on the PC:** the user-run steps are in `windows/PC-CHECKLIST.md`.
   - the browser matrix: Chrome, Edge, Firefox, Brave;
   - learning on real fields;
