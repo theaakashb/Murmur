@@ -14,6 +14,7 @@ permissions:
   contents: read
 jobs:
   sherpa-directml:
+    if: github.ref == 'refs/heads/windows-gpu'
     runs-on: windows-2022
     timeout-minutes: 30
     steps:
