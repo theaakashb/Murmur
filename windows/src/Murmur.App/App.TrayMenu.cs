@@ -15,8 +15,10 @@ internal sealed class TrayMenu
     readonly Grid anchor = new();
     readonly MenuFlyout menu = new() { MenuFlyoutPresenterStyle = MurmurStyle.Style("MurmurTrayMenu") };
     bool open;
+    MenuFlyoutItem? meetingItem;
+    Func<bool>? meetingLive;
 
-    public TrayMenu(Action settings, Action history, Action quit)
+    public TrayMenu(Action settings, Action history, Action quit, Action? toggleMeeting = null, Func<bool>? meetingLive = null)
     {
         window.Content = anchor;
         window.AppWindow.SetPresenter(OverlappedPresenter.CreateForContextMenu());
@@ -27,6 +29,7 @@ internal sealed class TrayMenu
         Native.SetLayeredWindowAttributes(hwnd, 0, 0, 2);
         menu.Items.Add(Item("Settings…", settings));
         menu.Items.Add(Item("History…", history));
+        if (toggleMeeting is not null) { meetingItem = Item("Start meeting", toggleMeeting); menu.Items.Add(meetingItem); this.meetingLive = meetingLive; }
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(Item("Quit Murmur", quit));
         menu.Closed += (_, _) =>
@@ -41,6 +44,7 @@ internal sealed class TrayMenu
     {
         if (open) return;
         open = true;
+        if (meetingItem is not null) meetingItem.Text = meetingLive?.Invoke() == true ? "Stop meeting" : "Start meeting";
         GetCursorPos(out var cursor);
         var work = (fromKeyboard ? DisplayArea.Primary : DisplayArea.GetFromPoint(cursor, DisplayAreaFallback.Primary)).WorkArea;
         if (fromKeyboard) cursor = new PointInt32(work.X + work.Width - 8, work.Y + work.Height - 8);

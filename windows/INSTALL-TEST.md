@@ -85,6 +85,33 @@ It's a folder of about 360 MB with `Murmur.exe`, `Speech\MurmurSpeech.exe` and `
 
 **Passes when:** all five scripts paste correctly with no key and no network, and the WER is close to the Mac's on the same audio. Also record the speed on this PC.
 
+## Meetings: a real 30-minute call (M5 exit)
+
+Needs a PC with a speaker or headset and a microphone, and a Teams or Zoom call with at least one other person who knows it is being recorded. Nothing here is verified on the agents VM except that the capture path starts without crashing.
+
+**Before:**
+- Windows build 20348 or later (`winver`; Windows 11 22H2 qualifies). Murmur falls back to microphone only on anything older.
+- Settings: a Custom Provider address, model and key for notes, or leave notes on None. Local speech model downloaded.
+- Run the automated device test once: `set MURMUR_REAL_AUDIO=1` then `dotnet test windows\tests\Murmur.Platform.Tests --filter MeetingCaptureTests`. It plays a tone and checks it is heard and that the sample count follows the wall clock through 3 s of silence.
+
+**Run:**
+1. Join the call. Tray menu > **Start meeting** (records the microphone plus everything except Murmur). Accept the consent box the first time. For a single app instead, launch Murmur with `--start-meeting` only for the all-apps case; a per-app meeting starts from the call offer once the UI worker connects it.
+2. Talk for 30 minutes with the other person, including some silent stretches of 30 s or more and a stretch where only they speak.
+3. Switch headset or output device once mid-call, and mute/unmute the call app once.
+4. At about minute 15, kill Murmur from Task Manager (End task on `Murmur.exe`). Start it again within a minute. Then continue the call and record 5 more minutes.
+5. Tray > **Stop meeting**. When asked, choose the notes route.
+
+**Check:**
+- Me and Them lines alternate in the order they were spoken. A line spoken by the other person in a quiet period starts at about its real time (compare to a stopwatch or the call's own clock), not early.
+- Teams (new, WebView2) and Zoom: the other person's words are in Them. A call in a browser tab: Them is the whole browser tree, so other tabs' audio is also captured (expected).
+- After the kill: the saved meeting exists and is finished, and the chunks left behind are transcribed on the next launch (lines for the minutes before the kill are present, with a gap near the kill).
+- The mid-call device switch leaves at most a short gap (the log line `meeting-gap` is content-free); the stream resumes without restarting Murmur.
+- Notes: written on the chosen route, each point cites lines, and the transcript is saved either way.
+- Nothing is left in `%LOCALAPPDATA%\Murmur\retry-audio\meetings\` for the finished meeting.
+- Record: whether the Teams audio came from `msedgewebview2.exe` children (tree capture), and whether the call-app microphone use produced a call offer (`diagnostics\events.jsonl` with `MURMUR_TEST_EVENTS=1`).
+
+**Passes when:** aligned Me/Them for the full 30 minutes, recovery after the kill, and notes (or the transcript alone) saved.
+
 ## Uninstall
 
 - Quit Murmur from the tray.

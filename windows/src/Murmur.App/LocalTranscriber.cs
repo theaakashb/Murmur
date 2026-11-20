@@ -173,6 +173,20 @@ internal sealed class LocalTranscriber : IDisposable
         return (new CloudTranscriptionOutcome.Transcript(text), detail);
     }
 
+    /// <summary>Transcribes one meeting chunk (a 16 kHz WAV in the meeting's private folder). Null when the helper cannot answer, so the chunk stays on disk for a retry; silent chunks give empty text.</summary>
+    public async Task<ChunkText?> TranscribeChunkAsync(string wavPath, CancellationToken ct)
+    {
+        byte[] bytes;
+        try { bytes = await File.ReadAllBytesAsync(wavPath, ct).ConfigureAwait(false); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
+        if (WAVAudio.Decode(bytes) is not { } audio) return null;
+        if (AudioFormat.ShouldSkipForSilence(SecondPeak(audio.Samples), audio.Samples.Length / (double)audio.SampleRate)) return new("");
+        if (!HelperPresent || await Task.Run(Launch, ct).ConfigureAwait(false) is not { } launch) return null;
+        var line = await warm.TranscribeAsync(wavPath, HelperPath, launch, ct).ConfigureAwait(false)
+            ?? await ModelHelper.RunOnceAsync(HelperPath, launch, wavPath, ct).ConfigureAwait(false);
+        return ModelHelper.StringField(ModelHelper.Answer(line), "text") is { } text ? new(text) : null;
+    }
+
     /// <summary>Ends the warm helper so the model files can be deleted.</summary>
     public void Release() => warm.Stop();
 
