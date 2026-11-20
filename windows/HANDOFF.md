@@ -100,15 +100,23 @@ Milestones: M1 core, M2 shell and cloud dictation, M3 local models, M4 modes, vo
   - the welcome guide.
 - **M5 and M6:** not started.
 
-## Active workers (all Codex `gpt-6.2-sol`, high effort, mode full-access, on the Mac host)
+## Active workers (Claude Sonnet 5.5, medium effort, bypassPermissions, on the Mac host; started 2026-11-20 ~01:58Z at the user's request while Codex's 5h window was at 5%)
 
-| # | Agent ID | Worktree / branch | Assignment | Last known state |
+The Codex workers `73cf71a2`, `a7240d06` and `660ac734` are archived. Worktree folders were reused for Paseo workspaces, so folder names no longer match branches.
+
+| # | Agent ID | Worktree / branch | Assignment | Start point |
 | --- | --- | --- | --- | --- |
-| 1 | `73cf71a2-227a-460f-aec8-28072dc6d481` | `.../windows-m4-learning` / `windows-m4-learning` | M4 learning observer. | **Paused** (Codex 5h window). Local WIP commit `22d064b`: the UIA focus reader draft compiles but isn't wired up. The commit message holds the checkpoint; a copy is in `~/murmur-m3/checkpoints/m4-learning.md`. Next steps: wire it up after the paste, the keystroke fallback, the Settings › Learning text, then the VM tests. |
-| 2 | `a7240d06-07ff-4539-90ca-6957ec171740` | `.../windows-m4-sites` / `windows-m4-sites` | M4 website matching. | **Merged** as `fcceafc`; now paused. Edge passes the whole VM matrix at 125%. Chrome is intermittent (its fresh-window run didn't match). Firefox, Brave and the user-PC cases are pending. Resume with the Chrome retry and its remaining matrix. `origin/windows-m4-sites` was pushed before the push-only-`windows` reminder reached it, and was left in place. |
-| 3 | `660ac734-9568-4346-b5eb-fe8e342b5f42` | `.../windows-m4-core` / `windows-m4-core` | M4 core ports. | **Paused** at local commit `89d31cc`, clean tree. It holds the C# ports of VoiceEdit, Insights, Tips, ProfessionalHint, WelcomeGuide and WordDiff, plus 3 Swift exporters. App seams: `IVoiceEditTarget` and `EditChord`. Doesn't build yet: two CS0108 errors in `Insights.Stats`, and the edit-prompt export needs a `CleanupPrompt` dep. Still to do: shared data, golden files, the Swift assertion ports, tests. |
+| A | `89746ba4-5ba6-4470-baf6-d17098f82551` | `.../windows-m4-core` / `windows-m4-core` | M4 core ports. First fix the 2 CS0108 errors and the CleanupPrompt dep, then the goldens and Swift assertion ports. | `89d31cc` |
+| B | `c90225b7-881f-4b75-b91f-e14cf650764d` | `.../windows-m3-live` / `windows-m4-sites` | Website matching: Chrome root cause, then the Firefox and Brave matrix rows. Holds the VM desktop. | `9e9d5c1`, fast-forwarded to `windows` |
+| C | `774c3946-7c5e-4143-87f1-411be3e0c079` | `.../windows-ui-fluent` / `windows-m4-learning` | Learning observer, from the checkpoint's "Next" steps 1–4. | `22d064b` merged with `windows`; checkpoint in `~/murmur-m3/checkpoints/m4-learning.md` |
 
-**Desktop:** free. Worker 2's later runs went through `runps.ps1` and passed.
+**Queued (no worker yet):** the UI rework to match the Mac app's look (PLAN.md "UI workstream"; user direction 2026-11-19). It starts on a Codex worker after the Codex reset (schedule `aae94043`, 02:40Z) when a slot is free.
+
+**Handback to Codex after the reset:** the Claude worker commits a checkpoint and stops, then a new Codex worker takes the branch. One owner per branch at a time.
+
+**Claude usage rule:** at ≤20% weekly, start no new Claude work; at ≤10%, checkpoint. It was 29% weekly at 01:58Z.
+
+**Desktop:** worker B holds it. Worker C asks for it after B.
 
 **Pause, 2026-11-19 23:45Z:** Codex's 5h window is at 10% (it resets 02:31Z); Codex weekly is 72%. Claude's 5h window is at 100%, weekly 29%. All Codex workers are paused. The one-shot Paseo schedule `aae94043` (02:40Z) wakes the coordinator to resume them. On resume: `paseo usage --json --refresh`, then resume workers 1, 2 and 3 from their checkpoints.
 
