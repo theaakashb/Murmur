@@ -24,6 +24,7 @@ internal sealed partial class MainWindow : Window
     MeetingsView? meetings;
     Page page = Page.Home;
     string settingsPane = "General";
+    string? historyEntry;
 
     internal MainWindow(AppServices services, Controller controller)
     {
@@ -40,6 +41,7 @@ internal sealed partial class MainWindow : Window
         var root = new Grid { RowDefinitions = { new RowDefinition { Height = GridLength.Auto }, new RowDefinition() }, Style = MurmurStyle.Style("MurmurWindowRoot"), Children = { caption, body } };
         Grid.SetRow(body, 1);
         Content = root;
+        AddSearchOverlay(root);
         MurmurStyle.SetTitleBar(this, caption);
         MurmurStyle.SetInitialSize(this, 1100, 760);
         Navigate(Page.Home);
@@ -67,6 +69,8 @@ internal sealed partial class MainWindow : Window
                 break;
             case Page.History:
                 history ??= new HistoryView(s, Root);
+                if (historyEntry is { } id) history.Select(id);
+                historyEntry = null;
                 history.Reload();
                 content.Content = history.View;
                 break;
@@ -83,7 +87,7 @@ internal sealed partial class MainWindow : Window
         HomeView? view = null;
         view = new HomeView(s, controller, new HomeView.Actions(StartDictationFromHome, () => Navigate(Page.Meetings), () => Navigate(Page.History),
             (pane, tab) => { settingsPane = pane; Navigate(Page.Settings); settings!.Show(pane, TabIndex(pane, tab)); Highlight(pane); },
-            () => ((App)Application.Current).ShowWelcome())) { Refresh = () => { if (page == Page.Home) content.Content = HomePage(); } };
+            () => ((App)Application.Current).ShowWelcome(), id => { historyEntry = id; Navigate(Page.History); })) { Refresh = () => { if (page == Page.Home) content.Content = HomePage(); } };
         return view.Build();
     }
 
@@ -160,15 +164,14 @@ internal sealed partial class MainWindow : Window
         back.Click += (_, _) => Navigate(Page.Home);
         var heading = MurmurStyle.Text("Settings", "MurmurSettingLabel");
         heading.FontSize = 20; heading.FontWeight = Microsoft.UI.Text.FontWeights.Medium; heading.Margin = new Thickness(16, 22, 0, 12);
-        var search = MurmurStyle.Named(new TextBox { PlaceholderText = "Search settings", Margin = new Thickness(16, 0, 16, 16), CornerRadius = new CornerRadius(8), MinHeight = 34 }, "Search settings");
-        search.KeyDown += (_, e) =>
+        var open = new Button
         {
-            if (e.Key != Windows.System.VirtualKey.Enter || settings?.Find(search.Text) is not { } hit) return;
-            settingsPane = hit.Pane;
-            settings.Show(hit.Pane, hit.Tab);
-            Highlight(hit.Pane);
-            settings.Reveal(search.Text);
+            Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { new FontIcon { Glyph = "\uE721", FontSize = 13, Style = MurmurStyle.Style("MurmurMutedIcon") }, MurmurStyle.Text("Search settings", "MurmurDescription"), new TextBlock { Text = "Ctrl K", FontSize = 11, Opacity = 0.6, VerticalAlignment = VerticalAlignment.Center } } },
+            HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, Margin = new Thickness(16, 0, 16, 16), CornerRadius = new CornerRadius(8), MinHeight = 34
         };
+        MurmurStyle.Named(open, "Search settings");
+        open.Click += (_, _) => OpenSearch();
+        var search = open;
         var list = new StackPanel { Spacing = 4, Margin = new Thickness(16, 0, 16, 0) };
         (string Pane, string Glyph)[] panes = [("General", ""), ("Dictation", ""), ("Writing", ""), ("Meetings", "\uE716"), ("Privacy & Storage", ""), ("Providers", ""), ("Updates", "\uE777")];
         foreach (var (pane, glyph) in panes)

@@ -51,7 +51,7 @@ internal sealed partial class MeetingsView
         var r = Recorder;
         var picked = r.Meetings.FirstOrDefault(m => m.Id == selectedId);
         return string.Join('|', r.Meetings.Count, r.Live?.Id, r.Finishing.Count, r.NotesWriting.Count, r.NotesProblem.Count, r.Unsaved.Count, r.Leftovers.Count,
-            picked?.Notes?.WrittenAt.Ticks, picked?.Notes?.Outdated, picked?.Lines.Count, picked?.Finished, r.Message);
+            picked?.Notes?.WrittenAt.Ticks, picked?.LectureNotes?.WrittenAt.Ticks, picked?.LectureNotes?.Outdated, picked?.Notes?.Outdated, picked?.Lines.Count, picked?.Finished, r.Message);
     }
 
     void OnChanged()
@@ -63,6 +63,36 @@ internal sealed partial class MeetingsView
     void Tick() => clock.Text = Recorder.Live is { } live ? $"Recording {MeetingExport.Clock(Recorder.Elapsed)} · {live.Source.Name}" : "";
 
     // ---- small builders ----
+
+    /// <summary>The Mac's Start menu (MeetingStartMenu): running call apps first, then All apps, then the microphone alone. Built each time it opens.</summary>
+    Button StartMenu()
+    {
+        var menu = new MenuFlyout();
+        menu.Opening += (_, _) =>
+        {
+            menu.Items.Clear();
+            IReadOnlyList<Murmur.Core.ProcessInfo> running;
+            try { running = Murmur.Platform.AudioSessions.Processes(); } catch (Exception) { running = new List<Murmur.Core.ProcessInfo>(); }
+            var apps = CallApp.Catalog.Where(app => running.Any(p => CallApp.Normalize(p.Name) == app.ProcessName)).GroupBy(app => app.Name).Select(g => g.First()).ToList();
+            if (apps.Count == 0) menu.Items.Add(new MenuFlyoutItem { Text = "No call app or browser is open", IsEnabled = false });
+            foreach (var app in apps)
+            {
+                var item = new MenuFlyoutItem { Text = app.Name };
+                var source = new MeetingSource(app.Name, app.ProcessName);
+                item.Click += (_, _) => controller.StartMeeting(source);
+                menu.Items.Add(item);
+            }
+            menu.Items.Add(new MenuFlyoutSeparator());
+            var all = new MenuFlyoutItem { Text = "All apps (includes music and notifications)" };
+            all.Click += (_, _) => controller.StartMeeting(MeetingSource.Everything);
+            var mic = new MenuFlyoutItem { Text = "Only my microphone" };
+            mic.Click += (_, _) => controller.StartMeeting(MeetingSource.MicrophoneOnly);
+            menu.Items.Add(all); menu.Items.Add(mic);
+        };
+        var button = Btn("Start Meeting Notes", () => { }, filled: true);
+        button.Flyout = menu;
+        return button;
+    }
 
     static Button Btn(string text, Action click, bool filled = false, bool plain = false, string? name = null) =>
         MurmurStyle.Pill(text, click, filled ? MurmurStyle.PillKind.Filled : plain ? MurmurStyle.PillKind.Plain : MurmurStyle.PillKind.Outline, name, height: 34);
@@ -124,7 +154,7 @@ internal sealed partial class MeetingsView
             Tick();
             right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Center, Children = { clock, Btn("Stop", controller.StopMeeting, filled: true) } };
         }
-        else right = Btn("Start Meeting Notes", () => controller.StartMeeting(), filled: true);
+        else right = StartMenu();
         var head = new Grid { Padding = new Thickness(40, 24, 40, 8), ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { left, right } };
         Grid.SetColumn(right, 1);
         right.VerticalAlignment = VerticalAlignment.Center;
@@ -278,11 +308,12 @@ internal sealed partial class MeetingsView
         else if (r.Leftovers.TryGetValue(m.Id, out var left))
             panel.Children.Add(new StackPanel { Spacing = 8, Children = { Lede($"{left} {(left == 1 ? "part" : "parts")} of this meeting {(left == 1 ? "was" : "were")} not transcribed. The audio is kept for up to 24 hours."), Btn("Finish Transcript", () => r.FinishLeftovers(m.Id), filled: true) } });
 
-        string[] tabs = ["Notes", "My notes", "Transcript"];
+        string[] tabs = ["Notes", "Lecture notes", "My notes", "Transcript"];
         panel.Children.Add(new Segmented("Meeting detail", tabs, Math.Max(0, Array.IndexOf(tabs, tabName)), i => { tabName = tabs[i]; Render(); }, stretch: false, fontSize: 13));
         switch (tabName)
         {
             case "Notes": NotesTab(panel, m); break;
+            case "Lecture notes": LectureTab(panel, m); break;
             case "My notes":
                 var mine = MurmurStyle.Named(new TextBox { Text = m.MyNotes, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 160 }, "My notes");
                 mine.TextChanged += (_, _) => { if (mine.Text != m.MyNotes) r.SetNotes(mine.Text, m.Id); };
@@ -327,6 +358,35 @@ internal sealed partial class MeetingsView
                 panel.Children.Add(new StackPanel { Spacing = 8, Children = { Lede("No notes yet."), write } });
             }
         }
+    }
+
+    /// <summary>The Mac's lectureTab: concepts, examples and perspectives, written through the same notes route with lecture rules.</summary>
+    void LectureTab(StackPanel panel, Meeting m)
+    {
+        var r = Recorder;
+        var route = MeetingNotesRoutes.Load(s.Settings) ?? MeetingNotesRoute.None;
+        panel.Children.Add(Lede("Lecture notes use concepts, examples and perspectives from the transcript, with citations."));
+        panel.Children.Add(Lede($"Provider: {route.Label()}."));
+        if (m.LectureNotes is { } notes)
+        {
+            if (notes.Outdated == true) panel.Children.Add(Lede("The source changed after these lecture notes were written."));
+            if (notes.Summary is { } summary) { var t = MurmurStyle.Text(summary, "MurmurSettingLabel"); t.FontSize = 15; t.IsTextSelectionEnabled = true; panel.Children.Add(t); }
+            var titles = NoteSections.Titles(true);
+            Section(panel, titles.Points, notes.KeyPoints, m, false);
+            Section(panel, titles.Decisions, notes.Decisions, m, false);
+            Section(panel, titles.Actions, notes.Actions, m, false);
+            panel.Children.Add(MurmurStyle.Text($"Written by {notes.Route}. Unsupported items dropped: {notes.Dropped}.", "MurmurCaption"));
+            var copy = Btn("Copy Lecture Notes", () => Native.CopyText(MeetingExport.Notes(m, lecture: true))); copy.HorizontalAlignment = HorizontalAlignment.Left;
+            panel.Children.Add(copy);
+        }
+        if (r.NotesProblem.TryGetValue(m.Id, out var problem)) panel.Children.Add(Lede(problem));
+        bool busy = r.NotesWriting.Contains(m.Id) || r.Finishing.Contains(m.Id);
+        if (r.NotesWriting.Contains(m.Id)) panel.Children.Add(Lede("Writing notes…"));
+        var write = Btn(m.LectureNotes is null ? "Generate Lecture Notes" : "Update Lecture Notes", () => r.WriteNotes(m.Id, lecture: true), filled: true);
+        write.IsEnabled = !NotesRouteOff && m.Finished && !busy && m.Lines.Any(l => !l.IsHidden);
+        write.HorizontalAlignment = HorizontalAlignment.Left;
+        panel.Children.Add(write);
+        if (NotesRouteOff) panel.Children.Add(Lede("Choose a notes provider in Settings > Meetings first."));
     }
 
     void Section(StackPanel panel, string title, IReadOnlyList<NoteItem> items, Meeting m, bool actions)
