@@ -27,6 +27,24 @@ internal sealed partial class SettingsView
         detect.Toggled += (_, _) => CallDetectionSettings.SetEnabled(s.Settings, detect.IsOn);
         Row("Offer meeting notes when a call starts", "When a call app starts using the microphone, Murmur offers to take notes. It never records until you accept.", detect, visible: true);
 
+        Heading("Speakers");
+        var details = new StackPanel { Spacing = 8 };
+        var enabled = MurmurStyle.Named(new ToggleSwitch { IsOn = s.Settings.Get(SpeakerFacts.SettingKey) as bool? ?? false, OnContent = null, OffContent = null, MinWidth = 0 }, SpeakerFacts.DisplayName);
+        var room = MurmurStyle.Named(new ToggleSwitch { IsOn = s.Settings.Get(SpeakerFacts.RoomKey) as bool? ?? false, OnContent = null, OffContent = null, MinWidth = 0 }, "Separate speakers in microphone-only recordings");
+        void SpeakersChanged() { controller.RefreshSpeakerModels(); }
+        enabled.Toggled += (_, _) => { s.Settings.Set(SpeakerFacts.SettingKey, enabled.IsOn); details.Visibility = enabled.IsOn ? Visibility.Visible : Visibility.Collapsed; SpeakersChanged(); };
+        room.Toggled += (_, _) => { s.Settings.Set(SpeakerFacts.RoomKey, room.IsOn); SpeakersChanged(); };
+        Row(SpeakerFacts.DisplayName, SpeakerFacts.Explanation(room.IsOn), enabled);
+        var roomRow = new Grid { MinHeight = 56, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { MurmurStyle.Text("Separate speakers in microphone-only recordings", "MurmurSettingLabel"), room } };
+        Grid.SetColumn(room, 1);
+        details.Children.Add(roomRow);
+        details.Children.Add(MurmurStyle.Text($"For microphone-only recordings, microphone audio is kept on this PC until speaker separation finishes, up to {RetryWindow.Text}, then deleted.", "MurmurCaption"));
+        foreach (var slot in new[] { s.SpeakerSegmentationSlot, s.SpeakerEmbeddingSlot })
+            details.Children.Add(MurmurStyle.Card(new ModelRow(s, slot, controller, root, go => go(), SpeakersChanged).Panel));
+        details.Children.Add(MurmurStyle.Text(SpeakerFacts.Credits, "MurmurCaption"));
+        details.Visibility = enabled.IsOn ? Visibility.Visible : Visibility.Collapsed;
+        page.Children.Add(details);
+
         Heading("Never offered for");
         neverPanel = new StackPanel();
         page.Children.Add(neverPanel);
