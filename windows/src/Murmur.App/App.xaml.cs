@@ -70,14 +70,21 @@ public partial class App : Application
             _ = RenderThenExit(pill, folder);
             return;
         }
+        var liveAt = Array.IndexOf(launchArgs0, "--live-bubble");
+        if (liveAt >= 0 && liveAt + 1 < launchArgs0.Length)
+        {
+            var livePill = new Bubble(DispatcherQueue.GetForCurrentThread());
+            _ = LiveThenExit(livePill, launchArgs0[liveAt + 1]);
+            return;
+        }
         var dataDir = Environment.GetEnvironmentVariable("MURMUR_DATA_DIR");
-        var name = string.IsNullOrWhiteSpace(dataDir) ? @"Local\Murmur.App" : @"Local\Murmur.App.Test." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(dataDir))))[..16];
+        var name =string.IsNullOrWhiteSpace(dataDir) ? @"Local\Murmur.App" : @"Local\Murmur.App.Test." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(dataDir))))[..16];
         single = new Mutex(true, name, out var first);
         if (!first) Environment.Exit(0);
 
         var queue = DispatcherQueue.GetForCurrentThread();
         services = new AppServices(queue);
-        bubble = new Bubble(queue);
+        bubble = new Bubble(queue) { OpenHistory = OpenHistory };
         controller = new Controller(services, bubble);
         _ = new CallOfferPanel(services, controller, queue); // held by the controller's CallOffered event
         liveMeetingPanel = new LiveMeetingPanel(services, controller, queue);
@@ -119,6 +126,13 @@ public partial class App : Application
         if (forced || (string.IsNullOrWhiteSpace(dataDir) && new Murmur.Core.WelcomeGuide(services.Settings).OpensAtLaunch(services.Local.ModelFilesPresent))) OpenWelcome();
         if (launchArgs.Contains("--bubble")) bubble.ShowListening();
         if (launchArgs.Contains("--start-meeting")) controller.StartMeeting();
+    }
+
+    async Task LiveThenExit(Bubble pill, string folder)
+    {
+        try { await pill.LiveStatesAsync(folder); }
+        catch (Exception e) { Directory.CreateDirectory(folder); File.WriteAllText(Path.Combine(folder, "live-error.txt"), e.ToString()); }
+        Environment.Exit(0);
     }
 
     async Task RenderThenExit(Bubble pill, string folder)

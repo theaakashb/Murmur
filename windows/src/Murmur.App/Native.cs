@@ -30,19 +30,45 @@ internal static class Native
     const uint SwpNoSize = 1, SwpNoMove = 2, SwpNoZOrder = 4, SwpFrameChanged = 0x20;
 
     /// <summary>Makes the window fully frameless: no caption, thick frame or edge styles, no DWM border or shadow, square corners. Each call's HRESULT is checked; false means a call failed (an older Windows ignores the ones it does not know).</summary>
-    public static bool RemoveWindowChrome(nint hwnd)
+    public static bool RemoveWindowChrome(nint hwnd, bool stripStyles = true, bool disableNcRendering = false)
     {
-        const int DwmwaWindowCornerPreference = 33, DwmwaBorderColor = 34;
-        long style = (long)GetWindowLongPtr(hwnd, GwlStyle) & ~(WsCaption | WsThickFrame | WsSysMenu | WsMinimizeBox | WsMaximizeBox);
-        SetWindowLongPtr(hwnd, GwlStyle, (nint)style);
-        long ex = (long)GetWindowLongPtr(hwnd, GwlExStyle) & ~(WsExDlgModalFrame | WsExWindowEdge | WsExClientEdge | WsExStaticEdge);
-        SetWindowLongPtr(hwnd, GwlExStyle, (nint)ex);
-        bool ok = SetWindowPos(hwnd, 0, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
-        // Not DWMWA_NCRENDERING_POLICY = DISABLED: with no frame styles left it only risks a classic frame.
-        int none = unchecked((int)0xFFFFFFFE), doNotRound = 1;
+        const int DwmwaNcRenderingPolicy = 2, DwmwaWindowCornerPreference = 33, DwmwaBorderColor = 34;
+        bool ok = true;
+        if (stripStyles)
+        {
+            long style = (long)GetWindowLongPtr(hwnd, GwlStyle) & ~(WsCaption | WsThickFrame | WsSysMenu | WsMinimizeBox | WsMaximizeBox);
+            SetWindowLongPtr(hwnd, GwlStyle, (nint)style);
+            long ex = (long)GetWindowLongPtr(hwnd, GwlExStyle) & ~(WsExDlgModalFrame | WsExWindowEdge | WsExClientEdge | WsExStaticEdge);
+            SetWindowLongPtr(hwnd, GwlExStyle, (nint)ex);
+            ok = SetWindowPos(hwnd, 0, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
+        }
+        int none = unchecked((int)0xFFFFFFFE), doNotRound = 1, disabled = 1;
         ok &= DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref none, 4) >= 0;
         ok &= DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref doNotRound, 4) >= 0;
+        if (disableNcRendering) ok &= DwmSetWindowAttribute(hwnd, DwmwaNcRenderingPolicy, ref disabled, 4) >= 0;
         return ok;
+    }
+
+    [DllImport("comctl32.dll")] static extern bool SetWindowSubclass(nint hwnd, SubclassProc proc, nuint id, nuint data);
+    [DllImport("comctl32.dll")] static extern nint DefSubclassProc(nint hwnd, uint msg, nint w, nint l);
+    delegate nint SubclassProc(nint hwnd, uint msg, nint w, nint l, nuint id, nuint data);
+    static SubclassProc? clickThrough;
+
+    /// <summary>Click-through without WS_EX_LAYERED: while <paramref name="passClicks"/> is true the window answers hit tests with HTTRANSPARENT.</summary>
+    public static void PassClicksThrough(nint hwnd, Func<bool> passClicks)
+    {
+        clickThrough = (h, msg, w, l, id, data) => msg == 0x84 && passClicks() ? -1 : DefSubclassProc(h, msg, w, l);
+        SetWindowSubclass(hwnd, clickThrough, 1, 0);
+    }
+
+    [StructLayout(LayoutKind.Sequential)] struct Margins { public int L, R, T, B; }
+    [DllImport("dwmapi.dll")] static extern int DwmExtendFrameIntoClientArea(nint hwnd, ref Margins margins);
+
+    /// <summary>Extends the DWM frame over the whole client area (margins -1): sheet-of-glass, per-pixel alpha from the content.</summary>
+    public static bool ExtendFrameIntoClient(nint hwnd)
+    {
+        var m = new Margins { L = -1, R = -1, T = -1, B = -1 };
+        return DwmExtendFrameIntoClientArea(hwnd, ref m) >= 0;
     }
 
     /// <summary>One line describing the window's frame, for the render report: styles, DWM attributes, and whether the window, DWM frame and client rectangles agree.</summary>
@@ -57,6 +83,7 @@ internal static class Native
         string R(RectI r) => $"{r.R - r.L}x{r.B - r.T}@{r.L},{r.T}";
         return $"style 0x{(long)GetWindowLongPtr(hwnd, GwlStyle):X8} exstyle 0x{(long)GetWindowLongPtr(hwnd, GwlExStyle):X8}; window {R(win)} dwm-frame {R(ext)} (hr {hr:X}) client {cli.R - cli.L}x{cli.B - cli.T}; border colour 0x{border:X8}, nc policy {policy}, corner pref {corner}; non-client {(win.R - win.L) - (cli.R - cli.L)}x{(win.B - win.T) - (cli.B - cli.T)}, frame-vs-window delta {(ext.R - ext.L) - (win.R - win.L)}x{(ext.B - ext.T) - (win.B - win.T)}";
     }
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(nint hwnd);
     [DllImport("user32.dll")] static extern bool GetClientRect(nint hwnd, out RectI rect);
     [DllImport("user32.dll")] public static extern int SetWindowRgn(nint hwnd, nint region, bool redraw);
     [DllImport("gdi32.dll")] public static extern nint CreateRoundRectRgn(int l, int t, int r, int b, int w, int h);
