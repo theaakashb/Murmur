@@ -48,7 +48,11 @@ internal sealed partial class Bubble
         // The pill has no background of its own (the Mac's minimal pill is five dots and nothing else): a clear backdrop gives per-pixel alpha with smooth edges.
         window.SystemBackdrop = new ClearBackdrop();
         surface.Background = null;
-        // The light outline is Windows 11's own window border (and the DWM shadow behind it); turn both off and keep the corners square, because XAML rounds the card.
+        // The 1 px light outline is the presenter's WS_BORDER (a non-client frame around the whole window); drop it and the other frame styles, then the DWM border colour and shadow, and keep the corners square, because XAML rounds the card.
+        var presenter = (OverlappedPresenter)appWindow.Presenter;
+        FrameBefore = $"{Native.DescribeFrame(hwnd)}; presenter border {presenter.HasBorder} titlebar {presenter.HasTitleBar} resizable {presenter.IsResizable}";
+        presenter.SetBorderAndTitleBar(false, false);
+        presenter.IsResizable = presenter.IsMaximizable = presenter.IsMinimizable = false;
         Native.RemoveWindowChrome(hwnd);
 
         for (int i = 0; i < bars.Length; i++)
@@ -240,6 +244,9 @@ internal sealed partial class Bubble
         // The window frame adds a few pixels of its own; size the client area itself so the pill is exactly its design size.
         window.AppWindow.ResizeClient(new Windows.Graphics.SizeInt32(width, height));
     }
+
+    /// <summary>Render mode only: the frame as the presenter left it, before the chrome is removed.</summary>
+    internal string FrameBefore = "";
 
     /// <summary>Render mode only: parks the window far off every screen.</summary>
     internal bool Offscreen { get; set; }
