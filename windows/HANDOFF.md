@@ -20,12 +20,6 @@
 
 **PC agent rule (user, 2026-11-20 about 23:50Z):** on the PC, every Windows agent runs in the **Murmur** project's workspace `wks_c227e9c5312b0db4` (`T:\Paseo Project\Murmur\Murmur`) or a `wt-*` worktree under `T:\Paseo Project\Murmur\`. **Never use C:\ as an agent cwd or workspace.** PC project `prj_45f0c70bbdc987ad` is named "Murmur" so it groups with the Mac's Murmur project in the sidebar. The daemon config (`~/.paseo/config.json`) has no projects-folder setting.
 
-**Pending sidebar cleanup:** the "Star Labs discovery" project `prj_8e77a88fc19296d1` (cwd C:\; workspaces `wks_3d3a18a1cff53984` and the background `wks_ef0703665580c3f9`) still holds coordinator 5, 8aa2528c and fa8785fe. Paseo can't move a live agent between workspaces, and `workspace archive` and `project delete` take their agents with them. So: let 8aa2528c and fa8785fe finish, hand coordinator 5 off to a coordinator 6 created in `wks_c227e9c5312b0db4`, and then coordinator 6 runs `paseo project delete prj_8e77a88fc19296d1` (Paseo metadata only; nothing on C:\ is deleted). The 13 finished PC agents were archived at 23:51Z.
-
-**Coordinator 5 workers (PC, 23:43Z):**
-- (UI fix, done) `windows-ui-fix2` merged as `0d5f6dc` (worker 8aa2528c archived). **app-next5** is staged at `T:\Paseo Project\Murmurpp-next5` and not launched; the user was sent the switch steps. Not yet seen on a real screen: pill transparency (clear SystemBackdrop; on failure it logs to CrashLog and shows the default fill) and click-through. Lightning glyph: nothing in Murmur draws it. Retire `src` and the `wt-fix2` worktree once the user accepts app-next5. Delete app-next, app-next2 and app-next.old only after the user confirms app-next5, never the one they run.
-- `fa8785fe-805d-484b-aaf9-4f96616acf47` (Sonnet): PC notes benchmark, running bounded runs (Phi on Vulkan first) under `bench-notes`. Its parent is the offline Mac agent dd241070, so coordinator 5 polls it. On finish, its aggregate results go to `windows/bench/notes/NOTES_MODEL_BENCHMARK.md` on `windows-local-notes`.
-
 Refreshed 2026-11-20 about 09:50Z by coordinator 3 (`268d6a36-00e7-40c3-a2bd-0b2dacfa5718`; it took over from `f9e7f4a7` at 04:00Z). The orchestrator is `8f691026-6ec3-41d4-8c14-4cba2ef6db44`. Read this first, then `windows/PLAN.md` (the Status section is current), `windows/CONTRIBUTING.md` and `~/.claude/CLAUDE.md`.
 
 ## RELOCATION (2026-11-21 about 00:10Z): the Mac goes offline
