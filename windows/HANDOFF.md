@@ -32,7 +32,7 @@
    - Also on this branch: live words now show the card at once with "Listening…", like the Mac. Not measured: the streaming model wasn't on disk.
    - The Mac has NO mode-name indicator. Its equivalent is the "N changes" chip (Bubble.swift:196-232, 8 s); it's ported without in-place Undo, and not checked live.
    - Next: rebuild, fix the blank-render regression, and find a live verification method that tells the app-next6 path from the app-next7 path. The orchestrator offers a VM live capture.
-3. **`windows-local-notes@218ec16`: the bench is complete.** Every planned cell finished. The "partial, resume here" section of NOTES_MODEL_BENCHMARK.md holds the variant definition (caps, split rule, merge batch) and the results; the resume commands are in `bench-notesesults\RESUME.md`.
+3. **`windows-local-notes@218ec16`: the bench is complete.** Every planned cell finished. The "partial, resume here" section of NOTES_MODEL_BENCHMARK.md holds the variant definition (caps, split rule, merge batch) and the results; the resume commands are in `bench-notes\results\RESUME.md`.
    - Next: the Core worker for the user's decisions: the approved contract in Core with tests and golden files (the regeneration needs the Mac), the Gemma 3 4B pin and Models row, and the no-GPU warning, estimate and progress. Tell the orchestrator when the Windows side is ready for the Mac PR.
 4. **On the next session:** `git merge origin/main` into `windows`. PR #98 (Murmur Cloud copy) and #99 (the Mac E-mail hyphen fold) are merged on main, so `check_parity` should then be in step for WritingModes. Then:
    - merge windows-modes-fix;
