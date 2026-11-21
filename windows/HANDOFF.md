@@ -12,7 +12,7 @@
 
 **Pending with the user:** confirm app-next5: the pill is transparent with no outline, and clicks pass through it and the live-words card. Neither can be verified offscreen; if transparency fails, CrashLog has the ClearBackdrop error. After the user confirms: delete app, app-next, app-next.old-20261119-2100 and app-next2 (app-next3 is already gone). Keep app-next5 and app-next4 (as the fallback); never delete the one the user runs. Then retire `T:\Paseo Project\Murmur\src` and the `wt-fix2` worktree (`git -C src worktree remove`).
 
-**Sidebar cleanup (coordinator 6's first job):** archive coordinator 5 (`6d103697`), then `paseo project delete prj_8e77a88fc19296d1`, the C:\ "Star Labs discovery" project and its workspaces `wks_3d3a18a1cff53984` and `wks_ef0703665580c3f9`. This is Paseo metadata only; nothing on disk under C:\ is touched. Confirm with `paseo project ls` and `paseo ls` that only the Murmur project and its agents remain.
+**Sidebar cleanup: done 00:03Z by coordinator 6.** Coordinator 5 (`6d103697`) is archived, and `prj_8e77a88fc19296d1` (C:\, 2 workspaces) is deleted; that was Paseo metadata only. Now `paseo project ls` shows only Murmur `prj_45f0c70bbdc987ad`, `paseo workspace ls` shows only `wks_c227e9c5312b0db4`, and `paseo ls` shows aab5ff8e and 76b8269f. **The Mac is offline (host_offline at 00:03Z).** When it's back, send the orchestrator: the IDs, "fa8785fe and 8aa2528c archived", the HANDOFF commit, the cleanup output, and the bench and C: audit results.
 
 **PC test rule:** don't run the Murmur.Platform tests that drive Notepad or SendInput on the PC; it is the user's live desktop. Core tests only.
 
