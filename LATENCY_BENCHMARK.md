@@ -67,3 +67,17 @@ Murmur Cloud is skipped without a stored key. Keep cloud runs short.
 1. "On an M3 MacBook Air, local transcription finishes in about 0.06 s for a 5 s clip and about 0.36 s for a 45 s clip (median, warm, synthetic speech)."
 2. "In 70 logged real dictations, the median time from key release to text appearing was about 1.5 s and the 95th percentile about 3.2 s (local transcription, Murmur Cloud cleanup, one Mac)."
 3. Do not quote the cloud transcription or Apple cleanup figures, or any cold-start figure, as typical: they come from 20 synthetic clips on one connection and one Mac.
+
+## Natural (local), processing time — November 20, 2026
+
+Warm helper, synthetic `say` clips (n = 20 per length, same clips as above), time = local transcription + `processAsync`, no insertion. Median / P95 ms. Same Mac and tool (`app/tools/measure_latency.swift`, stage `natural`; `LOCAL_CLEANUP_HELPER` names the installed LocalCleanupRunner). **Not confirmed: measured under load from other work; rerun needed on an idle Mac.** Another job kept several cores busy (`llama-server`), so these rows are slower than a quiet Mac and neither confirm nor replace a published figure. Later attempts to rerun on an idle Mac were also under load and were discarded.
+
+| Route | Short (~5 s) | Medium (~15 s) | Long (~45 s) |
+|---|---:|---:|---:|
+| Natural, rules | 108 / 133 | 287 / 360 | 726 / 834 |
+| Natural, local model | 392 / 654 | 1,234 / 1,497 | 3,226 / 3,416 |
+| Guard fell back to rules (of 20) | 2 | 8 | 19 |
+
+- Local transcription alone measured 107 / 283 / 713 ms median in the same run, against 56 / 141 / 357 ms in the quiet-Mac table above, so about 2× of the gap is load.
+- The synthetic text is dense with fillers and corrections, and the guard rejected the model's answer for 19 of 20 long clips, so the "local model" long time is mostly the model's time plus a rule fallback.
+- A rerun on an idle Mac is needed before quoting any Natural speed figure.

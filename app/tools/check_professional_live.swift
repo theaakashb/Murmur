@@ -2,7 +2,7 @@
 // Compile with the sources listed in tools/measure_cleanup_route.swift, replacing its final file.
 // Usage: /tmp/pl [runs=3] [--runs N] [--model ID] [--prompt baseline|concise|intent] [--candidate PATH]
 //   [--mode professional|polish|strict] [--context on|off] [--cases 0,3,19] [--json PATH]
-//   [--reasoning none|low|medium|high] [--list-models] [--endpoint cleanup|transcription|apple] [--trust on|off] [--corrections on|off] [--retries 0|1|2] [--delay SECONDS] [--timeout SECONDS] [--self-check]
+//   [--reasoning none|low|medium|high] [--list-models] [--endpoint cleanup|transcription|apple|local|rules] [--trust on|off] [--corrections on|off] [--retries 0|1|2] [--delay SECONDS] [--timeout SECONDS] [--self-check]
 //   [--timeout SECONDS]  fails an attempt that takes longer (default 20); a timeout is a provider error, not retried.
 //   [--replay PATH]  replays real dictations instead of the built-in cases: a JSON array of
 //     {"raw", "must", "mustNot", "tags"} kept outside the repository ("list" in tags allows numbered lines).
@@ -65,7 +65,7 @@ struct Flags {
             default: throw bad()
             }
         }
-        guard ["cleanup", "transcription", "apple"].contains(endpoint), runs > 0, runs <= 100, ["baseline", "concise", "intent", "candidate"].contains(prompt), ["strict", "polish", "professional"].contains(mode) else { throw bad() }
+        guard ["cleanup", "transcription", "apple", "local", "rules"].contains(endpoint), runs > 0, runs <= 100, ["baseline", "concise", "intent", "candidate"].contains(prompt), ["strict", "polish", "professional"].contains(mode) else { throw bad() }
     }
     var options: CleanupOptions { CleanupOptions(corrections: corrections, punctuation: true, polish: mode != "strict", professional: mode == "professional", spoken: true, trustModel: trust) }
 }
@@ -214,6 +214,7 @@ final class MeasuredProvider: CleanupProvider, @unchecked Sendable {
     var errors: Int { errorKinds.count }
     var id: ProviderID { inner.id }
     var disclosure: DataDisclosure { inner.disclosure }
+    var shape: CleanupShape { inner.shape }
     init(_ inner: CleanupProvider, _ flags: Flags) { self.inner = inner; self.flags = flags }
     func cleanup(_ messages: CleanupMessages) async throws -> String {
         let totalStart = ProcessInfo.processInfo.systemUptime
@@ -393,10 +394,19 @@ if let subset = flags.subset, !subset.allSatisfy({ cases.indices.contains($0) })
 }
 let defaults = UserDefaults(suiteName: "cc.clouddev.dictation.development")!
 var provider: CleanupProvider, model: String
-if flags.endpoint == "apple" {
+if flags.endpoint == "rules" {
+    // Natural without a model: built-in rules only (route .local); only the final output is scored.
+    provider = LocalModelCleanupProvider(); model = "rules"
+} else if flags.endpoint == "local" {
+    // Natural on the managed Local model; MURMUR_LOCAL_HELPER names the installed LocalCleanupRunner.
+    if let helper = ProcessInfo.processInfo.environment["MURMUR_LOCAL_HELPER"] { LocalCleanupRunner.helperURL = URL(fileURLWithPath: helper) }
+    let local = LocalModelCleanupProvider()
+    if let reason = local.status() { print("Local model unavailable: \(reason.userMessage)"); exit(2) }
+    provider = local; model = LocalCleanupIdentity.modelID
+} else if flags.endpoint == "apple" {
     let apple = AppleCleanupProvider()
     if let reason = apple.status() { print("Apple Intelligence unavailable: \(reason.userMessage)"); exit(2) }
-    apple.prewarm(); provider = apple; model = "apple-on-device"
+    provider = apple; model = "apple-on-device"
 } else {
 let endpointKey = flags.endpoint == "cleanup" ? "customAPIBaseURL" : "customTranscriptionAPIBaseURL"
 let modelKey = flags.endpoint == "cleanup" ? "customAPIModel" : "customTranscriptionModel"
@@ -420,13 +430,13 @@ let isolatedDefaults = UserDefaults(suiteName: suite)!
 // No real dictionary, learning ledger, screen, clipboard or history is read.
 defer { try? FileManager.default.removeItem(at: directory); isolatedDefaults.removePersistentDomain(forName: suite) }
 let coordinator = try ProcessingCoordinator(directory: directory, defaults: isolatedDefaults)
-var settings = coordinator.settings; settings.route = .cloud; settings.options = flags.options; settings.learningEnabled = false
+var settings = coordinator.settings; settings.route = flags.endpoint == "rules" ? .local : .cloud; settings.options = flags.options; settings.learningEnabled = false
 try coordinator.update(settings, persist: false)
 var results: [BenchResult] = []
 for (index, c) in cases.enumerated() where (flags.subset?.contains(index) ?? true) && applies(c, flags.mode) {
     for run in 0..<flags.runs {
         if !results.isEmpty && flags.delay > 0 { try await Task.sleep(nanoseconds: UInt64(flags.delay * 1e9)) }
-        let measured = MeasuredProvider(provider, flags); coordinator.cloudCleaner = measured
+        let measured = MeasuredProvider(provider, flags); coordinator.cloudCleaner = flags.endpoint == "rules" ? nil : measured
         let context = flags.context && !c.context.isEmpty ? ScreenContext(selected: "", clipboard: "", window: c.context) : nil
         let result1 = await coordinator.processAsync(c.raw, style: DictationStyle(options: flags.options, context: context))
         guard case .insert(let final) = result1.outcome else { fatalError("unexpected non-insertion") }
