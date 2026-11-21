@@ -21,9 +21,16 @@ public static class MeetingNotesWriter
         return WriteAsync(meeting, route, route.Label(), provider.CleanupAsync, lecture, now, cancellationToken: cancellationToken);
     }
 
+    /// <summary>Notes written on this PC by the local model: the 5,000-character budget the model's 8,192-token context needs. <paramref name="progress"/> gets finished and planned requests.</summary>
+    public static Task<Outcome> WriteLocalAsync(Meeting meeting, Func<CleanupMessages, CancellationToken, Task<string>> generate, bool lecture = false,
+        Action<int, int>? progress = null, CancellationToken cancellationToken = default) =>
+        WriteAsync(meeting, MeetingNotesRoute.LocalModel, LocalNotesIdentity.NotesRouteName, generate, lecture, cancellationToken: cancellationToken,
+            chunkCharacters: MeetingNotesLimits.LocalChunkCharacters, progress: progress);
+
     public static async Task<Outcome> WriteAsync(Meeting meeting, MeetingNotesRoute route, string routeName,
         Func<CleanupMessages, CancellationToken, Task<string>> generate, bool lecture = false, DateTime? now = null,
-        Func<string>? nonce = null, CancellationToken cancellationToken = default, int chunkCharacters = ChunkCharacters)
+        Func<string>? nonce = null, CancellationToken cancellationToken = default, int chunkCharacters = ChunkCharacters,
+        Action<int, int>? progress = null)
     {
         var notes = new MeetingNotes(routeName, now ?? DateTime.UtcNow);
         var reasons = new Dictionary<NotesGrounding.Reason, int>();
@@ -32,6 +39,9 @@ public static class MeetingNotesWriter
         if (numbered.Length == 0) return new(notes, reasons);
 
         nonce ??= PromptTemplate.NewNonce;
+        // Finished and planned requests, for the progress line: one per chunk, then merges; a split adds one.
+        int done = 0, planned = 0;
+        void Report() => progress?.Invoke(done, planned);
         // One request. A context overflow (PayloadTooLarge) or a reply that stopped at the output cap (OutputTruncated) splits the batch in half, once,
         // and each half is a request of its own; a half that fails the same way fails the notes. A lone draft needs no merge. Every reply is cut to the item caps.
         async Task<Draft[]> Request<T>(T[] batch, Func<T[], string, CleanupMessages> build, int splitAbove, string tooLong, bool splitOnOverflow)
@@ -44,12 +54,14 @@ public static class MeetingNotesWriter
                 if (lecture) prompt = prompt with { System = prompt.System + "\n" + MeetingNotesPrompt.LectureRules };
                 var reply = await generate(prompt, cancellationToken).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
+                done++; Report();
                 return [(Draft.Parse(reply) ?? throw new NotesFailure("The notes route did not answer with notes.")).Capped()];
             }
             catch (ProviderException ex) when (ex.Error.Case is ProviderErrorKind.PayloadTooLarge or ProviderErrorKind.OutputTruncated)
             {
                 if (!splitOnOverflow || batch.Length <= splitAbove) throw new NotesFailure(tooLong);
                 int half = batch.Length / 2;
+                planned++; Report();
                 var first = await Request(batch[..half], build, splitAbove, tooLong, false).ConfigureAwait(false);
                 var second = await Request(batch[half..], build, splitAbove, tooLong, false).ConfigureAwait(false);
                 return [.. first, .. second];
@@ -58,7 +70,10 @@ public static class MeetingNotesWriter
 
         var whole = NotesGrounding.From(numbered, meeting.MyNotes);
         var level = new List<Draft>();
-        foreach (var chunk in Chunks(numbered, chunkCharacters))
+        var chunkList = Chunks(numbered, chunkCharacters).ToArray();
+        planned = chunkList.Length + (chunkList.Length > 1 ? 1 : 0);
+        Report();
+        foreach (var chunk in chunkList)
         {
             var parts = await Request(chunk, (lines, id) => MeetingNotesPrompt.Extract(lines, meeting.MyNotes, id),
                 1, "Part of this meeting is too long for the notes route.", true).ConfigureAwait(false);
@@ -86,6 +101,8 @@ public static class MeetingNotesWriter
             if (batch.Count == 1 && batches.Count > 0) batches[^1] = [.. batches[^1], batch[0]];
             else if (batch.Count > 0) batches.Add(batch.ToArray());
 
+            planned = done + batches.Count + (batches.Count > 1 ? 1 : 0);
+            Report();
             var next = new List<Draft>();
             foreach (var items in batches)
                 next.AddRange(await Request(items, (parts, id) => MeetingNotesPrompt.Merge(parts, id, speakers),
