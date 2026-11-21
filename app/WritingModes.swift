@@ -169,13 +169,15 @@ enum WritingModes {
     /// "Fix it, slack mode." -> "Fix it."
     /// `startOnly` (the presets) ignores a trigger said at the end.
     static func stripTrigger(_ phrase: String, from text: String, startOnly: Bool = false) -> String? {
-        let words = CleanupGuard.words(phrase).map(\.lower)
+        // "E-mail mode" is one word to the tokenizer, so hyphens are ignored on both sides.
+        func fold(_ word: String) -> String { word.replacingOccurrences(of: "-", with: "") }
+        let words = CleanupGuard.words(phrase).map { fold($0.lower) }
         guard !words.isEmpty else { return nil }
         var t = CleanupText.tokenize(text)
         let wi = t.indices.filter { t[$0].kind == .word }
         guard wi.count > words.count else { return nil }
         func separator(_ tok: CleanupToken) -> Bool { tok.kind == .space || tok.isComma || tok.isDash || tok.text == ":" || tok.text == ";" }
-        if wi.prefix(words.count).map({ t[$0].lower }) == words {
+        if wi.prefix(words.count).map({ fold(t[$0].lower) }) == words {
             let capital = t[wi[0]].text.first?.isUppercase ?? false
             var k = wi[words.count - 1] + 1
             if k < t.count, t[k].isTerminal, t[k].text != "\n" { k += 1 } // "Email mode. Fix it."
@@ -184,7 +186,7 @@ enum WritingModes {
             if capital, let first = t.firstIndex(where: { $0.kind == .word }) { t[first].text = CleanupText.capitalized(t[first].text) }
             return CleanupText.render(t)
         }
-        if !startOnly, wi.suffix(words.count).map({ t[$0].lower }) == words {
+        if !startOnly, wi.suffix(words.count).map({ fold(t[$0].lower) }) == words {
             let start = wi[wi.count - words.count]
             let end = t.lastIndex(where: { $0.kind != .space })!
             let mark = t[end].isTerminal && t[end].text != "\n" ? t[end].text : ""

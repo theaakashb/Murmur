@@ -1,40 +1,47 @@
 # Murmur for Windows: coordinator handoff
 
-**Current coordinator: Coordinator 6 (Claude Opus, in the Murmur workspace `wks_c227e9c5312b0db4` on the Star Labs PC `srv_XXiOqPoelqaJ`), from 2026-11-21 about 00:05Z: `aab5ff8e-d9fc-41bb-85a6-42a9f2aa4182`. Workers report to it.** Its orchestrator is Mac agent `8f691026-6ec3-41d4-8c14-4cba2ef6db44` on `srv_c2AxDOwFn9yz` (PCâ†’Mac `send_agent_prompt` works as of 23:55Z). Coordinator 5 (`6d103697`, C:\ project) handed off at 00:05Z and is archived by coordinator 6.
+**Current coordinator: Coordinator 6, `aab5ff8e-d9fc-41bb-85a6-42a9f2aa4182`.** Claude Opus 5.5, on the Star Labs PC `srv_XXiOqPoelqaJ`, in the Murmur workspace `wks_c227e9c5312b0db4`, since 2026-11-21 about 00:05Z. Workers report to it. Its orchestrator is Mac agent `8f691026-6ec3-41d4-8c14-4cba2ef6db44` on `srv_c2AxDOwFn9yz`; the Mac is back online, and PC→Mac `send_agent_prompt` works.
 
-**Mac back online (orchestrator message, later on 2026-11-21).**
-- **app-next5 is confirmed by the user, who is running it** (`T:\Paseo Project\Murmur\app-next5`). Deleted after a process-path check: app-next, app-next.old-20261119-2100, app-next2 (app-next3 was already gone). `src` and `wt-fix2` are retired; both were clean and pushed.
-- Kept: `app` (not running; deleting it needs the user's OK, through the orchestrator), app-next4 (the fallback), app-next5, and `scratch-fix2` (the pill renders from before the fix).
-- **C: audit items: do NOT delete.** The orchestrator is asking the user.
+**State (2026-11-21):**
+- **The user runs app-next6** (or app-next5); check the Murmur.exe process path before any folder work. The **rounded pill dots are confirmed** and merged as `c0e83b4` (windows-pill-round).
+- **Staged folders:**
+  - Kept: app-next4 (fallback), app-next5, app-next6.
+  - `app`: NOT running, but its deletion is still pending with the user, so don't delete it.
+  - Deleted: app-next, app-next.old-20261119-2100, app-next2. `src` and `wt-fix2` are retired.
+  - `scratch-fix2` and `scratch-pill` hold render evidence.
+- **C: drive:** with the user's OK, deleted `C:\Users\aakash\AppData\Local\NuGet\v3-cache` (707 MB); `.dotnet` was already gone. **Its newest file was from 20:12 on 2026-11-20: our builds leaked it.** Every process must ALSO set `NUGET_HTTP_CACHE_PATH=T:\Paseo Project\Murmur\cache\nuget\http` and `NUGET_PLUGINS_CACHE_PATH=...\cache\nuget\plugins`, and every worker checks at the end that v3-cache is absent.
+- **The Windows sidebar cleanup is done.** Only the Murmur project `prj_45f0c70bbdc987ad` and workspace `wks_c227e9c5312b0db4` remain.
 
-**Live PC agents:**
-- Coordinator 6, `aab5ff8e-d9fc-41bb-85a6-42a9f2aa4182` (Opus 5.5, workspace `wks_c227e9c5312b0db4`).
-- DONE, archived: `67fb94a5` (pill). **app-next6 is staged** (`e409d33` on `windows-pill-round`, NOT merged; the switch steps went to the orchestrator). The squares did not reproduce offscreen: the bars were already Borders with CornerRadius 4.5. The worker switched them to Rectangle with RadiusX/Y set. Merge only after the user confirms the dots look rounded live; if they don't, suspect the live layered-window composition. Original brief: The fix: the speaking dots render as squares; make them rounded capsules like the Mac (radius and height animation). Verified with offscreen renders at 100% and 150% in `scratch-pill`. Then it stages **app-next6**. After that, the coordinator sends the switch steps to the orchestrator.
-- `1449ca9c-7283-4822-b65d-b7985bb029a6` (Sonnet), `wt-notes` plus `bench-notes`. Make 60-minute meetings complete: diagnose the cap hits, item caps per the Mac contract on extraction and merge, split-and-retry on output exhaustion, re-run Gemma/Qwen7B Vulkan, and quality sets if feasible. No pinning; no Core changes without the coordinator's OK.
+**User decisions (via the orchestrator, 2026-11-21):**
+1. **Pill:** a 1px light-grey RECTANGULAR outline surrounds the whole pill window, so make the window fully frameless. Stage it as **app-next7** and send the switch steps.
+2. **Notes model:** **Gemma 3 4B is the Windows default local notes model.** Pin it the usual way once the bench results are in: verified repo, revision, sha256, licence, and a Settings › Models row with the responsive downloader.
+3. **Notes contract change APPROVED for both apps:** item caps on extraction AND merge, plus split-and-retry on output exhaustion.
+   - Windows: implement it in Core with tests and the golden files. The golden regeneration needs the Mac, so flag it.
+   - Mac: the orchestrator runs that PR from the Mac once the Windows side is ready. Tell it.
+4. **New UX:** when there's no usable GPU (the same DirectML/Vulkan capability check), warn plainly before the download and at the notes model row. Copy: "No compatible GPU found. Local meeting notes may take 10 minutes or more for a 30-minute meeting. Murmur Cloud is much faster." Use the measured numbers (5900X CPU: about 8–9 minutes per 30 minutes; laptops are slower) and suggest Murmur Cloud notes. On CPU, show progress and an estimate, and run in the background. Match the Mac copy style, with tests for the gating and the copy.
 
-**Notes bench: DONE 00:48Z; 76b8269f is archived.** The full PC matrix is in `NOTES_MODEL_BENCHMARK.md` on `windows-local-notes` at `f6d92e6`, worktree `T:\Paseo Project\Murmur\wt-notes`.
-- No 60-minute run completed in any cell, bounded or not, so item limits don't fix long meetings.
-- The 30-minute runs that completed: Gemma Vulkan 58 s; Qwen 7B Vulkan 23 s (bounded 26 s); Qwen 7B CPU 462 s (bounded 561 s); bounded Gemma CPU 512 s.
-- The interim recommendation stands.
-- Models are kept on T: (9.0 GB, `bench-notes\models`) for the user to decide on.
-- `cache\temp` has 148 files (8.5 MB), left alone.
+**PC SHUTDOWN CHECKPOINT (2026-11-21).** The user shut the PC down. No PC workers are live: every one is archived. The only worktree is the main checkout. The user was running **app-next7** at shutdown. The app folders app, app-next4, app-next5, app-next6 and app-next7 are kept as they are.
 
-**C: audit, read-only, nothing deleted; ask the user before any deletion:**
-- `C:\Users\aakash\AppData\Local\NuGet\v3-cache`: 140 files, the newest at 15:48 on 2026-11-20.
-- `C:\Users\aakash\.dotnet\10.0.404.*Sentinel`: from about 15:02.
-- Neither can be attributed with certainty. They may belong to the 2026-11-20 GPU bench, or be the user's own.
-- No `.gguf`, llama or bench files on C:.
+**Resume points (one branch each, all pushed):**
+1. **`windows-modes-fix@7d03254`: DONE, ready to merge.** It covers Firefox website matching (the address bar is a ComboBox), the Chromium first read, Comet support, the ModeFeedback notice when no rewrite engine is configured on a local route, the "E-mail mode" hyphen fold, and "Editing on Murmur Cloud…".
+   - Release build 0 warnings; Core 22,721 passed.
+   - The commit subject has a stray BOM; leave it.
+2. **`windows-pill-alpha@39158b7`: WIP, NOT built.** Read `windows/CHECKPOINT-pill-alpha.md` on that branch.
+   - Transparency is unsolved. The live capture method does NOT validate: it shows the app-next6 and app-next7 paths both black.
+   - Candidate: presenter border off plus `DwmExtendFrameIntoClientArea(-1)`. It looked transparent in the first runs, then after about 3:33 every extended-frame variant drew nothing. The cause is unresolved; the BubbleLive.cs display-pinning edit is suspected.
+   - Also on this branch: live words now show the card at once with "Listening…", like the Mac. Not measured: the streaming model wasn't on disk.
+   - The Mac has NO mode-name indicator. Its equivalent is the "N changes" chip (Bubble.swift:196-232, 8 s); it's ported without in-place Undo, and not checked live.
+   - Next: rebuild, fix the blank-render regression, and find a live verification method that tells the app-next6 path from the app-next7 path. The orchestrator offers a VM live capture.
+3. **`windows-local-notes@218ec16`: the bench is complete.** Every planned cell finished. The "partial, resume here" section of NOTES_MODEL_BENCHMARK.md holds the variant definition (caps, split rule, merge batch) and the results; the resume commands are in `bench-notes\results\RESUME.md`.
+   - Next: the Core worker for the user's decisions: the approved contract in Core with tests and golden files (the regeneration needs the Mac), the Gemma 3 4B pin and Models row, and the no-GPU warning, estimate and progress. Tell the orchestrator when the Windows side is ready for the Mac PR.
+4. **On the next session:** `git merge origin/main` into `windows`. PR #98 (Murmur Cloud copy) and #99 (the Mac E-mail hyphen fold) are merged on main, so `check_parity` should then be in step for WritingModes. Then:
+   - merge windows-modes-fix;
+   - finish pill-alpha;
+   - send the merged commit to the orchestrator for the VM live run (triggers with a fake Custom Provider, the indicator, transparency);
+   - then stage **app-next8** and send the switch steps.
+   - Delete app-next6 only after app-next8 is confirmed; keep app-next5 as the fallback.
 
-**Unsent to the orchestrator (Mac offline at 00:50Z):** the sidebar cleanup, the bench results and the C: audit above.
-- Previously: `76b8269f-bea7-4b1c-b560-e732182eaa1b` (Sonnet 5.5, workspace `wks_c227e9c5312b0db4`): the notes benchmark resume. It replaces fa8785fe (checkpointed and archived 00:00Z). It works from `T:\Paseo Project\Murmur\bench-notes\results\RESUME.md`: qwen25-7b cpu bounded, a gemma3-4b cpu bounded rerun, the aggregate table, T: cleanup (models kept), and a read-only C: audit. Coordinator 5 created it, so its finish notification may not reach coordinator 6: poll it with get_agent_activity. On finish, append the aggregate results (no text) to `windows/bench/notes/NOTES_MODEL_BENCHMARK.md` on `windows-local-notes` (latest 0be3a5d) and push. Interim: no CPU-only default, no low-RAM fallback, Gemma 3 4B as the GPU pilot; no pinning, the user chooses.
-  - fa8785fe headline: every failure was on the 1,200-token merge length cap, except Phi's unparseable replies. The only completed runs were 30-minute ones: Gemma Vulkan 58 s, Qwen 7B CPU 462 s, Qwen 7B Vulkan 23 s, bounded Qwen 7B Vulkan 26 s. No 60-minute run completed in any cell. Context overflows: 0.
-  - C: files from about 15:02 (not attributed): `C:\Users\aakash\.dotnet\10.0.404.*Sentinel`, `AppData\Local\NuGet\v3-cache`, `Temp\NuGetScratch`. Nothing deleted yet.
-
-**Done:** `windows-ui-fix2` merged as `0d5f6dc` (worker 8aa2528c archived). **app-next5** is staged at `T:\Paseo Project\Murmur\app-next5` and was never launched; the switch steps went to the user (quit Murmur from the tray, run app-next5\Murmur.exe; to go back, run app-next4\Murmur.exe).
-
-**Pending with the user:** confirm app-next5: the pill is transparent with no outline, and clicks pass through it and the live-words card. Neither can be verified offscreen; if transparency fails, CrashLog has the ClearBackdrop error. After the user confirms: delete app, app-next, app-next.old-20261119-2100 and app-next2 (app-next3 is already gone). Keep app-next5 and app-next4 (as the fallback); never delete the one the user runs. Then retire `T:\Paseo Project\Murmur\src` and the `wt-fix2` worktree (`git -C src worktree remove`).
-
-**Sidebar cleanup: done 00:03Z by coordinator 6.** Coordinator 5 (`6d103697`) is archived, and `prj_8e77a88fc19296d1` (C:\, 2 workspaces) is deleted; that was Paseo metadata only. Now `paseo project ls` shows only Murmur `prj_45f0c70bbdc987ad`, `paseo workspace ls` shows only `wks_c227e9c5312b0db4`, and `paseo ls` shows aab5ff8e and 76b8269f. **The Mac is offline (host_offline at 00:03Z).** When it's back, send the orchestrator: the IDs, "fa8785fe and 8aa2528c archived", the HANDOFF commit, the cleanup output, and the bench and C: audit results.
+**Older notes below are history.** Earlier notes bench: f6d92e6 on windows-local-notes; no 60-minute run completed before the fix. Old workers 76b8269f, 67fb94a5, fa8785fe and 8aa2528c are archived.
 
 **PC test rule:** don't run the Murmur.Platform tests that drive Notepad or SendInput on the PC; it is the user's live desktop. Core tests only.
 

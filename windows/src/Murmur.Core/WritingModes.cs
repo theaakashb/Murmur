@@ -170,13 +170,15 @@ public static class WritingModes
     /// "Slack mode, fix it" becomes "Fix it"; "Fix it, slack mode." becomes "Fix it." <paramref name="startOnly"/> (the presets) ignores a trigger said at the end.</summary>
     public static string? StripTrigger(string phrase, string text, bool startOnly = false)
     {
-        var words = CleanupGuard.Words(phrase).Select(w => Strings.Key(w.Lower)).ToList();
+        // "E-mail mode" is one word to the tokenizer, so hyphens are ignored on both sides: "email mode" and "e-mail mode" are the same trigger.
+        static string Fold(string word) => Strings.Key(word).Replace("-", "");
+        var words = CleanupGuard.Words(phrase).Select(w => Fold(w.Lower)).ToList();
         if (words.Count == 0) return null;
         var t = CleanupText.Tokenize(text);
         var wi = Enumerable.Range(0, t.Count).Where(i => t[i].Kind == TokenKind.Word).ToList();
         if (wi.Count <= words.Count) return null;
         static bool Separator(CleanupToken tok) => tok.Kind == TokenKind.Space || tok.IsComma || tok.IsDash || tok.Text == ":" || tok.Text == ";";
-        bool Said(IEnumerable<int> at) => at.Select(i => Strings.Key(t[i].Lower)).SequenceEqual(words);
+        bool Said(IEnumerable<int> at) => at.Select(i => Fold(t[i].Lower)).SequenceEqual(words);
         if (Said(wi.Take(words.Count)))
         {
             var capital = SwiftText.Characters(t[wi[0]].Text) is { Count: > 0 } first && SwiftText.IsUppercase(first[0]);

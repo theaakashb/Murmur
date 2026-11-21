@@ -109,7 +109,7 @@ extension AppController {
             self.finishVoiceEdit(edit, instruction: words, result: result, entry: entry, store: store)
             done()
         }
-        setPhase(.processing, edit.onDevice ? "Editing on this Mac…" : "Editing with \(edit.engineName) (\(edit.destination))…", showsMessage: true)
+        setPhase(.processing, edit.onDevice ? "Editing on this Mac…" : edit.destination == MurmurCloud.host ? "Editing on Murmur Cloud…" : "Editing with \(edit.engineName) (\(edit.destination))…", showsMessage: true)
     }
 
     /// The card's "⌃⌘V pastes it too" line is true because the card's text is the last dictation.
