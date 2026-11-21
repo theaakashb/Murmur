@@ -5,6 +5,7 @@ public sealed class NotesFailure(string message) : Exception(message);
 
 public static class MeetingNotesWriter
 {
+    /// <summary>Transcript characters per extraction request and drafts per merge batch for a cloud route; the on-device route passes <see cref="MeetingNotesLimits.LocalChunkCharacters"/>.</summary>
     public const int ChunkCharacters = 24_000;
     public sealed record Outcome(MeetingNotes Notes, IReadOnlyDictionary<NotesGrounding.Reason, int> Reasons);
 
@@ -22,7 +23,7 @@ public static class MeetingNotesWriter
 
     public static async Task<Outcome> WriteAsync(Meeting meeting, MeetingNotesRoute route, string routeName,
         Func<CleanupMessages, CancellationToken, Task<string>> generate, bool lecture = false, DateTime? now = null,
-        Func<string>? nonce = null, CancellationToken cancellationToken = default)
+        Func<string>? nonce = null, CancellationToken cancellationToken = default, int chunkCharacters = ChunkCharacters)
     {
         var notes = new MeetingNotes(routeName, now ?? DateTime.UtcNow);
         var reasons = new Dictionary<NotesGrounding.Reason, int>();
@@ -31,18 +32,21 @@ public static class MeetingNotesWriter
         if (numbered.Length == 0) return new(notes, reasons);
 
         nonce ??= PromptTemplate.NewNonce;
+        // One request. A context overflow (PayloadTooLarge) or a reply that stopped at the output cap (OutputTruncated) splits the batch in half, once,
+        // and each half is a request of its own; a half that fails the same way fails the notes. A lone draft needs no merge. Every reply is cut to the item caps.
         async Task<Draft[]> Request<T>(T[] batch, Func<T[], string, CleanupMessages> build, int splitAbove, string tooLong, bool splitOnOverflow)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (batch is Draft[] { Length: 1 } lone) return lone;
             try
             {
                 var prompt = build(batch, nonce());
                 if (lecture) prompt = prompt with { System = prompt.System + "\n" + MeetingNotesPrompt.LectureRules };
                 var reply = await generate(prompt, cancellationToken).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
-                return [Draft.Parse(reply) ?? throw new NotesFailure("The notes route did not answer with notes.")];
+                return [(Draft.Parse(reply) ?? throw new NotesFailure("The notes route did not answer with notes.")).Capped()];
             }
-            catch (ProviderException ex) when (ex.Error.Case == ProviderErrorKind.PayloadTooLarge)
+            catch (ProviderException ex) when (ex.Error.Case is ProviderErrorKind.PayloadTooLarge or ProviderErrorKind.OutputTruncated)
             {
                 if (!splitOnOverflow || batch.Length <= splitAbove) throw new NotesFailure(tooLong);
                 int half = batch.Length / 2;
@@ -54,11 +58,11 @@ public static class MeetingNotesWriter
 
         var whole = NotesGrounding.From(numbered, meeting.MyNotes);
         var level = new List<Draft>();
-        foreach (var chunk in Chunks(numbered, ChunkCharacters))
+        foreach (var chunk in Chunks(numbered, chunkCharacters))
         {
             var parts = await Request(chunk, (lines, id) => MeetingNotesPrompt.Extract(lines, meeting.MyNotes, id),
                 1, "Part of this meeting is too long for the notes route.", true).ConfigureAwait(false);
-            level.AddRange(parts.Select(part => Ground(part, whole, reasons, lecture)));
+            level.AddRange(parts.Select(part => Ground(part, whole, reasons, lecture).Capped()));
         }
 
         var speakers = MeetingNotesPrompt.Speakers(numbered);
@@ -70,7 +74,7 @@ public static class MeetingNotesWriter
             foreach (var part in level)
             {
                 int length = SwiftText.Count(part.Text) + 2;
-                if (batch.Count >= 2 && size + length > ChunkCharacters)
+                if (batch.Count >= 2 && size + length > chunkCharacters)
                 {
                     batches.Add(batch.ToArray());
                     batch.Clear();
@@ -90,7 +94,7 @@ public static class MeetingNotesWriter
             level = next;
         }
 
-        var draft = Ground(level.Single(), whole, reasons, lecture);
+        var draft = Ground(level.Single(), whole, reasons, lecture).Capped();
         var ids = numbered.ToDictionary(line => line.Number, line => line.Line.Id);
         NoteItem[] Items(IEnumerable<Draft.Item> items, bool action = false) =>
             items.Select(item => new NoteItem(item.Text, item.Lines.Select(id => ids[id]).ToArray(), item.Owner, item.Due, action ? false : null)).ToArray();

@@ -96,7 +96,7 @@ public enum SessionDisposition
 public enum ProviderErrorKind
 {
     Authentication, Quota, RateLimited, Network, Timeout, PayloadTooLarge, Server, MalformedResponse, ContentBlocked,
-    Rejected, InvalidConfiguration, ServerNotRunning, ModelUnavailable, Cancelled,
+    Rejected, InvalidConfiguration, ServerNotRunning, ModelUnavailable, Cancelled, OutputTruncated,
 }
 
 /// <summary>Swift <c>enum ProviderError</c>: one case and its payload. Thrown inside <see cref="ProviderException"/>.
@@ -133,6 +133,8 @@ public sealed record ProviderError
     public static ProviderError ServerNotRunning(ProviderID p, string address) => new() { Case = ProviderErrorKind.ServerNotRunning, Provider = p, Address = address };
     /// <summary>An on-device model that cannot run now; nothing was generated.</summary>
     public static ProviderError ModelUnavailable(ProviderID p, OnDeviceModelUnavailable reason) => new() { Case = ProviderErrorKind.ModelUnavailable, Provider = p, Unavailable = reason };
+    /// <summary>The reply stopped at the output-token cap (finish_reason "length"): the answer is cut off. Meeting notes split the request once and retry; every other use treats it like <see cref="MalformedResponse"/>.</summary>
+    public static ProviderError OutputTruncated(ProviderID p) => new() { Case = ProviderErrorKind.OutputTruncated, Provider = p };
     public static readonly ProviderError Cancelled = new() { Case = ProviderErrorKind.Cancelled };
 
     /// <summary>The case name, for History and the timing log.</summary>
@@ -141,7 +143,7 @@ public sealed record ProviderError
     public SessionDisposition Disposition => Case switch
     {
         ProviderErrorKind.RateLimited or ProviderErrorKind.Network or ProviderErrorKind.Timeout or ProviderErrorKind.Server
-            or ProviderErrorKind.MalformedResponse or ProviderErrorKind.ServerNotRunning => SessionDisposition.PreserveRetryLater,
+            or ProviderErrorKind.MalformedResponse or ProviderErrorKind.OutputTruncated or ProviderErrorKind.ServerNotRunning => SessionDisposition.PreserveRetryLater,
         ProviderErrorKind.Cancelled => SessionDisposition.Discard,
         _ => SessionDisposition.PreserveNeedsChange,
     };
@@ -169,7 +171,7 @@ public sealed record ProviderError
                 case ProviderErrorKind.PayloadTooLarge:
                     return LimitBytes is int limit ? $"The recording is too large for {name} (limit {limit / 1_000_000} MB)." : $"The request is too large for {name}.";
                 case ProviderErrorKind.Server: return Status is long status ? $"{name} had a server problem (HTTP {status})." : $"{name} had a server problem.";
-                case ProviderErrorKind.MalformedResponse: return $"{name} returned a response Murmur couldn't use.";
+                case ProviderErrorKind.MalformedResponse or ProviderErrorKind.OutputTruncated: return $"{name} returned a response Murmur couldn't use.";
                 case ProviderErrorKind.ContentBlocked: return $"{name} declined to process this dictation (content filter).";
                 case ProviderErrorKind.Rejected when Provider == ProviderID.MurmurCloud: return $"{name} rejected the request (HTTP {Status}).";
                 case ProviderErrorKind.Rejected: return $"{name} rejected the request (HTTP {Status}). Check the model setting.";

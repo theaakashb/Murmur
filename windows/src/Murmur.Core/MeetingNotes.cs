@@ -54,6 +54,18 @@ internal sealed record MeetingNotesData(Dictionary<string, string> Prompt, HashS
     public static readonly MeetingNotesData Shared = SharedData.Load<MeetingNotesData>("meeting_notes");
 }
 
+/// <summary>The notes contract's size limits, shared with the Mac (app/MeetingNotes.swift): a reply is cut to these counts after parsing, so a long meeting's drafts stay small enough to merge.</summary>
+public static class MeetingNotesLimits
+{
+    public const int MaxPoints = 8;
+    public const int MaxDecisions = 10;
+    public const int MaxActions = 12;
+    /// <summary>The reply-token cap of the on-device notes model (the cap the benchmark used). A reply that reaches it ends the request as <see cref="ProviderErrorKind.OutputTruncated"/>.</summary>
+    public const int ReplyTokens = 1200;
+    /// <summary>Characters of transcript per extraction request and of drafts per merge batch on the on-device route: 8,192 tokens of context less the prompt and the reply.</summary>
+    public const int LocalChunkCharacters = 5_000;
+}
+
 public static class MeetingNotesPrompt
 {
     public sealed record Numbered(int Number, MeetingLine Line, string Speaker);
@@ -99,6 +111,10 @@ public static class MeetingNotesPrompt
     static string SystemMessage(string template, string nonce, string[] speakers) =>
         PromptTemplate.Fill(MeetingNotesData.Shared.Prompt[template], ("nonce", nonce), ("speakers", string.Join(", ", speakers)));
 
+    /// <summary>The last line of every extraction and merge prompt (after the rules): the model is told the item caps in <see cref="MeetingNotesLimits"/>.</summary>
+    public static string CapInstruction => FormattableString.Invariant(
+        $"Return at most {MeetingNotesLimits.MaxPoints} POINT, {MeetingNotesLimits.MaxDecisions} DECISION and {MeetingNotesLimits.MaxActions} ACTION lines. Prefer the most important supported items.");
+
     public static string LectureRules => MeetingNotesData.Shared.Prompt["lectureRules"];
 }
 
@@ -110,6 +126,14 @@ public sealed record Draft
     public IReadOnlyList<Item> Points { get; init; } = [];
     public IReadOnlyList<Item> Decisions { get; init; } = [];
     public IReadOnlyList<Item> Actions { get; init; } = [];
+
+    /// <summary>At most <see cref="MeetingNotesLimits"/> items of each kind, the first ones.</summary>
+    public Draft Capped() => this with
+    {
+        Points = Points.Take(MeetingNotesLimits.MaxPoints).ToArray(),
+        Decisions = Decisions.Take(MeetingNotesLimits.MaxDecisions).ToArray(),
+        Actions = Actions.Take(MeetingNotesLimits.MaxActions).ToArray(),
+    };
 
     public string Text
     {
