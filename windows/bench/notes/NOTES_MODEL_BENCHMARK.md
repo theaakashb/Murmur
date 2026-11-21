@@ -154,3 +154,51 @@ PC agent 76b8269f finished the remaining PC cells. Setup matches the "Star Labs 
 - **Not run:** the quality set (scoring generated items against the corpus on the PC). It was never implemented in the PC harness.
 
 The interim recommendation stands. There is no CPU-only default and no low-RAM fallback: the CPU cells that completed took 462–561 s for 30 minutes, and no 60-minute run completed. Gemma 3 4B on a discrete GPU stays the pilot candidate. Qwen2.5 7B on Vulkan was the fastest to complete 30 minutes (23 s). Long meetings need a fix for output exhaustion, such as splitting and retrying when a reply hits the cap, before any model can be called reliable. Nothing is pinned; the model choice goes to the user.
+
+## Long-meeting fix: item caps, split on output exhaustion (2026-11-20, Star Labs PC)
+
+Prototype in `windows/bench/notes/harness2` (a bench copy of the C# writer; `Murmur.Core` is untouched). Setup as above: 1,200 reply tokens, one 8,192-token slot, 5,000-character chunks, Below Normal priority, single samples, no context overflows anywhere. Vulkan offloads every layer, six host threads; CPU uses 12 threads. A separate build ran briefly beside the first Gemma run. GPU MiB is the peak total in use (baseline about 1,300).
+
+**Diagnosis from the existing 12 cells.** Every length failure but two was one request using all 1,200 tokens, and extraction was the usual one: 16 extraction against 1 merge in the unbounded cells. Failing extractions had ordinary prompts (2,450–2,720 tokens) while their siblings in the same run answered in 190–700 tokens. The cap is hit by one runaway reply, not by a large input. The one merge failure (bounded Gemma Vulkan, 30 minutes) had a 1,955-token prompt and a 1,200-token reply. Merges do grow with accumulated items: unbounded Gemma Vulkan merge replies were 1,188, 447 and 1,133 tokens. The bounded prompt alone did not remove runaway replies, because the model can ignore a prompt limit. Two failures were unparseable replies (Phi), which splitting would also address.
+
+**Variants.** "Cap" adds the Mac limits (8 points, 10 decisions, 12 actions) to the prompt and truncates every parsed extraction reply, every merge reply and the grounded final draft to them, keeping the first items. "Split" retries once, on half the input, when a reply hits the token cap (extraction: half the lines; merge: half the drafts; a lone draft is passed through), and fails if a half also hits the cap. "Fan3" merges at most three drafts per request.
+
+| Cell | 30-minute | 60-minute | Requests (30 / 60) | Peak working set | GPU MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Gemma / Vulkan, cap + split | 41 s | 76 s | 10 / 18 | 12.05 GB | 4,520 |
+| Gemma / Vulkan, cap + split + fan3 | 43 s | 90 s | 10 / 22 | 12.18 GB | 4,509 |
+| Gemma / Vulkan, split only | 37 s | F 124 s (merge) | 10 / 28 | 12.07 GB | 4,509 |
+| Qwen 7B / Vulkan, cap + split | 24 s | 56 s | 8 / 17 | 8.80 GB | 6,780 |
+| Qwen 7B / Vulkan, cap + split + fan3 | 31 s | 89 s | 10 / 24 | 9.55 GB | 6,699 |
+| Qwen 7B / Vulkan, split only | 20 s | 59 s | 8 / 19 | 8.83 GB | 6,698 |
+| Gemma / CPU, cap + split | 629 s | 1,219 s | 12 / 21 | 13.25 GB | — |
+
+Kept (points/decisions/actions) and dropped, 30 / 60 minutes: Gemma cap + split 8/9/12, 69 and 8/10/12, 141; Gemma fan3 8/10/12, 74 and 8/10/11, 147; Gemma split only 25/10/23, 60 and failed; Qwen cap + split 0/2/6, 46 and 8/0/7, 98; Qwen fan3 6/1/2, 60 and 8/1/11, 81; Qwen split only 1/1/1, 38 and 14/1/14, 69; Gemma CPU 8/10/12, 63 and 8/10/12, 131. Items cut by the cap after parsing: 43–125 per Gemma run, 0–19 per Qwen run. Output exhaustion with splitting enabled: Gemma Vulkan cap + split had none; Gemma CPU cap + split split once at 30 minutes and twice at 60; Gemma split only had five cap hits and four splits and still failed at 60 minutes when a merge of two drafts could not be split; Qwen fan3 and split only each recovered one extraction or merge.
+
+- **Cap plus split completed all seven cells**, including both 60-minute Vulkan runs and the Gemma CPU run. Split alone did not complete Gemma at 60 minutes, so the cap is needed for Gemma. Qwen completed with either.
+- **Fan3 did not help.** It added requests and time with no reduction in cap hits.
+- **The cap trims heavily on Gemma.** It generates more items than the limits allow, so a long meeting ends with about 8/10/12 items from a pool that is truncated at every merge level. Truncation keeps the first items, not the best.
+- **Qwen kept few decisions and actions at 30 and 60 minutes.** Gemma kept more.
+
+**Quality (22-meeting corpus and 9-meeting heldout, Vulkan, C# port of the Swift scorer, 1,200 tokens, 5,000-character chunks).** Unsupported is count; invented is names or numbers; misses are labelled decisions and actions. Failed meetings: 0 in every row.
+
+| Variant | Set | Unsupported | Invented | Decisions missed | Actions missed |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Gemma baseline (no cap, no split) | Corpus | 3 | 0 | 11 / 21 | 10 / 30 |
+| Gemma cap + split | Corpus | 4 | 0 | 10 / 21 | 10 / 30 |
+| Gemma baseline | Heldout | 0 | 0 | 3 / 8 | 3 / 11 |
+| Gemma cap + split | Heldout | 0 | 0 | 4 / 8 | 3 / 11 |
+| Qwen 7B baseline | Corpus | 0 | 0 | 6 / 21 | 21 / 30 |
+| Qwen 7B cap + split | Corpus | 1 | 0 | 8 / 21 | 18 / 30 |
+| Qwen 7B baseline | Heldout | 0 | 0 | 3 / 8 | 6 / 11 |
+| Qwen 7B cap + split | Heldout | 0 | 0 | 4 / 8 | 7 / 11 |
+
+Gemma cap + split: 0.18 unsupported per corpus meeting, within the 0.20 bar; zero invented. Qwen 7B cap + split: 0.05. The short meetings have one chunk, so the cap and split rarely act on them, and the differences are within noise for single samples. These Vulkan runs differ from the earlier Metal rows (Gemma misses 8/21 and 11/30 on the corpus there), so compare within this table. The fixtures give no recall labels for the repeated 30- and 60-minute meetings, where the cap's loss of items cannot be measured.
+
+**Proposed contract change (Mac and Windows writer).**
+1. Both extraction and merge replies are capped at 8 points, 10 decisions and 12 actions after parsing, for every route, not only Apple's schema. Truncate after grounding on extraction, and after parsing on merge.
+2. When a request stops at the reply cap (finish reason length), split that request's input once and retry each half: extraction by lines, merge by drafts. Treat a second cap hit as a failure, mirroring the one split on context overflow. A merge of two drafts cannot be split, so it fails.
+3. Add the line-limit sentence to the line-protocol system prompts for custom routes.
+4. Keep the 1,200-token cap. Do not add a fan-out limit.
+
+Cleanup: nothing new was written on C:. Models, binaries and result folders stay under `T:\Paseo Project\Murmur\bench-notes`; run folders are `results\runs2` and `results\quality`.
