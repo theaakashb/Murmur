@@ -70,7 +70,7 @@ Murmur Cloud is skipped without a stored key. Keep cloud runs short.
 
 ## Natural (local), processing time — November 20, 2026
 
-Warm helper, synthetic `say` clips (n = 20 per length, same clips as above), time = local transcription + `processAsync`, no insertion. Median / P95 ms. Same Mac and tool (`app/tools/measure_latency.swift`, stage `natural`; `LOCAL_CLEANUP_HELPER` names the installed LocalCleanupRunner). **This run was made while another job kept about four cores busy (`llama-server`), so it is slower than a quiet Mac and does not confirm or replace a published figure.**
+Warm helper, synthetic `say` clips (n = 20 per length, same clips as above), time = local transcription + `processAsync`, no insertion. Median / P95 ms. Same Mac and tool (`app/tools/measure_latency.swift`, stage `natural`; `LOCAL_CLEANUP_HELPER` names the installed LocalCleanupRunner). **Not confirmed: measured under load from other work; rerun needed on an idle Mac.** Another job kept several cores busy (`llama-server`), so these rows are slower than a quiet Mac and neither confirm nor replace a published figure. Later attempts to rerun on an idle Mac were also under load and were discarded.
 
 | Route | Short (~5 s) | Medium (~15 s) | Long (~45 s) |
 |---|---:|---:|---:|
