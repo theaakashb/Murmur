@@ -39,6 +39,7 @@ public class WritingModesTests
         c.Check(Strip("slack mode", "slack mode fix the build") == "fix the build", "lowercase transcript stays lowercase");
         c.Check(Strip("code", "Code: fix it") == "Fix it", "a colon after the trigger goes");
         c.Check(Strip("email mode", "Email mode. Fix it.") == "Fix it.", "a period after a leading trigger goes");
+        c.Check(Strip("email mode", "E-mail mode, fix it.") == "Fix it.", "a hyphenated \"E-mail\" still matches the trigger");
         c.Check(Strip("slack mode", "Fix it, slack mode.") == "Fix it.", "trailing trigger: comma dropped, terminal mark kept");
         c.Check(Strip("slack mode", "Is it fixed slack mode?") == "Is it fixed?", "a trailing question mark is kept");
         c.Check(Strip("slack mode", "Fix it. Slack mode.") == "Fix it.", "a trailing trigger sentence leaves the earlier period");
