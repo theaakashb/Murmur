@@ -59,22 +59,17 @@ public partial class App : Application
 
     void Launch()
     {
-        // Development aid: render the pill offscreen and exit. No mutex, no services, no data folder.
-        var launchArgs0 = Environment.GetCommandLineArgs();
-        var renderAt = Array.IndexOf(launchArgs0, "--render-bubble");
-        if (renderAt >= 0 && renderAt + 1 < launchArgs0.Length)
+        // Development aid: --bubble-demo <state> <seconds> [light|dark] shows the real pill window for a while and exits. Its own mutex, no services, no data folder, no clipboard.
+        var args0 = Environment.GetCommandLineArgs();
+        var demoAt = Array.IndexOf(args0, "--bubble-demo");
+        if (demoAt >= 0)
         {
-            var folder = launchArgs0[renderAt + 1];
-            var renderQueue = DispatcherQueue.GetForCurrentThread();
-            var pill = new Bubble(renderQueue);
-            _ = RenderThenExit(pill, folder);
-            return;
-        }
-        var liveAt = Array.IndexOf(launchArgs0, "--live-bubble");
-        if (liveAt >= 0 && liveAt + 1 < launchArgs0.Length)
-        {
-            var livePill = new Bubble(DispatcherQueue.GetForCurrentThread());
-            _ = LiveThenExit(livePill, launchArgs0[liveAt + 1]);
+            single = new Mutex(true, @"Local\Murmur.BubbleDemo", out var demoFirst);
+            if (!demoFirst) Environment.Exit(0);
+            string demoState = demoAt + 1 < args0.Length ? args0[demoAt + 1] : "all";
+            double demoSeconds = demoAt + 2 < args0.Length && double.TryParse(args0[demoAt + 2], System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 5;
+            bool? dark = demoAt + 3 < args0.Length ? args0[demoAt + 3] switch { "dark" => true, "light" => false, _ => null } : null;
+            _ = DemoThenExit(new Bubble(DispatcherQueue.GetForCurrentThread()) { Demo = true, ForceDark = dark }, demoState, demoSeconds);
             return;
         }
         var dataDir = Environment.GetEnvironmentVariable("MURMUR_DATA_DIR");
@@ -128,17 +123,10 @@ public partial class App : Application
         if (launchArgs.Contains("--start-meeting")) controller.StartMeeting();
     }
 
-    async Task LiveThenExit(Bubble pill, string folder)
+    static async Task DemoThenExit(Bubble pill, string state, double seconds)
     {
-        try { await pill.LiveStatesAsync(folder); }
-        catch (Exception e) { Directory.CreateDirectory(folder); File.WriteAllText(Path.Combine(folder, "live-error.txt"), e.ToString()); }
-        Environment.Exit(0);
-    }
-
-    async Task RenderThenExit(Bubble pill, string folder)
-    {
-        try { await pill.RenderStatesAsync(folder); }
-        catch (Exception e) { File.WriteAllText(Path.Combine(folder, "render-error.txt"), e.ToString()); }
+        try { await pill.DemoAsync(state, seconds); }
+        catch (Exception e) { CrashLog.Write(e); }
         Environment.Exit(0);
     }
 
