@@ -23,16 +23,30 @@ internal sealed partial class SettingsView
                     : DisclosureText.Summary(plan, ProcessingStage.Transcription) ?? "Meeting audio is sent to the cloud transcriber.";
             }, cloud: [1]);
 
-        var routes = new[] { MeetingNotesRoute.None, MeetingNotesRoute.CustomProvider };
-        int current = MeetingNotesRoutes.Load(s.Settings) == MeetingNotesRoute.CustomProvider ? 1 : 0;
+        var routes = new[] { MeetingNotesRoute.None, MeetingNotesRoute.CustomProvider, MeetingNotesRoute.LocalModel };
+        int current = Math.Max(0, Array.IndexOf(routes, MeetingNotesRoutes.Load(s.Settings) ?? MeetingNotesRoute.None));
         SegmentedRow("Meeting notes", null, [.. routes.Select(r => r.Label())], current,
-            i => { s.Settings.Set("meetingNotesRoute", routes[i] == MeetingNotesRoute.CustomProvider ? "custom-api" : "none"); },
+            i => { s.Settings.Set("meetingNotesRoute", routes[i].SettingValue()); },
             i =>
             {
                 var r = RouteSettings.Load(s.Settings);
                 var host = Uri.TryCreate(r.CustomAPIBaseURL, UriKind.Absolute, out var uri) ? uri.Host : null;
                 return routes[i].Disclosure(host, uri?.IsLoopback == true, null);
             });
+
+        // The on-device notes model: the same responsive row as the other models (progress, cancel, remove, verify), with the no-GPU warning where the model is chosen.
+        var notesModel = new ModelRow(s, s.LocalNotesSlot, controller, root, go => go(), () => { });
+        var gpuNote = MurmurStyle.Text("", "MurmurCaption");
+        gpuNote.TextWrapping = TextWrapping.Wrap;
+        void ShowGpuNote()
+        {
+            gpuNote.Text = NotesGpu.Warning(NotesGpu.Known) ?? "";
+            gpuNote.Visibility = gpuNote.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        }
+        ShowGpuNote();
+        _ = NotesGpu.Available().ContinueWith(_ => s.UI.TryEnqueue(ShowGpuNote), TaskScheduler.Default);
+        notesModel.Panel.Children.Insert(Math.Min(3, notesModel.Panel.Children.Count), gpuNote);
+        page.Children.Add(MurmurStyle.Card(notesModel.Panel));
 
         Heading("Calls");
         var detect = MurmurStyle.Named(new ToggleSwitch { IsOn = CallDetectionSettings.Enabled(s.Settings), OnContent = null, OffContent = null, MinWidth = 0 }, "Offer meeting notes when a call starts");

@@ -65,6 +65,14 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 - These are not the original weights, and HeyVedu and the Qwen team have not endorsed them.
 - Hosted at https://huggingface.co/clouddevaakash/vedu-scribe-0.8b-gguf (revision `edf275972c822fb7787226a89afa4282feb74ec4`), with the Apache-2.0 text and this modification notice. The Windows app downloads it from there, pinned by revision and SHA-256.
 
+### Gemma 3 4B, GGUF (Windows local meeting notes, downloaded at run time)
+
+- Gemma 3 4B instruction-tuned by Google, as the Q4_K_M GGUF `gemma-3-4b-it-Q4_K_M.gguf` from https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF (revision `d0976223747697cb51e056d85c532013931fe52e`; 2,489,757,856 bytes; SHA-256 `882e8d2db44dc554fb0ea5077cb7e4bc49e7342a1f0da57901c0802ea21a0863`). The card is tagged `gemma` and names `base_model: google/gemma-3-4b-it`. Checked November 21, 2026 through the Hugging Face model API, and the SHA-256 and size recomputed on the file the benchmark ran.
+- Terms: Gemma is provided under and subject to the Gemma Terms of Use, https://ai.google.dev/gemma/terms. This is not an open-source licence. The use restrictions are the Gemma Prohibited Use Policy, https://ai.google.dev/gemma/prohibited_use_policy.
+- Murmur does not change the weights and does not bundle or redistribute them: the Windows app downloads the file from Hugging Face only when the user asks for it, and the download confirmation shows the terms notice and the Prohibited Use Policy link before any byte is fetched. Murmur does not provide the model as a service. If a release ever bundles or hosts the file, the terms' redistribution duties apply (pass on the use restrictions and this notice, state the terms' location, mark any change) and this section must be updated first.
+- Runs through LLamaSharp and llama.cpp (see above), locally; the transcript is never sent anywhere.
+- Windows only: the Mac does not use it.
+
 ## Downloaded at run time, not bundled
 
 ### Parakeet Unified English 0.6B
