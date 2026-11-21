@@ -41,6 +41,27 @@ public sealed class BrowserPageTests
     public void OnlyNonsecurePageFocusCanRead(bool inPage, bool addressBar, bool password, bool expected) =>
         Assert.Equal(expected, BrowserPage.CanRead(inPage, addressBar, password));
 
+    [Theory]
+    [InlineData(50004, true)]  // Chromium omnibox: Edit
+    [InlineData(50003, true)]  // Firefox urlbar-input: ComboBox (Firefox 160 UI Automation)
+    [InlineData(50030, false)] // a page document is never the address bar
+    [InlineData(50000, false)]
+    public void AddressBarControlTypes(int controlType, bool expected) => Assert.Equal(expected, FocusProbe.IsAddressBarControl(controlType));
+
+    [Theory]
+    [InlineData(50032, true)]  // Window, Pane: focus before Chromium builds its tree
+    [InlineData(50033, true)]
+    [InlineData(50004, false)]
+    [InlineData(50030, false)]
+    public void BareWindowFocusIsBeforeTheTreeExists(int controlType, bool expected) => Assert.Equal(expected, BrowserPage.IsBareWindowFocus(controlType));
+
+    [Theory]
+    [InlineData("comet", true)]
+    [InlineData("chrome", true)]
+    [InlineData("firefox", true)]
+    [InlineData("notepad", false)]
+    public void SupportedBrowsers(string process, bool expected) => Assert.Equal(expected, BrowserPage.Supported(process) is not null);
+
     [Fact]
     public void WebsiteModeWinsAndMissingPageFallsBackToAppMode()
     {
