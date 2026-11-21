@@ -6,7 +6,7 @@ namespace Murmur.Core.Tests;
 [Collection("NotesGpu")]
 public sealed class LocalNotesTests
 {
-    const string Warning = "No compatible GPU found. Local meeting notes may take 10 minutes or more for a 30-minute meeting. Murmur Cloud is much faster.";
+    const string Warning = "No compatible GPU found. Local meeting notes may take 10 minutes or more for a 30-minute meeting. A Custom Provider, or a PC with a compatible GPU, is much faster.";
 
     static ModelManifest Manifest() => ModelFacts.LocalNotes.Manifest(BundledModels.Pins(ModelPinsSource.WindowsModels)!);
 
