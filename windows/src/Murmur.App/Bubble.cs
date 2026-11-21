@@ -1,3 +1,4 @@
+using Microsoft.UI.Xaml.Shapes;
 using System.Diagnostics;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
@@ -16,7 +17,9 @@ internal sealed partial class Bubble
     readonly nint hwnd;
     readonly Border surface = new() { Style = MurmurStyle.Style("MurmurBubble") };
     static readonly double[] BarWeights = [0.6, 0.85, 1, 0.85, 0.6];
-    readonly Border[] bars = new Border[BarWeights.Length];
+    readonly Rectangle[] bars = new Rectangle[BarWeights.Length];
+    // The Mac bars are 9 pt wide capsules (Capsule() clip, radius = width / 2).
+    const double BarWidth = 9, BarRadius = BarWidth / 2;
     readonly StackPanel waveform = new() { Width = 80, Height = 40, Orientation = Orientation.Horizontal, Padding = new Thickness(5, 0, 5, 0) };
     readonly TextBlock text = MurmurStyle.Text("", "MurmurSettingLabel");
     readonly TextBlock partial = MurmurStyle.Text("", "MurmurSettingLabel");
@@ -50,7 +53,7 @@ internal sealed partial class Bubble
 
         for (int i = 0; i < bars.Length; i++)
         {
-            var bar = new Border { Width = 9, Height = 13, Margin = new Thickness(2.5, 0, 2.5, 0), CornerRadius = new CornerRadius(4.5), VerticalAlignment = VerticalAlignment.Center, Style = MurmurStyle.Style("MurmurBubbleDot") };
+            var bar = new Rectangle { Width = BarWidth, Height = 13, RadiusX = BarRadius, RadiusY = BarRadius, Margin = new Thickness(2.5, 0, 2.5, 0), VerticalAlignment = VerticalAlignment.Center, Style = MurmurStyle.Style("MurmurBubbleBar") };
             bars[i] = bar;
             waveform.Children.Add(bar);
         }
