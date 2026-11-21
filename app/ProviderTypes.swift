@@ -105,6 +105,8 @@ enum ProviderError: Error, Equatable, Sendable, CustomStringConvertible, Localiz
     case payloadTooLarge(ProviderID, limitBytes: Int?)
     case server(ProviderID, status: Int?)
     case malformedResponse(ProviderID)
+    /// The reply stopped at the output-token cap (`finish_reason` "length"): the answer is cut off. Meeting notes split the request once and retry; everything else treats it like `malformedResponse`.
+    case outputTruncated(ProviderID)
     /// The provider's safety or moderation filter declined the input.
     case contentBlocked(ProviderID)
     /// Other 4xx, e.g. an unknown model or a bad parameter.
@@ -129,6 +131,7 @@ enum ProviderError: Error, Equatable, Sendable, CustomStringConvertible, Localiz
         case .payloadTooLarge: return "payloadTooLarge"
         case .server: return "server"
         case .malformedResponse: return "malformedResponse"
+        case .outputTruncated: return "outputTruncated"
         case .contentBlocked: return "contentBlocked"
         case .rejected: return "rejected"
         case .invalidConfiguration: return "invalidConfiguration"
@@ -141,7 +144,7 @@ enum ProviderError: Error, Equatable, Sendable, CustomStringConvertible, Localiz
     var provider: ProviderID? {
         switch self {
         case .authentication(let p), .quota(let p), .rateLimited(let p, _), .network(let p), .timeout(let p),
-             .payloadTooLarge(let p, _), .server(let p, _), .malformedResponse(let p), .contentBlocked(let p),
+             .payloadTooLarge(let p, _), .server(let p, _), .malformedResponse(let p), .outputTruncated(let p), .contentBlocked(let p),
              .rejected(let p, _), .invalidConfiguration(let p), .serverNotRunning(let p, _), .modelUnavailable(let p, _):
             return p
         case .cancelled:
@@ -151,7 +154,7 @@ enum ProviderError: Error, Equatable, Sendable, CustomStringConvertible, Localiz
 
     var disposition: SessionDisposition {
         switch self {
-        case .rateLimited, .network, .timeout, .server, .malformedResponse, .serverNotRunning: return .preserveRetryLater
+        case .rateLimited, .network, .timeout, .server, .malformedResponse, .outputTruncated, .serverNotRunning: return .preserveRetryLater
         case .authentication, .quota, .payloadTooLarge, .contentBlocked, .rejected, .invalidConfiguration, .modelUnavailable: return .preserveNeedsChange
         case .cancelled: return .discard
         }
@@ -182,7 +185,7 @@ enum ProviderError: Error, Equatable, Sendable, CustomStringConvertible, Localiz
         case .server(_, let status):
             if let status = status { return "\(name) had a server problem (HTTP \(status))." }
             return "\(name) had a server problem."
-        case .malformedResponse:
+        case .malformedResponse, .outputTruncated:
             return "\(name) returned a response Murmur couldn't use."
         case .contentBlocked:
             return "\(name) declined to process this dictation (content filter)."

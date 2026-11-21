@@ -148,7 +148,7 @@ enum OpenAIChatFormat {
     }
 
     /// `choices[0].message.content`. Errors can arrive with HTTP 200 (some gateways), so the `error`
-    /// object is checked first. A `length` finish (truncated) is an error.
+    /// object is checked first. A `length` finish (truncated) is `outputTruncated`.
     static func parse(provider: ProviderID, result: HTTPResult) throws -> String {
         guard (200..<300).contains(result.status) else { throw ProviderErrorClassifier.classify(provider: provider, result: result) }
         guard let object = try? JSONSerialization.jsonObject(with: result.body) as? [String: Any] else { throw ProviderError.malformedResponse(provider) }
@@ -158,6 +158,7 @@ enum OpenAIChatFormat {
         switch first["finish_reason"] as? String {
         case nil, "stop": break
         case "content_filter": throw ProviderError.contentBlocked(provider)
+        case "length": throw ProviderError.outputTruncated(provider)
         default: throw ProviderError.malformedResponse(provider)
         }
         guard let message = first["message"] as? [String: Any], let content = message["content"] as? String else { throw ProviderError.malformedResponse(provider) }

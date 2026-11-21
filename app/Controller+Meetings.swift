@@ -111,7 +111,7 @@ extension AppController {
         let structured = route == .appleIntelligence
         return try await MeetingNotesWriter.write(meeting, route: route, routeName: name, structured: structured, lecture: lecture) { system, user in
             do { return structured ? try await AppleSystemModel.notes(system: system, user: user, lecture: lecture) : try await provider.cleanup(CleanupMessages(system: system, user: user)) }
-            catch ProviderError.payloadTooLarge { throw NotesFailure.tooLarge }
+            catch ProviderError.payloadTooLarge, ProviderError.outputTruncated { throw NotesFailure.tooLarge }
             catch let error as ProviderError { throw NotesFailure.failed(error.userMessage) }
             catch { throw NotesFailure.failed("Notes could not be written.") }
         }
