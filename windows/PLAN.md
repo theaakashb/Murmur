@@ -325,6 +325,8 @@ Windows VM probe (2026-11-19). The console was at 125% scaling with English brow
 | Firefox 160.0.1 | The full installer timed out. The probe ran from the signed files it extracted. The first diagnostic observed a different foreground process, so it could not inspect the Firefox window. A follow-up with the probe attempting to activate the browser process again timed out on the normal-window case. | Full matrix pending, including live verification of the `urlbar-input` reader. |
 | Brave 1.100.58 | Install failed on the VM. The standalone installer returned `0x80040719` and the vendor silent installer timed out. | Full matrix pending on the user's PC. |
 
+PC probe, 2026-11-21 (fresh profiles, single-shot read as the app does it): Firefox 160 never matched because its `urlbar-input` is a ComboBox, not an Edit (fixed: both are accepted). Chrome and Edge missed only the first read after the app first touched a browser, while Chromium built its tree (fixed: a bare window or pane focus from before the tree stands for the page, with a short wait once). Chrome, Edge and Firefox now match on the first read. Brave is not installed on this PC. Comet (Perplexity) is Chromium and was added to the supported names; its fresh profile stopped at sign-in, so it is unverified.
+
 The user-PC matrix is pending for all browsers. To run the VM probe from its logged-in console, set `MURMUR_RUN_BROWSER_PROBE=1` and run `dotnet test windows/tests/Murmur.Platform.Tests --filter FullyQualifiedName~ChromiumBrowserPageTests`. Set `MURMUR_BROWSER_PROBE` to `msedge`, `chrome`, `firefox`, or `brave`. For an extracted browser, set `MURMUR_BROWSER_PROBE_EXE` to its executable path.
 
 ## Learning from edits

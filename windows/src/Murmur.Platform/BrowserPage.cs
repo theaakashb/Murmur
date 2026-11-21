@@ -7,10 +7,13 @@ internal static class BrowserPage
 
     internal static Family? Supported(string processName) => processName switch
     {
-        "msedge" or "chrome" or "brave" or "vivaldi" or "opera" or "arc" => Family.Chromium,
+        "msedge" or "chrome" or "brave" or "vivaldi" or "opera" or "arc" or "chromium" or "comet" => Family.Chromium,
         "firefox" => Family.Firefox,
         _ => null,
     };
+
+    /// <summary>UI Automation control types for a Window and a Pane: what focus looks like before Chromium has built the page tree.</summary>
+    internal static bool IsBareWindowFocus(int controlType) => controlType is 50032 or 50033;
 
     internal static bool CanRead(bool insideDocument, bool addressBarFocused, bool password) =>
         insideDocument && !addressBarFocused && !password;
