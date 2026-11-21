@@ -173,12 +173,6 @@
                 <Setter Property="CornerRadius" Value="8" />
                 <Setter Property="Padding" Value="5" />
             </Style>
-            <Style x:Key="MurmurBubble" TargetType="Border" BasedOn="{StaticResource MurmurCard}">
-                <Setter Property="Background" Value="{ThemeResource MurmurPaper}" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="22" />
-                <Setter Property="Padding" Value="5,2" />
-            </Style>
             <Style x:Key="MurmurSidebarPane" TargetType="Border">
                 <Setter Property="Background" Value="{ThemeResource MurmurSidebar}" />
                 <Setter Property="BorderBrush" Value="{ThemeResource MurmurRule}" />
@@ -201,15 +195,6 @@
             </Style>
             <Style x:Key="MurmurAccentIcon" TargetType="FontIcon">
                 <Setter Property="Foreground" Value="{ThemeResource MurmurAccent}" />
-            </Style>
-            <Style x:Key="MurmurBubbleDot" TargetType="Border">
-                <Setter Property="Background" Value="{ThemeResource MurmurAccent}" />
-            </Style>
-            <Style x:Key="MurmurBubbleBar" TargetType="Rectangle">
-                <Setter Property="Fill" Value="{ThemeResource MurmurAccent}" />
-            </Style>
-            <Style x:Key="MurmurBubbleError" TargetType="Border">
-                <Setter Property="Background" Value="{ThemeResource SystemFillColorCriticalBrush}" />
             </Style>
         </ResourceDictionary>
     </Application.Resources>

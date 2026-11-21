@@ -26,7 +26,7 @@
 1. **`windows-modes-fix@7d03254`: DONE, ready to merge.** It covers Firefox website matching (the address bar is a ComboBox), the Chromium first read, Comet support, the ModeFeedback notice when no rewrite engine is configured on a local route, the "E-mail mode" hyphen fold, and "Editing on Murmur Cloud…".
    - Release build 0 warnings; Core 22,721 passed.
    - The commit subject has a stray BOM; leave it.
-2. **`windows-pill-alpha@39158b7`: WIP, NOT built.** Read `windows/CHECKPOINT-pill-alpha.md` on that branch.
+2. **`windows-pill-layered` (supersedes windows-pill-alpha@39158b7): the pill is now a layered Win32 window drawn with GDI+; see `windows/CHECKPOINT-pill-layered.md`. Awaiting the VM live check.** (History: the old WIP notes were on windows-pill-alpha.)
    - Transparency is unsolved. The live capture method does NOT validate: it shows the app-next6 and app-next7 paths both black.
    - Candidate: presenter border off plus `DwmExtendFrameIntoClientArea(-1)`. It looked transparent in the first runs, then after about 3:33 every extended-frame variant drew nothing. The cause is unresolved; the BubbleLive.cs display-pinning edit is suspected.
    - Also on this branch: live words now show the card at once with "Listening…", like the Mac. Not measured: the streaming model wasn't on disk.
