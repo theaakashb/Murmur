@@ -56,7 +56,7 @@ public sealed class MeetingGoldenTests
     [Theory]
     [InlineData("meeting-notes-corpus")]
     [InlineData("meeting-notes-heldout")]
-    public async Task FakeRepliesMatchSwiftGroundingAcrossCorpus(string file)
+    public void FakeRepliesMatchSwiftGroundingAcrossCorpus(string file)
     {
         var expected = GoldenFiles.Load("meeting_notes_corpus");
         var corpus = JsonSerializer.Deserialize<Corpus>(File.ReadAllBytes(FindCorpus(file)), MeetingStore.Json)!;
@@ -74,20 +74,16 @@ public sealed class MeetingGoldenTests
                 Decisions = fixture.Decisions.Select(ids => new Draft.Item(fixture.Lines[ids[0] - 1][1], ids)).ToArray(),
                 Actions = fixture.Actions.Select(label => new Draft.Item(fixture.Lines[label.Lines[0] - 1][1], label.Lines, label.Owner)).ToArray(),
             };
-            int calls = 0;
-            var outcome = await MeetingNotesWriter.WriteAsync(meeting, MeetingNotesRoute.CustomProvider, "Fixture", (_, _) =>
-            {
-                calls++;
-                return Task.FromResult(draft.Text);
-            });
-            Assert.Equal(1, calls);
+            // Grounding alone, as app/golden_meeting_notes_corpus.swift calls it: the writer also cuts replies to the item caps, which would remove the traps before they are checked.
+            var reasons = new Dictionary<NotesGrounding.Reason, int>();
+            var grounded = MeetingNotesWriter.Ground(Draft.Parse(draft.Text)!, NotesGrounding.From(MeetingNotesPrompt.Number(meeting), meeting.MyNotes), reasons);
             var actual = JsonSerializer.SerializeToElement(new
             {
-                points = outcome.Notes.KeyPoints.Select(item => item.Lines),
-                decisions = outcome.Notes.Decisions.Select(item => item.Lines),
-                actions = outcome.Notes.Actions.Select(item => item.Lines),
-                dropped = outcome.Notes.Dropped,
-                reasons = outcome.Reasons.ToDictionary(reason => JsonNamingPolicy.CamelCase.ConvertName(reason.Key.ToString()), reason => reason.Value),
+                points = grounded.Points.Select(item => item.Lines),
+                decisions = grounded.Decisions.Select(item => item.Lines),
+                actions = grounded.Actions.Select(item => item.Lines),
+                dropped = reasons.Values.Sum(),
+                reasons = reasons.ToDictionary(reason => JsonNamingPolicy.CamelCase.ConvertName(reason.Key.ToString()), reason => reason.Value),
             });
             Assert.True(JsonElement.DeepEquals(expected.GetProperty(fixture.Id), actual), $"grounding differs for fixture {fixture.Id}");
         }

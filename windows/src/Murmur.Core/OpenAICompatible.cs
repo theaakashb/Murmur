@@ -136,7 +136,7 @@ public static class OpenAIChatFormat
     }
 
     /// <summary><c>choices[0].message.content</c>. Errors can arrive with HTTP 200 (some gateways), so the <c>error</c>
-    /// object is checked first. A <c>length</c> finish (truncated) is an error.</summary>
+    /// object is checked first. A <c>length</c> finish (truncated) is an error, <see cref="ProviderErrorKind.OutputTruncated"/>.</summary>
     public static string Parse(ProviderID provider, HttpResult result)
     {
         if (result.Status is < 200 or >= 300) throw new ProviderException(ProviderErrorClassifier.Classify(provider, result));
@@ -149,6 +149,7 @@ public static class OpenAIChatFormat
         {
             case null or "stop": break;
             case "content_filter": throw new ProviderException(ProviderError.ContentBlocked(provider));
+            case "length": throw new ProviderException(ProviderError.OutputTruncated(provider));
             default: throw new ProviderException(ProviderError.MalformedResponse(provider));
         }
         if (!Json.TryGet(first, "message", out var message) || message.ValueKind != JsonValueKind.Object || Json.String(message, "content") is not string content)

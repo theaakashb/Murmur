@@ -57,6 +57,7 @@ internal static class ProviderGolden
             ProviderErrorKind.PayloadTooLarge => ProviderError.PayloadTooLarge(p, Int("limitBytes")),
             ProviderErrorKind.Server => ProviderError.Server(p, Int("status")),
             ProviderErrorKind.MalformedResponse => ProviderError.MalformedResponse(p),
+            ProviderErrorKind.OutputTruncated => ProviderError.OutputTruncated(p),
             ProviderErrorKind.ContentBlocked => ProviderError.ContentBlocked(p),
             ProviderErrorKind.Rejected => ProviderError.Rejected(p, Int("status")!.Value),
             ProviderErrorKind.InvalidConfiguration => ProviderError.InvalidConfiguration(p),
