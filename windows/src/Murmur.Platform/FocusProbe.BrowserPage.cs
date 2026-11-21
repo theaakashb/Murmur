@@ -8,7 +8,7 @@ namespace Murmur.Platform;
 public static partial class FocusProbe
 {
     const int AutomationIdProp = 30011, ClassNameProp = 30012, NameProp = 30005,
-        HasKeyboardFocusProp = 30008, IsOffscreenProp = 30022, EditControl = 50004,
+        HasKeyboardFocusProp = 30008, IsOffscreenProp = 30022, EditControl = 50004, ComboBoxControl = 50003,
         DocumentControl = 50030, ValuePatternId = 10002;
     const int MaxAncestors = 40, MaxChromeNodes = 400;
     static readonly ConcurrentDictionary<int, DateTime> PrimedBrowsers = new();
@@ -49,9 +49,20 @@ public static partial class FocusProbe
                 Automation.Value is not { } uia || uia.ElementFromHandle(hwnd, out var window) != 0 || window is null ||
                 uia.get_RawViewWalker(out var walker) != 0 || walker is null) return null;
 
-            if (family == BrowserPage.Family.Chromium && InBudget()) PrimeBrowser((int)pid, walker, window);
-            if (!InBudget() || uia.GetFocusedElement(out var focused) != 0 || focused is null ||
-                focused.GetRuntimeId(out var id) != 0 || id is null || !target.RuntimeId.AsSpan().SequenceEqual(id)) return null;
+            bool primedNow = family == BrowserPage.Family.Chromium && InBudget() && PrimeBrowser((int)pid, walker, window);
+            IUIAutomationElement? focused = null;
+            int[]? id = null;
+            // Chromium builds its tree a moment after the first UI Automation query, and the focused element then changes from the bare
+            // window pane to the page's element. Wait briefly for that once; later reads see the tree at once.
+            for (int tries = 0; InBudget(); tries++)
+            {
+                if (uia.GetFocusedElement(out focused) != 0 || focused is null || focused.GetRuntimeId(out id) != 0 || id is null) return null;
+                if (!primedNow || tries >= 6 || !BrowserPage.IsBareWindowFocus(Prop<int>(focused, ControlTypeProp))) break;
+                Thread.Sleep(30);
+            }
+            if (!InBudget() || focused is null || id is null) return null;
+            // The recording-start capture may predate Chromium's tree: a bare window or pane then stands for the same page.
+            if (!target.RuntimeId.AsSpan().SequenceEqual(id) && !(BrowserPage.IsBareWindowFocus(target.ControlType) && target.ProcessId == Prop<int>(focused, ProcessIdProp))) return null;
 
             IUIAutomationElement? document = null;
             IUIAutomationElement? node = focused;
@@ -63,7 +74,7 @@ public static partial class FocusProbe
                 // Keep the outermost document so a focused iframe cannot select its own site.
                 int type = Prop<int>(node, ControlTypeProp);
                 if (type == DocumentControl) document = node;
-                if (type == EditControl && IsAddressBar(node, family)) addressFocused = true;
+                if (IsAddressBarControl(type) && IsAddressBar(node, family)) addressFocused = true;
                 if (walker.GetParentElement(node, out node) != 0) break;
             }
 
@@ -92,16 +103,20 @@ public static partial class FocusProbe
         }
     }
 
-    static void PrimeBrowser(int pid, IUIAutomationTreeWalker walker, IUIAutomationElement window)
+    static bool PrimeBrowser(int pid, IUIAutomationTreeWalker walker, IUIAutomationElement window)
     {
         DateTime started;
         try { using var process = Process.GetProcessById(pid); started = process.StartTime; }
-        catch (Exception e) when (e is Win32Exception or InvalidOperationException or ArgumentException) { return; }
+        catch (Exception e) when (e is Win32Exception or InvalidOperationException or ArgumentException) { return false; }
         if (PrimedBrowsers.TryGetValue(pid, out var previous) ? previous == started || !PrimedBrowsers.TryUpdate(pid, started, previous)
-            : !PrimedBrowsers.TryAdd(pid, started)) return;
+            : !PrimedBrowsers.TryAdd(pid, started)) return false;
         // An explicit tree query brings up Chromium's accessibility provider. Never alter browser settings or focus.
         walker.GetFirstChildElement(window, out _);
+        return true;
     }
+
+    /// <summary>Chromium's omnibox is an Edit; Firefox's urlbar-input is a ComboBox (verified on Firefox 160 with UI Automation), so accept both.</summary>
+    internal static bool IsAddressBarControl(int controlType) => controlType is EditControl or ComboBoxControl;
 
     static bool IsAddressBar(IUIAutomationElement element, BrowserPage.Family family)
     {
@@ -114,7 +129,7 @@ public static partial class FocusProbe
         BrowserPage.Supported(processName) is { } family && Automation.Value is { } uia &&
         uia.GetFocusedElement(out var element) == 0 && element is not null &&
         ProcessName(Prop<int>(element, ProcessIdProp)) == processName &&
-        Prop<int>(element, ControlTypeProp) == EditControl && IsAddressBar(element, family);
+        IsAddressBarControl(Prop<int>(element, ControlTypeProp)) && IsAddressBar(element, family);
 
     static IUIAutomationElement? FindAddressBar(IUIAutomationTreeWalker walker, IUIAutomationElement window,
         BrowserPage.Family family, Func<bool> inBudget)
@@ -126,7 +141,7 @@ public static partial class FocusProbe
             int type = Prop<int>(node, ControlTypeProp);
             // Search browser chrome only. A webpage can name an edit control "Address and search bar".
             if (type == DocumentControl) continue;
-            if (type == EditControl && IsAddressBar(node, family) && !Prop<bool>(node, IsOffscreenProp)) return node;
+            if (IsAddressBarControl(type) && IsAddressBar(node, family) && !Prop<bool>(node, IsOffscreenProp)) return node;
             walker.GetFirstChildElement(node, out var child);
             while (child is not null && queue.Count < MaxChromeNodes && inBudget())
             {

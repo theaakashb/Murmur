@@ -351,7 +351,7 @@
       "csharp": [
         "windows/src/Murmur.Core/VoiceEdit.cs"
       ],
-      "sha256": "145edd5926fb0008eac68fd85cb671ec8f3f2d82da210d8ce2d20022c187d1fa"
+      "sha256": "bc65766c30e823e605a1efc7999e8bd6b1c4038218fe75138d7be71103cf74f6"
     },
     "app/VoiceEditSettings.swift": {
       "csharp": [
@@ -375,7 +375,7 @@
       "csharp": [
         "windows/src/Murmur.Core/WritingModes.cs"
       ],
-      "sha256": "0bd45ec9354204633b3e1e69f236940d0a5523c52469452cb565f485262bc69b"
+      "sha256": "a648cb72197a80226bd3adf336a1a4c0b7f43ac6246b87da7bd34f953de09a65"
     },
     "app/check_app_services.swift": {
       "csharp": [
@@ -471,7 +471,7 @@
         "windows/tests/Murmur.Core.Tests/WritingModesTests.cs",
         "windows/tests/Murmur.Core.Tests/SettingsTests.cs"
       ],
-      "sha256": "b662dd5786cf8e7aa1427b1c57569a7216a9f4a0d914600bc818fb6a931dc9a3"
+      "sha256": "8da9a51721d6962c74b3fb4188d723d53499f233ff66f47c6e36078a8b109854"
     },
     "app/check_processing.swift": {
       "csharp": [
