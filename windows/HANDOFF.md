@@ -2,9 +2,23 @@
 
 **Current coordinator: Coordinator 6 (Claude Opus, in the Murmur workspace `wks_c227e9c5312b0db4` on the Star Labs PC `srv_XXiOqPoelqaJ`), from 2026-11-21 about 00:05Z: `aab5ff8e-d9fc-41bb-85a6-42a9f2aa4182`. Workers report to it.** Its orchestrator is Mac agent `8f691026-6ec3-41d4-8c14-4cba2ef6db44` on `srv_c2AxDOwFn9yz` (PC→Mac `send_agent_prompt` works as of 23:55Z). Coordinator 5 (`6d103697`, C:\ project) handed off at 00:05Z and is archived by coordinator 6.
 
-**Live PC agents (2026-11-21 00:05Z):**
-- Coordinator 6: `aab5ff8e-d9fc-41bb-85a6-42a9f2aa4182` (Opus 5.5, workspace `wks_c227e9c5312b0db4`).
-- `76b8269f-bea7-4b1c-b560-e732182eaa1b` (Sonnet 5.5, workspace `wks_c227e9c5312b0db4`): the notes benchmark resume. It replaces fa8785fe (checkpointed and archived 00:00Z). It works from `T:\Paseo Project\Murmur\bench-notes\results\RESUME.md`: qwen25-7b cpu bounded, a gemma3-4b cpu bounded rerun, the aggregate table, T: cleanup (models kept), and a read-only C: audit. Coordinator 5 created it, so its finish notification may not reach coordinator 6: poll it with get_agent_activity. On finish, append the aggregate results (no text) to `windows/bench/notes/NOTES_MODEL_BENCHMARK.md` on `windows-local-notes` (latest 0be3a5d) and push. Interim: no CPU-only default, no low-RAM fallback, Gemma 3 4B as the GPU pilot; no pinning, the user chooses.
+**Live PC agents (2026-11-21 00:50Z):** only Coordinator 6, `aab5ff8e-d9fc-41bb-85a6-42a9f2aa4182` (Opus 5.5, workspace `wks_c227e9c5312b0db4`).
+
+**Notes bench: DONE 00:48Z; 76b8269f is archived.** The full PC matrix is in `NOTES_MODEL_BENCHMARK.md` on `windows-local-notes` at `f6d92e6`, worktree `T:\Paseo Project\Murmur\wt-notes`.
+- No 60-minute run completed in any cell, bounded or not, so item limits don't fix long meetings.
+- The 30-minute runs that completed: Gemma Vulkan 58 s; Qwen 7B Vulkan 23 s (bounded 26 s); Qwen 7B CPU 462 s (bounded 561 s); bounded Gemma CPU 512 s.
+- The interim recommendation stands.
+- Models are kept on T: (9.0 GB, `bench-notes\models`) for the user to decide on.
+- `cache\temp` has 148 files (8.5 MB), left alone.
+
+**C: audit, read-only, nothing deleted; ask the user before any deletion:**
+- `C:\Users\aakash\AppData\Local\NuGet\v3-cache`: 140 files, the newest at 15:48 on 2026-11-20.
+- `C:\Users\aakash\.dotnet\10.0.404.*Sentinel`: from about 15:02.
+- Neither can be attributed with certainty. They may belong to the 2026-11-20 GPU bench, or be the user's own.
+- No `.gguf`, llama or bench files on C:.
+
+**Unsent to the orchestrator (Mac offline at 00:50Z):** the sidebar cleanup, the bench results and the C: audit above.
+- Previously: `76b8269f-bea7-4b1c-b560-e732182eaa1b` (Sonnet 5.5, workspace `wks_c227e9c5312b0db4`): the notes benchmark resume. It replaces fa8785fe (checkpointed and archived 00:00Z). It works from `T:\Paseo Project\Murmur\bench-notes\results\RESUME.md`: qwen25-7b cpu bounded, a gemma3-4b cpu bounded rerun, the aggregate table, T: cleanup (models kept), and a read-only C: audit. Coordinator 5 created it, so its finish notification may not reach coordinator 6: poll it with get_agent_activity. On finish, append the aggregate results (no text) to `windows/bench/notes/NOTES_MODEL_BENCHMARK.md` on `windows-local-notes` (latest 0be3a5d) and push. Interim: no CPU-only default, no low-RAM fallback, Gemma 3 4B as the GPU pilot; no pinning, the user chooses.
   - fa8785fe headline: every failure was on the 1,200-token merge length cap, except Phi's unparseable replies. The only completed runs were 30-minute ones: Gemma Vulkan 58 s, Qwen 7B CPU 462 s, Qwen 7B Vulkan 23 s, bounded Qwen 7B Vulkan 26 s. No 60-minute run completed in any cell. Context overflows: 0.
   - C: files from about 15:02 (not attributed): `C:\Users\aakash\.dotnet\10.0.404.*Sentinel`, `AppData\Local\NuGet\v3-cache`, `Temp\NuGetScratch`. Nothing deleted yet.
 
