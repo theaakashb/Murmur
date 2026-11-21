@@ -105,10 +105,39 @@ internal sealed partial class Controller
     Task<MeetingNotesWriter.Outcome> WriteMeetingNotes(Meeting meeting, bool lecture, CancellationToken ct)
     {
         var route = MeetingNotesRoutes.Load(s.Settings) ?? MeetingNotesRoute.None;
+        if (route == MeetingNotesRoute.LocalModel) return WriteLocalNotes(meeting, lecture, ct);
         var routes = RouteSettings.Load(s.Settings);
         var provider = route == MeetingNotesRoute.None ? null
             : Routes.MakeCleanupProvider(CleanupChoice.CustomAPI, s.Key(ProviderID.CustomCleanup), routes.CustomAPIBaseURL, routes.CustomAPIModel, routes.CustomAPIReasoningEffort);
         return MeetingNotesWriter.WriteAsync(meeting, route, provider, lecture, cancellationToken: ct);
+    }
+
+    static readonly SemaphoreSlim localNotesTurn = new(1, 1);
+
+    /// <summary>Notes on this PC: Gemma 3 4B in the cleanup helper's notes mode, Vulkan when the GPU can offload and "Use GPU when available" is on, else CPU at low priority.
+    /// One write at a time (the model is 2.5 GB). Reports finished and planned steps to the Meetings screen as it goes.</summary>
+    async Task<MeetingNotesWriter.Outcome> WriteLocalNotes(Meeting meeting, bool lecture, CancellationToken ct)
+    {
+        var slot = s.LocalNotesSlot;
+        if (slot.Downloader is not { } downloader || slot.Manifest is not { } manifest || downloader.Status().Kind != ModelStatusKind.Ready)
+            throw new NotesFailure("Download the meeting notes model in Settings → Meetings first.");
+        await localNotesTurn.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            try { ModelVerificationCache.Shared.Verify(downloader.Target, manifest); }
+            catch (RetentionError) { throw new NotesFailure("The meeting notes model files are damaged. Remove the model in Settings → Meetings and download it again."); }
+            bool gpu = await NotesGpu.Available().ConfigureAwait(false) && s.Settings.Get(Prefs.UseGpuWhenAvailable);
+            using var engine = new LocalNotesEngine(LocalCleanupRunner.HelperPath, downloader.Target, gpu);
+            try { await engine.StartAsync(ct).ConfigureAwait(false); }
+            catch (ProviderException e) when (e.Error.Case != ProviderErrorKind.Cancelled) { throw new NotesFailure("The meeting notes model could not start. Check that it is downloaded, or choose another notes route."); }
+            double minutes = meeting.Lines.Count == 0 ? 0 : meeting.Lines.Max(line => line.End) / 60;
+            double estimate = NotesProgress.EstimateSeconds(minutes, engine.OnGpu);
+            var clock = Stopwatch.StartNew();
+            void Report(int done, int planned) => meetings.ReportNotesProgress(meeting.Id, new NotesProgress(done, planned, engine.OnGpu, clock.Elapsed.TotalSeconds, estimate));
+            Report(0, 1);
+            return await MeetingNotesWriter.WriteLocalAsync(meeting, engine.GenerateAsync, lecture, Report, ct).ConfigureAwait(false);
+        }
+        finally { localNotesTurn.Release(); }
     }
 
     /// <summary>Starts a meeting: <paramref name="source"/> is a detected call app, or everything except Murmur plus the microphone when null. Returns false when nothing started (the reason is in <c>Meetings.Message</c>).</summary>
@@ -182,7 +211,7 @@ internal sealed partial class Controller
         sheets!.NotesChoice(route =>
         {
             notesSheetOpen = false;
-            s.Settings.Set("meetingNotesRoute", route == MeetingNotesRoute.CustomProvider ? "custom-api" : "none");
+            s.Settings.Set("meetingNotesRoute", route.SettingValue());
             meetings.NotesRouteChosen(route);
         });
     }

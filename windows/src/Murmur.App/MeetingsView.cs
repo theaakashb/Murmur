@@ -325,13 +325,17 @@ internal sealed partial class MeetingsView
         return MurmurStyle.Named(new ScrollViewer { Content = panel }, "Meeting detail");
     }
 
+    /// <summary>"Writing notes…", and on the on-device route the finished steps and, on CPU, an estimate.</summary>
+    string WritingText(string id) => Recorder.NotesProgressById.TryGetValue(id, out var progress) && progress.Completed + progress.Planned > 0 && progress.Text is { Length: > 0 } text && text != "Writing notes…"
+        ? "Writing notes… " + text : "Writing notes…";
+
     bool NotesRouteOff => MeetingNotesRoutes.Load(s.Settings) is null or MeetingNotesRoute.None;
 
     void NotesTab(StackPanel panel, Meeting m)
     {
         var r = Recorder;
         bool writing = r.NotesWriting.Contains(m.Id), busy = writing || r.Finishing.Contains(m.Id);
-        if (writing) panel.Children.Add(Lede("Writing notes…"));
+        if (writing) panel.Children.Add(Lede(WritingText(m.Id)));
         else if (r.NotesProblem.TryGetValue(m.Id, out var problem))
             panel.Children.Add(new StackPanel { Spacing = 8, Children = { Lede(problem), Btn("Try Again", () => r.WriteNotes(m.Id)) } });
         if (m.Notes is { } notes)
@@ -381,7 +385,7 @@ internal sealed partial class MeetingsView
         }
         if (r.NotesProblem.TryGetValue(m.Id, out var problem)) panel.Children.Add(Lede(problem));
         bool busy = r.NotesWriting.Contains(m.Id) || r.Finishing.Contains(m.Id);
-        if (r.NotesWriting.Contains(m.Id)) panel.Children.Add(Lede("Writing notes…"));
+        if (r.NotesWriting.Contains(m.Id)) panel.Children.Add(Lede(WritingText(m.Id)));
         var write = Btn(m.LectureNotes is null ? "Generate Lecture Notes" : "Update Lecture Notes", () => r.WriteNotes(m.Id, lecture: true), filled: true);
         write.IsEnabled = !NotesRouteOff && m.Finished && !busy && m.Lines.Any(l => !l.IsHidden);
         write.HorizontalAlignment = HorizontalAlignment.Left;
