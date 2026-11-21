@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
@@ -60,6 +61,7 @@ internal sealed partial class Bubble
         Offscreen = true;
         Directory.CreateDirectory(folder);
         var report = new StringBuilder();
+        report.AppendLine($"FRAME before chrome removal (as the presenter leaves it): {FrameBefore}");
         var states = new (string Name, Action Show, bool Minimal)[]
         {
             ("listening", ShowListening, true),
@@ -72,6 +74,8 @@ internal sealed partial class Bubble
         {
             show();
             await Task.Delay(400);
+            var pr = (OverlappedPresenter)window.AppWindow.Presenter;
+            report.AppendLine($"{name} FRAME after show: {Native.DescribeFrame(hwnd)}; presenter border {pr.HasBorder} titlebar {pr.HasTitleBar}");
             await CaptureWindowAsync(Path.Combine(folder, $"{name}-window.png"), report, name);
             foreach (var scale in new[] { 1.0, 1.5 })
             {

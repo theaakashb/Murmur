@@ -6,7 +6,7 @@ namespace Murmur.App;
 /// <summary>The few Win32 calls the shell needs: window styles for the bubble, and a plain-text clipboard write for Copy buttons.</summary>
 internal static class Native
 {
-    public const int GwlExStyle = -20;
+    public const int GwlStyle = -16, GwlExStyle = -20;
     public const long WsExTopmost = 0x8, WsExTransparent = 0x20, WsExToolWindow = 0x80, WsExLayered = 0x80000, WsExNoActivate = 0x08000000;
     public static readonly nint HwndTopmost = -1;
     public const uint SwpNoActivate = 0x10, SwpShowWindow = 0x40;
@@ -19,17 +19,45 @@ internal static class Native
     [DllImport("user32.dll")] public static extern uint GetDpiForWindow(nint hwnd);
     [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(nint hwnd, uint key, byte alpha, uint flags);
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int size);
+    [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(nint hwnd, int attribute, out int value, int size);
+    [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(nint hwnd, int attribute, out RectI value, int size);
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(nint hwnd, out RectI rect);
+    [StructLayout(LayoutKind.Sequential)] public struct RectI { public int L, T, R, B; }
 
-    /// <summary>Removes the Windows 11 window border and shadow, and square-cornering so no DWM rounding shows. Each call's HRESULT is checked; false means a call failed (an older Windows ignores the ones it does not know).</summary>
+    // Non-client styles: caption (with border and dialog frame), thick frame, system menu, min/max boxes; and the extended edges.
+    const long WsCaption = 0xC00000, WsThickFrame = 0x40000, WsSysMenu = 0x80000, WsMinimizeBox = 0x20000, WsMaximizeBox = 0x10000;
+    const long WsExDlgModalFrame = 0x1, WsExWindowEdge = 0x100, WsExClientEdge = 0x200, WsExStaticEdge = 0x20000;
+    const uint SwpNoSize = 1, SwpNoMove = 2, SwpNoZOrder = 4, SwpFrameChanged = 0x20;
+
+    /// <summary>Makes the window fully frameless: no caption, thick frame or edge styles, no DWM border or shadow, square corners. Each call's HRESULT is checked; false means a call failed (an older Windows ignores the ones it does not know).</summary>
     public static bool RemoveWindowChrome(nint hwnd)
     {
-        const int DwmwaNcRenderingPolicy = 2, DwmwaWindowCornerPreference = 33, DwmwaBorderColor = 34;
-        int none = unchecked((int)0xFFFFFFFE), doNotRound = 1, disabled = 1;
-        bool ok = DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref none, 4) >= 0;
+        const int DwmwaWindowCornerPreference = 33, DwmwaBorderColor = 34;
+        long style = (long)GetWindowLongPtr(hwnd, GwlStyle) & ~(WsCaption | WsThickFrame | WsSysMenu | WsMinimizeBox | WsMaximizeBox);
+        SetWindowLongPtr(hwnd, GwlStyle, (nint)style);
+        long ex = (long)GetWindowLongPtr(hwnd, GwlExStyle) & ~(WsExDlgModalFrame | WsExWindowEdge | WsExClientEdge | WsExStaticEdge);
+        SetWindowLongPtr(hwnd, GwlExStyle, (nint)ex);
+        bool ok = SetWindowPos(hwnd, 0, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
+        // Not DWMWA_NCRENDERING_POLICY = DISABLED: with no frame styles left it only risks a classic frame.
+        int none = unchecked((int)0xFFFFFFFE), doNotRound = 1;
+        ok &= DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref none, 4) >= 0;
         ok &= DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref doNotRound, 4) >= 0;
-        ok &= DwmSetWindowAttribute(hwnd, DwmwaNcRenderingPolicy, ref disabled, 4) >= 0;
         return ok;
     }
+
+    /// <summary>One line describing the window's frame, for the render report: styles, DWM attributes, and whether the window, DWM frame and client rectangles agree.</summary>
+    public static string DescribeFrame(nint hwnd)
+    {
+        GetWindowRect(hwnd, out var win);
+        int hr = DwmGetWindowAttribute(hwnd, 9, out RectI ext, 16);
+        GetClientRect(hwnd, out var cli);
+        DwmGetWindowAttribute(hwnd, 34, out int border, 4);
+        DwmGetWindowAttribute(hwnd, 2, out int policy, 4);
+        DwmGetWindowAttribute(hwnd, 33, out int corner, 4);
+        string R(RectI r) => $"{r.R - r.L}x{r.B - r.T}@{r.L},{r.T}";
+        return $"style 0x{(long)GetWindowLongPtr(hwnd, GwlStyle):X8} exstyle 0x{(long)GetWindowLongPtr(hwnd, GwlExStyle):X8}; window {R(win)} dwm-frame {R(ext)} (hr {hr:X}) client {cli.R - cli.L}x{cli.B - cli.T}; border colour 0x{border:X8}, nc policy {policy}, corner pref {corner}; non-client {(win.R - win.L) - (cli.R - cli.L)}x{(win.B - win.T) - (cli.B - cli.T)}, frame-vs-window delta {(ext.R - ext.L) - (win.R - win.L)}x{(ext.B - ext.T) - (win.B - win.T)}";
+    }
+    [DllImport("user32.dll")] static extern bool GetClientRect(nint hwnd, out RectI rect);
     [DllImport("user32.dll")] public static extern int SetWindowRgn(nint hwnd, nint region, bool redraw);
     [DllImport("gdi32.dll")] public static extern nint CreateRoundRectRgn(int l, int t, int r, int b, int w, int h);
     [DllImport("user32.dll")] static extern bool OpenClipboard(nint owner);
