@@ -24,7 +24,7 @@ public static class NoteSections
         lecture ? ("Concepts", "Examples", "Perspectives") : ("Key points", "Decisions", "Action items");
 }
 
-public enum MeetingNotesRoute { None, CustomProvider }
+public enum MeetingNotesRoute { None, CustomProvider, LocalModel }
 
 public static class MeetingNotesRoutes
 {
@@ -32,13 +32,28 @@ public static class MeetingNotesRoutes
     {
         "none" => MeetingNotesRoute.None,
         "custom-api" => MeetingNotesRoute.CustomProvider,
+        "local-model" => MeetingNotesRoute.LocalModel,
         _ => null,
     };
 
-    public static string Label(this MeetingNotesRoute route) => route == MeetingNotesRoute.None ? "None (transcript only)" : "Custom Provider";
+    public static string Label(this MeetingNotesRoute route) => route switch
+    {
+        MeetingNotesRoute.None => "None (transcript only)",
+        MeetingNotesRoute.LocalModel => LocalNotesIdentity.RouteLabel,
+        _ => "Custom Provider",
+    };
+
+    /// <summary>The value stored in <c>meetingNotesRoute</c>.</summary>
+    public static string SettingValue(this MeetingNotesRoute route) => route switch
+    {
+        MeetingNotesRoute.None => "none",
+        MeetingNotesRoute.LocalModel => "local-model",
+        _ => "custom-api",
+    };
 
     public static string Disclosure(this MeetingNotesRoute route, string? host, bool local, string? retention)
     {
+        if (route == MeetingNotesRoute.LocalModel) return $"Notes are written on this PC by {LocalNotesIdentity.ModelName}. Nothing leaves this PC.";
         if (route == MeetingNotesRoute.None) return "No notes are written. The meeting keeps its transcript. Nothing leaves this PC.";
         host ??= "the provider";
         return local ? $"Notes are written by the model server on this PC ({host}). Nothing leaves this PC."

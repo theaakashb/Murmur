@@ -9,10 +9,12 @@ using LLama.Sampling;
 // Managed local cleanup helper, the Windows counterpart of module-one/cleanup/Runner (LocalCleanupRunner):
 // one JSON object per line on stdin, one reply per line on stdout.
 //   {"id":1,"text":"...","tone":"formal"|"casual","terms":["..."]}  ->  {"id":1,"text":"..."} | {"id":1,"error":"too-long"|"failed"}
-// No networking, no transcript logging. A fresh context per request. argv[0] is the verified model folder (its .gguf is loaded) or the GGUF itself.
+// Notes mode (--notes) and the GPU probe (--probe) are in NotesMode.cs. No networking, no transcript logging. A fresh context per request. argv[0] is the verified model folder (its .gguf is loaded) or the GGUF itself.
 // The app owns cancellation by terminating this process.
 
 if (args.Length < 1) return 2;
+if (args[0] == "--probe") return NotesMode.Probe();
+if (args.Contains("--notes")) return await NotesMode.Run(args, CpuTopology.PhysicalCoreCount());
 const int MaximumInputTokens = 400;   // Over system line + header + text, counted on the plain string as main.swift does.
 const int MaximumOutputTokens = 512;
 const string System_ = "Clean up this dictation.";
