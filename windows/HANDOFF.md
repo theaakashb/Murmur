@@ -1,6 +1,20 @@
 # Murmur for Windows: coordinator handoff
 
-**Current coordinator: Coordinator 5 (`6d103697-2809-4c04-9ee1-2f8981dd2eaa`, on the Star Labs PC `srv_XXiOqPoelqaJ`), from 2026-11-20 23:42Z. Workers report to it.** Coordinator 4 (`b080c3f1`) and the orchestrator are offline with the Mac; when the Mac is back, the orchestrator (`8f691026` on `srv_c2AxDOwFn9yz`) messages coordinator 5.
+**Current coordinator: Coordinator 6 (Claude Opus, in the Murmur workspace `wks_c227e9c5312b0db4` on the Star Labs PC `srv_XXiOqPoelqaJ`), from 2026-11-21 about 00:05Z; its ID is in the orchestrator message and below. Workers report to it.** Its orchestrator is Mac agent `8f691026-6ec3-41d4-8c14-4cba2ef6db44` on `srv_c2AxDOwFn9yz` (PC→Mac `send_agent_prompt` works as of 23:55Z). Coordinator 5 (`6d103697`, C:\ project) handed off at 00:05Z and is archived by coordinator 6.
+
+**Live PC agents (2026-11-21 00:05Z):**
+- Coordinator 6: see the "Coordinator 6 ID" line below.
+- `76b8269f-bea7-4b1c-b560-e732182eaa1b` (Sonnet 5.5, workspace `wks_c227e9c5312b0db4`): the notes benchmark resume. It replaces fa8785fe (checkpointed and archived 00:00Z). It works from `T:\Paseo Project\Murmur\bench-notes\results\RESUME.md`: qwen25-7b cpu bounded, a gemma3-4b cpu bounded rerun, the aggregate table, T: cleanup (models kept), and a read-only C: audit. Coordinator 5 created it, so its finish notification may not reach coordinator 6: poll it with get_agent_activity. On finish, append the aggregate results (no text) to `windows/bench/notes/NOTES_MODEL_BENCHMARK.md` on `windows-local-notes` (latest 0be3a5d) and push. Interim: no CPU-only default, no low-RAM fallback, Gemma 3 4B as the GPU pilot; no pinning, the user chooses.
+  - fa8785fe headline: every failure was on the 1,200-token merge length cap, except Phi's unparseable replies. The only completed runs were 30-minute ones: Gemma Vulkan 58 s, Qwen 7B CPU 462 s, Qwen 7B Vulkan 23 s, bounded Qwen 7B Vulkan 26 s. No 60-minute run completed in any cell. Context overflows: 0.
+  - C: files from about 15:02 (not attributed): `C:\Users\aakash\.dotnet\10.0.404.*Sentinel`, `AppData\Local\NuGet\v3-cache`, `Temp\NuGetScratch`. Nothing deleted yet.
+
+**Done:** `windows-ui-fix2` merged as `0d5f6dc` (worker 8aa2528c archived). **app-next5** is staged at `T:\Paseo Project\Murmur\app-next5` and was never launched; the switch steps went to the user (quit Murmur from the tray, run app-next5\Murmur.exe; to go back, run app-next4\Murmur.exe).
+
+**Pending with the user:** confirm app-next5: the pill is transparent with no outline, and clicks pass through it and the live-words card. Neither can be verified offscreen; if transparency fails, CrashLog has the ClearBackdrop error. After the user confirms: delete app, app-next, app-next.old-20261119-2100 and app-next2 (app-next3 is already gone). Keep app-next5 and app-next4 (as the fallback); never delete the one the user runs. Then retire `T:\Paseo Project\Murmur\src` and the `wt-fix2` worktree (`git -C src worktree remove`).
+
+**Sidebar cleanup (coordinator 6's first job):** archive coordinator 5 (`6d103697`), then `paseo project delete prj_8e77a88fc19296d1`, the C:\ "Star Labs discovery" project and its workspaces `wks_3d3a18a1cff53984` and `wks_ef0703665580c3f9`. This is Paseo metadata only; nothing on disk under C:\ is touched. Confirm with `paseo project ls` and `paseo ls` that only the Murmur project and its agents remain.
+
+**PC test rule:** don't run the Murmur.Platform tests that drive Notepad or SendInput on the PC; it is the user's live desktop. Core tests only.
 
 **PC checkout (user request, 2026-11-20 about 23:50Z):** Windows work now uses `T:\Paseo Project\Murmur\Murmur` (a full clone of `windows`), registered as Paseo workspace `wks_c227e9c5312b0db4` (project `prj_45f0c70bbdc987ad`) on `srv_XXiOqPoelqaJ`. New worktrees branch from it, as `T:\Paseo Project\Murmur\wt-<task>`. `T:\Paseo Project\Murmur\src` stays only until the in-flight `wt-fix2` worktree (worker 8aa2528c) is merged; then retire it. Never delete the `app*` folders.
 
