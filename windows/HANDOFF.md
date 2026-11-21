@@ -21,7 +21,7 @@
 4. **New UX:** when there's no usable GPU (the same DirectML/Vulkan capability check), warn plainly before the download and at the notes model row. Copy: "No compatible GPU found. Local meeting notes may take 10 minutes or more for a 30-minute meeting. Murmur Cloud is much faster." Use the measured numbers (5900X CPU: about 8–9 minutes per 30 minutes; laptops are slower) and suggest Murmur Cloud notes. On CPU, show progress and an estimate, and run in the background. Match the Mac copy style, with tests for the gating and the copy.
 
 **Live PC agents:**
-- `54090328-9912-4109-8bce-81fc5b4e50aa` (Sonnet): the frameless pill, in `wt-frame` on branch `windows-pill-frameless`. Prime suspect: `RemoveWindowChrome` sets DWMWA_NCRENDERING_POLICY=DISABLED, which brings back a basic frame. Also checking the presenter SetBorderAndTitleBar and the frame styles. It stages app-next7.
+- DONE, archived: `54090328` (frameless pill). **app-next7 is staged** (`1c5f9ed` on `windows-pill-frameless`, NOT merged; the switch steps went to the orchestrator). The cause: the WinUI presenter gave the window WS_BORDER (2x2 px non-client). Merge after the user confirms the box is gone.
 - `1449ca9c-7283-4822-b65d-b7985bb029a6` (Sonnet): the notes 60-minute fix, in `wt-notes` (branch `windows-local-notes`) plus `bench-notes`. The Gemma Vulkan variant already completes 30 AND 60 min. Still to come: the Qwen Vulkan cells, the Gemma quality sets, the Gemma CPU 30/60 timings, and the exact contract spec.
 - **Next:** when 1449ca9c finishes, start the Core worker (decisions 2–4) on a fresh branch off `windows`.
 
