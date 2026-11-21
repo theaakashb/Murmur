@@ -20,6 +20,9 @@ internal sealed class ClearBackdrop : SystemBackdrop
         _ = CreateDispatcherQueueController(new QueueOptions { Size = Marshal.SizeOf<QueueOptions>(), Type = 2, Apartment = 0 }, out queueController);
     }
 
+    /// <summary>Dev diagnostics: whether the clear brush was connected, and the exception if not.</summary>
+    internal static string Status = "not connected";
+
     Windows.UI.Composition.Compositor? compositor;
 
     protected override void OnTargetConnected(ICompositionSupportsSystemBackdrop connectedTarget, XamlRoot xamlRoot)
@@ -30,8 +33,9 @@ internal sealed class ClearBackdrop : SystemBackdrop
             EnsureSystemQueue();
             compositor ??= new Windows.UI.Composition.Compositor();
             connectedTarget.SystemBackdrop = compositor.CreateColorBrush(Colors.Transparent);
+            Status = "connected";
         }
-        catch (Exception e) { CrashLog.Write(e); } // the pill then keeps the default window fill rather than failing to start
+        catch (Exception e) { Status = "failed: " + e.GetType().Name + " " + e.Message; CrashLog.Write(e); } // the pill then keeps the default window fill rather than failing to start
     }
 
     protected override void OnTargetDisconnected(ICompositionSupportsSystemBackdrop disconnectedTarget)

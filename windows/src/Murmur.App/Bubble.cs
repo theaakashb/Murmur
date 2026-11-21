@@ -27,11 +27,20 @@ internal sealed partial class Bubble
     readonly TextBlock cardPreview = MurmurStyle.Text("", "MurmurDescription");
     readonly Grid indicator;
     readonly StackPanel card;
+    // The changes chip (Mac ModeRecoveryCard): icon, "N changes", and a way to the original words. 8 s.
+    readonly StackPanel chip;
+    readonly SymbolIcon chipIcon = new(Symbol.Highlight) { VerticalAlignment = VerticalAlignment.Center };
+    readonly TextBlock chipText = MurmurStyle.Text("", "MurmurSettingLabel");
+    string? chipOriginal;
+    bool liveWordsActive;
+    string? liveShown;
+    /// <summary>Opens History (the chip's click, as on the Mac).</summary>
+    public Action? OpenHistory { get; set; }
     readonly TextBlock cardTitle = MurmurStyle.Text("", "BodyStrongTextBlockStyle");
     readonly DispatcherQueueTimer hideTimer;
     string? cardText;
     DisplayArea? display;
-    bool visible, isListening, isAnimating;
+    bool visible, isListening, isAnimating, layered = true, passClicks = true;
     volatile float voiceLevel;
     readonly Windows.UI.ViewManagement.UISettings animations = new();
 
@@ -41,19 +50,27 @@ internal sealed partial class Bubble
         var appWindow = window.AppWindow;
         appWindow.SetPresenter(OverlappedPresenter.CreateForContextMenu());
         appWindow.IsShownInSwitchers = false;
+        var flags = (Environment.GetEnvironmentVariable("MURMUR_PILL_VARIANT") ?? "presenter,extend").Split(',');
+        layered = !flags.Contains("nolayered");
         var style = Native.GetWindowLongPtr(hwnd, Native.GwlExStyle);
-        Native.SetWindowLongPtr(hwnd, Native.GwlExStyle, (nint)((long)style | Native.WsExNoActivate | Native.WsExToolWindow | Native.WsExTransparent | Native.WsExTopmost | Native.WsExLayered));
+        Native.SetWindowLongPtr(hwnd, Native.GwlExStyle, (nint)((long)style | Native.WsExNoActivate | Native.WsExToolWindow | Native.WsExTopmost | (layered ? Native.WsExTransparent | Native.WsExLayered : 0)));
         // WS_EX_TRANSPARENT only lets clicks through on a layered window.
-        Native.SetLayeredWindowAttributes(hwnd, 0, 255, 2);
+        if (layered) Native.SetLayeredWindowAttributes(hwnd, 0, 255, 2);
+        else Native.PassClicksThrough(hwnd, () => passClicks);
         // The pill has no background of its own (the Mac's minimal pill is five dots and nothing else): a clear backdrop gives per-pixel alpha with smooth edges.
         window.SystemBackdrop = new ClearBackdrop();
+        if (flags.Contains("extend")) Native.ExtendFrameIntoClient(hwnd);
         surface.Background = null;
         // The 1 px light outline is the presenter's WS_BORDER (a non-client frame around the whole window); drop it and the other frame styles, then the DWM border colour and shadow, and keep the corners square, because XAML rounds the card.
         var presenter = (OverlappedPresenter)appWindow.Presenter;
         FrameBefore = $"{Native.DescribeFrame(hwnd)}; presenter border {presenter.HasBorder} titlebar {presenter.HasTitleBar} resizable {presenter.IsResizable}";
-        presenter.SetBorderAndTitleBar(false, false);
-        presenter.IsResizable = presenter.IsMaximizable = presenter.IsMinimizable = false;
-        Native.RemoveWindowChrome(hwnd);
+        if (flags.Contains("presenter"))
+        {
+            presenter.SetBorderAndTitleBar(false, false);
+            presenter.IsResizable = presenter.IsMaximizable = presenter.IsMinimizable = false;
+        }
+        if (flags.Contains("border")) presenter.SetBorderAndTitleBar(false, true);
+        Native.RemoveWindowChrome(hwnd, flags.Contains("styles"), flags.Contains("ncdisable"));
 
         for (int i = 0; i < bars.Length; i++)
         {
@@ -97,7 +114,12 @@ internal sealed partial class Bubble
         cardPreview.MaxLines = 3;
         partial.TextTrimming = cardPreview.TextTrimming = TextTrimming.CharacterEllipsis;
         card = new StackPanel { Spacing = 8, Children = { header, cardPreview, footer } };
-        surface.Child = new Grid { Children = { indicator, card } };
+        var chipOpen = new Button { Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { chipIcon, chipText } }, Background = null, BorderThickness = new Thickness(0), Padding = new Thickness(4) };
+        var chipCopy = MurmurStyle.Named(new Button { Content = "Copy original", Padding = new Thickness(8, 2, 8, 2) }, "Copy the words before cleanup");
+        chipOpen.Click += (_, _) => { Hide(); OpenHistory?.Invoke(); };
+        chipCopy.Click += (_, _) => { if (chipOriginal is not null) Native.CopyText(chipOriginal); Hide(); };
+        chip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { chipOpen, chipCopy }, Visibility = Visibility.Collapsed };
+        surface.Child = new Grid { Children = { indicator, card, chip } };
         window.Content = surface;
         hideTimer = ui.CreateTimer();
         hideTimer.IsRepeating = false;
@@ -144,17 +166,50 @@ internal sealed partial class Bubble
         else CompositionTarget.Rendering -= DrawWaveform;
     }
 
-    /// <summary>Shows live words on the UI thread while the indicator is listening.</summary>
+    /// <summary>Mac parity (LiveWordsBubble): when live words run, the card is up from the start with a dim "Listening…" until the first words arrive.</summary>
+    public void ShowLiveWords()
+    {
+        if (!isListening) return;
+        liveWordsActive = true;
+        RenderLive("");
+    }
+
+    /// <summary>Shows live words on the UI thread while the indicator is listening: settled words in the ink colour, the last word (it can still grow) dimmed.</summary>
     public void SetPartial(string? text)
     {
         if (!isListening) return;
         var words = string.IsNullOrWhiteSpace(text) ? "" : text;
-        if (partial.Text == words) return;
-        partial.Text = words;
-        partial.Visibility = words.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        surface.Width = words.Length > 0 ? 420 : 80;
-        ApplyChrome(listening: true, filled: words.Length > 0);
+        if (!liveWordsActive && words.Length == 0) return;
+        liveWordsActive = true;
+        RenderLive(words);
+    }
+
+    void RenderLive(string words)
+    {
+        if (liveShown == words) return;
+        liveShown = words;
+        var dim = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+        partial.Inlines.Clear();
+        if (words.Length == 0) partial.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = "Listening…", Foreground = dim });
+        else
+        {
+            var (settled, guess) = Murmur.Core.LiveWordsFacts.Split(words);
+            partial.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = settled });
+            partial.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = guess, Foreground = dim });
+        }
+        partial.Visibility = Visibility.Visible;
+        surface.Width = 420;
+        ApplyChrome(listening: true, filled: true);
         ResizeAndPlace();
+    }
+
+    /// <summary>The Mac's changes chip, after a dictation cleanup or a mode changed: the mode icon when a writing mode shaped it (else the cleanup one), "N changes", 8 s.</summary>
+    public void ShowChanges(int changes, bool usedMode, string original)
+    {
+        chipOriginal = original;
+        chipIcon.Symbol = usedMode ? Symbol.Setting : Symbol.Highlight;
+        chipText.Text = $"{changes} change{(changes == 1 ? "" : "s")}";
+        Present($"{changes} changes", 8, chip: true);
     }
 
     public void Hide()
@@ -162,14 +217,14 @@ internal sealed partial class Bubble
         hideTimer.Stop();
         isListening = false;
         Animate(false);
-        partial.Text = cardPreview.Text = "";
+        partial.Inlines.Clear(); cardPreview.Text = ""; liveWordsActive = false; liveShown = null;
         cardText = null;
         if (!visible) return;
         visible = false;
         Native.ShowWindow(hwnd, 0);
     }
 
-    void Present(string message, double? dismissAfter, bool listening = false, bool processing = false, bool error = false, bool card = false, bool showLabel = false)
+    void Present(string message, double? dismissAfter, bool listening = false, bool processing = false, bool error = false, bool card = false, bool showLabel = false, bool chip = false)
     {
         hideTimer.Stop();
         isListening = listening;
@@ -183,26 +238,33 @@ internal sealed partial class Bubble
         MurmurStyle.Named(surface, message);
         // The minimal pill (listening or processing, no label) is just the dots; every other state is a card.
         ApplyChrome(listening || processing && !showLabel, filled: !(listening || processing && !showLabel));
+        if (chip) surface.CornerRadius = new CornerRadius(18);
         surface.Padding = listening || processing ? new Thickness(0) : new Thickness(10);
         surface.CornerRadius = new CornerRadius(listening || processing ? 16 : 18);
         partial.Visibility = Visibility.Collapsed;
-        partial.Text = "";
+        partial.Inlines.Clear();
+        liveWordsActive = false; liveShown = null;
+        this.chip.Visibility = chip ? Visibility.Visible : Visibility.Collapsed;
         this.card.Visibility = card ? Visibility.Visible : Visibility.Collapsed;
-        indicator.Visibility = card ? Visibility.Collapsed : Visibility.Visible;
+        indicator.Visibility = card || chip ? Visibility.Collapsed : Visibility.Visible;
         if (!card) { cardText = null; cardPreview.Text = ""; }
         Animate(listening || processing);
         if (isAnimating) DrawWaveform(null, EventArgs.Empty);
 
         // The card accepts clicks while WS_EX_NOACTIVATE keeps focus in the target app.
         var style = (long)Native.GetWindowLongPtr(hwnd, Native.GwlExStyle);
-        style = card ? style & ~Native.WsExTransparent : style | Native.WsExTransparent;
-        Native.SetWindowLongPtr(hwnd, Native.GwlExStyle, (nint)style);
+        passClicks = !(card || chip);
+        if (layered)
+        {
+            style = card || chip ? style & ~Native.WsExTransparent : style | Native.WsExTransparent;
+            Native.SetWindowLongPtr(hwnd, Native.GwlExStyle, (nint)style);
+        }
 
         var foreground = Native.GetForegroundWindow();
-        display = foreground != 0
+        display = LiveDisplay?.Invoke() ?? (foreground != 0
             ? DisplayArea.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(foreground), DisplayAreaFallback.Primary)
-            : DisplayArea.Primary;
-        surface.Width = card ? 320 : error ? 240 : listening || processing && !showLabel ? 80 : processing ? 300 : 220;
+            : DisplayArea.Primary);
+        surface.Width = chip ? 260 : card ? 320 : error ? 240 : listening || processing && !showLabel ? 80 : processing ? 300 : 220;
         ResizeAndPlace();
         visible = true;
         if (dismissAfter is { } seconds) { hideTimer.Interval = TimeSpan.FromSeconds(seconds); hideTimer.Start(); }
@@ -250,6 +312,9 @@ internal sealed partial class Bubble
 
     /// <summary>Render mode only: parks the window far off every screen.</summary>
     internal bool Offscreen { get; set; }
+
+    /// <summary>Live-capture mode only: pins the display the pill appears on.</summary>
+    internal Func<DisplayArea?>? LiveDisplay { get; set; }
 
     /// <summary>True when the dictation indicator sits at the top of the screen.</summary>
     public Func<bool>? TopPlacement { get; set; }

@@ -309,6 +309,7 @@ internal sealed partial class Controller : IDisposable
                 bubble.SetPartial(text);
                 if (!string.IsNullOrWhiteSpace(text)) TestEvents.Emit("partial");
             }), ss.Live.Token);
+            bubble.ShowLiveWords();
         }
         else TestEvents.Emit("live-words-skipped", ("reason", !liveEnabled ? "disabled" : ss.VoiceEdit is not null ? "voice-edit" : !liveReady ? "model-not-ready" : "route-disabled"));
 
@@ -533,6 +534,7 @@ internal sealed partial class Controller : IDisposable
                 break;
             case DeliveryResult<PasteOutcome>.Delivered d:
                 ReportPaste(d.Value, final.Id, text);
+                if (d.Value.Status != InsertionStatus.Failed) OfferChanges(final, text);
                 break;
         }
     }
@@ -594,6 +596,14 @@ internal sealed partial class Controller : IDisposable
             phase = Phase.Error;
             bubble.ShowCard("Could not paste the dictation. Copy it here, or select a text field and press Ctrl+Win+Shift+V.", text);
         }
+    }
+
+    /// <summary>Mac parity (offerModeRecovery): after any insertion that changed the words, the changes chip (8 s) with the words before cleanup.</summary>
+    void OfferChanges(HistoryEntry saved, string inserted)
+    {
+        var mine = saved.Cleanup?.Input ?? saved.RawText;
+        var changes = WordDiff.ChangeCount(mine, inserted.Trim());
+        if (changes > 0) bubble.ShowChanges(changes, saved.WritingModeID is not null, mine);
     }
 
     void ShowNotPasted(HistoryEntry entry, string text)
