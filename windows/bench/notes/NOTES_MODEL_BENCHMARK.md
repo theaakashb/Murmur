@@ -125,3 +125,32 @@ Gemma 3 4B on Metal at a 1,200-token reply cap completed the 30-minute workload 
 Unfinished, not failures of any model: Metal 60-minute Gemma at 1,200 tokens; Phi at 1,200 tokens; bounded (item-limit) 768-token runs for Gemma, Phi and Qwen 7B; Qwen M3 CPU 60-minute (cancelled at extraction five); VM Phi 60-minute (Phi 30-minute on the VM low-end profile timed out at 601 s) and VM Gemma; PC Qwen 7B CPU and Vulkan, bounded and quality runs (still running on the PC). The VM task files and process were removed; C: had 4.90 GB free afterwards. The earlier queue stopped unexpectedly around 23:24Z, so these runs have no data, not a negative result.
 
 Interim view, pending those runs: no CPU-only default and no low-RAM fallback model (the M3 CPU proxy needed 1,635 s for 30 minutes with Qwen 7B and kept almost nothing; 5900X CPU runs for Phi and Gemma hit the reply cap). Gemma 3 4B on a discrete GPU is the only pilot candidate (RTX 3080 Vulkan: 30 minutes in 58 s, 60 minutes blocked by the cap). Nothing is pinned or shipped. Whether item limits fix long meetings is open.
+
+## Star Labs PC: full matrix (2026-11-21)
+
+PC agent 76b8269f finished the remaining PC cells. Setup matches the "Star Labs PC" section above: 1,200 reply tokens, one 8,192-token slot, CPU on 12 threads, Vulkan with every layer on the RTX 3080. The bench processes ran at Below Normal priority. "Bounded" sets `MMN_LLAMA_BOUNDED=1`, which caps each extraction and merge at 8 points, 10 decisions and 12 actions. F means the run failed, followed by the seconds until it was rejected. A completed time is the time to notes. GPU is the peak total MiB in use; the baseline before the runs was about 1,210 MiB. Each cell is a single sample.
+
+| Cell | 30-minute | 60-minute | Peak working set | GPU MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Phi-4-mini / CPU | F 122 | F 148 | 5.33 GB | — |
+| Phi-4-mini / Vulkan | F 25 | F 4 | 3.43 GB | 4,752 |
+| Gemma 3 4B / CPU | F 136 | F 238 | 6.44 GB | — |
+| Gemma 3 4B / Vulkan | 58 | F 45 | 11.45 GB | 4,386 |
+| Qwen2.5 7B / CPU | 462 | F 610 | 9.74 GB | — |
+| Qwen2.5 7B / Vulkan | 23 | F 17 | 6.22 GB | 6,294 |
+| Bounded Phi-4-mini / CPU | F 51 | F 170 | 5.27 GB | — |
+| Bounded Phi-4-mini / Vulkan | F 7 | F 17 | 4.13 GB | 4,755 |
+| Bounded Gemma 3 4B / CPU (rerun) | 512 | F 689 | 12.34 GB | — |
+| Bounded Gemma 3 4B / Vulkan | F 37 | F 56 | 11.34 GB | 4,603 |
+| Bounded Qwen2.5 7B / CPU | 561 | F 382 | 9.88 GB | — |
+| Bounded Qwen2.5 7B / Vulkan | 26 | F 55 | 7.89 GB | 6,803 |
+
+- **Failure causes:** almost every failure was one extraction or merge request that used the full 1,200-token reply cap. Two cells returned an unparseable reply instead: bounded Phi CPU at 30 minutes and Phi Vulkan at 60 minutes. No cell overflowed its context.
+- **No 60-minute run completed in any cell, bounded or not.** Item limits did not fix long meetings at a 1,200-token cap. Bounded Qwen 7B CPU failed on extraction 4 at 60 minutes, and bounded Gemma CPU on request 13 of 14.
+- **Bounded Gemma CPU, 30 minutes:** 10 requests (7 extraction, 3 merge); 15 points, 14 decisions and 12 actions kept; 83 dropped. An earlier run of this cell failed on a merge length cap; the rerun completed.
+- **Bounded Qwen 7B CPU, 30 minutes:** 8 requests; 3 points, 1 decision and 0 actions kept; 50 dropped.
+- **CPU throughput on the 5900X, bounded (estimated):** about 4.7 tokens per second for Qwen 7B and about 10 for Gemma 3 4B.
+- **Caveat:** processes from a separate GPU benchmark overlapped the Phi CPU, Phi Vulkan and part of the Gemma CPU runs, so those timings may be affected.
+- **Not run:** the quality set (scoring generated items against the corpus on the PC). It was never implemented in the PC harness.
+
+The interim recommendation stands. There is no CPU-only default and no low-RAM fallback: the CPU cells that completed took 462–561 s for 30 minutes, and no 60-minute run completed. Gemma 3 4B on a discrete GPU stays the pilot candidate. Qwen2.5 7B on Vulkan was the fastest to complete 30 minutes (23 s). Long meetings need a fix for output exhaustion, such as splitting and retrying when a reply hits the cap, before any model can be called reliable. Nothing is pinned; the model choice goes to the user.
