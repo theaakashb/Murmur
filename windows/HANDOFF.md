@@ -2,7 +2,15 @@
 
 **Current coordinator: Coordinator 6 (Claude Opus, in the Murmur workspace `wks_c227e9c5312b0db4` on the Star Labs PC `srv_XXiOqPoelqaJ`), from 2026-11-21 about 00:05Z: `aab5ff8e-d9fc-41bb-85a6-42a9f2aa4182`. Workers report to it.** Its orchestrator is Mac agent `8f691026-6ec3-41d4-8c14-4cba2ef6db44` on `srv_c2AxDOwFn9yz` (PC→Mac `send_agent_prompt` works as of 23:55Z). Coordinator 5 (`6d103697`, C:\ project) handed off at 00:05Z and is archived by coordinator 6.
 
-**Live PC agents (2026-11-21 00:50Z):** only Coordinator 6, `aab5ff8e-d9fc-41bb-85a6-42a9f2aa4182` (Opus 5.5, workspace `wks_c227e9c5312b0db4`).
+**Mac back online (orchestrator message, later on 2026-11-21).**
+- **app-next5 is confirmed by the user, who is running it** (`T:\Paseo Project\Murmur\app-next5`). Deleted after a process-path check: app-next, app-next.old-20261119-2100, app-next2 (app-next3 was already gone). `src` and `wt-fix2` are retired; both were clean and pushed.
+- Kept: `app` (not running; deleting it needs the user's OK, through the orchestrator), app-next4 (the fallback), app-next5, and `scratch-fix2` (the pill renders from before the fix).
+- **C: audit items: do NOT delete.** The orchestrator is asking the user.
+
+**Live PC agents:**
+- Coordinator 6, `aab5ff8e-d9fc-41bb-85a6-42a9f2aa4182` (Opus 5.5, workspace `wks_c227e9c5312b0db4`).
+- `67fb94a5-b542-45ce-bbed-0c09020fc769` (Sonnet), `wt-pill`, branch `windows-pill-round`. The fix: the speaking dots render as squares; make them rounded capsules like the Mac (radius and height animation). Verified with offscreen renders at 100% and 150% in `scratch-pill`. Then it stages **app-next6**. After that, the coordinator sends the switch steps to the orchestrator.
+- `1449ca9c-7283-4822-b65d-b7985bb029a6` (Sonnet), `wt-notes` plus `bench-notes`. Make 60-minute meetings complete: diagnose the cap hits, item caps per the Mac contract on extraction and merge, split-and-retry on output exhaustion, re-run Gemma/Qwen7B Vulkan, and quality sets if feasible. No pinning; no Core changes without the coordinator's OK.
 
 **Notes bench: DONE 00:48Z; 76b8269f is archived.** The full PC matrix is in `NOTES_MODEL_BENCHMARK.md` on `windows-local-notes` at `f6d92e6`, worktree `T:\Paseo Project\Murmur\wt-notes`.
 - No 60-minute run completed in any cell, bounded or not, so item limits don't fix long meetings.
