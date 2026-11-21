@@ -61,6 +61,7 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(strip("slack mode", "slack mode fix the build") == "fix the build", "lowercase transcript stays lowercase")
         check(strip("code", "Code: fix it") == "Fix it", "a colon after the trigger goes")
         check(strip("email mode", "Email mode. Fix it.") == "Fix it.", "a period after a leading trigger goes")
+        check(strip("email mode", "E-mail mode, fix it.") == "Fix it.", "a hyphenated \"E-mail\" still matches the trigger")
         check(strip("slack mode", "Fix it, slack mode.") == "Fix it.", "trailing trigger: comma dropped, terminal mark kept: \(String(describing: strip("slack mode", "Fix it, slack mode.")))")
         check(strip("slack mode", "Is it fixed slack mode?") == "Is it fixed?", "a trailing question mark is kept")
         check(strip("slack mode", "Fix it. Slack mode.") == "Fix it.", "a trailing trigger sentence leaves the earlier period")
