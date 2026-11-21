@@ -56,7 +56,7 @@ public sealed partial record ModelFacts
 public static class NotesGpu
 {
     /// <summary>The exact warning (the Mac's sentence case, ellipsis and punctuation). The measured figure: a 5900X CPU took about 8 to 9 minutes for a 30-minute meeting; slower laptops take longer.</summary>
-    public const string NoGpuWarning = "No compatible GPU found. Local meeting notes may take 10 minutes or more for a 30-minute meeting. Murmur Cloud is much faster.";
+    public const string NoGpuWarning = "No compatible GPU found. Local meeting notes may take 10 minutes or more for a 30-minute meeting. A Custom Provider, or a PC with a compatible GPU, is much faster.";
 
     static Task<bool>? probe;
     static readonly object sync = new();
