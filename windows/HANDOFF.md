@@ -20,13 +20,26 @@
    - Mac: the orchestrator runs that PR from the Mac once the Windows side is ready. Tell it.
 4. **New UX:** when there's no usable GPU (the same DirectML/Vulkan capability check), warn plainly before the download and at the notes model row. Copy: "No compatible GPU found. Local meeting notes may take 10 minutes or more for a 30-minute meeting. Murmur Cloud is much faster." Use the measured numbers (5900X CPU: about 8–9 minutes per 30 minutes; laptops are slower) and suggest Murmur Cloud notes. On CPU, show progress and an estimate, and run in the background. Match the Mac copy style, with tests for the gating and the copy.
 
-**Live PC agents:**
-- **app-next7 FAILED for the user:** the pill is an OPAQUE BLACK rectangle (click-through OK), and a faint black box shows behind the live-words card. `windows-pill-frameless` (1c5f9ed) is NOT merged. Further user results: live words appear late; browser modes don't work; Email/Prompt mode give no visible sign, and Prompt mode never fired; cloud progress text should read "Editing on Murmur Cloud…" (no host). The user then wants the first release. Stage **app-next8**. Delete app-next6 after app-next8 is confirmed; keep app-next5 as the fallback.
-- `56ed61d8-2106-4afb-97bd-a39bf83e3573` (Sonnet), `wt-pill2`, branch `windows-pill-alpha` (from 1c5f9ed). Work: bisect the transparency against c0e83b4 and remove the border while keeping per-pixel alpha, with a LIVE capture of only its own test windows (cropped in memory); the live-words first-partial latency against the Mac; and porting the Mac mode indicator into the pill.
-- `b9e28c3c-5c68-4661-8e4e-1c6274888778` (Sonnet), `wt-modes`, branch `windows-modes-fix`. Work: browser modes, reproduced with its own browser instances (temporary T: profiles); spoken triggers (SAPI WAV → Parakeet for the real casing → matcher fix plus tests, Prompt mode built-in); and the Cloud progress wording.
-- **When both land:** merge them, Release build plus Core tests, publish app-next8 (with DirectML from app-next7's Speech, read-only), and send the switch steps.
-- `1449ca9c-7283-4822-b65d-b7985bb029a6` (Sonnet): the notes 60-minute fix, in `wt-notes` (branch `windows-local-notes`) plus `bench-notes`. The Gemma Vulkan variant already completes 30 AND 60 min. Still to come: the Qwen Vulkan cells, the Gemma quality sets, the Gemma CPU 30/60 timings, and the exact contract spec.
-- **Next:** when 1449ca9c finishes, start the Core worker (decisions 2–4) on a fresh branch off `windows`.
+**PC SHUTDOWN CHECKPOINT (2026-11-21).** The user shut the PC down. No PC workers are live: every one is archived. The only worktree is the main checkout. The user was running **app-next7** at shutdown. The app folders app, app-next4, app-next5, app-next6 and app-next7 are kept as they are.
+
+**Resume points (one branch each, all pushed):**
+1. **`windows-modes-fix@7d03254`: DONE, ready to merge.** It covers Firefox website matching (the address bar is a ComboBox), the Chromium first read, Comet support, the ModeFeedback notice when no rewrite engine is configured on a local route, the "E-mail mode" hyphen fold, and "Editing on Murmur Cloud…".
+   - Release build 0 warnings; Core 22,721 passed.
+   - The commit subject has a stray BOM; leave it.
+2. **`windows-pill-alpha@39158b7`: WIP, NOT built.** Read `windows/CHECKPOINT-pill-alpha.md` on that branch.
+   - Transparency is unsolved. The live capture method does NOT validate: it shows the app-next6 and app-next7 paths both black.
+   - Candidate: presenter border off plus `DwmExtendFrameIntoClientArea(-1)`. It looked transparent in the first runs, then after about 3:33 every extended-frame variant drew nothing. The cause is unresolved; the BubbleLive.cs display-pinning edit is suspected.
+   - Also on this branch: live words now show the card at once with "Listening…", like the Mac. Not measured: the streaming model wasn't on disk.
+   - The Mac has NO mode-name indicator. Its equivalent is the "N changes" chip (Bubble.swift:196-232, 8 s); it's ported without in-place Undo, and not checked live.
+   - Next: rebuild, fix the blank-render regression, and find a live verification method that tells the app-next6 path from the app-next7 path. The orchestrator offers a VM live capture.
+3. **`windows-local-notes@218ec16`: the bench is complete.** Every planned cell finished. The "partial, resume here" section of NOTES_MODEL_BENCHMARK.md holds the variant definition (caps, split rule, merge batch) and the results; the resume commands are in `bench-notesesults\RESUME.md`.
+   - Next: the Core worker for the user's decisions: the approved contract in Core with tests and golden files (the regeneration needs the Mac), the Gemma 3 4B pin and Models row, and the no-GPU warning, estimate and progress. Tell the orchestrator when the Windows side is ready for the Mac PR.
+4. **On the next session:** `git merge origin/main` into `windows`. PR #98 (Murmur Cloud copy) and #99 (the Mac E-mail hyphen fold) are merged on main, so `check_parity` should then be in step for WritingModes. Then:
+   - merge windows-modes-fix;
+   - finish pill-alpha;
+   - send the merged commit to the orchestrator for the VM live run (triggers with a fake Custom Provider, the indicator, transparency);
+   - then stage **app-next8** and send the switch steps.
+   - Delete app-next6 only after app-next8 is confirmed; keep app-next5 as the fallback.
 
 **Older notes below are history.** Earlier notes bench: f6d92e6 on windows-local-notes; no 60-minute run completed before the fix. Old workers 76b8269f, 67fb94a5, fa8785fe and 8aa2528c are archived.
 
