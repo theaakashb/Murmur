@@ -533,6 +533,8 @@ internal sealed partial class Controller : IDisposable
                 break;
             case DeliveryResult<PasteOutcome>.Delivered d:
                 ReportPaste(d.Value, final.Id, text);
+                if (d.Value.Status != InsertionStatus.Failed && ModeFeedback.Notice(mode, engine is not null, result.Fallback) is { } modeNotice)
+                    bubble.ShowNotice(modeNotice, 6);
                 break;
         }
     }
