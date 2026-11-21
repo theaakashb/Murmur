@@ -205,6 +205,9 @@
             <Style x:Key="MurmurBubbleDot" TargetType="Border">
                 <Setter Property="Background" Value="{ThemeResource MurmurAccent}" />
             </Style>
+            <Style x:Key="MurmurBubbleBar" TargetType="Rectangle">
+                <Setter Property="Fill" Value="{ThemeResource MurmurAccent}" />
+            </Style>
             <Style x:Key="MurmurBubbleError" TargetType="Border">
                 <Setter Property="Background" Value="{ThemeResource SystemFillColorCriticalBrush}" />
             </Style>
