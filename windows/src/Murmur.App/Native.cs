@@ -6,7 +6,7 @@ namespace Murmur.App;
 /// <summary>The few Win32 calls the shell needs: window styles for the bubble, and a plain-text clipboard write for Copy buttons.</summary>
 internal static class Native
 {
-    public const int GwlExStyle = -20;
+    public const int GwlStyle = -16, GwlExStyle = -20;
     public const long WsExTopmost = 0x8, WsExTransparent = 0x20, WsExToolWindow = 0x80, WsExLayered = 0x80000, WsExNoActivate = 0x08000000;
     public static readonly nint HwndTopmost = -1;
     public const uint SwpNoActivate = 0x10, SwpShowWindow = 0x40;
@@ -18,18 +18,6 @@ internal static class Native
     [DllImport("user32.dll")] public static extern nint GetForegroundWindow();
     [DllImport("user32.dll")] public static extern uint GetDpiForWindow(nint hwnd);
     [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(nint hwnd, uint key, byte alpha, uint flags);
-    [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int size);
-
-    /// <summary>Removes the Windows 11 window border and shadow, and square-cornering so no DWM rounding shows. Each call's HRESULT is checked; false means a call failed (an older Windows ignores the ones it does not know).</summary>
-    public static bool RemoveWindowChrome(nint hwnd)
-    {
-        const int DwmwaNcRenderingPolicy = 2, DwmwaWindowCornerPreference = 33, DwmwaBorderColor = 34;
-        int none = unchecked((int)0xFFFFFFFE), doNotRound = 1, disabled = 1;
-        bool ok = DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref none, 4) >= 0;
-        ok &= DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref doNotRound, 4) >= 0;
-        ok &= DwmSetWindowAttribute(hwnd, DwmwaNcRenderingPolicy, ref disabled, 4) >= 0;
-        return ok;
-    }
     [DllImport("user32.dll")] public static extern int SetWindowRgn(nint hwnd, nint region, bool redraw);
     [DllImport("gdi32.dll")] public static extern nint CreateRoundRectRgn(int l, int t, int r, int b, int w, int h);
     [DllImport("user32.dll")] static extern bool OpenClipboard(nint owner);

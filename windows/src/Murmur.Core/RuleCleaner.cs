@@ -563,6 +563,10 @@ public sealed partial class RuleCleaner : ICleaner
     /// <summary>NSRegularExpression (ICU) patterns on .NET. A nested class, so its tables exist before any RuleCleaner regex field is built.</summary>
     static class Icu
     {
+        // Its own copy of the tables, so building Icu never reads a RuleCleaner static: RuleCleaner's field initializers call
+        // IcuRegex, and a caller that reaches IcuRegex first (TransformGuard) would otherwise see a half-built Icu (null tables).
+        static readonly RulesData Data = SharedData.Load<RulesData>("rule_cleaner");
+
         static (int Lo, int Hi)[] Parse(string s) => s.Split(',').Select(r => { var p = r.Split('-'); return (Convert.ToInt32(p[0], 16), Convert.ToInt32(p[1], 16)); }).ToArray();
 
         static (int Lo, int Hi)[] Subtract((int Lo, int Hi)[] a, (int Lo, int Hi)[] b)
