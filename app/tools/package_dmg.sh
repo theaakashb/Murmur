@@ -11,7 +11,7 @@ xcrun stapler validate "$app_path"
 command -v dmgbuild >/dev/null || { echo 'Install dmgbuild 1.6.7 before packaging Murmur.' >&2; exit 1; }
 dmg="$output/Murmur.dmg"
 mkdir -p "$output"
-dmgbuild -s "${0:A:h}/dmg_settings.py" -D "app=$app_path" "Drag Murmur to Applications" "$dmg"
+dmgbuild -s "${0:A:h}/dmg_settings.py" -D "app=$app_path" -D "assets=${0:A:h}" Murmur "$dmg"
 codesign --sign "$MURMUR_SIGN_IDENTITY" --timestamp "$dmg"
 xcrun notarytool submit "$dmg" --keychain-profile "$MURMUR_NOTARY_PROFILE" --wait
 xcrun stapler staple "$dmg"
