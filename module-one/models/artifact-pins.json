@@ -1,6 +1,306 @@
 {
   "fluid_audio_revision": "0b1f46289fe27d95b5e66ad8be46e64f5ee02ae7",
   "models": {
+    "FluidInference/parakeet-tdt-0.6b-v3-coreml": {
+      "revision": "7dd20fe6b1797d35f5e3307e8b1732d9a178edfe",
+      "files": [
+        {
+          "rfilename": "Decoder.mlmodelc/analytics/coremldata.bin",
+          "size": 243,
+          "lfs": {
+            "sha256": "4238c4e81ecd0dc94bd7dfbb60f7e2cc824107c1ffe0387b8607b72833dba350"
+          }
+        },
+        {
+          "rfilename": "Decoder.mlmodelc/coremldata.bin",
+          "size": 554,
+          "lfs": {
+            "sha256": "18647af085d87bd8f3121c8a9b4d4564c1ede038dab63d295b4e745cf2d7fb99"
+          }
+        },
+        {
+          "rfilename": "Decoder.mlmodelc/metadata.json",
+          "size": 3427,
+          "git_blob_sha1": "781350d40ed83511afc3bc31a804e6a543e69d04"
+        },
+        {
+          "rfilename": "Decoder.mlmodelc/model.mil",
+          "size": 13110,
+          "git_blob_sha1": "95328ba81ca8dceb16c039e62f1a7d447ede43c2"
+        },
+        {
+          "rfilename": "Decoder.mlmodelc/weights/weight.bin",
+          "size": 23604992,
+          "lfs": {
+            "sha256": "48adf0f0d47c406c8253d4f7fef967436a39da14f5a65e66d5a4b407be355d41"
+          }
+        },
+        {
+          "rfilename": "Encoder.mlmodelc/analytics/coremldata.bin",
+          "size": 243,
+          "lfs": {
+            "sha256": "42e638870d73f26b332918a3496ce36793fbb413a81cbd3d16ba01328637a105"
+          }
+        },
+        {
+          "rfilename": "Encoder.mlmodelc/coremldata.bin",
+          "size": 485,
+          "lfs": {
+            "sha256": "d48034a167a82e88fc3df64f60af963ab3983538271175b8319e7d5720a0fb86"
+          }
+        },
+        {
+          "rfilename": "Encoder.mlmodelc/metadata.json",
+          "size": 2921,
+          "git_blob_sha1": "aecde9a8c4ff70c5b5d227a079650fcf5033caee"
+        },
+        {
+          "rfilename": "Encoder.mlmodelc/model.mil",
+          "size": 959769,
+          "git_blob_sha1": "93d1301ccde7c2ca447af6c01ab05bfda5a5dd2c"
+        },
+        {
+          "rfilename": "Encoder.mlmodelc/weights/weight.bin",
+          "size": 445187200,
+          "lfs": {
+            "sha256": "e2020f323703477a5b21d7c2d282c403e371afb5962e79877e3033e73ba6f421"
+          }
+        },
+        {
+          "rfilename": "JointDecisionv3.mlmodelc/analytics/coremldata.bin",
+          "size": 243,
+          "lfs": {
+            "sha256": "26def4bf73dd56d29dee21c8ef97cb8969e62f6120ed1adc91e46828e2737b6c"
+          }
+        },
+        {
+          "rfilename": "JointDecisionv3.mlmodelc/coremldata.bin",
+          "size": 521,
+          "lfs": {
+            "sha256": "f5fc08b741400f0088492c9e839418b1e18522f19cba28d361dd030c5f398342"
+          }
+        },
+        {
+          "rfilename": "JointDecisionv3.mlmodelc/metadata.json",
+          "size": 3453,
+          "git_blob_sha1": "0461ef9e55ba8e8ba0d2cb33b6e1a031b0d481d7"
+        },
+        {
+          "rfilename": "JointDecisionv3.mlmodelc/model.mil",
+          "size": 11775,
+          "git_blob_sha1": "0a80fde4b1ec61093a03fc0fc3431172db34a4d2"
+        },
+        {
+          "rfilename": "JointDecisionv3.mlmodelc/weights/weight.bin",
+          "size": 12642764,
+          "lfs": {
+            "sha256": "4e0e63d840032f7f07ddb1d64446051166281e5491bf22da8a945c41f6eedb3e"
+          }
+        },
+        {
+          "rfilename": "Preprocessor.mlmodelc/analytics/coremldata.bin",
+          "size": 243,
+          "lfs": {
+            "sha256": "c9beeb989c8d66f8be11df59bc6df277ec76cee404f6865b46243835ef562f6d"
+          }
+        },
+        {
+          "rfilename": "Preprocessor.mlmodelc/coremldata.bin",
+          "size": 486,
+          "lfs": {
+            "sha256": "dbde3f2300842c1fd51ef3ff948a0bcffe65ffd2dca10707f2509f32c1d65b1d"
+          }
+        },
+        {
+          "rfilename": "Preprocessor.mlmodelc/metadata.json",
+          "size": 2841,
+          "git_blob_sha1": "06162c58cf2f5343a0e60f36f843bcdf3cc58527"
+        },
+        {
+          "rfilename": "Preprocessor.mlmodelc/model.mil",
+          "size": 28181,
+          "git_blob_sha1": "f987e2479228436c49189aa47edb376db74dcff5"
+        },
+        {
+          "rfilename": "Preprocessor.mlmodelc/weights/weight.bin",
+          "size": 491072,
+          "lfs": {
+            "sha256": "129b76e3aeafa8afa3ea76d995b964b145fe83700d579f6ff42c4c38fa0968ea"
+          }
+        },
+        {
+          "rfilename": "parakeet_vocab.json",
+          "size": 151122,
+          "git_blob_sha1": "c684822ec3b671ebc449c433a7012398d39b8bb0"
+        }
+      ],
+      "batch_files": [
+        "Decoder.mlmodelc/analytics/coremldata.bin",
+        "Decoder.mlmodelc/coremldata.bin",
+        "Decoder.mlmodelc/metadata.json",
+        "Decoder.mlmodelc/model.mil",
+        "Decoder.mlmodelc/weights/weight.bin",
+        "Encoder.mlmodelc/analytics/coremldata.bin",
+        "Encoder.mlmodelc/coremldata.bin",
+        "Encoder.mlmodelc/metadata.json",
+        "Encoder.mlmodelc/model.mil",
+        "Encoder.mlmodelc/weights/weight.bin",
+        "JointDecisionv3.mlmodelc/analytics/coremldata.bin",
+        "JointDecisionv3.mlmodelc/coremldata.bin",
+        "JointDecisionv3.mlmodelc/metadata.json",
+        "JointDecisionv3.mlmodelc/model.mil",
+        "JointDecisionv3.mlmodelc/weights/weight.bin",
+        "Preprocessor.mlmodelc/analytics/coremldata.bin",
+        "Preprocessor.mlmodelc/coremldata.bin",
+        "Preprocessor.mlmodelc/metadata.json",
+        "Preprocessor.mlmodelc/model.mil",
+        "Preprocessor.mlmodelc/weights/weight.bin",
+        "parakeet_vocab.json"
+      ]
+    },
+    "DictionLabs/whisperkit-coreml": {
+      "revision": "87410e60d77684d6a83ccafca325e8ebf3300470",
+      "files": [
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/AudioEncoder.mlmodelc/analytics/coremldata.bin",
+          "size": 243,
+          "lfs": {
+            "sha256": "6e5efaeeb5662c931459be0cbd148ce98927eccfef498a7ac91ae0bd16b04464"
+          }
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/AudioEncoder.mlmodelc/coremldata.bin",
+          "size": 409,
+          "lfs": {
+            "sha256": "61a5aab1dc988770dde6730b3d567114aa2e1f062dabfeefd000f76f2c7bae16"
+          }
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/AudioEncoder.mlmodelc/metadata.json",
+          "size": 2020,
+          "git_blob_sha1": "5c09cced6302ca7d5e242cf52fa7f12ea51378c3"
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/AudioEncoder.mlmodelc/model.mil",
+          "size": 9791744,
+          "git_blob_sha1": "90701a9df905a16e561075bee7f7e94be5306879"
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/AudioEncoder.mlmodelc/weights/weight.bin",
+          "size": 480821248,
+          "lfs": {
+            "sha256": "b429ac850d20c15cec552d48ca770dec2f842fa9afc4833f7586d624e49f510f"
+          }
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/MelSpectrogram.mlmodelc/analytics/coremldata.bin",
+          "size": 243,
+          "lfs": {
+            "sha256": "5a539ca31d3c561a2dd6a6a3c0261da93337546fa3a8c8a32320ed29842e466b"
+          }
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/MelSpectrogram.mlmodelc/coremldata.bin",
+          "size": 390,
+          "lfs": {
+            "sha256": "dd9727e5cd44a53343444789871eae2fbd583f1fd286fd6fa28f45982ea032af"
+          }
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/MelSpectrogram.mlmodelc/metadata.json",
+          "size": 1949,
+          "git_blob_sha1": "4428d1c1a53bd1661a18b58be308e6c67dfab173"
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/MelSpectrogram.mlmodelc/model.mil",
+          "size": 10143,
+          "git_blob_sha1": "868d131872469a83de000cf6d5b3bbd7a37dfe3d"
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/MelSpectrogram.mlmodelc/weights/weight.bin",
+          "size": 373376,
+          "lfs": {
+            "sha256": "009d9fb8f6b589accfa08cebf1c712ef07c3405229ce3cfb3a57ee033c9d8a49"
+          }
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/TextDecoder.mlmodelc/analytics/coremldata.bin",
+          "size": 243,
+          "lfs": {
+            "sha256": "9b3762f848be11b02a07f4f0c5e35ae721e0204a0f1dd27413707ab80b9a9d69"
+          }
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/TextDecoder.mlmodelc/coremldata.bin",
+          "size": 694,
+          "lfs": {
+            "sha256": "28f041e44d2aeda4fd3f370472ce043df8a294f5d78047c0eac80629058e6486"
+          }
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/TextDecoder.mlmodelc/metadata.json",
+          "size": 4951,
+          "git_blob_sha1": "31f832a10c24c479c4547fb7d4eda89cdc3e9ddb"
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/TextDecoder.mlmodelc/model.mil",
+          "size": 141703,
+          "git_blob_sha1": "b26e808596efd9cef66186b35bbbe104e33ccee3"
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/TextDecoder.mlmodelc/weights/weight.bin",
+          "size": 245652212,
+          "lfs": {
+            "sha256": "4a6390ad632486dd542f630550b656b1dcb3802cb80edb8098a8e5362431648c"
+          }
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/config.json",
+          "size": 1149,
+          "git_blob_sha1": "f6c3db01a3124f90b3bfbf3d58e47ba5de1f5ccd"
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/generation_config.json",
+          "size": 2767,
+          "git_blob_sha1": "a023f6f947b0fc4ab7a2986a1c23b014836ec720"
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/tokenizer.json",
+          "size": 2480617,
+          "git_blob_sha1": "3a5e2ba63acdcac9a19ba56cf9bd27f185bfff61"
+        },
+        {
+          "rfilename": "dictionlabs_whisper-large-v3-turbo-q6q8/tokenizer_config.json",
+          "size": 282843,
+          "git_blob_sha1": "06ffdc8308eae6bb7bd1fdd81e94b0a881a539ab"
+        }
+      ],
+      "batch_files": [
+        "dictionlabs_whisper-large-v3-turbo-q6q8/AudioEncoder.mlmodelc/analytics/coremldata.bin",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/AudioEncoder.mlmodelc/coremldata.bin",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/AudioEncoder.mlmodelc/metadata.json",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/AudioEncoder.mlmodelc/model.mil",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/AudioEncoder.mlmodelc/weights/weight.bin",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/MelSpectrogram.mlmodelc/analytics/coremldata.bin",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/MelSpectrogram.mlmodelc/coremldata.bin",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/MelSpectrogram.mlmodelc/metadata.json",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/MelSpectrogram.mlmodelc/model.mil",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/MelSpectrogram.mlmodelc/weights/weight.bin",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/TextDecoder.mlmodelc/analytics/coremldata.bin",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/TextDecoder.mlmodelc/coremldata.bin",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/TextDecoder.mlmodelc/metadata.json",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/TextDecoder.mlmodelc/model.mil",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/TextDecoder.mlmodelc/weights/weight.bin",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/config.json",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/generation_config.json",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/tokenizer.json",
+        "dictionlabs_whisper-large-v3-turbo-q6q8/tokenizer_config.json"
+      ],
+      "license": {
+        "name": "MIT",
+        "url": "https://huggingface.co/DictionLabs/whisperkit-coreml/blob/87410e60d77684d6a83ccafca325e8ebf3300470/README.md"
+      }
+    },
     "FluidInference/parakeet-unified-en-0.6b-coreml": {
       "revision": "d32e972dd4315f1dc3f6be28fb2aab0ab3e80358",
       "files": [

@@ -9,6 +9,10 @@ import Foundation
 
     static func main() async throws {
         var arguments = Array(CommandLine.arguments.dropFirst())
+        if let engine = arguments.last, engine == "--parakeet-tdt" || engine == "--whisper-turbo" {
+            arguments.removeLast()
+            try await multilingual(engine, arguments: arguments); return
+        }
         // Dictionary support: the pinned CTC model rescores the transcript toward the vocabulary.
         var ctc: URL?, vocabulary: URL?
         if let index = arguments.firstIndex(of: "--ctc"), index + 3 < arguments.count,

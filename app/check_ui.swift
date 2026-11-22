@@ -52,6 +52,11 @@ extension AppController {
         precondition(NSFont(name: "InstrumentSerif-Regular", size: 64) != nil)
         precondition(NSFont(name: "DMSans-9ptRegular", size: 14) != nil)
         let controller = AppController(preview: true)
+        controller.dictationLanguages = ["en"]
+        if let flag = args.firstIndex(of: "--dictation-languages"), args.indices.contains(flag + 1) {
+            controller.dictationLanguages = args[flag + 1].split(separator: ",").map(String.init)
+        }
+        if args.contains("--local-transcription") { controller.transcriptionRoute = .local }
         if CommandLine.arguments.contains("--custom-transcription") {
             controller.transcriptionRoute = .cloud
         }
