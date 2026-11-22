@@ -1,6 +1,6 @@
 # Murmur
 
-Murmur is a macOS dictation app. Press a global shortcut, speak, and Murmur pastes the text into the focused field. It can remove fillers, apply spoken corrections and format lists, and each of these can be turned on or off. Transcription runs locally by default with NVIDIA Parakeet Unified English through FluidAudio and Core ML.
+Murmur is a macOS dictation app. Press a global shortcut, speak, and Murmur pastes the text into the focused field. It can remove fillers, apply spoken corrections and format lists, and each of these can be turned on or off. On-device transcription uses Core ML, with a speech model chosen for the languages you dictate in.
 
 ## Status
 
@@ -28,7 +28,7 @@ app/build.sh
 open runtime/Murmur.app
 ```
 
-The first build needs internet access to fetch pinned FluidAudio source and its checksummed binary dependency. It does not download speech model weights.
+The first build needs internet access to fetch pinned FluidAudio and WhisperKit sources and FluidAudio’s checksummed binary dependency. It does not download speech model weights.
 
 For contributors, the [development guide](CONTRIBUTING.md) covers checks and fixtures. [Provider integration](app/PROVIDERS.md) explains optional route configuration; [app development](app/README.md) covers settings, recovery, and test tools.
 
@@ -79,6 +79,12 @@ security delete-generic-password -s Murmur
 ```
 
 The folders still use the app's old name, Dictation. Optional dictionary-support weights are stored separately in `~/Library/Application Support/FluidAudio/Models/parakeet-ctc-110m-coreml`; other FluidAudio apps may share this folder, so remove them from Settings → Dictionary, which shows that warning. App preferences are stored under the development bundle ID, `cc.clouddev.dictation.development`; `defaults delete cc.clouddev.dictation.development` removes them. To revoke permissions, remove Murmur under System Settings → Privacy & Security → Microphone, Accessibility and Input Monitoring, plus System Audio Recording if you enabled meeting capture.
+
+## Dictation languages
+
+Choose languages in the Welcome Guide or **Settings → Transcription**. Local English dictation uses Parakeet Unified. Murmur uses Parakeet TDT v3 when it covers every selected language, and Whisper large-v3-turbo for broader selections such as Hindi or Arabic. Download the recommended model once to dictate offline. With a multilingual selection, Murmur preserves the transcript and applies explicit spellings you added to Dictionary.
+
+Murmur Cloud detects the language automatically for multilingual dictation. Language choices apply to dictation.
 
 ## License
 
