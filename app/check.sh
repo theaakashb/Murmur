@@ -12,20 +12,20 @@ models="Digests ModelManifest ModelDownload"
 deps() {
   case "$1" in
     launch) echo "LaunchOptions" ;;
-    history) echo "CleanupTypes CleanupText Retention History ModelFiles ModelText $models" ;;
+    history) echo "CleanupTypes CleanupText Retention History ModelFiles ModelText DictationLanguages $models" ;;
     controller) echo "app ../spike/InsertionChecks" ;;
     meeting_start) echo "app" ;;
     recording) echo "AudioFormat Retention Shortcut Capture Session" ;;
-    speaker_flow) echo "Capture CleanupTypes History ModelFiles ModelText ModelFlow $models $meetings MeetingCapture MeetingRecorder SpeakerModelSettings" ;;
+    speaker_flow) echo "Capture CleanupTypes History ModelFiles ModelText DictationLanguages ModelFlow $models $meetings MeetingCapture MeetingRecorder SpeakerModelSettings" ;;
     delivery) echo "Delivery" ;;
     diagnostics) echo "Diagnostics" ;;
     dictionary) echo "$text" ;;
     voice_cues) echo "CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning VoiceCues" ;;
     processing) echo "$cloud Observation" ;;
     modes) echo "$cloud" ;;
-    apple_cleanup) echo "$cloud MurmurCloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
-    routes) echo "$cloud MurmurCloud Routes CloudAudio KeyCheck AppleCleanup LocalCleanup AIEngine" ;;
-    local_cleanup) echo "$cloud MurmurCloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
+    apple_cleanup) echo "$cloud MurmurCloud Routes DictationLanguages CloudAudio AppleCleanup LocalCleanup" ;;
+    routes) echo "$cloud MurmurCloud Routes DictationLanguages CloudAudio KeyCheck AppleCleanup LocalCleanup AIEngine" ;;
+    local_cleanup) echo "$cloud MurmurCloud Routes DictationLanguages CloudAudio AppleCleanup LocalCleanup" ;;
     providers) echo "$providers" ;;
     voice_edit) echo "$providers EditPrompt MurmurCloudEdit" ;;
     voice_edit_trigger) echo "Shortcut EditTrigger EditShortcut" ;;
@@ -34,8 +34,8 @@ deps() {
     tips) echo "Insights SettingsPanes Tips" ;;
     meetings|speakers) echo "$meetings" ;;
     call_detection) echo "CallApps CallDetection" ;;
-    model_download) echo "$models ModelText" ;;
-    app_services) echo "Retention $models ModelText HistoryRouter WelcomeGuide SettingsPanes AppUpdater" ;;
+    model_download) echo "$models ModelText DictationLanguages" ;;
+    app_services) echo "Retention $models ModelText DictationLanguages HistoryRouter WelcomeGuide SettingsPanes AppUpdater" ;;
     boost_filter) echo "../module-one/models/Runner/Sources/ModelBench/BoostFilter" ;;
     worddiff) echo "WordDiff" ;;
     cleanup) echo "Cleanup CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner" ;;

@@ -10,10 +10,19 @@ extension SettingsView {
         case .microphone: return (Permission.microphone.title, "A little access, a clear reason. So Murmur can hear you while the shortcut is held. Audio stays on this Mac unless you choose a cloud route.", isAllowed(.microphone), permissionActionTitle(.microphone), { grant(.microphone) })
         case .accessibility: return (Permission.accessibility.title, "So Murmur can paste into the field you are using. It never presses Return or sends a message.", isAllowed(.accessibility), permissionActionTitle(.accessibility), { grant(.accessibility) })
         case .inputMonitoring: return (Permission.inputMonitoring.title, "So the shortcut works in every app. Murmur listens only for the shortcut, Escape and its two ⌃⌘ chords.", isAllowed(.inputMonitoring), permissionActionTitle(.inputMonitoring), { grant(.inputMonitoring) })
-        case .transcription: return ("Transcription", "Choose where dictation audio is transcribed. Cloud routes send audio to the provider shown below.", WelcomeGuide.isConfirmed(.transcription), "", {})
-        case .cleanup: return ("Cleanup", "Choose where cleanup runs and how much it changes your words. Faithful keeps cleanup off.", WelcomeGuide.isConfirmed(.cleanup), "", {})
-        case .model: return ("Speech model", controller.transcriptionRoute != .local && controller.meetingTranscription == .cloud && !controller.modelSlot.row.isReady ? "Not needed while dictation and meeting transcription both run in the cloud." : ModelFacts.batch.displayName, controller.modelSlot.row.isReady || (controller.transcriptionRoute != .local && controller.meetingTranscription == .cloud),
-                             controller.modelSlot.row.actions.contains(.retry) ? "Retry…" : "Download…", controller.downloadModel)
+        case .transcription: return ("Transcription", "Choose your languages and where Murmur transcribes your audio.", WelcomeGuide.isConfirmed(.transcription), "", {})
+        case .cleanup:
+            let detail = controller.chosenSpeechModel == .parakeetEnglish
+                ? "Choose where cleanup runs and how much it changes your words. Faithful keeps cleanup off."
+                : "With these languages, Murmur keeps your words as spoken and applies only the spellings you’ve added to Dictionary."
+            return ("Cleanup", detail, WelcomeGuide.isConfirmed(.cleanup), "", {})
+        case .model:
+            let slot = controller.requiredSpeechSlot
+            let cloudOnly = controller.transcriptionRoute != .local && controller.meetingTranscription == .cloud
+            let detail = [slot.facts.displayName, slot.downloader.map { "\(ModelFacts.formatBytes($0.downloadSize)) download" }]
+                .compactMap { $0 }.joined(separator: " · ")
+            return ("Speech model", cloudOnly ? "Dictation and meeting transcription run in the cloud." : detail,
+                    slot.row.isReady || cloudOnly, slot.row.actions.contains(.retry) ? "Retry…" : "Download…", controller.downloadRequiredSpeechModel)
         case .tryIt: return ("Find your words.", "Press \(controller.shortcutName) and say a sentence. With this window in front, your words land in the field below instead of another app.", !controller.setupTestTranscript.isEmpty, "", {})
         }
     }
@@ -66,9 +75,10 @@ extension SettingsView {
                 }
                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Palette.ink20, lineWidth: 1))
                 .accessibilityLabel("Test dictation")
-            help(controller.learningEnabled
-                 ? "Correct a misheard word within a minute of dictating to teach Murmur its spelling. You can also add names and terms in Dictionary."
-                 : "Add names and terms in Dictionary, where you can also turn on learning from your spelling corrections.")
+            let dictionaryTip = controller.learningEnabled
+                ? "Correct a misheard word within a minute of dictating to teach Murmur its spelling. You can also add names and terms in Dictionary."
+                : "Add names and terms in Dictionary, where you can also turn on learning from your spelling corrections."
+            help(controller.chosenSpeechModel == .parakeetEnglish ? dictionaryTip : "Add names and their misheard forms in Dictionary.")
                 .padding(.top, 16)
         }
         .onChange(of: controller.shortcut) { controller.settingsChanged() }
@@ -142,33 +152,40 @@ extension SettingsView {
                             HStack(alignment: .top, spacing: 4) {
                                 help(step.detail)
                                 if guideStep == .model {
-                                    ModelInfoIcons(license: controller.modelSlot.license.map(ModelFacts.licenseText), details: controller.modelSlot.summary)
+                                    ModelInfoIcons(license: controller.requiredSpeechSlot.license.map(ModelFacts.licenseText), details: controller.requiredSpeechSlot.summary)
                                 }
                             }.padding(.top, 10)
                             Group {
-                                if guideStep == .transcription { transcriptionRoutes }
+                                if guideStep == .transcription {
+                                    dictationLanguagePicker
+                                    transcriptionRoutes
+                                }
                                 else if guideStep == .cleanup {
-                                    cleanupChoices
-                                    if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .customAPI { customCleanupSettings }
-                                    if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .murmurCloud { keyRow(.murmurCloud).padding(.top, 16) }
-                                    disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
+                                    if controller.chosenSpeechModel == .parakeetEnglish {
+                                        cleanupChoices
+                                        if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .customAPI { customCleanupSettings }
+                                        if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .murmurCloud { keyRow(.murmurCloud).padding(.top, 16) }
+                                        disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
+                                    }
                                 }
                                 else if guideStep == .welcome { welcome }
                                 else if last { tryIt }
                                 else {
-                                    let working = guideStep == .model && controller.modelSlot.row.isWorking
+                                    let working = guideStep == .model && controller.requiredSpeechSlot.row.isWorking
                                     VStack(alignment: .leading, spacing: 10) {
                                         HStack(spacing: 14) {
                                             if step.done { HStack(spacing: 6) { Image(systemName: "checkmark").foregroundStyle(SetupPalette.blue); Text("Ready").foregroundStyle(SetupPalette.ink) }.font(WindowType.body(14, weight: .semibold)).accessibilityElement(children: .combine) }
-                                            else if working { Button("Cancel", action: controller.cancelModelDownload).buttonStyle(InkButtonStyle(kind: .outline)) }
-                                            else { Button(step.action, action: step.run).buttonStyle(InkButtonStyle()) }
+                                            else if working { Button("Cancel", action: controller.cancelRequiredSpeechModel).buttonStyle(InkButtonStyle(kind: .outline)) }
+                                            else if guideStep != .model || controller.requiredSpeechSlot.downloader != nil {
+                                                Button(step.action, action: step.run).buttonStyle(InkButtonStyle())
+                                            }
                                             Spacer()
                                         }
                                         if working {
-                                            help(controller.modelSlot.row.statusText)
-                                            if let progress = controller.modelSlot.row.progress { progressBar(progress) }
+                                            help(controller.requiredSpeechSlot.row.statusText)
+                                            if let progress = controller.requiredSpeechSlot.row.progress { progressBar(progress) }
                                         }
-                                        if guideStep == .model && !controller.modelSlot.message.isEmpty { help(controller.modelSlot.message) }
+                                        if guideStep == .model && !controller.requiredSpeechSlot.message.isEmpty { help(controller.requiredSpeechSlot.message) }
                                         if !step.done && (guideStep == .inputMonitoring || guideStep == .accessibility) {
                                             help("In System Settings, turn on Murmur. If it’s missing, use + to add Murmur from Applications. Return here to check access.", color: SetupPalette.muted)
                                         }

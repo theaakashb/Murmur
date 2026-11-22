@@ -112,3 +112,46 @@ extension AppController {
     }
     func useDefaultModelDirectory() { if let downloader = modelSlot.downloader { modelDirectory = downloader.target.path } }
 }
+
+extension AppController {
+    func speechModelSlot(for model: DictationLanguages.LocalModel) -> ReferenceWritableKeyPath<AppController, ModelSlot> {
+        switch model {
+        case .parakeetEnglish: return \.modelSlot
+        case .parakeetTDT: return \.tdtSlot
+        case .whisperTurbo: return \.whisperSlot
+        }
+    }
+
+    var speechModelDownloading: Bool { modelSlot.inFlight || tdtSlot.inFlight || whisperSlot.inFlight }
+
+    var chosenSpeechModel: DictationLanguages.LocalModel {
+        DictationLanguages(codes: Set(dictationLanguages))?.localModel ?? .parakeetEnglish
+    }
+    var requiredSpeechModel: DictationLanguages.LocalModel {
+        transcriptionRoute == .local ? chosenSpeechModel : .parakeetEnglish
+    }
+    var requiredSpeechSlot: ModelSlot { self[keyPath: speechModelSlot(for: requiredSpeechModel)] }
+
+    func speechModelPath(for model: DictationLanguages.LocalModel) -> String? {
+        model == .parakeetEnglish ? modelDirectory : self[keyPath: speechModelSlot(for: model)].downloader?.target.path
+    }
+
+    func downloadRequiredSpeechModel() {
+        let model = requiredSpeechModel
+        if model == .parakeetEnglish { downloadModel(); return }
+        var flow = flow(speechModelSlot(for: model))
+        flow.didDownload = { [weak self] result in
+            if case .success = result, self?.requiredSpeechModel == model { self?.prewarm() }
+        }
+        flow.download()
+    }
+
+    func cancelRequiredSpeechModel() { requiredSpeechSlot.downloader?.cancel() }
+
+    func removeRequiredSpeechModel() {
+        if requiredSpeechModel == .parakeetEnglish { removeModel(); return }
+        var flow = flow(speechModelSlot(for: requiredSpeechModel))
+        flow.release = { [weak self] go in self?.warm.stopNow(); go() }
+        flow.remove()
+    }
+}

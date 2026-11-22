@@ -211,9 +211,9 @@ final class DictionaryStore {
 
     /// Folded variant key -> entry. Command targets win, then manual entries over learned ones,
     /// then older entries.
-    private func variantTable(isCommonWord: ((String) -> Bool)?) -> [String: DictionaryEntry] {
+    private func variantTable(isCommonWord: ((String) -> Bool)?, manualOnly: Bool = false) -> [String: DictionaryEntry] {
         var table: [String: DictionaryEntry] = [:]
-        let ordered = entries.filter(\.enabled).sorted {
+        let ordered = entries.filter { $0.enabled && (!manualOnly || ($0.source == .manual && !Self.isCommandTarget($0))) }.sorted {
             let command0 = Self.isCommandTarget($0), command1 = Self.isCommandTarget($1)
             if command0 != command1 { return command0 }
             if $0.source != $1.source { return $0.source == .manual }
@@ -244,9 +244,9 @@ final class DictionaryStore {
     /// unchanged. Punctuation or a line break ends a phrase. At each position a command-target
     /// phrase wins, then the longest phrase; replaced text is never matched again, so
     /// another entry cannot rewrite words inside an inserted command ("question mark" stays).
-    func apply(to text: String, isCommonWord override: ((String) -> Bool)? = nil) -> String {
-        let isCommonWord = override ?? self.isCommonWord
-        let table = variantTable(isCommonWord: isCommonWord)
+    func apply(to text: String, isCommonWord override: ((String) -> Bool)? = nil, manualVariantsOnly: Bool = false) -> String {
+        let isCommonWord = manualVariantsOnly ? nil : override ?? self.isCommonWord
+        let table = variantTable(isCommonWord: isCommonWord, manualOnly: manualVariantsOnly)
         let terms = isCommonWord == nil ? [] : entries.filter { $0.enabled && !Self.isCommandTarget($0) && $0.preferred.count >= 6 && $0.preferred.allSatisfy(\.isLetter) }
         guard !table.isEmpty || !terms.isEmpty else { return text }
         let maxWords = table.keys.map { $0.split(separator: " ").count }.max() ?? 1

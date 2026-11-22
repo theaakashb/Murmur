@@ -49,6 +49,11 @@ private struct Item: RetainedHistoryItem { let id: String; let recordedAt: Date 
         check(store.apply(to: "Acne and Akmee and acmes") == "Acne and Akmee and acmes", "similar words untouched")
         check(store.apply(to: "café ☕ Acme 🙂") == "café ☕ Akme 🙂", "unicode neighbours")
         check(store.apply(to: "") == "", "empty text")
+        let multilingual = try DictionaryStore(directory: dir.appendingPathComponent("multilingual"))
+        try multilingual.add(preferred: "Akme", variants: ["Acme"])
+        try multilingual.add(preferred: "WidgetCo", variants: ["widget company"], source: .learned)
+        check(multilingual.apply(to: "नमस्ते Acme widget company مرحبًا", manualVariantsOnly: true) == "नमस्ते Akme widget company مرحبًا",
+              "multilingual correction preserves scripts and skips learned variants")
 
         // An entry whose target is a spoken command applies first and is never a hint.
         do {
@@ -58,6 +63,7 @@ private struct Item: RetainedHistoryItem { let id: String; let recordedAt: Date 
             try commands.add(preferred: "Marc", variants: ["mark"])
             try commands.add(preferred: "Kocia Inc", variants: ["kocia mark please"])
             check(commands.apply(to: "Is it done kocia mark") == "Is it done question mark", "misheard command replaced")
+            check(commands.apply(to: "Kocia Mark", manualVariantsOnly: true) != "question mark", "multilingual correction skips spoken commands")
             check(commands.apply(to: "Kocia Mark") == "question mark", "command target keeps its form at a sentence start")
             check(commands.apply(to: "kocia mark please") == "question mark please", "command target wins over a longer entry")
             check(commands.apply(to: "ask mark") == "ask Marc", "other entries still apply")

@@ -14,13 +14,13 @@ enum CloudAudio {
         var duration: Double?
     }
 
-    static func prepare(_ data: Data) -> Prepared {
+    static func prepare(_ data: Data, language: String? = "en") -> Prepared {
         guard let decoded = WAVAudio.decode(data), decoded.sampleRate > 0 else {
-            return Prepared(payload: AudioPayload(data: data), peak: nil, duration: nil)
+            return Prepared(payload: AudioPayload(data: data, language: language), peak: nil, duration: nil)
         }
         let rate = decoded.sampleRate > AudioFormat.sampleRate ? AudioFormat.sampleRate : decoded.sampleRate
         let samples = trimTrailingSilence(WAVAudio.downsample(decoded.samples, from: decoded.sampleRate, to: AudioFormat.sampleRate), sampleRate: rate)
-        var payload = AudioPayload(data: WAVAudio.encodePCM16(samples, sampleRate: rate))
+        var payload = AudioPayload(data: WAVAudio.encodePCM16(samples, sampleRate: rate), language: language)
         payload.levels = windowPeaks(samples, sampleRate: rate)
         return Prepared(payload: payload,
                         peak: min(level(decoded.samples, sampleRate: decoded.sampleRate), 1),

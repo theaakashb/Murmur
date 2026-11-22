@@ -128,6 +128,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         disclosureChecks()
         settingsChecks(defaults)
         audioChecks()
+        await languageSelectionChecks()
         await transcriptionChecks()
         await phantomTextChecks()
         try await dictionaryTranscriptionChecks(root.appendingPathComponent("transcription"), defaults)
@@ -313,6 +314,38 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check(AudioFormat.shouldSkipForSilence(peakLevel: CloudAudio.prepare(WAVAudio.encodePCM16(click, sampleRate: 48_000)).peak ?? 1), "a lone click does not make a silent clip count as speech")
         let word = [Float](repeating: 0.002, count: 24_000) + tone(seconds: 0.2, amplitude: 0.3) + [Float](repeating: 0.002, count: 24_000)
         check(!AudioFormat.shouldSkipForSilence(peakLevel: CloudAudio.prepare(WAVAudio.encodePCM16(word, sampleRate: 48_000)).peak ?? 0), "a 0.2 s word is speech")
+    }
+
+    static func languageSelectionChecks() async {
+        check(DictationLanguages.english.localModel == .parakeetEnglish, "English setup uses the existing model")
+        check(DictationLanguages(codes: ["en", "es", "fr"])?.localModel == .parakeetTDT, "TDT covers the complete selection")
+        let locale = Locale(identifier: "en_US")
+        check(DictationLanguages.matching("  HINDI ", locale: locale) == ["hi"], "search ignores case and surrounding whitespace")
+        check(DictationLanguages.matching("العربية", locale: locale).contains("ar"), "search matches Arabic's native name")
+        check(DictationLanguages.matching("espanol", locale: locale).contains("es"), "search matches Spanish without an accent")
+        let broader = DictationLanguages(codes: ["en", "hi", "ar"])!
+        check(broader.localModel == .whisperTurbo, "Hindi and Arabic select Whisper")
+        let mixed = DictationLanguages(codes: ["mt", "hi"])!
+        check(mixed.localModel == .whisperTurbo, "Whisper also covers Maltese in a broader selection")
+        check(DictationLanguages(codes: []) == nil && DictationLanguages(codes: ["invalid"]) == nil, "invalid selections are rejected")
+
+        let audio = WAVAudio.encodePCM16(tone(seconds: 1, amplitude: 0.3), sampleRate: 16_000)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+        do {
+            try audio.write(to: url)
+            var provider = MurmurCloudTranscriptionProvider(apiKey: testKey)
+            let transport = MockTransport(HTTPResult(status: 200, body: Data(#"{"text":"नमस्ते، مرحبًا"}"#.utf8)))
+            provider.transport = transport
+            let english = await CloudTranscription.runDetailed(provider: provider, audioData: audio)
+            check(english.outcome == .transcript("नमस्ते، مرحبًا") && transport.lastBody.contains("name=\"language\"\r\n\r\nen\r\n"), "the default request still sends English")
+            let multilingual = await CloudTranscription.runDetailed(provider: provider, audioFile: url, languages: broader)
+            check(multilingual.outcome == .transcript("नमस्ते، مرحبًا"), "multilingual Unicode survives the file route")
+            check(!transport.lastBody.contains("name=\"language\"") && !transport.lastBody.contains("name=\"prompt\""), "multilingual multipart omits language and prompt")
+            check(CloudAudio.prepare(Data([0]), language: broader.cloudHint).payload.language == nil, "passthrough audio preserves automatic language detection")
+        } catch {
+            check(false, "could not write speech fixture")
+        }
     }
 
     // MARK: Cloud transcription
