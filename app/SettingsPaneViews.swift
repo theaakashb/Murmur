@@ -102,7 +102,7 @@ extension SettingsView {
     }
 
     func permissionRow(_ permission: Permission) -> some View {
-        permissionRow(permission.title, allowed: isAllowed(permission), actionTitle: permission.actionTitle) { grant(permission) }
+        permissionRow(permission.title, allowed: isAllowed(permission), actionTitle: permissionActionTitle(permission)) { grant(permission) }
     }
 
     func permissionRow(_ title: String, allowed: Bool, actionTitle: String, action: @escaping () -> Void) -> some View {

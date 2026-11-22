@@ -7,9 +7,9 @@ extension SettingsView {
     private func guideInfo(_ step: WelcomeGuide.Step) -> (title: String, detail: String, done: Bool, action: String, run: () -> Void) {
         switch step {
         case .welcome, .meetings: return ("A little room for thought.", "Speak freely. Your voice becomes text, right where you’re writing.", false, "", {})
-        case .microphone: return (Permission.microphone.title, "A little access, a clear reason. So Murmur can hear you while the shortcut is held. Audio stays on this Mac unless you choose a cloud route.", isAllowed(.microphone), Permission.microphone.actionTitle, { grant(.microphone) })
-        case .accessibility: return (Permission.accessibility.title, "So Murmur can paste into the field you are using. It never presses Return or sends a message.", isAllowed(.accessibility), Permission.accessibility.actionTitle, { grant(.accessibility) })
-        case .inputMonitoring: return (Permission.inputMonitoring.title, "So the shortcut works in every app. Murmur listens only for the shortcut, Escape and its two ⌃⌘ chords.", isAllowed(.inputMonitoring), Permission.inputMonitoring.actionTitle, { grant(.inputMonitoring) })
+        case .microphone: return (Permission.microphone.title, "A little access, a clear reason. So Murmur can hear you while the shortcut is held. Audio stays on this Mac unless you choose a cloud route.", isAllowed(.microphone), permissionActionTitle(.microphone), { grant(.microphone) })
+        case .accessibility: return (Permission.accessibility.title, "So Murmur can paste into the field you are using. It never presses Return or sends a message.", isAllowed(.accessibility), permissionActionTitle(.accessibility), { grant(.accessibility) })
+        case .inputMonitoring: return (Permission.inputMonitoring.title, "So the shortcut works in every app. Murmur listens only for the shortcut, Escape and its two ⌃⌘ chords.", isAllowed(.inputMonitoring), permissionActionTitle(.inputMonitoring), { grant(.inputMonitoring) })
         case .transcription: return ("Transcription", "Choose where dictation audio is transcribed. Cloud routes send audio to the provider shown below.", WelcomeGuide.isConfirmed(.transcription), "", {})
         case .cleanup: return ("Cleanup", "Choose where cleanup runs and how much it changes your words. Faithful keeps cleanup off.", WelcomeGuide.isConfirmed(.cleanup), "", {})
         case .model: return ("Speech model", controller.transcriptionRoute != .local && controller.meetingTranscription == .cloud && !controller.modelSlot.row.isReady ? "Not needed while dictation and meeting transcription both run in the cloud." : ModelFacts.batch.displayName, controller.modelSlot.row.isReady || (controller.transcriptionRoute != .local && controller.meetingTranscription == .cloud),
@@ -66,6 +66,10 @@ extension SettingsView {
                 }
                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Palette.ink20, lineWidth: 1))
                 .accessibilityLabel("Test dictation")
+            help(controller.learningEnabled
+                 ? "Correct a misheard word within a minute of dictating to teach Murmur its spelling. You can also add names and terms in Dictionary."
+                 : "Add names and terms in Dictionary, where you can also turn on learning from your spelling corrections.")
+                .padding(.top, 16)
         }
         .onChange(of: controller.shortcut) { controller.settingsChanged() }
         .onAppear { controller.setupShowing = true }
@@ -165,8 +169,8 @@ extension SettingsView {
                                             if let progress = controller.modelSlot.row.progress { progressBar(progress) }
                                         }
                                         if guideStep == .model && !controller.modelSlot.message.isEmpty { help(controller.modelSlot.message) }
-                                        if guideStep == .inputMonitoring || guideStep == .accessibility {
-                                            help("After you allow Murmur in System Settings, come back here; this page updates on its own.", color: SetupPalette.muted)
+                                        if !step.done && (guideStep == .inputMonitoring || guideStep == .accessibility) {
+                                            help("In System Settings, turn on Murmur. If it’s missing, use + to add Murmur from Applications. Return here to check access.", color: SetupPalette.muted)
                                         }
                                     }
                                 }
