@@ -8,12 +8,10 @@ app_path="$1"; output="$2"
 [[ ! -e "$output" ]] || { echo 'Choose a fresh output folder.' >&2; exit 1; }
 codesign --verify --deep --strict "$app_path"
 xcrun stapler validate "$app_path"
-stage="$output/stage"; dmg="$output/Murmur.dmg"
-mkdir -p "$stage"
-ditto "$app_path" "$stage/Murmur.app"
-ln -s /Applications "$stage/Applications"
-hdiutil create -volname Murmur -srcfolder "$stage" -format UDZO -ov "$dmg"
-rm -rf "$stage"
+command -v dmgbuild >/dev/null || { echo 'Install dmgbuild 1.6.7 before packaging Murmur.' >&2; exit 1; }
+dmg="$output/Murmur.dmg"
+mkdir -p "$output"
+dmgbuild -s "${0:A:h}/dmg_settings.py" -D "app=$app_path" "Drag Murmur to Applications" "$dmg"
 codesign --sign "$MURMUR_SIGN_IDENTITY" --timestamp "$dmg"
 xcrun notarytool submit "$dmg" --keychain-profile "$MURMUR_NOTARY_PROFILE" --wait
 xcrun stapler staple "$dmg"

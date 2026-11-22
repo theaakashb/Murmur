@@ -66,6 +66,14 @@ extension SettingsView {
             }
             .overlay(alignment: .top) { rule }.padding(.top, 8)
 
+            HStack(spacing: 16) {
+                help("Add names and terms you want Murmur to spell correctly.")
+                Spacer()
+                Button("Open Dictionary") { section = .dictionary; screen = .settings }
+                    .buttonStyle(InkButtonStyle(kind: .outline))
+            }
+            .padding(.top, 20)
+
             HStack(alignment: .firstTextBaseline) {
                 eyebrow("Recent dictations")
                 Spacer()

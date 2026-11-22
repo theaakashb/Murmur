@@ -129,6 +129,10 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(strict.text == "Send 3 reports." && strict.reason != nil, "local rules retain strict guard")
         check(fresh == ProcessingSettings(), "missing keys load approved defaults")
         check(fresh.options == CleanupOptions(punctuation: true, spoken: true, trustModel: true) && fresh.route == .local && fresh.learningEnabled && defaults[Prefs.historyMode] == .on && defaults[Prefs.updateChecks], "defaults: all comforts on, local, learning on")
+        check(defaults[Prefs.showInDock], "Dock icon on by default")
+        defaults[Prefs.showInDock] = false
+        check(!defaults[Prefs.showInDock], "stored Dock opt-out takes precedence")
+        defaults.removeObject(forKey: Prefs.showInDock.key)
         var next = ProcessingSettings()
         next.options = CleanupOptions(fillers: false, corrections: true, lists: false, professional: true, trustModel: true)
         next.route = .cloud; next.learningEnabled = false

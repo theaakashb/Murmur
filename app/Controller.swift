@@ -460,7 +460,22 @@ enum ScreenRequest: Equatable {
     func requestMicrophone() {
         AVCaptureDevice.requestAccess(for: .audio) { [weak self] _ in DispatchQueue.main.async { self?.refreshPermissions() } }
     }
+    func requestPermission(_ permission: Permission) {
+        guard !preview else { return }
+        switch permission {
+        case .microphone:
+            if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined { requestMicrophone() }
+            else { openPermissionSettings(.microphone) }
+        case .accessibility:
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+        case .inputMonitoring:
+            if CGRequestListenEventAccess() { refreshPermissionsAndShortcut() }
+        }
+    }
+
     func openPermissionSettings(_ permission: Permission) {
+        guard !preview else { return }
         let pane = switch permission { case .inputMonitoring: "Privacy_ListenEvent"; case .microphone: "Privacy_Microphone"; case .accessibility: "Privacy_Accessibility" }
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") { NSWorkspace.shared.open(url) }
     }
