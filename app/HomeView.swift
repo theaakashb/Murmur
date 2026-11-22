@@ -54,6 +54,14 @@ extension SettingsView {
             }
             .padding(.vertical, 18).padding(.top, 16)
 
+            HStack(spacing: 16) {
+                help("Add names and terms you want Murmur to spell correctly.")
+                Spacer()
+                Button("Open Dictionary") { section = .dictionary; screen = .settings }
+                    .buttonStyle(InkButtonStyle(kind: .outline))
+            }
+            .padding(.top, 20)
+
             HStack(alignment: .firstTextBaseline) {
                 eyebrow("Ready to dictate")
                 Spacer()
@@ -65,14 +73,6 @@ extension SettingsView {
                 permissionRow("Speech model", allowed: modelSatisfied, actionTitle: "Open Transcription") { section = .transcription; screen = .settings }
             }
             .overlay(alignment: .top) { rule }.padding(.top, 8)
-
-            HStack(spacing: 16) {
-                help("Add names and terms you want Murmur to spell correctly.")
-                Spacer()
-                Button("Open Dictionary") { section = .dictionary; screen = .settings }
-                    .buttonStyle(InkButtonStyle(kind: .outline))
-            }
-            .padding(.top, 20)
 
             HStack(alignment: .firstTextBaseline) {
                 eyebrow("Recent dictations")
