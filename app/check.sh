@@ -23,9 +23,9 @@ deps() {
     voice_cues) echo "CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning VoiceCues" ;;
     processing) echo "$cloud Observation" ;;
     modes) echo "$cloud" ;;
-    apple_cleanup) echo "$cloud MurmurCloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
-    routes) echo "$cloud MurmurCloud Routes CloudAudio KeyCheck AppleCleanup LocalCleanup AIEngine" ;;
-    local_cleanup) echo "$cloud MurmurCloud Routes CloudAudio AppleCleanup LocalCleanup" ;;
+    apple_cleanup) echo "$cloud MurmurCloud Routes DictationLanguages CloudAudio AppleCleanup LocalCleanup" ;;
+    routes) echo "$cloud MurmurCloud Routes DictationLanguages CloudAudio KeyCheck AppleCleanup LocalCleanup AIEngine" ;;
+    local_cleanup) echo "$cloud MurmurCloud Routes DictationLanguages CloudAudio AppleCleanup LocalCleanup" ;;
     providers) echo "$providers" ;;
     voice_edit) echo "$providers EditPrompt MurmurCloudEdit" ;;
     voice_edit_trigger) echo "Shortcut EditTrigger EditShortcut" ;;

@@ -5,6 +5,7 @@ import AppKit
 // apply-on-change all walk it, so a setting is one Prefs entry, one @Published property and one row here.
 
 extension Prefs {
+    static let dictationLanguages = Setting("dictationLanguages", ["en"])
     static let shortcut = Setting("shortcut", ShortcutBinding.defaultID)
     static let voiceEditShortcut = Setting("voiceEditShortcut", EditTrigger.sameKey)
     static let modelDirectory = Setting("modelDirectory", ModelFacts.batch.directory(FileManager.default.homeDirectoryForCurrentUser).path)
@@ -37,6 +38,7 @@ extension AppController {
         PersistedSetting(Prefs.inputDeviceUID, \.inputDeviceUID), PersistedSetting(Prefs.intelligentLeadingSpace, \.intelligentLeadingSpace),
         PersistedSetting(Prefs.automaticInsertion, \.automaticInsertion), PersistedSetting(Prefs.pressToToggle, \.pressToToggle),
         PersistedSetting(Prefs.recordingSounds, \.recordingSounds),
+        PersistedSetting(Prefs.dictationLanguages, \.dictationLanguages),
         PersistedSetting(Prefs.liveWords, \.liveWords), PersistedSetting(Prefs.liveWordsOnCloud, \.liveWordsOnCloud),
         PersistedSetting(Prefs.retention, \.retention), PersistedSetting(Prefs.historyMode, \.historyMode),
         PersistedSetting(Prefs.updateChecks, \.updateChecksEnabled), PersistedSetting(Prefs.readableLearning, \.learningRequiresReadableField),

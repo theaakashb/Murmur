@@ -38,6 +38,7 @@ enum ScreenRequest: Equatable {
     @Published var recoveryEntryID: String?
     @Published var recoveryAudio: URL?
     @Published var modelDirectory: String
+    @Published var dictationLanguages = Prefs.dictationLanguages.fallback
     @Published var shortcut = Prefs.shortcut.fallback
     @Published var voiceLevel = 0.0
     @Published var showMenuBar = Prefs.showMenuBar.fallback
@@ -198,6 +199,7 @@ enum ScreenRequest: Equatable {
     @Published var voiceEditShortcut = Prefs.voiceEditShortcut.fallback
     /// This session's cloud transcriber, chosen at start; nil means local Parakeet.
     var sessionTranscriber: TranscriptionProvider?
+    private var sessionLanguages = DictationLanguages.english
     var capture: Capture?
     /// The field focused when recording started. Clearing it ends the session's mode and context too.
     var destination: FocusSnapshot? { didSet { if destination == nil { sessionMode = nil; sessionContext = nil } } }
@@ -649,12 +651,19 @@ enum ScreenRequest: Equatable {
                 }
             }
             let editing = pendingVoiceEdit != nil // An edit sends no dictation cleanup and reads no screen context.
-            let sendsText = !editing && ((processing?.settings.options.anyEnabled ?? false) || writingModes.contains { $0.enabled && $0.options?.anyEnabled == true })
+            guard let languages = DictationLanguages(codes: Set(dictationLanguages)) else {
+                refuse("Choose at least one supported dictation language.", done: done); return
+            }
+            let sendsText = !editing && languages == .english && ((processing?.settings.options.anyEnabled ?? false) || writingModes.contains { $0.enabled && $0.options?.anyEnabled == true })
             let plan = routePlan(appliedRoutes, cleanupSendsText: sendsText)
             if let refusal = plan.refusal { refuse(refusal, done: done); return }
+            if plan.usesLocalModel, languages.localModel != .parakeetEnglish {
+                refuse("The selected languages need a different on-device speech model.", done: done); return
+            }
             if plan.usesLocalModel, let refusal = ModelGate.startRefusal(modelAvailable: modelFilesAvailable(), runtimeAvailable: BundledModels.helper != nil, downloadingActiveModel: modelSlot.inFlight && !usesCustomModelFolder) {
                 refuse(refusal, done: done); return
             }
+            sessionLanguages = languages
             sessionTranscriber = plan.transcriber; processing?.cloudCleaner = plan.cleaner; processing?.engineCleaner = engineProvider()
             (plan.cleaner as? LocalModelCleanupProvider)?.prewarm()
             destination = try? captureFocus()
@@ -664,7 +673,8 @@ enum ScreenRequest: Equatable {
             listeningStarted = Date(); generation = UUID(); recoveryEntryID = nil; recordingFailed = false
             voiceEdit = pendingVoiceEdit.map { var edit = $0; edit.generation = generation; return edit }; pendingVoiceEdit = nil
             destinationScreen = screenForDestination(destination)
-            captureModeAndContext(aiCleanup: plan.cleaner != nil && voiceEdit == nil)
+            if languages == .english { captureModeAndContext(aiCleanup: plan.cleaner != nil && voiceEdit == nil) }
+            else { sessionMode = nil; sessionContext = nil }
         }
         let wasListening = session.state == .listening
         if wasListening, action == .finish {
@@ -676,7 +686,7 @@ enum ScreenRequest: Equatable {
         let adoptsEarly = session.early != nil
         session.receive(action, completed: done)
         if action == .start, session.state == .listening, !adoptsEarly { cue(.start) }
-        if action == .start, session.state == .listening { startLiveWords() }
+        if action == .start, session.state == .listening, sessionLanguages == .english { startLiveWords() }
         if session.state != .listening { stopLiveWords() }
         if wasListening, action == .finish || (action == .cancel && listener?.cancelIsExplicit == true) { cue(.stop) }
         // Show processing at release, not after the release tail, so the stop feels immediate.
@@ -795,6 +805,7 @@ enum ScreenRequest: Equatable {
         let samples: [Float]
         let destination: FocusSnapshot?, mode: WritingMode?, context: ScreenContext?, screen: NSScreen?
         let transcriber: TranscriptionProvider?, cleaner: CleanupProvider?
+        let languages: DictationLanguages
         let insert: Bool, leadingSpace: Bool, modelDirectory: String, started: Date
     }
     private let undo = UndoWindow<Canceled>()
@@ -802,7 +813,7 @@ enum ScreenRequest: Equatable {
     private func holdForUndo(_ url: URL) {
         guard listener?.cancelIsExplicit == true, let samples = Self.samples16k(url), !samples.isEmpty else { return }
         undo.hold(Canceled(samples: samples, destination: destination, mode: sessionMode, context: sessionContext, screen: destinationScreen,
-                           transcriber: sessionTranscriber, cleaner: processing?.cloudCleaner, insert: insertThisSession,
+                           transcriber: sessionTranscriber, cleaner: processing?.cloudCleaner, languages: sessionLanguages, insert: insertThisSession,
                            leadingSpace: leadingSpaceThisSession, modelDirectory: activeModelDirectory, started: listeningStarted))
     }
     /// The recording as 16 kHz mono floats, the helper's input rate (a five-minute recording is about 19 MB).
@@ -831,6 +842,7 @@ enum ScreenRequest: Equatable {
             self.destination = item.destination; self.sessionMode = item.mode; self.sessionContext = item.context
             self.destinationScreen = item.screen; self.sessionTranscriber = item.transcriber; self.processing?.cloudCleaner = item.cleaner; self.processing?.engineCleaner = self.engineProvider()
             self.insertThisSession = item.insert; self.leadingSpaceThisSession = item.leadingSpace
+            self.sessionLanguages = item.languages
             self.activeModelDirectory = item.modelDirectory; self.listeningStarted = item.started
             self.generation = UUID(); self.recoveryEntryID = nil
             self.transcribe(nil, held: item.samples, done: done)
@@ -1005,10 +1017,11 @@ enum ScreenRequest: Equatable {
         let began = ProcessInfo.processInfo.systemUptime
         cloudStage = .transcription; cloudDone = done
         let heldWAV = held.map { WAVAudio.encodePCM16($0, sampleRate: AudioFormat.sampleRate) }
+        let languages = sessionLanguages
         cloudRequest.start({
-            if let heldWAV { return await CloudTranscription.runDetailed(provider: provider, audioData: heldWAV) }
-            guard let audio else { return await CloudTranscription.runDetailed(provider: provider, audioData: Data()) }
-            return await CloudTranscription.runDetailed(provider: provider, audioFile: audio)
+            if let heldWAV { return await CloudTranscription.runDetailed(provider: provider, audioData: heldWAV, languages: languages) }
+            guard let audio else { return await CloudTranscription.runDetailed(provider: provider, audioData: Data(), languages: languages) }
+            return await CloudTranscription.runDetailed(provider: provider, audioFile: audio, languages: languages)
         }) { [weak self] (result: (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail)) in
             guard let self, self.generation == token else { return }
             let outcome = result.outcome
@@ -1051,6 +1064,13 @@ enum ScreenRequest: Equatable {
             timingLog.notice("release-to-transcribe took=\(waited, format: .fixed(precision: 3))")
         }
         recoveryEntryID = savedEntry.id
+        if sessionLanguages != .english {
+            sessionContext = nil
+            savedEntry.transcriptionProvider = sessionTranscriber?.id.rawValue
+            savedEntry.transcriptionModel = sessionTranscriber?.modelID
+            complete(ProcessingResult(outcome: .insert(savedEntry.rawText), cleanupPath: .off), entry: savedEntry, store: store, done: done)
+            return
+        }
         // A trigger word beats the app or website matched at start; it is cut from the text, not from History's raw transcript.
         let trigger = WritingModes.trigger(writingModes, in: savedEntry.rawText)
         let text = trigger?.text ?? savedEntry.rawText
@@ -1116,8 +1136,10 @@ enum ScreenRequest: Equatable {
         }
         timingLog.notice("cleanup took=\(ProcessInfo.processInfo.systemUptime - self.cleanupStartedAt, format: .fixed(precision: 3)) path=\(result.cleanupPath?.rawValue ?? "none", privacy: .public)")
         // A writing-mode dictation ran on the AI engine, whatever the cleanup route is.
-        entry.cleanupProvider = result.engine?.rawValue ?? (processing?.settings.route == .local ? "local-rules" : processing?.cloudCleaner?.id.rawValue)
-        entry.cleanupModel = result.engine != nil ? processing?.engineCleaner?.modelID : processing?.cloudCleaner?.modelID
+        if sessionLanguages == .english {
+            entry.cleanupProvider = result.engine?.rawValue ?? (processing?.settings.route == .local ? "local-rules" : processing?.cloudCleaner?.id.rawValue)
+            entry.cleanupModel = result.engine != nil ? processing?.engineCleaner?.modelID : processing?.cloudCleaner?.modelID
+        }
         entry.contextUsed = result.contextUsed
         let text = entry.rawText
         let saved = HistoryText.saved(persists: !store.sessionOnlyIDs.contains(entry.id))
@@ -1206,7 +1228,7 @@ enum ScreenRequest: Equatable {
             switch delivery {
             case .delivered(let insertion):
                 // An expansion is the user's stored text, not a dictation to learn spellings from.
-                if entry.cues == nil { watchCorrections(insertion, text: entry.finalText, entryID: entry.id, at: target?.selection?.location, pid: target?.pid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier) }
+                if sessionLanguages == .english, entry.cues == nil { watchCorrections(insertion, text: entry.finalText, entryID: entry.id, at: target?.selection?.location, pid: target?.pid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier) }
                 showInsertionResult(insertion, entryID: entry.id, text: entry.finalText)
                 if insertion.status != .failed { offerModeRecovery(entry: entry, inserted: entry.finalText, insertion: insertion, target: target) }
                 // A provider failure is not silent: a bad key or quota would otherwise degrade every dictation.
@@ -1258,6 +1280,7 @@ enum ScreenRequest: Equatable {
             do { try processing.update(local, persist: false) }
             catch { fputs("app-check=refused local-settings-failed\n", stderr); completion(); return }
         }
+        sessionLanguages = .english
         sessionTranscriber = nil; processing?.cloudCleaner = nil; processing?.engineCleaner = nil
         destination = focused; insertThisSession = true; leadingSpaceThisSession = intelligentLeadingSpace
         activeModelDirectory = modelDirectory; listeningStarted = Date(); generation = UUID()

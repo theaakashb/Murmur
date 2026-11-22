@@ -371,16 +371,16 @@ enum CloudTranscription {
         await runDetailed(provider: provider, audioData: audioData).outcome
     }
 
-    static func runDetailed(provider: TranscriptionProvider, audioFile: URL) async -> (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail) {
+    static func runDetailed(provider: TranscriptionProvider, audioFile: URL, languages: DictationLanguages = .english) async -> (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail) {
         guard let data = try? Data(contentsOf: audioFile) else { return (.failed(message: unreadableAudio, keepAudio: true), CloudTranscriptionDetail()) }
-        return await runDetailed(provider: provider, audioData: data)
+        return await runDetailed(provider: provider, audioData: data, languages: languages)
     }
 
     /// One provider call at most: silence pre-check, then one request, no retry, no fallback.
     /// No dictionary-derived prompt is ever attached (VOCABULARY.md).
     /// The detail (clip loudness, pre-check, segments) is for History; it never changes the outcome.
-    static func runDetailed(provider: TranscriptionProvider, audioData: Data) async -> (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail) {
-        let prepared = CloudAudio.prepare(audioData)
+    static func runDetailed(provider: TranscriptionProvider, audioData: Data, languages: DictationLanguages = .english) async -> (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail) {
+        let prepared = CloudAudio.prepare(audioData, language: languages.cloudHint)
         var detail = CloudTranscriptionDetail(clipSeconds: prepared.duration, silencePeak: prepared.peak)
         if let peaks = prepared.payload.levels.flatMap(OpenAITranscriptionFormat.peakPercentiles) { detail.peakP50 = peaks.p50; detail.peakP90 = peaks.p90 }
         if let checker = provider as? SilencePrecheckedTranscriber, let peak = prepared.peak {
