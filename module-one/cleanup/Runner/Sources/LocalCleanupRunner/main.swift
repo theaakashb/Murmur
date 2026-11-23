@@ -7,7 +7,7 @@ import MLXLMCommon
 // No networking and no transcript logging. A fresh chat session per request, so nothing carries over.
 // argv[1] is the verified model directory. The app owns cancellation by terminating this process.
 
-let maximumInputTokens = 400   // The model card's recommended input size, counted over the whole prompt: system line, header and text.
+let maximumInputTokens = 400   // Input limit, counted over the whole prompt: system line, header and text.
 let maximumOutputTokens = 512
 let system = "Clean up this dictation."
 

@@ -115,7 +115,7 @@ enum ScreenRequest: Equatable {
     @Published var dictionarySlot: ModelSlot
     /// The helper could not start dictionary support and is transcribing without it.
     @Published var dictionarySupportFailed = false
-    /// The managed local cleanup model (Vedu): downloaded only after the user asks, in the app's own model folder.
+    /// The managed local cleanup model (Murmur Cleanup 2B): downloaded only after the user asks, in the app's own model folder.
     @Published var localSlot: ModelSlot
     var modelSlots: [ReferenceWritableKeyPath<AppController, ModelSlot>] { [\.modelSlot, \.tdtSlot, \.whisperSlot, \.dictionarySlot, \.liveWordsSlot, \.localSlot] }
     var usesCustomModelFolder: Bool { modelSlot.downloader.map { URL(fileURLWithPath: modelDirectory).standardizedFileURL.path != $0.target.path } ?? false }
@@ -372,6 +372,11 @@ enum ScreenRequest: Equatable {
             historySaved(); refreshRecoveryAudio(); refreshDictionary(); refreshCues()
         } catch { store = nil; records = nil; retry = nil; processing = nil; phase = .error; message = "Private storage is unavailable. Murmur cannot start." }
         for slot in modelSlots { self[keyPath: slot].status = self[keyPath: slot].downloader?.status() ?? .notDownloaded }
+        // An update that pins a new model leaves the old folder behind: delete it if the new model is ready, else say how to replace it.
+        for slot in modelSlots where !self[keyPath: slot].retiredFolders(home: home).isEmpty {
+            if self[keyPath: slot].status == .ready { self[keyPath: slot].retiredFolders(home: home).forEach { try? FileManager.default.removeItem(at: $0) } }
+            else { self[keyPath: slot].message = "This update uses a newer model. Download it to replace the old one; the old one is deleted once the new one is verified." }
+        }
         warm.onDictionaryStatus = { [weak self] failed in DispatchQueue.main.async { self?.dictionarySupportFailed = failed } }
         if !preview {
             do { try RouteSettings.migrateCustomAPI(in: defaults, credentials: credentials) }

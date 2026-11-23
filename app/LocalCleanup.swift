@@ -1,18 +1,18 @@
 import Foundation
 
-// Managed local cleanup: the Vedu Scribe 0.8B model (Apache-2.0, pinned in artifact-pins.json) run by the bundled
+// Managed local cleanup: the Murmur Cleanup 2B model (a Qwen3.5-2B fine-tune, Apache-2.0, pinned in artifact-pins.json) run by the bundled
 // LocalCleanupRunner helper over stdin/stdout. No network is used for inference and no transcript is logged. The model has
 // one fixed prompt, so this provider reads the typed `CleanupInput` and ignores the built prompt text: screen context,
 // custom instructions and rewrite presets are not supported on this route (ProcessingCoordinator never sends them).
 
 enum LocalCleanupIdentity {
-    static let modelName = "Vedu Scribe 0.8B"
+    static let modelName = "Murmur Cleanup 2B"
     static let helperName = "LocalCleanupRunner"
     /// Recorded in History: the pinned repository and the first 7 characters of its revision (artifact-pins.json).
-    static let modelID = "heyvedu/vedu-scribe-0.8b@7dced58"
+    static let modelID = "clouddevaakash/murmur-cleanup-2b@3416389"
     /// A stable app-owned location, not a user setting.
     static func directory(home: URL) -> URL {
-        home.appendingPathComponent("Library/Application Support/Dictation/Models/vedu-scribe-0.8b")
+        home.appendingPathComponent("Library/Application Support/Dictation/Models/murmur-cleanup-2b")
     }
 }
 

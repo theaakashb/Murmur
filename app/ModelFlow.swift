@@ -41,6 +41,7 @@ import AppKit
             DispatchQueue.main.async { MainActor.assumeIsolated { if this.state?.inFlight == true { this.update { $0.status = .downloading(progress) } } } }
         } : nil) { result in
             DispatchQueue.main.async { MainActor.assumeIsolated {
+                if case .success = result { for old in this.state?.retiredFolders(home: FileManager.default.homeDirectoryForCurrentUser) ?? [] { try? FileManager.default.removeItem(at: old) } }
                 this.update { $0.inFlight = false; $0.status = downloader.status(); $0.message = facts.completionMessage(result) }
                 if this.owner != nil { this.didDownload(result) }
             } }
