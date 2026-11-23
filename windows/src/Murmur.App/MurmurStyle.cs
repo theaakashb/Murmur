@@ -59,7 +59,19 @@ internal static class MurmurStyle
         AutomationProperties.SetHeadingLevel(heading, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level1);
         var lead = Text(lede, "MurmurDescription");
         lead.FontSize = 16; lead.Margin = new Thickness(0, 6, 0, 0);
-        return new StackPanel { Padding = new Thickness(40, 24, 40, 32), MaxWidth = 1000, HorizontalAlignment = HorizontalAlignment.Left, Children = { heading, lead } };
+        heading.TextWrapping = TextWrapping.NoWrap;
+        var page = new StackPanel { Padding = new Thickness(40, 24, 40, 32), MaxWidth = 1000, HorizontalAlignment = HorizontalAlignment.Left, Children = { heading, lead } };
+        // At a narrow window the 64 px title would clip and the lede wrap to a sliver: tighten the side padding and shrink the title to fit (the Mac shows the same page at its wider minimum).
+        page.SizeChanged += (_, e) =>
+        {
+            double side = e.NewSize.Width < 640 ? 24 : 40;
+            if (page.Padding.Left != side) { page.Padding = new Thickness(side, 24, side, 32); return; }
+            double room = Math.Max(1, e.NewSize.Width - 2 * side);
+            heading.FontSize = 64;
+            heading.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            if (heading.DesiredSize.Width > room) heading.FontSize = Math.Max(28, Math.Floor(64 * room / heading.DesiredSize.Width));
+        };
+        return page;
     }
 
     public static Border Card(UIElement child) => new() { Child = child, Style = Style("MurmurCard"), Margin = new Thickness(0, 0, 0, 8) };
