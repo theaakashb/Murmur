@@ -1,6 +1,6 @@
 # Murmur for Windows: coordinator handoff
 
-**Current coordinator: Coordinator 7 (Claude Opus 5.5 on the PC; context near its limit, so the next coordinator takes over from this file, Murmur workspace `wks_c227e9c5312b0db4`).** Orchestrator: Mac agent `fd8c6433-7045-4091-a1df-9cc55df6334f` on `srv_c2AxDOwFn9yz` (it replaced 8f691026). PC→Mac `send_agent_prompt` works. Only Claude runs on the PC. Hand off at about 70% context.
+**Current coordinator: Coordinator 8, `8100de45-febc-45d5-af28-a4e5e0fc4a2f` (Claude Opus 5.5 on the PC, Murmur workspace `wks_c227e9c5312b0db4`; it took over from C7 587400c2 on 2026-11-23).** Orchestrator: Mac agent `fd8c6433-7045-4091-a1df-9cc55df6334f` on `srv_c2AxDOwFn9yz` (it replaced 8f691026). PC→Mac `send_agent_prompt` works. Only Claude runs on the PC. Hand off at about 70% context.
 
 **Every process sets** TEMP, TMP, DOTNET_CLI_HOME, NUGET_PACKAGES, NUGET_SCRATCH, NUGET_HTTP_CACHE_PATH and NUGET_PLUGINS_CACHE_PATH under `T:\Paseo Project\Murmur\cache\` (temp, dotnet, nuget\packages, nuget\scratch, nuget\http, nuget\plugins), **including `dotnet build-server shutdown`**. W2 once leaked `C:\Users\aakash\.dotnet` from a Bash call without DOTNET_CLI_HOME, so prefer PowerShell with the full env. Workers check at the end that `C:\Users\aakash\AppData\Local\NuGet\v3-cache` and `C:\Users\aakash\.dotnet` are absent. SDK: `T:\Paseo Project\Murmur\tools\dotnet\dotnet.exe`. Build `windows\Murmur.App.slnx -c Release` yourself before merging: a worker once reported a clean build that had 2 App errors.
 
