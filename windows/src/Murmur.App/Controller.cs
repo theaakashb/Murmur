@@ -80,9 +80,18 @@ internal sealed partial class Controller : IDisposable
         tick.Tick += (_, _) => OnTick();
         ReloadShortcuts();
         InitMeetings();
+        TipCards = new TipPresenter(services, this);
         // Injected keys are ignored (our own Ctrl+V, other tools) except under the synthetic-audio test hook, where the harness drives the key with SendInput.
         hook = new KeyboardHook(OnKey, ignoreInjected: Environment.GetEnvironmentVariable("MURMUR_SYNTHETIC_AUDIO") is not { Length: > 0 });
         TestEvents.Emit("hook-installed");
+    }
+
+    /// <summary>Milestone and voice-edit tips, and the Settings dots (app/TipsUI.swift).</summary>
+    public TipPresenter TipCards { get; }
+
+    public bool VoiceEditReady
+    {
+        get { var routes = RouteSettings.Load(s.Settings); return VoiceEdit.VoiceEditReady(routes.Cleanup, routes, provider => s.Key(provider) is not null); }
     }
 
     public bool IsBusy => phase is Phase.Listening or Phase.Processing;
@@ -227,18 +236,10 @@ internal sealed partial class Controller : IDisposable
 
     bool Stale(Session ss) => ss.Gen != generation;
 
-    /// <summary>Tips.record (app/TipsUI.swift recordDictation): lifetime words and time saved, seeded from History the first time; a crossed rung shows on Home.</summary>
+    /// <summary>Tips.record (app/TipsUI.swift recordDictation): lifetime words and time saved, seeded from History the first time; a crossed rung queues the milestone card.</summary>
     void RecordTips(HistoryEntry entry)
     {
-        try
-        {
-            var seed = () =>
-            {
-                var computed = Insights.Compute(s.History.Entries().Select(InsightsItem.FromHistory), true, DateTimeOffset.Now, TimeZoneInfo.Local);
-                return computed is Insights.Stats st ? (st.Words, st.SecondsSaved ?? 0, st.Days.Count == 0 ? (DateTimeOffset?)null : new DateTimeOffset(st.Days.Min().ToDateTime(TimeOnly.MinValue))) : (0, 0d, (DateTimeOffset?)null);
-            };
-            new Tips(s.Settings).Record(Insights.SplitWords(entry.FinalText).Count, Tips.SecondsSaved(entry.FinalText, entry.Seconds), DateTimeOffset.Now, seed);
-        }
+        try { TipCards.RecordDictation(entry.FinalText, entry.Seconds); }
         catch (Exception) { }
     }
 

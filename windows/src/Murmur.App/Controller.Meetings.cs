@@ -24,6 +24,9 @@ internal sealed partial class Controller
     public bool MeetingLive => meetings.Live is not null;
     /// <summary>A call app started using the microphone (CallDetector). The UI worker shows the offer; <see cref="StartMeeting"/> with its Source accepts it.</summary>
     public event Action<CallOffer>? CallOffered;
+    long callOfferedAt;
+    /// <summary>The call offer is on screen (it hides itself after <see cref="CallDetector.OfferLifetime"/> seconds); tips wait for it.</summary>
+    public bool CallOfferShowing => callOfferedAt != 0 && System.Diagnostics.Stopwatch.GetElapsedTime(callOfferedAt).TotalSeconds < CallDetector.OfferLifetime;
 
     void InitMeetings()
     {
@@ -235,6 +238,7 @@ internal sealed partial class Controller
                 new(CallDetectionSettings.Enabled(s.Settings), CallDetectionSettings.Never(s.Settings), live || meetings.Live is not null, dictating));
             if (offer is null) return;
             TestEvents.Emit("call-offer");
+            callOfferedAt = System.Diagnostics.Stopwatch.GetTimestamp();
             CallOffered?.Invoke(offer);
         }), TaskContinuationOptions.ExecuteSynchronously);
     }

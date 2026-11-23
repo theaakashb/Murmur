@@ -87,7 +87,7 @@ internal sealed partial class Controller
         var active = ss.VoiceEdit!;
         var edit = active.Edit;
         var (words, error) = VoiceEdit.CheckInstruction(entry.RawText);
-        if (words.Length > 0) new Tips(s.Settings).Completed(Tips.ID.VoiceEdit);
+        if (words.Length > 0) TipCards.VoiceEditUsed();
         if (error is not null) { Fail(ss, "voice-edit", "invalid-instruction", error); return; }
         bubble.ShowProcessing(edit.ProcessingLabel);
 

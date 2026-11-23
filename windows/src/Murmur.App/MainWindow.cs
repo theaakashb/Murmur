@@ -49,7 +49,22 @@ internal sealed partial class MainWindow : Window
         AddSearchOverlay(root);
         MurmurStyle.SetTitleBar(this, caption);
         MurmurStyle.SetInitialSize(this, 1100, 760);
+        controller.TipCards.Changed += RefreshSidebar;
+        Closed += (_, _) => { controller.TipCards.Changed -= RefreshSidebar; settings?.Detach(); };
         Navigate(Page.Home);
+    }
+
+    /// <summary>The "new" dots changed: redraw the sidebar in place.</summary>
+    void RefreshSidebar()
+    {
+        sidebar.Child = page == Page.Settings ? SettingsSidebar() : MainSidebar();
+        if (page == Page.Settings) Highlight(settingsPane);
+    }
+
+    /// <summary>Opens a Settings pane on a named tab (the tip cards' "Show Me").</summary>
+    public void ShowSettingsPane(string pane, string tab)
+    {
+        settingsPane = pane; Navigate(Page.Settings); settings!.Show(pane, TabIndex(pane, tab)); Highlight(pane); Activate();
     }
 
     public void ShowHome() { Navigate(Page.Home); Activate(); }
@@ -113,7 +128,7 @@ internal sealed partial class MainWindow : Window
 
     static FontIcon Icon(string glyph) => new() { Glyph = glyph, FontSize = 18, Style = MurmurStyle.Style("MurmurMutedIcon") };
 
-    Border NavItem(string key, string glyph, string label, Action click, bool selected, bool mono)
+    Border NavItem(string key, string glyph, string label, Action click, bool selected, bool mono, bool dot = false)
     {
         var text = MurmurStyle.Text(label, mono ? "MurmurSectionInk" : "MurmurSettingLabel");
         if (mono) { text.CharacterSpacing = 140; text.FontSize = 14; }
@@ -121,6 +136,8 @@ internal sealed partial class MainWindow : Window
         text.VerticalAlignment = VerticalAlignment.Center;
         var icon = Icon(glyph);
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { icon, text } };
+        // The Mac's ExploreDot: something new in here the user has not looked at.
+        if (dot) row.Children.Add(new Microsoft.UI.Xaml.Shapes.Ellipse { Width = 7, Height = 7, Fill = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["MurmurAccent"], VerticalAlignment = VerticalAlignment.Center });
         var button = new Button
         {
             Content = row, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(12, 0, 12, 0), Height = 36, CornerRadius = new CornerRadius(8),
@@ -146,7 +163,7 @@ internal sealed partial class MainWindow : Window
                 NavItem("insights", "", "INSIGHTS", () => Navigate(Page.Insights), page == Page.Insights, true),
                 NavItem("meetings", "\uE716", "MEETINGS", () => Navigate(Page.Meetings), page == Page.Meetings, true),
                 NavItem("history", "", "HISTORY", () => Navigate(Page.History), page == Page.History, true),
-                NavItem("settings", "", "SETTINGS", () => Navigate(Page.Settings), false, true),
+                NavItem("settings", "", "SETTINGS", () => Navigate(Page.Settings), false, true, controller.TipCards.AnyDot),
             }
         };
         var dot = new Border { Width = 8, Height = 8, CornerRadius = new CornerRadius(4), Style = MurmurStyle.Style("MurmurBubbleDot"), VerticalAlignment = VerticalAlignment.Center };
@@ -183,7 +200,7 @@ internal sealed partial class MainWindow : Window
         {
             if (pane == "Privacy & Storage") list.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 14, 0, 14), Style = MurmurStyle.Style("MurmurRuleLine") });
             var p = pane;
-            list.Children.Add(NavItem(p, glyph, p, () => { settingsPane = p; settings!.Show(p); Highlight(p); }, p == settingsPane, false));
+            list.Children.Add(NavItem(p, glyph, p, () => { settingsPane = p; settings!.Show(p); Highlight(p); }, p == settingsPane, false, p == "Writing" && controller.TipCards.AnyDot));
         }
         return new StackPanel { Margin = new Thickness(0, 16, 0, 0), Children = { back, heading, search, list } };
     }

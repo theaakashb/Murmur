@@ -227,12 +227,7 @@ internal sealed partial class Controller
         (string Text, bool Changed)? seen = edited is null ? null : AfterPaste.TrimmingAppended(watch.Observation.Initial, edited);
         var after = new AfterPaste { Text = seen?.Text, Changed = seen?.Changed, Route = watch.Route, EndReason = reason?.RawValue() };
 
-        var tips = new Tips(s.Settings);
-        var routes = RouteSettings.Load(s.Settings);
-        if (seen is { Changed: true } rewrite && !tips.IsDone(Tips.ID.VoiceEdit) &&
-            Tips.IsRewrite(watch.Observation.Initial, rewrite.Text) &&
-            VoiceEdit.VoiceEditReady(routes.Cleanup, routes, provider => s.Key(provider) is not null))
-            tips.NoteRewrite(DateTimeOffset.Now);
+        if (seen is { Changed: true } rewrite) TipCards.NoteAfterPaste(watch.Observation.Initial, rewrite.Text);
 
         if (watch.HistoryId is not { } id || !ReferenceEquals(s.History, watch.History)) return;
         try
