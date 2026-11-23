@@ -164,7 +164,7 @@ internal sealed partial class WelcomeWindow : Window
         right.Children.Add(MurmurStyle.Named(new ScrollViewer { Content = content, Padding = new Thickness(0, 0, 12, 0) }, "Welcome step"));
 
         var nav = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 24, 0, 0) };
-        if (index > 0) nav.Children.Add(Outline("â† Back", () => Go(steps[index - 1])));
+        if (index > 0) nav.Children.Add(Outline("← Back", () => Go(steps[index - 1])));
         nav.Children.Add(Outline("Not Now", Close, plain: true));
         var spacer = new Grid { ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Margin = new Thickness(0, 24, 0, 0) };
         Button next;
