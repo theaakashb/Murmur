@@ -19,6 +19,8 @@ internal sealed partial class Controller : IDisposable
     {
         public required int Gen { get; init; }
         public required RoutePlan Plan { get; init; }
+        /// <summary>This session dictation languages, read once at start (app/Controller.swift sessionLanguages).</summary>
+        public required DictationLanguages Languages { get; init; }
         public ActiveEdit? VoiceEdit { get; init; }
         public bool SeparateEdit { get; init; }
         public required RouteSettings Routes { get; init; }
@@ -231,15 +233,18 @@ internal sealed partial class Controller : IDisposable
         var edit = ProbeVoiceEdit(routes);
         if (edit?.Result is VoiceEdit.SessionResult.Refused refused) return StartFailed("voice-edit-refused", refused.Message);
         var activeEdit = edit?.Active;
+        if (DictationLanguages.Create(s.Settings.Get(Prefs.DictationLanguages)) is not { } languages)
+            return StartFailed("languages-invalid", "Choose at least one supported dictation language.");
+        var english = languages.Equals(DictationLanguages.English);
         var options = routes.Cleanup.EffectiveOptions(ProcessingSettings.Load(s.Settings).Options with { TrustModel = false });
-        var plan = RoutePlan.Make(routes, activeEdit is null && options.AnyEnabled, s.Key);
+        var plan = RoutePlan.Make(routes, english && activeEdit is null && options.AnyEnabled, s.Key);
         if (plan.Refusal is { } refusal) return StartFailed("route-refused", refusal);
         // A cloud route that is not configured never falls back to local; a local route needs the model files and the helper.
         if (plan.UsesLocalModel)
         {
             if (!s.Local.HelperPresent) return StartFailed("local-helper-missing", "The speech helper is missing. Reinstall Murmur.");
-            if (!s.Local.ModelFilesPresent) return StartFailed("local-model-missing", "The speech model is not installed yet. Download it in Settings, or pick a Custom Provider or Murmur Cloud.");
-            if (s.Local.ModelDamaged) return StartFailed("local-model-damaged", "The speech model failed its checksum check. Remove it in Settings and download it again.");
+            if (!SpeechModelReady(languages.LocalModel)) return StartFailed("local-model-missing", "The speech model is not installed yet. Download it in Settings, or pick a Custom Provider or Murmur Cloud.");
+            if (english && s.Local.ModelDamaged) return StartFailed("local-model-damaged", "The speech model failed its checksum check. Remove it in Settings and download it again.");
         }
         // Load the cleanup model while the user speaks, so that cost is not inside the dictation.
         (plan.Cleaner as LocalModelCleanupProvider)?.Prewarm();
@@ -250,7 +255,7 @@ internal sealed partial class Controller : IDisposable
         var wavPath = pre.WavPath;
         var ss = new Session
         {
-            Gen = ++generation, Plan = plan, Routes = routes, Options = options, WavPath = wavPath, Feed = pre.Feed,
+            Gen = ++generation, Plan = plan, Languages = languages, Routes = routes, Options = options, WavPath = wavPath, Feed = pre.Feed,
             VoiceEdit = activeEdit, SeparateEdit = separateEditStart, Cts = activeEdit?.Cancellation ?? new(),
             Insert = s.Settings.Get(Prefs.AutomaticInsertion), LeadingSpace = s.Settings.Get(Prefs.IntelligentLeadingSpace),
             StartedUtc = DateTime.UtcNow, Clock = Stopwatch.StartNew(),
@@ -273,7 +278,7 @@ internal sealed partial class Controller : IDisposable
         bubble.SetLevel(0);
         // The password check goes through UI Automation, which can block: it runs beside the recording, and a password field discards it.
         ss.Focus = Task.Run(() => FocusProbe.Capture(readText: false));
-        if (activeEdit is null) ss.Mode = Task.Run(() => s.SelectModeAsync(ss.Focus, ss.Cts.Token));
+        if (activeEdit is null && english) ss.Mode = Task.Run(() => s.SelectModeAsync(ss.Focus, ss.Cts.Token));
         _ = WatchFocus(ss);
         phase = Phase.Listening;
         TestEvents.Emit("recording-started");
@@ -286,7 +291,7 @@ internal sealed partial class Controller : IDisposable
 
     void AttachSpeech(Session ss)
     {
-        if (ss.Plan.UsesLocalModel)
+        if (ss.Plan.UsesLocalModel && ss.Languages.LocalModel == LocalSpeechModel.ParakeetEnglish)
         {
             var job = s.Local.StartChunks(ss.WavPath, ss.Cts.Token);
             ss.Chunks = job;
@@ -296,7 +301,8 @@ internal sealed partial class Controller : IDisposable
         Channel<float[]>? live = null;
         var liveEnabled = s.Settings.Get(Prefs.LiveWords);
         var liveReady = s.LiveWordsSlot.Row.IsReady;
-        if (ss.VoiceEdit is null && LiveWordsFacts.Starts(liveEnabled, liveReady, ss.Plan.Transcriber is not null, s.Settings.Get(Prefs.LiveWordsOnCloud)))
+        var english = ss.Languages.Equals(DictationLanguages.English);
+        if (ss.VoiceEdit is null && english && LiveWordsFacts.Starts(liveEnabled, liveReady, ss.Plan.Transcriber is not null, s.Settings.Get(Prefs.LiveWordsOnCloud)))
         {
             // Roughly two seconds of 20 ms blocks. A slow preview must never back up capture.
             var channel = Channel.CreateBounded<float[]>(new BoundedChannelOptions(96) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
@@ -311,7 +317,7 @@ internal sealed partial class Controller : IDisposable
             }), ss.Live.Token);
             bubble.ShowLiveWords();
         }
-        else TestEvents.Emit("live-words-skipped", ("reason", !liveEnabled ? "disabled" : ss.VoiceEdit is not null ? "voice-edit" : !liveReady ? "model-not-ready" : "route-disabled"));
+        else TestEvents.Emit("live-words-skipped", ("reason", !liveEnabled ? "disabled" : !english ? "language" : ss.VoiceEdit is not null ? "voice-edit" : !liveReady ? "model-not-ready" : "route-disabled"));
 
         ss.Feed.Attach(ss.Chunker is null && live is null ? null : samples =>
         {
@@ -401,6 +407,7 @@ internal sealed partial class Controller : IDisposable
 
     async Task RunCore(Session ss)
     {
+        var english = ss.Languages.Equals(DictationLanguages.English);
         // Audio is cut at release plus a 0.2 s tail.
         double remaining = ss.FinishedAt + ss.Tail - Now();
         if (remaining > 0) await Task.Delay(TimeSpan.FromSeconds(remaining));
@@ -434,8 +441,8 @@ internal sealed partial class Controller : IDisposable
         var provider = ss.Plan.Transcriber;
         var transcribeStart = Stopwatch.GetTimestamp();
         var (outcome, detail) = provider is null
-            ? await s.Local.TranscribeAsync(capture.Samples16k, ss.WavPath, ss.Chunks, ss.Cts.Token)
-            : await CloudTranscription.RunDetailedAsync(provider, WAVAudio.EncodePCM16(capture.Samples16k, AudioConverter.TargetRate), ss.Cts.Token);
+            ? await TranscribeLocalAsync(ss, capture.Samples16k, ss.Cts.Token)
+            : await CloudTranscription.RunDetailedAsync(provider, WAVAudio.EncodePCM16(capture.Samples16k, AudioConverter.TargetRate), ss.Languages, ss.Cts.Token);
         if (Stale(ss)) return;
         if (outcome is not CloudTranscriptionOutcome.Transcript transcript)
         {
@@ -448,12 +455,12 @@ internal sealed partial class Controller : IDisposable
         TestEvents.Emit("transcribed");
         var transcribeSeconds = Stopwatch.GetElapsedTime(transcribeStart).TotalSeconds;
 
-        var mode = await ss.Mode;
+        var mode = await ss.Mode; // null for a non-English session: it neither selects nor speaks a mode
         if (Stale(ss)) return;
         // Mac parity (Controller.deliver): a spoken trigger ("Email mode. …") beats the app or website matched at start. It is cut from the
         // text sent to cleanup, never from History's raw transcript.
         var spoken = transcript.Text;
-        if (ss.VoiceEdit is null && SpokenMode(spoken) is { } said) (mode, spoken) = said;
+        if (ss.VoiceEdit is null && english && SpokenMode(spoken) is { } said) (mode, spoken) = said;
 
         // Raw goes to History first, so a crash during cleanup loses nothing.
         var entry = new HistoryEntry
@@ -461,7 +468,7 @@ internal sealed partial class Controller : IDisposable
             Id = Guid.NewGuid().ToString().ToUpperInvariant(), RecordedAt = ss.StartedUtc, RawText = transcript.Text, FinalText = transcript.Text,
             InsertionStatusRaw = InsertionStatus.SavedNotInserted.Raw(), Seconds = Math.Round(capture.Seconds, 2), App = focus?.ProcessName,
             WritingModeID = mode?.Id.ToString().ToUpperInvariant(), WritingModeName = ss.VoiceEdit is not null ? "Voice edit" : mode?.Name,
-            TranscriptionProvider = provider?.Id.RawValue() ?? LocalTranscriber.ProviderId, TranscriptionModel = provider is null ? LocalTranscriber.ModelId : provider.ModelID,
+            TranscriptionProvider = provider?.Id.RawValue() ?? LocalTranscriber.ProviderId, TranscriptionModel = provider is null ? SpeechModelRepository(ss.Languages.LocalModel) : provider.ModelID,
             Transcription = new TranscriptionDetail { ClipSeconds = detail.ClipSeconds },
         };
         var history = s.History;
@@ -480,15 +487,16 @@ internal sealed partial class Controller : IDisposable
         }
         KeepOrDelete(ss.WavPath, entry.Id);
 
-        var engine = mode is null ? null : AIEngines.Derive(ss.Routes.Cleanup)?.Provider(ss.Routes, s.Key);
+        // A non-English dictation sends nothing to cleanup: only the manual dictionary variants apply (app/Controller.swift deliver).
+        var engine = mode is null || !english ? null : AIEngines.Derive(ss.Routes.Cleanup)?.Provider(ss.Routes, s.Key);
         var cleanupStart = Stopwatch.GetTimestamp();
-        var result = await s.Processor.ProcessAsync(new DictationRequest(spoken, ss.Options, ss.Routes.Cleanup, ss.Plan.Cleaner, focus?.ProcessName, mode, engine), ss.Cts.Token);
+        var result = await s.Processor.ProcessAsync(new DictationRequest(spoken, ss.Options, ss.Routes.Cleanup, ss.Plan.Cleaner, focus?.ProcessName, mode, engine, ManualDictionaryOnly: !english), ss.Cts.Token);
         if (Stale(ss)) return;
         TestEvents.Emit("cleaned", ("path", JsonNamingPolicy.CamelCase.ConvertName(result.Path.ToString())));
         entry = entry.With(result.FinalText, fallback: result.Fallback is { } f ? JsonNamingPolicy.CamelCase.ConvertName(f.ToString()) : null, rejected: result.RejectedOutput) with
         {
             CleanupOutcome = result.Path, AppVersion = AppInfo.Version,
-            CleanupProvider = ss.Plan.Cleaner?.Id.RawValue() ?? "local-rules", CleanupModel = ss.Plan.Cleaner?.ModelID,
+            CleanupProvider = english ? ss.Plan.Cleaner?.Id.RawValue() ?? "local-rules" : null, CleanupModel = english ? ss.Plan.Cleaner?.ModelID : null,
             Timing = new StageTiming { Transcription = transcribeSeconds, Cleanup = Stopwatch.GetElapsedTime(cleanupStart).TotalSeconds, Capture = capture.Seconds },
         };
         try { s.History.Save(entry); }
@@ -519,7 +527,7 @@ internal sealed partial class Controller : IDisposable
         var text = ss.LeadingSpace ? TextRules.WithLeadingSpace(result.FinalText, target?.Value, target?.Selection) : result.FinalText;
         entry = entry.With(text, fallback: entry.CleanupFallback, rejected: entry.CleanupRejectedOutput);
         bubble.Hide();
-        var (final, delivery) = await Task.Run(() => Deliver(entry, text, target));
+        var (final, delivery) = await Task.Run(() => Deliver(entry, text, target, watchCorrections: english));
         if (Stale(ss)) return;
         switch (delivery)
         {
@@ -547,12 +555,12 @@ internal sealed partial class Controller : IDisposable
     sealed record PasteOutcome(InsertionStatus Status, PasteFailure? Failure);
 
     /// <summary>The delivery bracket (insertion-pending, one paste, final status). Runs off the UI thread: paste and read-back use UI Automation and the clipboard.</summary>
-    (HistoryEntry Entry, DeliveryResult<PasteOutcome> Result) Deliver(HistoryEntry entry, string text, FocusInfo? target)
+    (HistoryEntry Entry, DeliveryResult<PasteOutcome> Result) Deliver(HistoryEntry entry, string text, FocusInfo? target, bool watchCorrections = true)
     {
         var result = Delivery.Deliver<HistoryEntry, PasteOutcome>(ref entry, (e, status) => e with { InsertionStatusRaw = status }, InsertionStatus.InsertionPending.Raw(),
             e => s.History.Save(e), (ref HistoryEntry e) =>
             {
-                var outcome = PasteAndVerify(text, e.Id);
+                var outcome = PasteAndVerify(text, e.Id, watchCorrections);
                 if (outcome.Status != InsertionStatus.Failed) e = e with { App = target?.ProcessName ?? e.App };
                 return new Insertion<PasteOutcome>(outcome.Status.Raw(), outcome);
             });
@@ -560,11 +568,11 @@ internal sealed partial class Controller : IDisposable
     }
 
     /// <summary>Pastes where the cursor is now, then reads the field back for up to 0.5 s to mark verified or unverified (History only; never a reason to paste twice).</summary>
-    PasteOutcome PasteAndVerify(string text, string? historyId = null)
+    PasteOutcome PasteAndVerify(string text, string? historyId = null, bool watchCorrections = true)
     {
-        var learn = BeginLearning();
+        var learn = watchCorrections ? BeginLearning() : null;
         var outcome = PasteAndVerifyCore(text);
-        _ = Task.Run(() => StartLearning(learn, text, outcome.Status, historyId));
+        if (watchCorrections) _ = Task.Run(() => StartLearning(learn, text, outcome.Status, historyId));
         return outcome;
     }
 

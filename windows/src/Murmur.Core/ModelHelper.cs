@@ -158,14 +158,30 @@ public static class ModelHelper
 
 /// <summary>What the helper loads: the model folder plus, when the dictionary has enabled entries, <c>--vocabulary FILE</c> (and <c>--lexicon FILE</c> once a word list exists).
 /// <see cref="Key"/> changes whenever any of those change, which restarts the warm helper. Built only by <see cref="Make"/>, so the warm helper and the one-shot fallback agree.</summary>
-public sealed record HelperLaunch(string Models, IReadOnlyList<string> Arguments, string Key, bool PreferGpu = false)
+public sealed record HelperLaunch(string Models, IReadOnlyList<string> DictionaryArguments, string Key, bool PreferGpu = false, LocalSpeechModel Model = LocalSpeechModel.ParakeetEnglish)
 {
-    /// <summary>Null unless the model folder holds the four files. shortcut: presence only; hash verification arrives with the ModelDownload port.</summary>
-    public static HelperLaunch? Make(string models, string? vocabularyFile = null, string? lexiconFile = null, bool preferGpu = false)
+    /// <summary>The runner flag that selects a multilingual model; null for the English path.</summary>
+    public string? RunnerFlag => Model.RunnerFlag();
+
+    /// <summary>Everything after the model folder and mode: the dictionary arguments (English only), then the runner flag, which the helper takes last.</summary>
+    public IReadOnlyList<string> Arguments => RunnerFlag is { } flag ? [.. DictionaryArguments, flag] : DictionaryArguments;
+
+    /// <summary>Null unless the model's folder holds its files. English: presence only (the app verifies the pinned folder before, LocalTranscriber.Verify; a custom folder is the user's own).
+    /// The multilingual models need their <paramref name="manifest"/> (null while the model has no pins) and verify against it; they take no dictionary arguments.</summary>
+    public static HelperLaunch? Make(string models, string? vocabularyFile = null, string? lexiconFile = null, bool preferGpu = false, LocalSpeechModel model = LocalSpeechModel.ParakeetEnglish, ModelManifest? manifest = null)
     {
-        if (!ModelHelper.HasModelFiles(models)) return null;
         var key = new StringBuilder(Path.GetFullPath(models));
         var arguments = new List<string>();
+        if (model != LocalSpeechModel.ParakeetEnglish)
+        {
+            if (manifest is null || models.Length == 0) return null;
+            try { ModelVerificationCache.Shared.Verify(models, manifest); }
+            catch (Exception e) when (e is RetentionError or IOException or UnauthorizedAccessException) { return null; }
+            key.Append('|').Append(model.RunnerFlag());
+            foreach (var part in ModelVerificationCache.Fingerprint(models, manifest)) key.Append('|').Append(part);
+            return new HelperLaunch(models, arguments, key.ToString(), preferGpu, model);
+        }
+        if (!ModelHelper.HasModelFiles(models)) return null;
         foreach (var f in ModelHelper.RequiredFiles) key.Append('|').Append(new FileInfo(Path.Combine(models, f)).Length);
         if (vocabularyFile is not null && File.Exists(vocabularyFile) && File.ReadAllBytes(vocabularyFile) is { Length: > 0 } terms)
         {
@@ -176,5 +192,5 @@ public sealed record HelperLaunch(string Models, IReadOnlyList<string> Arguments
         return new HelperLaunch(models, arguments, key.ToString(), preferGpu);
     }
 
-    public bool HasVocabulary => Arguments.Count > 0;
+    public bool HasVocabulary => DictionaryArguments.Count > 0;
 }

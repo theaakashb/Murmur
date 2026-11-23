@@ -127,6 +127,54 @@ public sealed partial record ModelFacts
     };
 }
 
+/// <summary>What the local speech helper needs to know about each of the three models (DictationLanguages.LocalModel in app/ModelText.swift).</summary>
+public static class LocalSpeechModels
+{
+    /// <summary>The helper's runner flag; null for the English path.</summary>
+    public static string? RunnerFlag(this LocalSpeechModel model) => model switch
+    {
+        LocalSpeechModel.ParakeetEnglish => null,
+        LocalSpeechModel.ParakeetTDT => "--parakeet-tdt",
+        _ => "--whisper-turbo",
+    };
+
+    public static ModelFacts Facts(this LocalSpeechModel model) => model switch
+    {
+        LocalSpeechModel.ParakeetEnglish => ModelFacts.Batch,
+        LocalSpeechModel.ParakeetTDT => ModelFacts.MultilingualTDT,
+        _ => ModelFacts.MultilingualWhisper,
+    };
+
+    /// <summary>The files the helper opens in the model's folder.</summary>
+    public static IReadOnlyList<string> RequiredFiles(this LocalSpeechModel model) => model == LocalSpeechModel.WhisperTurbo
+        ? ["turbo-encoder.int8.onnx", "turbo-decoder.int8.onnx", "turbo-tokens.txt"]
+        : ModelHelper.RequiredFiles;
+}
+
+public sealed partial record ModelFacts
+{
+    /// <summary>Parakeet TDT v3 (25 European languages) as sherpa-onnx int8 files. Its pin is not in windows-models.json until the model is approved, so its slot has no downloader.</summary>
+    public static readonly ModelFacts MultilingualTDT = Multilingual("Parakeet TDT v3", "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8", "parakeet-tdt-v3",
+        new ModelLicenseInfo(false,
+        [
+            new("NVIDIA upstream model card", "CC BY 4.0", new("https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3")),
+            new("sherpa-onnx conversion model card", "CC BY 4.0", new("https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/blob/ed5d745623472f97cfc2e6c2916ee248798fc5a8/README.md")),
+        ], "Review the upstream and conversion license declarations before downloading."));
+
+    /// <summary>Whisper large-v3-turbo int8 (about 100 languages); its MIT license is recorded in the pins.</summary>
+    public static readonly ModelFacts MultilingualWhisper = Multilingual("Whisper large-v3-turbo", "csukuangfj/sherpa-onnx-whisper-turbo", "whisper-large-v3-turbo", null);
+
+    static ModelFacts Multilingual(string name, string repository, string folder, ModelLicenseInfo? license) => new()
+    {
+        DisplayName = name, Repository = repository, Source = ModelPinsSource.WindowsModels, FolderName = folder,
+        UnpinnedLicense = license, ConfirmName = name,
+        Placement = _ => "After that, transcription runs on this PC without the network.",
+        RemoveTitle = "Remove the downloaded model?",
+        RemoveBody = (_, size) => $"Download it again ({FormatBytes(size)}) to dictate with these languages.",
+        Completed = "The model is downloaded and verified.", Removed = "The model was removed.",
+    };
+}
+
 /// <summary>One model's download state beside its downloader (null when the pins are missing or invalid).</summary>
 public sealed class ModelSlot
 {
