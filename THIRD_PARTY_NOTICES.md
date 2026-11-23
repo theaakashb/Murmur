@@ -56,7 +56,7 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 
 ### Country flags (bundled in the Windows app)
 
-- The dictation language picker shows flag images from **lipis/flag-icons** v7.6.0 (MIT, Copyright (c) 2013 Panayiotis Lipiridis, https://github.com/lipis/flag-icons), commit `0d8909b00aa8418802a5abf2afa82356b129a7ef`. 33 unmodified `flags/4x3` SVGs (158,740 bytes) are in `windows/src/Murmur.App/Assets/Flags/`, with the upstream LICENSE (SHA-256 `fc0231cc…0336`) and the per-file SHA-256 list in that folder's README. Windows has no emoji flag glyphs, so the Mac's emoji flags are not used there.
+- The dictation language picker shows flag images from **lipis/flag-icons** v7.6.0 (MIT, Copyright (c) 2013 Panayiotis Lipiridis, https://github.com/lipis/flag-icons), commit `0d8909b00aa8418802a5abf2afa82356b129a7ef`. Licence checked at that commit: MIT, the repository's only licence file (https://github.com/lipis/flag-icons/blob/0d8909b00aa8418802a5abf2afa82356b129a7ef/LICENSE). 33 unmodified `flags/4x3` SVGs (158,740 bytes) are in `windows/src/Murmur.App/Assets/Flags/`, with the upstream LICENSE (SHA-256 `fc0231cc…0336`) and the per-file SHA-256 list in that folder's README. Windows has no emoji flag glyphs, so the Mac's emoji flags are not used there.
 - Release duty: ship `Assets/Flags/LICENSE` with the Windows app (the project copies it beside the SVGs).
 
 ### SCOWL English word list (bundled in the Windows app)

@@ -3,6 +3,7 @@
 Country flags shown beside the languages in Settings > Transcription and the welcome guide. Segoe UI Emoji has no flag glyphs, so Windows cannot render the emoji flags the Mac shows.
 
 - Source: **lipis/flag-icons** v7.6.0 (MIT, Copyright (c) 2013 Panayiotis Lipiridis), https://github.com/lipis/flag-icons/tree/v7.6.0
+- Licence: MIT, checked at the pinned commit (the repository's only licence file; `package.json` also says MIT; no Twemoji or other third-party graphics are mixed in): https://github.com/lipis/flag-icons/blob/0d8909b00aa8418802a5abf2afa82356b129a7ef/LICENSE
 - Commit: `0d8909b00aa8418802a5abf2afa82356b129a7ef` (tag `v7.6.0`)
 - Files: `flags/4x3/<region>.svg`, copied unchanged. Only the 33 regions that `DictationLanguagePickerModel.FlagRegion` can return are kept (total 158,740 bytes). `LICENSE` is the upstream MIT text, SHA-256 `fc0231ccb89981e55d600f3015d8ae43adea79b2cf636da976b643d476b10336`.
 - The test `EveryFlagRegionHasAnAsset` checks that each region has a file here and that the csproj bundles the folder.
