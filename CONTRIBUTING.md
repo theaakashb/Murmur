@@ -105,6 +105,8 @@ The Mac code is the source of truth. A Mac change to a ported file, or to shared
 - `python3 windows/tools/check_parity.py` fails when a ported Swift file changed after its port. `--update` records the new hashes once the C# is updated.
 - Golden test files are exported from the Swift code by `windows/golden/generate.sh` on a Mac. Run it after changing ported logic or shared data, and commit what changes.
 
+On a Mac, `app/check.sh windows_parity` does both: it regenerates the golden and shared files and checks `windows/porting.json`.
+
 If you can't do the Windows part, say "Windows follow-up needed" in the PR.
 
 ## Licensing

@@ -32,33 +32,49 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 - The local Swift 6.4 package dump selected FluidAudio's `Package@swift-6.2.swift`, whose default trait enables `NemoTextProcessing`; build workspace metadata resolves the v0.3.1 xcframework, and the built helper contains FluidAudio `TextNormalizer` symbols.
 - These checks do not establish which individual framework components are included in the final executable. Verify that list and its required notices for the exact binary before distribution.
 
-## Murmur for Windows (in development on the `windows` branch)
+## Murmur for Windows
 
-These entries are copied from the `windows` branch's notices. That branch's file is the one to update; the dependency versions and the unchecked items below are as recorded there.
+### Swift standard library (word difference)
+
+- `windows/src/Murmur.Core/History.cs` (`WordDifference`) is a C# port of the linear-space Myers difference in `stdlib/public/core/Diffing.swift` from https://github.com/swiftlang/swift (`main`, fetched 2026-11-19). The port keeps the same edits as the Mac app when several shortest edit scripts exist.
+- Header: "Copyright (c) 2015 - 2019 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception." License: https://swift.org/LICENSE.txt
+- Release duty: ship the Apache-2.0 text with the Windows app and state that the file was modified (translated to C#).
 
 ### sherpa-onnx and ONNX Runtime (local speech helper)
 
-- sherpa-onnx 2.0.1 (k2-fsa, Apache-2.0, https://github.com/k2-fsa/sherpa-onnx) through the `org.k2fsa.sherpa.onnx` NuGet packages. The runtime packages bundle ONNX Runtime 1.28.2 (Microsoft, MIT, https://github.com/microsoft/onnxruntime). The packages carry no license file, so the MIT license is not yet checked from the package.
-- **Silero VAD** (`silero_vad.onnx`, snakers4/silero-vad, MIT, https://github.com/snakers4/silero-vad) is bundled with the speech helper. Whisper dictation uses it to cut recordings at silence.
-- **Whisper large-v3-turbo** by OpenAI, MIT, exported to int8 ONNX for sherpa-onnx by csukuangfj (`csukuangfj/sherpa-onnx-whisper-turbo`). That repository has no license tag; the sherpa-onnx export code is Apache-2.0. Downloaded on request, verified by SHA-256, not bundled.
-- **Parakeet TDT 0.6B v3** by NVIDIA, CC BY 4.0, as int8 ONNX for sherpa-onnx by csukuangfj (`csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8`). Downloaded on request; the download confirmation shows the upstream and conversion cards.
-- Parakeet Unified English on Windows is an ONNX conversion under the NVIDIA Open Model License, as described below.
+- `windows/src/Murmur.Speech` uses sherpa-onnx 2.0.1 (k2-fsa, Apache-2.0, https://github.com/k2-fsa/sherpa-onnx) through the `org.k2fsa.sherpa.onnx` NuGet packages. The nuspec and the repository LICENSE at v2.0.1 declare Apache-2.0.
+- The runtime packages bundle ONNX Runtime 1.28.2 (Microsoft, MIT, https://github.com/microsoft/onnxruntime). The packages carry no license file, so the MIT license is not yet checked from the package. Check it before release.
+- The Parakeet Unified ONNX conversion stays under the NVIDIA Open Model License, recorded below.
+- **Silero VAD** (`silero_vad.onnx`, snakers4/silero-vad, MIT, https://github.com/snakers4/silero-vad) is bundled beside `MurmurSpeech.exe` (`windows/src/Murmur.Speech/silero_vad.onnx`, 643,854 bytes, SHA-256 `9e2449e1…bb1fd6`, from the k2-fsa/sherpa-onnx `asr-models` release). Whisper dictation uses it to cut recordings at silence.
+- **Whisper large-v3-turbo** by OpenAI, MIT (https://huggingface.co/openai/whisper-large-v3-turbo), exported to int8 ONNX for sherpa-onnx by csukuangfj (`csukuangfj/sherpa-onnx-whisper-turbo`, revision `2ca6ff69…`). That repository has no license tag; the sherpa-onnx export code is Apache-2.0. The Windows app downloads the pinned files on request and verifies their SHA-256. It does not bundle the model.
+- **Parakeet TDT 0.6B v3** by NVIDIA, CC BY 4.0, as int8 ONNX for sherpa-onnx by csukuangfj (`csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8`, revision `ed5d7456…`). The Windows app downloads the pinned files on request; the download confirmation shows the upstream and conversion cards. [Upstream model](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
 
-### LLamaSharp and llama.cpp (local cleanup and meeting notes helpers)
+### LLamaSharp and llama.cpp (local cleanup helper)
 
-- LLamaSharp 0.30.0 (MIT, https://github.com/SciSharp/LLamaSharp) and its native backends, built from llama.cpp and ggml (MIT, https://github.com/ggml-org/llama.cpp).
-- Release duty: ship both MIT texts. The copyright lines are not yet checked against each project's LICENSE at the pinned versions.
+- `windows/src/Murmur.Cleanup` uses LLamaSharp 0.30.0 (MIT, https://github.com/SciSharp/LLamaSharp) and its `LLamaSharp.Backend.Cpu` 0.30.0 native libraries. These are built from llama.cpp and ggml (MIT, https://github.com/ggml-org/llama.cpp).
+- Release duty: ship both MIT texts with the Windows app. Before release, check the copyright lines against each project's LICENSE at the pinned versions; they are not yet checked.
 
-### Vedu Scribe 0.8B, GGUF (downloaded at run time)
+### SCOWL English word list (bundled in the Windows app)
 
-- Apache-2.0. Converted from the MLX checkpoint `heyvedu/vedu-scribe-0.8b@7dced58`, a fine-tune of `Qwen/Qwen3.5-0.8B` (dequantized, repacked, requantized to Q8_0, header edited to 24 layers). These are not the original weights, and HeyVedu and the Qwen team have not endorsed them.
-- Hosted at https://huggingface.co/clouddevaakash/vedu-scribe-0.8b-gguf (revision `edf275972c822fb7787226a89afa4282feb74ec4`); the app downloads it pinned by revision and SHA-256.
+- `windows/shared/lexicon/english-scowl-60.txt.gz`: 88,210 lowercase American English words from SCOWL (Spell Checker Oriented Word Lists) by Kevin Atkinson, https://github.com/en-wl/wordlist, release `rel-2026.02.25`, size 60. It stands in for the spell checker the Mac uses to tell ordinary words from names.
+- License: the SCOWL notice in `windows/shared/lexicon/LICENSE` (permission to use, copy, modify, distribute and sell, provided the copyright notice and permission notice appear in all copies and supporting documentation; provided "as is"). The AU, UKACD and WordNet terms in the upstream `Copyright` file do not apply to this list, which is American, size 60 and drawn from none of those parts. Checked November 19, 2026.
+- **Modified:** words with capital letters, abbreviations and special categories removed, then sorted and gzipped (`windows/tools/lexicon/`). Provenance, SHA-256 and measurements: `windows/shared/lexicon/README.md`.
+- Release duty: ship `windows/shared/lexicon/LICENSE` with the Windows app.
+
+### Vedu Scribe 0.8B, GGUF (downloaded at run time on Windows)
+
+- Apache-2.0.
+- **Modified:** converted from the MLX checkpoint `heyvedu/vedu-scribe-0.8b@7dced58`, a fine-tune of `Qwen/Qwen3.5-0.8B`. Steps: dequantize, repack, requantize to Q8_0, and edit the header to 24 layers (`module-one/cleanup/convert_gguf.py`).
+- These are not the original weights, and HeyVedu and the Qwen team have not endorsed them.
+- Hosted at https://huggingface.co/clouddevaakash/vedu-scribe-0.8b-gguf (revision `edf275972c822fb7787226a89afa4282feb74ec4`), with the Apache-2.0 text and this modification notice. The Windows app downloads it from there, pinned by revision and SHA-256.
 
 ### Gemma 3 4B, GGUF (Windows local meeting notes, downloaded at run time)
 
-- Gemma 3 4B instruction-tuned by Google, as `gemma-3-4b-it-Q4_K_M.gguf` from https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF (revision `d0976223747697cb51e056d85c532013931fe52e`).
-- Terms: the Gemma Terms of Use, https://ai.google.dev/gemma/terms. This is not an open-source licence. Use restrictions: https://ai.google.dev/gemma/prohibited_use_policy.
-- Murmur does not change or bundle the weights. The app downloads them only when the user asks, after showing the terms and the Prohibited Use Policy link. Windows only.
+- Gemma 3 4B instruction-tuned by Google, as the Q4_K_M GGUF `gemma-3-4b-it-Q4_K_M.gguf` from https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF (revision `d0976223747697cb51e056d85c532013931fe52e`; 2,489,757,856 bytes; SHA-256 `882e8d2db44dc554fb0ea5077cb7e4bc49e7342a1f0da57901c0802ea21a0863`). The card is tagged `gemma` and names `base_model: google/gemma-3-4b-it`. Checked November 21, 2026 through the Hugging Face model API, and the SHA-256 and size recomputed on the file the benchmark ran.
+- Terms: Gemma is provided under and subject to the Gemma Terms of Use, https://ai.google.dev/gemma/terms. This is not an open-source licence. The use restrictions are the Gemma Prohibited Use Policy, https://ai.google.dev/gemma/prohibited_use_policy.
+- Murmur does not change the weights and does not bundle or redistribute them: the Windows app downloads the file from Hugging Face only when the user asks for it, and the download confirmation shows the terms notice and the Prohibited Use Policy link before any byte is fetched. Murmur does not provide the model as a service. If a release ever bundles or hosts the file, the terms' redistribution duties apply (pass on the use restrictions and this notice, state the terms' location, mark any change) and this section must be updated first.
+- Runs through LLamaSharp and llama.cpp (see above), locally; the transcript is never sent anywhere.
+- Windows only: the Mac does not use it.
 
 ### Speaker separation (Windows, downloaded at run time)
 
