@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
@@ -336,7 +336,7 @@ internal sealed partial class SettingsView
         Heading("Speech recognition");
         // The model row follows the chosen languages: English uses Parakeet, others the model that covers them (PR #102).
         var speechHost = new ContentControl { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-        void ShowSpeechRow() => speechHost.Content = MurmurStyle.Card(new ModelRow(s, controller.RequiredSpeechSlot, controller, root, go => { s.Local.Release(); go(); }, UpdateModelRoutes).Panel);
+        void ShowSpeechRow() => speechHost.Content = MurmurStyle.Card(new ModelRow(s, controller.RequiredSpeechSlot, controller, root, go => { s.Local.Release(); go(); }, UpdateModelRoutes, required: true).Panel);
         var picker = new DictationLanguagePicker(() => s.Settings.Get(Prefs.DictationLanguages), v => { s.Settings.Set(Prefs.DictationLanguages, v); ShowSpeechRow(); UpdateModelRoutes(); foreach (var refresh in refreshNotes) refresh(); }, () => Routes.Transcription == TranscriptionRoute.Local);
         refreshNotes.Add(picker.Refresh);
         refreshNotes.Add(() => picker.Panel.IsEnabled =!controller.IsBusy && !controller.SpeechModelDownloading);
@@ -379,10 +379,10 @@ internal sealed partial class SettingsView
 
     string StyleHelp(CleanupStyle style) => style switch
     {
-        CleanupStyle.Faithful => "Keeps the words as dictated, apart from dictionary spellings: “Um, let’s meet Tuesday, no, I mean, Thursday, at the cafe.”",
-        CleanupStyle.Natural => "Removes fillers and applies clear spoken corrections, otherwise keeping your wording: “Let’s meet Thursday at the cafe.”",
-        CleanupStyle.Polish => "Also resolves backtracks and false starts, and fixes small grammar slips, keeping your voice: “Let’s meet Thursday at the cafe.”",
-        _ => "Rewrites into clear, professional writing of what you meant: “Let’s meet on Thursday at the café.”"
+        CleanupStyle.Faithful => "Keeps the words as dictated, apart from dictionary spellings: â€œUm, letâ€™s meet Tuesday, no, I mean, Thursday, at the cafe.â€",
+        CleanupStyle.Natural => "Removes fillers and applies clear spoken corrections, otherwise keeping your wording: â€œLetâ€™s meet Thursday at the cafe.â€",
+        CleanupStyle.Polish => "Also resolves backtracks and false starts, and fixes small grammar slips, keeping your voice: â€œLetâ€™s meet Thursday at the cafe.â€",
+        _ => "Rewrites into clear, professional writing of what you meant: â€œLetâ€™s meet on Thursday at the cafÃ©.â€"
     };
 
     void BuildCleanup()
@@ -430,11 +430,11 @@ internal sealed partial class SettingsView
         routeSection.Children.Add(modelCard);
         page = body;
         page.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 16, 0, 8), Style = MurmurStyle.Style("MurmurRuleLine") });
-        Toggle("Remove filler words", "Takes out “um”, “uh” and similar.", Prefs.CleanupFillers, StyleChanged);
+        Toggle("Remove filler words", "Takes out â€œumâ€, â€œuhâ€ and similar.", Prefs.CleanupFillers, StyleChanged);
         Toggle("Apply spoken corrections", "Uses your final wording for clear corrections. Ambiguous corrections stay.", Prefs.CleanupCorrections, StyleChanged);
-        Toggle("Format spoken lists", "Turns “one, two, three” into a numbered list.", Prefs.CleanupLists, StyleChanged);
+        Toggle("Format spoken lists", "Turns â€œone, two, threeâ€ into a numbered list.", Prefs.CleanupLists, StyleChanged);
         Toggle("Fix punctuation and capitalization", "Adds commas, periods and capitals.", Prefs.CleanupPunctuation, StyleChanged);
-        Toggle("Spoken commands and numbers", "Interprets “comma” and “new paragraph”, and writes spoken numbers as digits.", Prefs.CleanupSpoken, StyleChanged);
+        Toggle("Spoken commands and numbers", "Interprets â€œcommaâ€ and â€œnew paragraphâ€, and writes spoken numbers as digits.", Prefs.CleanupSpoken, StyleChanged);
         var screenContext = Toggle("Use screen context", "Available for Polish and Professional on Murmur Cloud or a Custom Provider. Modes can turn it on or off.", Prefs.ScreenContext);
         Note("Website modes use the focused page in Edge, Chrome, Brave, Vivaldi, Opera, Arc, or Firefox when Windows can read it. App matching still works in other browsers and when the page is unavailable.");
         var providerSection = new StackPanel();
@@ -456,7 +456,7 @@ internal sealed partial class SettingsView
             naturalHelp.Text = route switch
             {
                 CleanupChoice.LocalRules => "Natural uses built-in rules on this PC.",
-                CleanupChoice.LocalModel => "Natural runs the Local model’s one cleanup under Murmur’s guard.",
+                CleanupChoice.LocalModel => "Natural runs the Local modelâ€™s one cleanup under Murmurâ€™s guard.",
                 _ => "On this route Natural uses built-in rules on this PC. Choose Polish or Professional to use the AI model.",
             };
         }
@@ -587,7 +587,7 @@ internal sealed partial class SettingsView
         record.Click += async (_, _) =>
         {
             record.IsEnabled = false;
-            recorded.Text = "Press a key (Esc cancels)…";
+            recorded.Text = "Press a key (Esc cancels)â€¦";
             var vk = await controller.RecordNextKey();
             string? conflict = vk == 0 ? null : VoiceEditSettings.VoiceEditConflict(s.Settings.Get(Prefs.VoiceEditShortcut), new EditChord(vk, 0), spec => VoiceEditBinding.Parse(spec, 0), 0);
             if (vk != 0 && conflict is null)
@@ -638,11 +638,11 @@ internal sealed partial class SettingsView
         Choice("Keep transcripts for", null, retentions.Select(r => r.Label()).ToArray(), Array.IndexOf(retentions, s.Settings.Get(Prefs.Retention)), i => s.Settings.Set(Prefs.Retention, retentions[i]));
 
         Heading("Your data");
-        var backup = MurmurStyle.Named(new Button { Content = "Back Up…" }, "Back up Murmur data");
+        var backup = MurmurStyle.Named(new Button { Content = "Back Upâ€¦" }, "Back up Murmur data");
         backup.Click += async (_, _) => await Backup();
-        var restore = MurmurStyle.Named(new Button { Content = "Restore…" }, "Restore Murmur backup");
+        var restore = MurmurStyle.Named(new Button { Content = "Restoreâ€¦" }, "Restore Murmur backup");
         restore.Click += async (_, _) => await Restore();
-        var delete = MurmurStyle.Named(new Button { Content = "Delete All Data…" }, "Delete all Murmur data");
+        var delete = MurmurStyle.Named(new Button { Content = "Delete All Dataâ€¦" }, "Delete all Murmur data");
         delete.Click += async (_, _) => await DeleteAll();
         Row("Backup and restore", "Save History, the dictionary and settings to a Murmur Backup folder. API keys and audio are excluded. Restore keeps your current provider routes.", new StackPanel
         {

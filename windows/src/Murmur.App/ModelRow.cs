@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Murmur.Core;
 
@@ -18,7 +18,8 @@ internal sealed class ModelRow
 
     readonly AppServices s;
     readonly ModelSlot slot;
-    readonly ModelFlow flow;
+    readonly ModelFlow? flow;
+    readonly Controller? controller;
     readonly Answer answer = new();
     readonly Func<XamlRoot?> root;
     readonly TextBlock status = MurmurStyle.Text("", "BodyStrongTextBlockStyle");
@@ -29,10 +30,18 @@ internal sealed class ModelRow
 
     /// <param name="release">Stops what holds the model's files open, before they are deleted.</param>
     /// <param name="changed">After the slot's state changed (the page re-checks what that enables).</param>
-    public ModelRow(AppServices services, ModelSlot slot, Controller controller, Func<XamlRoot?> root, Action<Action> release, Action changed)
+    public ModelRow(AppServices services, ModelSlot slot, Controller controller, Func<XamlRoot?> root, Action<Action> release, Action changed, bool required = false)
     {
         s = services; this.slot = slot; this.root = root;
         var facts = slot.Facts;
+        if (required)
+        {
+            // The controller owns the flow of the required speech model (it prewarms after a download); this row supplies its dialogs and redraws on its changes.
+            this.controller = controller;
+            controller.SpeechModelDialogs = answer;
+            controller.SpeechModelChanged = () => { Refresh(); changed(); };
+        }
+        else
         flow = new ModelFlow(slot, answer)
         {
             PushProgress = true,
@@ -53,7 +62,7 @@ internal sealed class ModelRow
         Panel.Children.Add(status);
         Panel.Children.Add(bar);
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        foreach (var (action, label, click) in new (ModelRowAction, string, Func<Task>)[] { (ModelRowAction.Download, "Download", Download), (ModelRowAction.Retry, "Retry", Download), (ModelRowAction.Cancel, "Cancel", () => { flow.Cancel(); return Task.CompletedTask; }), (ModelRowAction.Remove, "Remove", Remove) })
+        foreach (var (action, label, click) in new (ModelRowAction, string, Func<Task>)[] { (ModelRowAction.Download, "Download", Download), (ModelRowAction.Retry, "Retry", Download), (ModelRowAction.Cancel, "Cancel", () => { if (controller is not null) controller.CancelRequiredSpeechModel(); else flow!.Cancel(); return Task.CompletedTask; }), (ModelRowAction.Remove, "Remove", Remove) })
         {
             var button = MurmurStyle.Named(new Button { Content = label }, $"{label} {facts.Title}");
             button.Click += async (_, _) => await click();
@@ -99,7 +108,7 @@ internal sealed class ModelRow
         if (slot.Downloader is not { } downloader || slot.InFlight) return;
         var text = slot.Facts.Confirmation(downloader.DownloadSize, downloader.License, downloader.Target);
         answer.Yes = await Ask(text.Title, text.Body, "Download");
-        flow.Download();
+        if (controller is not null) controller.DownloadRequiredSpeechModel(); else flow!.Download();
         answer.Yes = false;
     }
 
@@ -107,7 +116,7 @@ internal sealed class ModelRow
     {
         if (slot.Downloader is not { } downloader || slot.InFlight) return;
         answer.Yes = await Ask(slot.Facts.RemoveTitle, slot.Facts.RemoveBody(downloader.Target, downloader.DownloadSize), "Remove");
-        flow.Remove();
+        if (controller is not null) controller.RemoveRequiredSpeechModel(); else flow!.Remove();
         answer.Yes = false;
     }
 
