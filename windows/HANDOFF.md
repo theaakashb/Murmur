@@ -6,9 +6,9 @@
 
 **check_parity on the PC:** the CRLF checkout gives false CHANGED. Run it on an LF export: `git -c core.autocrlf=false archive HEAD app module-one windows`, extract under cache\temp, `py -3 -I -B windows/tools/check_parity.py [--update]`, copy `windows/porting.json` back.
 
-**Staging recipe (PC):** `dotnet publish windows\src\Murmur.App -c Release -r win-x64 -o <new app-nextN> -p:MurmurSherpaDirectML=<dir>`, where `<dir>` holds DirectML.dll, onnxruntime.dll, onnxruntime_providers_shared.dll and sherpa-onnx-c-api.dll copied from `app-next10\Speech` (same hashes as app-next8). Check that `Cleanup\runtimes\win-x64\native\vulkan`, `Speech\DirectML.dll` and `Speech\silero_vad.onnx` exist. Never launch staged builds on the PC.
+**Staging recipe (PC):** `dotnet publish windows\src\Murmur.App -c Release -r win-x64 -o <new app-nextN> -p:MurmurSherpaDirectML=<dir>`, where `<dir>` holds DirectML.dll, onnxruntime.dll, onnxruntime_providers_shared.dll and sherpa-onnx-c-api.dll copied from `app-next11\Speech` (same hashes as app-next8). Check that `Cleanup\runtimes\win-x64\native\vulkan`, `Speech\DirectML.dll` and `Speech\silero_vad.onnx` exist. Never launch staged builds on the PC.
 
-**State (2026-11-22, windows = 1cd1846, parity 88/88, PC Release build clean, Core tests 22771/22771):**
+**State (2026-11-22, windows = 3369ce6 + this note, parity 88/88, PC Release build clean, Core tests 22775/22775; Mac goldens regenerated at 3369ce6 and generate.sh --check passes):**
 - **PR #101 and #102 are ported** (d1091a5, 358d0f3): the DictationLanguages policy, the cloud hint, the manual-only dictionary for non-English, non-English session gating, the language picker (Settings Transcription and Welcome), per-model download rows, the #101 onboarding copy, the Home "Open Dictionary" row, and the showInDock default. `shared/settings.json` was hand-edited (showInDock mac:true, plus W1's `dictationLanguages` row); the Mac regen confirms or overwrites it.
 - **Multilingual models (user-approved, pinned in windows-models.json):**
   - Parakeet TDT v3 int8 `csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8@ed5d7456`: 670.6 MB, CC BY 4.0.
@@ -20,12 +20,11 @@
 - **Known issue (not fixed):** on clips over 30 s, Whisper can repeat a small fragment at a cut point (W2 saw one on a 40 s test clip). Pieces are at most 28 s, cut where Silero finds a pause, with no overlap handling. A fix would de-duplicate the words at the seam or cut only at longer pauses.
 - **PR #100 notes merge is DONE** (52263a0): origin/main 969168b, then windows-notes-contract 2eb78bf. The `wt-notescore` worktree is removed (branch kept).
 - **Builds:**
-  - app-next11 (the CPU-only multilingual policy) is staged for the orchestrator's VM run. app-next10 (1cd1846) is superseded.
+  - app-next11 (the CPU-only multilingual policy) is staged for the orchestrator's VM run. app-next10 is deleted.
   - app-next9 (d1091a5) is older.
   - app-next8 is confirmed by the user, and app-next7 is the fallback. app-next6 is deleted.
   - The old `app` folder waits on the user. Never delete the folder the user runs (check the Murmur.exe path).
 - **Pending:**
-  - The Mac golden regen. The orchestrator pushes it; then pull and rerun parity and the Core tests.
   - The VM real-app run of app-next10: the picker, TDT/Whisper downloads and dictation, Welcome, and the Home Dictionary row.
 - **Workers:** none live. W1 67ee7e44, W2 f829b4dc and W3 9b32e188 are archived. Their worktrees are removed; the branches windows-langcore, windows-langspeech and windows-langui are kept.
 - **Lessons:**
