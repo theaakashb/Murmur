@@ -227,6 +227,21 @@ internal sealed partial class Controller : IDisposable
 
     bool Stale(Session ss) => ss.Gen != generation;
 
+    /// <summary>Tips.record (app/TipsUI.swift recordDictation): lifetime words and time saved, seeded from History the first time; a crossed rung shows on Home.</summary>
+    void RecordTips(HistoryEntry entry)
+    {
+        try
+        {
+            var seed = () =>
+            {
+                var computed = Insights.Compute(s.History.Entries().Select(InsightsItem.FromHistory), true, DateTimeOffset.Now, TimeZoneInfo.Local);
+                return computed is Insights.Stats st ? (st.Words, st.SecondsSaved ?? 0, st.Days.Count == 0 ? (DateTimeOffset?)null : new DateTimeOffset(st.Days.Min().ToDateTime(TimeOnly.MinValue))) : (0, 0d, (DateTimeOffset?)null);
+            };
+            new Tips(s.Settings).Record(Insights.SplitWords(entry.FinalText).Count, Tips.SecondsSaved(entry.FinalText, entry.Seconds), DateTimeOffset.Now, seed);
+        }
+        catch (Exception) { }
+    }
+
     bool BeginSession()
     {
         var routes = RouteSettings.Load(s.Settings);
@@ -519,6 +534,7 @@ internal sealed partial class Controller : IDisposable
             bubble.ShowNotice("Only filler words were heard, so nothing was inserted.", 5);
             return;
         }
+        RecordTips(entry);
         if (!ss.Insert) { ShowNotPasted(entry, result.FinalText); return; }
 
         var target = await Task.Run(() => FocusProbe.Capture(readText: ss.LeadingSpace));

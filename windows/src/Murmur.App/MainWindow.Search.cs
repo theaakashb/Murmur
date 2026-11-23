@@ -37,6 +37,7 @@ internal sealed partial class MainWindow
         var shortcut = new KeyboardAccelerator { Key = Windows.System.VirtualKey.K, Modifiers = Windows.System.VirtualKeyModifiers.Control };
         shortcut.Invoked += (_, e) => { OpenSearch(); e.Handled = true; };
         root.KeyboardAccelerators.Add(shortcut);
+        root.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden; // no floating "Ctrl+K" tip over the focused control
         root.Children.Add(searchOverlay);
     }
 
