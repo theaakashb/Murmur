@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   release:
-    runs-on: windows-latest
+    runs-on: windows-2022   # build-sherpa-directml.ps1 needs the Visual Studio 17 2022 generator
     permissions:
       contents: write   # draft release upload only
     env:
