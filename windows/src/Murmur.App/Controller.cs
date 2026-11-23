@@ -405,6 +405,17 @@ internal sealed partial class Controller : IDisposable
         bubble.ShowError(message, quick ? 2 : 8);
     }
 
+    /// <summary>The local route under one deadline. The helper chain (chunks, whole-file retry, one-shot) can add up to 15 minutes of 300 s limits; on the deadline the helpers are killed and the audio is kept for retry.</summary>
+    async Task<(CloudTranscriptionOutcome Outcome, CloudTranscriptionDetail Detail)> TranscribeLocalWithinDeadline(Session ss, AudioCaptureResult capture)
+    {
+        var (answer, timedOut) = await ProcessingDeadline.RunAsync(ct => TranscribeLocalAsync(ss, capture.Samples16k, ct), ProcessingDeadline.Transcription(capture.Seconds), ss.Cts.Token);
+        // A deadline that cancelled the helper is a failure with the audio kept, not the user's cancel (which deletes it).
+        if (answer is { } done && !(timedOut && done.Outcome is CloudTranscriptionOutcome.Cancelled)) return done;
+        if (!timedOut) return (new CloudTranscriptionOutcome.Cancelled(), new CloudTranscriptionDetail { ClipSeconds = capture.Seconds });
+        TestEvents.Emit("error", ("stage", "transcription"), ("reason", "deadline"));
+        return (new CloudTranscriptionOutcome.Failed("Transcription took too long.", true), new CloudTranscriptionDetail { ClipSeconds = capture.Seconds });
+    }
+
     async Task RunCore(Session ss)
     {
         var english = ss.Languages.Equals(DictationLanguages.English);
@@ -433,7 +444,8 @@ internal sealed partial class Controller : IDisposable
             TryDelete(ss.WavPath);
             return;
         }
-        var focus = await ss.Focus;
+        // UI Automation can hang: after the bound the dictation goes on without a focus (unknown, not a password field); WatchFocus still discards it if the probe answers password in time.
+        var focus = await ProcessingDeadline.WaitOr(ss.Focus, ProcessingDeadline.Focus, null);
         if (Stale(ss)) return;
         if (focus is { IsPassword: true }) { Fail(ss, "start", "password-field", "Murmur does not dictate into password fields."); TryDelete(ss.WavPath); return; }
 
@@ -441,7 +453,7 @@ internal sealed partial class Controller : IDisposable
         var provider = ss.Plan.Transcriber;
         var transcribeStart = Stopwatch.GetTimestamp();
         var (outcome, detail) = provider is null
-            ? await TranscribeLocalAsync(ss, capture.Samples16k, ss.Cts.Token)
+            ? await TranscribeLocalWithinDeadline(ss, capture)
             : await CloudTranscription.RunDetailedAsync(provider, WAVAudio.EncodePCM16(capture.Samples16k, AudioConverter.TargetRate), ss.Languages, ss.Cts.Token);
         if (Stale(ss)) return;
         if (outcome is not CloudTranscriptionOutcome.Transcript transcript)
@@ -455,7 +467,7 @@ internal sealed partial class Controller : IDisposable
         TestEvents.Emit("transcribed");
         var transcribeSeconds = Stopwatch.GetElapsedTime(transcribeStart).TotalSeconds;
 
-        var mode = await ss.Mode; // null for a non-English session: it neither selects nor speaks a mode
+        var mode = await ProcessingDeadline.WaitOr(ss.Mode, ProcessingDeadline.Focus, null); // null for a non-English session: it neither selects nor speaks a mode
         if (Stale(ss)) return;
         // Mac parity (Controller.deliver): a spoken trigger ("Email mode. …") beats the app or website matched at start. It is cut from the
         // text sent to cleanup, never from History's raw transcript.
