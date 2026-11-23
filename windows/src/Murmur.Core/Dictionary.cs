@@ -318,10 +318,10 @@ public sealed class DictionaryStore
     }
 
     /// <summary>Folded variant key -> entry. Command targets win, then manual entries over learned ones, then older entries.</summary>
-    Dictionary<string, DictionaryEntry> VariantTable(Func<string, bool>? isCommonWord)
+    Dictionary<string, DictionaryEntry> VariantTable(Func<string, bool>? isCommonWord, bool manualOnly = false)
     {
         var table = new Dictionary<string, DictionaryEntry>();
-        var ordered = entries.Where(e => e.Enabled).OrderByDescending(IsCommandTarget).ThenBy(e => e.Source == EntrySource.Manual ? 0 : 1).ThenBy(e => e.CreatedAt);
+        var ordered = entries.Where(e => e.Enabled && (!manualOnly || (e.Source == EntrySource.Manual && !IsCommandTarget(e)))).OrderByDescending(IsCommandTarget).ThenBy(e => e.Source == EntrySource.Manual ? 0 : 1).ThenBy(e => e.CreatedAt);
         foreach (var entry in ordered)
             foreach (var variant in entry.Variants)
             {
@@ -352,10 +352,10 @@ public sealed class DictionaryStore
     /// phrase wins, then the longest phrase; replaced text is never matched again, so
     /// another entry cannot rewrite words inside an inserted command ("question mark" stays).
     /// </summary>
-    public string Apply(string text, Func<string, bool>? isCommonWordOverride = null)
+    public string Apply(string text, Func<string, bool>? isCommonWordOverride = null, bool manualVariantsOnly = false)
     {
-        var isCommonWord = isCommonWordOverride ?? IsCommonWord;
-        var table = VariantTable(isCommonWord);
+        var isCommonWord = manualVariantsOnly ? null : isCommonWordOverride ?? IsCommonWord;
+        var table = VariantTable(isCommonWord, manualVariantsOnly);
         var terms = isCommonWord is null ? new List<DictionaryEntry>()
             : entries.Where(e => e.Enabled && !IsCommandTarget(e) && SwiftText.Count(e.Preferred) >= 6 && SwiftText.Characters(e.Preferred).All(SwiftText.IsLetter)).ToList();
         if (table.Count == 0 && terms.Count == 0) return text;

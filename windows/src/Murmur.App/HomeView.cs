@@ -44,6 +44,9 @@ internal sealed class HomeView(AppServices s, Controller controller, HomeView.Ac
         panel.Children.Add(shortcutHead);
         panel.Children.Add(Row(name, start, 26, 12));
 
+        // Dictionary shortcut (Mac: "Open Dictionary" under the shortcut row, #101)
+        panel.Children.Add(Row(MurmurStyle.Text("Add names and terms you want Murmur to spell correctly.", "MurmurDescription"), MurmurStyle.Pill("Open Dictionary", () => go.OpenSettings("Writing", "Dictionary")), 20, 0));
+
         // Meeting notes
         bool live = controller.Meetings.Live is not null;
         var mnTitle = MurmurStyle.Text("Meeting notes", "MurmurSettingLabel");

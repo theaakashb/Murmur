@@ -137,7 +137,7 @@ internal sealed partial class Controller
                 _ => new MeetingCloudResult.Failed(),
             };
         }
-        else if (!s.Local.HelperPresent || !s.Local.ModelFilesPresent)
+        else if (!s.Local.HelperPresent || !s.Local.EnglishFilesPresent)
         {
             meetings.Message = "Meeting notes transcribe on this PC. Download the speech model in Settings first.";
             ShowMeetingMessage();

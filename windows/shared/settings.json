@@ -57,6 +57,13 @@
       "windows" : "bottom"
     },
     {
+      "key" : "dictationLanguages",
+      "mac" : [
+        "en"
+      ],
+      "type" : "stringList"
+    },
+    {
       "key" : "dictionarySuggestionsDismissed",
       "mac" : [
 

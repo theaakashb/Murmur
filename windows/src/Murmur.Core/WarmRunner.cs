@@ -13,7 +13,7 @@ namespace Murmur.Core;
 public sealed class WarmRunner : IDisposable
 {
     readonly SemaphoreSlim gate = new(1, 1);
-    readonly int readySeconds, readyWithVocabularySeconds, requestSeconds;
+    readonly int readySeconds, readyWithVocabularySeconds, readyRunnerSeconds, requestSeconds;
     Process? process;
     string? key;
     bool requestedGpu, usingGpu;
@@ -22,9 +22,9 @@ public sealed class WarmRunner : IDisposable
     /// <summary>Called after each start with vocabulary arguments: true when the helper could not load dictionary support (it then transcribes without it).</summary>
     public Action<bool>? OnDictionaryStatus { get; set; }
 
-    public WarmRunner(int readySeconds = 60, int readyWithVocabularySeconds = 120, int requestSeconds = ModelHelper.RequestTimeoutSeconds)
+    public WarmRunner(int readySeconds = 60, int readyWithVocabularySeconds = 120, int requestSeconds = ModelHelper.RequestTimeoutSeconds, int readyRunnerSeconds = 180)
     {
-        this.readySeconds = readySeconds; this.readyWithVocabularySeconds = readyWithVocabularySeconds; this.requestSeconds = requestSeconds;
+        this.readySeconds = readySeconds; this.readyWithVocabularySeconds = readyWithVocabularySeconds; this.readyRunnerSeconds = readyRunnerSeconds; this.requestSeconds = requestSeconds;
     }
 
     /// <summary>Starts (or confirms) the warm helper without a request.</summary>
@@ -97,7 +97,7 @@ public sealed class WarmRunner : IDisposable
     {
         if (ct.IsCancellationRequested) return false;
         var args = new List<string> { launch.Models, "--serve" };
-        args.AddRange(launch.Arguments);
+        args.AddRange(launch.Arguments); // the dictionary arguments, then the runner flag
         if (gpu) args.Add("--gpu");
         var next = new Process { StartInfo = ModelHelper.StartInfo(helper, args, redirectInput: true) };
         try { next.Start(); } catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { next.Dispose(); return false; }
@@ -107,7 +107,8 @@ public sealed class WarmRunner : IDisposable
         process = next; key = launch.Key; requestedGpu = launch.PreferGpu; usingGpu = gpu; pending.Clear();
         try
         {
-            var timeout = launch.HasVocabulary ? readyWithVocabularySeconds : readySeconds;
+            // A multilingual model (runner flag) may take longer to load than the English one.
+            var timeout = launch.RunnerFlag is not null ? readyRunnerSeconds : launch.HasVocabulary ? readyWithVocabularySeconds : readySeconds;
             var ready = Parse(await ReadLineAsync(next, gpu ? Math.Min(timeout, 15) : timeout, ct).ConfigureAwait(false));
             if (ready?["ready"]?.GetValueKind() != JsonValueKind.True) { StopLocked(); return false; }
             if (launch.HasVocabulary) OnDictionaryStatus?.Invoke(ready["vocabulary_error"]?.GetValueKind() == JsonValueKind.True);

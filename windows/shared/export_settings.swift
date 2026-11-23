@@ -2,7 +2,7 @@
 import Foundation
 
 // Exports every Prefs key with its Mac default, and the Windows default where it differs (spec/settings.md).
-// The three controller keys (Controller+Settings.swift is AppKit) are written out with the Swift literals they use.
+// The controller keys (Controller+Settings.swift is AppKit) are written out with the Swift literals they use.
 // Types: bool, int, string, stringList, doubleList. Sorted by key.
 
 enum JSONValue: Encodable {
@@ -43,6 +43,7 @@ func row(_ s: Setting<[Double]>) -> Row { Row(key: s.key, type: "doubleList", ma
             row(Prefs.meetingPanelTopRight), row(Prefs.openAtLoginDefaulted), row(Prefs.dismissedSuggestions),
             // Controller+Settings.swift: ShortcutBinding.defaultID, EditTrigger.sameKey, and the computed model folder ("" here: Windows computes its own).
             Row(key: "shortcut", type: "string", mac: .string(ShortcutBinding.defaultID), windows: .string("right-ctrl")),
+            Row(key: "dictationLanguages", type: "stringList", mac: .list(["en"]), windows: nil),
             Row(key: "voiceEditShortcut", type: "string", mac: .string("same"), windows: nil),
             Row(key: "modelDirectory", type: "string", mac: .string(""), windows: nil),
             // New on Windows: the Mac's paste-last chord is fixed (Shortcut.swift:245).

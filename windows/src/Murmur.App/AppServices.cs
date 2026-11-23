@@ -18,10 +18,20 @@ internal sealed class AppServices
     /// <summary>The downloadable models under <c>&lt;data root&gt;\Models</c> (one slot each; Settings shows them, the helpers read them).</summary>
     public ModelSlot SpeechSlot { get; }
     public ModelSlot LiveWordsSlot { get; }
+    /// <summary>Parakeet TDT v3 and Whisper large-v3-turbo, for dictation in other languages. No downloader until their pins exist.</summary>
+    public ModelSlot TdtSlot { get; }
+    public ModelSlot WhisperSlot { get; }
     public ModelSlot CleanupSlot { get; }
     /// <summary>Speaker separation downloads two models (segmentation and embedding); the feature needs both.</summary>
     public ModelSlot SpeakerSegmentationSlot { get; }
     public ModelSlot SpeakerEmbeddingSlot { get; }
+    /// <summary>The slot of a local speech model (Controller+Models.swift speechModelSlot).</summary>
+    /// <summary>Stored by the dictation-language picker (default English).</summary>
+    public IReadOnlyList<string> DictationLanguageCodes => Settings.Get(Prefs.DictationLanguages);
+    public LocalSpeechModel ChosenSpeechModel => DictationLanguages.Create(DictationLanguageCodes)?.LocalModel ?? LocalSpeechModel.ParakeetEnglish;
+    /// <summary>The chosen model on the local route, else English (the cloud routes need no speech model).</summary>
+    public LocalSpeechModel RequiredSpeechModel => RouteSettings.Load(Settings).Transcription == TranscriptionRoute.Local ? ChosenSpeechModel : LocalSpeechModel.ParakeetEnglish;
+    public ModelSlot SlotFor(LocalSpeechModel model) => model switch { LocalSpeechModel.ParakeetTDT => TdtSlot, LocalSpeechModel.WhisperTurbo => WhisperSlot, _ => SpeechSlot };
     public HistoryRouter<HistoryEntry> History { get; private set; } = null!;
     /// <summary>Null when the dictionary or ledger can't be read: only cleanup and the dictionary stop, and dictations are held in History (app/Controller.swift:348-351).</summary>
     public ProcessingCoordinator? Processing { get; private set; }
@@ -44,10 +54,12 @@ internal sealed class AppServices
         Processor = new CoordinatorProcessor(() => Processing);
         SpeechSlot = ModelSlot.Create(ModelFacts.Batch, Root);
         LiveWordsSlot = ModelSlot.Create(ModelFacts.LiveWords, Root);
+        TdtSlot = ModelSlot.Create(ModelFacts.MultilingualTDT, Root);
+        WhisperSlot = ModelSlot.Create(ModelFacts.MultilingualWhisper, Root);
         CleanupSlot = ModelSlot.Create(ModelFacts.LocalCleanup, Root);
         SpeakerSegmentationSlot = ModelSlot.Create(ModelFacts.SpeakerSegmentation, Root);
         SpeakerEmbeddingSlot = ModelSlot.Create(ModelFacts.SpeakerEmbedding, Root);
-        foreach (var slot in new[] { SpeechSlot, LiveWordsSlot, CleanupSlot, SpeakerSegmentationSlot, SpeakerEmbeddingSlot }) if (slot.Downloader is { } downloader) slot.Status = downloader.Status();
+        foreach (var slot in new[] { SpeechSlot, TdtSlot, WhisperSlot, LiveWordsSlot, CleanupSlot, SpeakerSegmentationSlot, SpeakerEmbeddingSlot }) if (slot.Downloader is { } downloader) slot.Status = downloader.Status();
         ConfigureCleanupRunner();
         Local = new LocalTranscriber(this);
         ReopenData();

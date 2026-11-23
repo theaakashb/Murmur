@@ -36,6 +36,12 @@ Settings → Writing → Learning. On by default; the first switch turns off eve
 - Diagnostics (test events) record only fixed event names and counts.
 - Because this combines a global keyboard hook with clipboard paste, some antivirus tools may flag unsigned builds; see `windows/PLAN.md`.
 
+## Dictation languages
+
+Choose languages in the Welcome Guide or **Settings → Dictation → Transcription**. Local English dictation uses Parakeet Unified. Murmur uses Parakeet TDT v3 when it covers every selected language, and Whisper large-v3-turbo for broader selections such as Hindi or Arabic. Download the recommended model once to dictate offline. With a multilingual selection, Murmur preserves the transcript and applies explicit spellings you added to Dictionary.
+
+Murmur Cloud detects the language automatically for multilingual dictation. Language choices apply to dictation.
+
 ## UI
 
 The tray opens Settings and History. In Settings, the speech model is under **Dictation → Transcription**, and the cleanup model is under **Writing**. Manage cloud keys under **Providers**.

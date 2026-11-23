@@ -483,6 +483,53 @@ public class RoutesTests
         Assert.True((await p.ProcessAsync(text)).Text == "Call Aakash and spaceyboi.", "cleanup failure keeps manual and learned exact corrections");
     }
 
+    // MARK: languageSelectionChecks
+
+    [Fact]
+    public async Task LanguageSelection()
+    {
+        Assert.Equal(LocalSpeechModel.ParakeetEnglish, DictationLanguages.English.LocalModel);
+        Assert.Equal(LocalSpeechModel.ParakeetTDT, DictationLanguages.Create(["en", "es", "fr"])!.LocalModel);
+        if (HasCultureData)
+        {
+            var culture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+            Assert.Equal(["hi"], DictationLanguages.Matching("  HINDI ", culture));
+            Assert.Contains("ar", DictationLanguages.Matching("العربية", culture));
+            Assert.Contains("es", DictationLanguages.Matching("espanol", culture));
+        }
+        var broader = DictationLanguages.Create(["en", "hi", "ar"])!;
+        Assert.Equal(LocalSpeechModel.WhisperTurbo, broader.LocalModel);
+        Assert.Equal(LocalSpeechModel.WhisperTurbo, DictationLanguages.Create(["mt", "hi"])!.LocalModel);
+        Assert.True(DictationLanguages.Create([]) is null && DictationLanguages.Create(["invalid"]) is null, "invalid selections are rejected");
+
+        var audio = WAVAudio.EncodePCM16(Tone(1, 0.3f, 16_000), 16_000);
+        var folder = TempDirs.New("language");
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, "speech.wav");
+        await File.WriteAllBytesAsync(path, audio);
+        var transport = new CannedTransport(200, "{\"text\":\"नमस्ते، مرحبًا\"}");
+        var provider = new MurmurCloudTranscriptionProvider(TestKey) { Transport = transport };
+        const string spoken = "नमस्ते، مرحبًا";
+        var english = await CloudTranscription.RunDetailedAsync(provider, audio);
+        Assert.True(english.Outcome == Transcript(spoken) && Body(transport).Contains("name=\"language\"\r\n\r\nen\r\n"), "the default request still sends English");
+        var multilingual = await CloudTranscription.RunDetailedAsync(provider, path, broader);
+        Assert.Equal(Transcript(spoken), multilingual.Outcome);
+        var body = Body(transport);
+        Assert.True(!body.Contains("name=\"language\"") && !body.Contains("name=\"prompt\""), "multilingual multipart omits language and prompt");
+        Assert.Null(CloudAudio.Prepare([0], broader.CloudHint).Payload.Language);
+    }
+
+    static bool HasCultureData
+    {
+        get
+        {
+            try { System.Globalization.CultureInfo.GetCultureInfo("fr"); return true; }
+            catch (System.Globalization.CultureNotFoundException) { return false; }
+        }
+    }
+
+    static string Body(CannedTransport transport) => Encoding.UTF8.GetString(transport.Requests[^1].Body ?? []);
+
     // MARK: lexiconChecks
 
     [Fact]
