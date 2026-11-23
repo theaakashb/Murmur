@@ -54,6 +54,11 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 - `windows/src/Murmur.Cleanup` uses LLamaSharp 0.30.0 (MIT, https://github.com/SciSharp/LLamaSharp) and its `LLamaSharp.Backend.Cpu` 0.30.0 native libraries. These are built from llama.cpp and ggml (MIT, https://github.com/ggml-org/llama.cpp).
 - Release duty: ship both MIT texts with the Windows app. Before release, check the copyright lines against each project's LICENSE at the pinned versions; they are not yet checked.
 
+### Country flags (bundled in the Windows app)
+
+- The dictation language picker shows flag images from **lipis/flag-icons** v7.6.0 (MIT, Copyright (c) 2013 Panayiotis Lipiridis, https://github.com/lipis/flag-icons), commit `0d8909b00aa8418802a5abf2afa82356b129a7ef`. Licence checked at that commit: MIT, the repository's only licence file (https://github.com/lipis/flag-icons/blob/0d8909b00aa8418802a5abf2afa82356b129a7ef/LICENSE). 33 unmodified `flags/4x3` SVGs (158,740 bytes) are in `windows/src/Murmur.App/Assets/Flags/`, with the upstream LICENSE (SHA-256 `fc0231cc…0336`) and the per-file SHA-256 list in that folder's README. Windows has no emoji flag glyphs, so the Mac's emoji flags are not used there.
+- Release duty: ship `Assets/Flags/LICENSE` with the Windows app (the project copies it beside the SVGs).
+
 ### SCOWL English word list (bundled in the Windows app)
 
 - `windows/shared/lexicon/english-scowl-60.txt.gz`: 88,210 lowercase American English words from SCOWL (Spell Checker Oriented Word Lists) by Kevin Atkinson, https://github.com/en-wl/wordlist, release `rel-2026.02.25`, size 60. It stands in for the spell checker the Mac uses to tell ordinary words from names.
