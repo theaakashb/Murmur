@@ -222,6 +222,14 @@ static class Program
         var file = Path.Combine(cfg.DataDir, "history", historyId + ".json");
         try { using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(file)); name = doc.RootElement.TryGetProperty("writingModeName", out var n) ? n.GetString() : null; raw = doc.RootElement.TryGetProperty("rawText", out var r) ? r.GetString() : null; }
         catch (Exception e) when (e is IOException or JsonException) { }
+        // Modes and cleanup are English-only by design (PR #102): with other dictation languages the trigger is plain speech, no mode is chosen and nothing goes to cleanup.
+        if (!DictatesEnglishOnly(cfg.DataDir))
+        {
+            var sent = JsonDocument.Parse(await http.GetStringAsync("/control/chat-texts")).RootElement.EnumerateArray().Count(e => e.GetProperty("fixture").GetString() == f.Id);
+            Add("non-english-no-mode", name is null, "writingModeName=" + (name ?? "null") + " (dictationLanguages is not English only)");
+            Add("non-english-no-cleanup", sent == 0, $"{sent} chat request(s) for {f.Id}");
+            return c;
+        }
         Add("mode-name-is-email", name == "Email", "writingModeName=" + (name ?? "null"));
         Add("raw-text-keeps-trigger", raw is not null && raw.TrimStart().StartsWith("email mode", StringComparison.OrdinalIgnoreCase), "rawText starts with the trigger: " + (raw is not null && raw.TrimStart().StartsWith("email mode", StringComparison.OrdinalIgnoreCase)));
         var arr = JsonDocument.Parse(await http.GetStringAsync("/control/chat-texts")).RootElement.EnumerateArray().Where(e => e.GetProperty("fixture").GetString() == f.Id).ToList();
@@ -233,6 +241,19 @@ static class Program
         // Marker from the email transform frame ("Write {purpose}." with purpose "ready-to-paste email text"; shared/cleanup_prompt.json).
         Add("email-transform-prompt-used", system.Contains("Write ready-to-paste email text", StringComparison.Ordinal), "system prompt has the email transform frame");
         return c;
+    }
+
+    /// <summary>True when settings.json has no dictationLanguages (the default, English) or exactly ["en"].</summary>
+    static bool DictatesEnglishOnly(string dataDir)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(dataDir, "settings.json")));
+            if (!doc.RootElement.TryGetProperty("dictationLanguages", out var codes) || codes.ValueKind != JsonValueKind.Array) return true;
+            var list = codes.EnumerateArray().Select(e => e.GetString()).ToList();
+            return list.Count == 0 || (list.Count == 1 && list[0] == "en");
+        }
+        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return true; }
     }
 
     static async Task<string?> ReadHistoryFinal(string dataDir, string? id)

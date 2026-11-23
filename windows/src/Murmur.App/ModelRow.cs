@@ -63,7 +63,7 @@ internal sealed class ModelRow
         MurmurStyle.Named(message, $"{facts.Title} status");
         Panel.Children.Add(Small(slot.Summary));
         if (!string.IsNullOrEmpty(facts.Explanation)) Panel.Children.Add(Small(facts.Explanation));
-        Panel.Children.Add(Small(slot.License is { } license ? "License: " + string.Join(", ", license.Declarations.Select(d => d.Name).DefaultIfEmpty("not recorded")) + ". Shown in full before any download." : ""));
+        Panel.Children.Add(Small(slot.License is { } license ? "License: " + string.Join(", ", license.Declarations.Select(d => d.Name).Distinct().DefaultIfEmpty("not recorded")) + ". Shown in full before any download." : ""));
         Panel.Children.Add(status);
         Panel.Children.Add(bar);
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
