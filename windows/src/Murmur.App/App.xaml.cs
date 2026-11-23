@@ -82,6 +82,7 @@ public partial class App : Application
         bubble = new Bubble(queue) { OpenHistory = OpenHistory };
         controller = new Controller(services, bubble);
         _ = new CallOfferPanel(services, controller, queue); // held by the controller's CallOffered event
+        _ = new TipPanel(services, controller.TipCards, (pane, tab) => Main().ShowSettingsPane(pane, tab), () => Main().ShowHome()); // held by the presenter's events
         liveMeetingPanel = new LiveMeetingPanel(services, controller, queue);
 
         // Mac parity (main.swift:28): start at login is on after the first launch, then the user's choice.

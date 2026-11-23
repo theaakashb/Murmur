@@ -36,6 +36,8 @@ internal sealed partial class SettingsView
     readonly Border tabHost = new() { Margin = new Thickness(0, 24, 0, 0) };
     readonly ContentControl content = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch, IsTabStop = false };
     readonly Dictionary<string, int> tabMemory = [];
+    readonly Border introHost = new();
+    Segmented? tabBar;
     StackPanel page = null!;
     string current = "";
 
@@ -55,8 +57,9 @@ internal sealed partial class SettingsView
         description.Margin = new Thickness(0, 6, 0, 0);
         View = MurmurStyle.Named(new ScrollViewer
         {
-            Content = new StackPanel { Padding = new Thickness(36, 28, 36, 32), Width = 772, HorizontalAlignment = HorizontalAlignment.Left, Children = { title, description, tabHost, content } }
+            Content = new StackPanel { Padding = new Thickness(36, 28, 36, 32), Width = 772, HorizontalAlignment = HorizontalAlignment.Left, Children = { title, description, tabHost, introHost, content } }
         }, "Settings pane");
+        controller.TipCards.Changed += RefreshTips;
         BuildPane("General", BuildGeneral);
         BuildPane("Recording", BuildRecording);
         BuildPane("Transcription", BuildTranscription);
@@ -163,11 +166,36 @@ internal sealed partial class SettingsView
         if (Tabs.TryGetValue(pane, out var names))
         {
             int index = tab >= 0 ? tab : tabMemory.GetValueOrDefault(pane);
-            tabHost.Child = new Segmented(pane + " tabs", names, index, i => { tabMemory[pane] = i; ShowPane(names[i]); }, stretch: false);
+            tabHost.Child = tabBar = new Segmented(pane + " tabs", names, index, i => { tabMemory[pane] = i; ShowPane(names[i]); }, stretch: false);
             tabMemory[pane] = index;
             ShowPane(names[index]);
         }
-        else { tabHost.Child = null; ShowPane(pane); }
+        else { tabHost.Child = null; tabBar = null; ShowPane(pane); }
+        RefreshTips();
+    }
+
+    /// <summary>Stop listening for tip changes (the window closed).</summary>
+    public void Detach() => controller.TipCards.Changed -= RefreshTips;
+
+    string? shownPane;
+
+    /// <summary>The dots on the tabs and the intro line on a pane the user has not explored (PaneIntro in app/TipsUI.swift).</summary>
+    void RefreshTips()
+    {
+        var tips = controller.TipCards;
+        if (tabBar is not null && Tabs.TryGetValue(current, out var names))
+            for (int i = 0; i < names.Length; i++) tabBar.SetDot(i, tips.HasDot(names[i]));
+        introHost.Child = null;
+        if (shownPane is { } pane && tips.HasIntro(pane) && TipPresenter.IntroText(pane, tips.Usage) is { } text)
+        {
+            var icon = new FontIcon { Glyph = "", FontSize = 14, Style = MurmurStyle.Style("MurmurMutedIcon"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 0, 0) };
+            var heading = MurmurStyle.Text(text.Title, "MurmurSettingLabel"); heading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+            var got = MurmurStyle.Pill("Got It", () => tips.FinishIntro(pane), MurmurStyle.PillKind.Plain);
+            var words = new StackPanel { Spacing = 3, Children = { heading, MurmurStyle.Text(text.Body, "MurmurDescription") } };
+            var row = new Grid { ColumnSpacing = 10, ColumnDefinitions = { new ColumnDefinition { Width = GridLength.Auto }, new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { icon, words, got } };
+            Grid.SetColumn(words, 1); Grid.SetColumn(got, 2);
+            introHost.Child = new Border { Margin = new Thickness(0, 20, 0, 0), Padding = new Thickness(14), Style = MurmurStyle.Style("MurmurAccentCardFlat"), Child = row };
+        }
     }
 
     void ShowPane(string pane)
@@ -175,6 +203,9 @@ internal sealed partial class SettingsView
         if (!panes.TryGetValue(pane, out var body)) return;
         if (pane == "Modes") Render(body, RenderModes);
         content.Content = body;
+        shownPane = pane;
+        controller.TipCards.Opened(pane);
+        RefreshTips();
         View.ChangeView(null, 0, null, true);
     }
 
@@ -186,12 +217,12 @@ internal sealed partial class SettingsView
         Toggle("Show in taskbar", "Adds Murmur's window to the taskbar and Alt+Tab. The tray icon always stays, so you can reopen Murmur from it.", Prefs.ShowInDock, s.NotifyShowInTaskbarChanged);
 
         Heading("Tips");
-        var tips = new Tips(s.Settings);
-        var enabled = MurmurStyle.Named(new ToggleSwitch { IsOn = tips.Enabled, OnContent = null, OffContent = null, MinWidth = 0 }, "Show tips");
-        enabled.Toggled += (_, _) => tips.SetEnabled(enabled.IsOn);
-        Row("Show tips", "Milestones and occasional tips about features you have not tried.", enabled);
+        var enabled = MurmurStyle.Named(new ToggleSwitch { IsOn = controller.TipCards.Enabled, OnContent = null, OffContent = null, MinWidth = 0 }, "Show tips");
+        enabled.Toggled += (_, _) => controller.TipCards.Enabled = enabled.IsOn;
+        Row("Show tips", "Milestones, and now and then a tip about a feature you have not tried. At most one a day; everything is decided on this PC.", enabled);
         var reset = MurmurStyle.Named(new Button { Content = "Show Tips Again" }, "Show Tips Again");
-        reset.Click += (_, _) => { tips.Reset(); enabled.IsOn = tips.Enabled; };
+        ToolTipService.SetToolTip(reset, "Brings back tips you dismissed and the dots on settings you have not opened.");
+        reset.Click += (_, _) => { controller.TipCards.ShowAgain(); enabled.IsOn = controller.TipCards.Enabled; };
         reset.HorizontalAlignment = HorizontalAlignment.Left;
         page.Children.Add(reset);
     }
@@ -719,6 +750,7 @@ internal sealed partial class SettingsView
         s.History.ClearSessionOnly();
         s.ReopenData();
         controller.ResetMeetings();
+        controller.TipCards.Reset();
         ShowStatus(report.Succeeded ? "All Murmur data was deleted." : "Some data could not be deleted: " + string.Join(" ", report.Failures), report.Succeeded);
     }
 }

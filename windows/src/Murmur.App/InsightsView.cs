@@ -79,24 +79,50 @@ internal sealed class InsightsView(AppServices s, Action openPrivacy)
     /// <summary>LazyVGrid(.adaptive(minimum:)): as many equal columns as fit, at least one.</summary>
     static UIElement Adaptive(List<UIElement> items, double min, double colGap, double rowGap)
     {
-        var grid = new Grid { ColumnSpacing = colGap, RowSpacing = rowGap };
-        int columns = 0;
-        void Layout(double width)
+        var panel = new AdaptiveGrid(min, colGap, rowGap);
+        foreach (var item in items) panel.Children.Add(item);
+        return panel;
+    }
+
+    /// <summary>Lays children out in equal columns sized from the width it is given. A Grid cannot: inside a left-aligned page it is measured at its content width, so the column count never follows the window.</summary>
+    sealed class AdaptiveGrid(double min, double colGap, double rowGap) : Panel
+    {
+        int Columns(double width) => double.IsInfinity(width) ? 1 : Math.Max(1, (int)Math.Floor((width + colGap) / (min + colGap)));
+
+        protected override Windows.Foundation.Size MeasureOverride(Windows.Foundation.Size available)
         {
-            int next = Math.Max(1, (int)Math.Floor((width + colGap) / (min + colGap)));
-            if (next == columns) return;
-            columns = next;
-            grid.ColumnDefinitions.Clear(); grid.RowDefinitions.Clear(); grid.Children.Clear();
-            for (int c = 0; c < columns; c++) grid.ColumnDefinitions.Add(new ColumnDefinition());
-            for (int i = 0; i < items.Count; i++)
+            int columns = Columns(available.Width);
+            double width = double.IsInfinity(available.Width) ? min : available.Width;
+            double cell = Math.Max(0, (width - colGap * (columns - 1)) / columns), height = 0;
+            for (int start = 0; start < Children.Count; start += columns)
             {
-                if (i % columns == 0) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                Grid.SetRow((FrameworkElement)items[i], i / columns); Grid.SetColumn((FrameworkElement)items[i], i % columns);
-                grid.Children.Add(items[i]);
+                double row = 0;
+                for (int i = start; i < Math.Min(Children.Count, start + columns); i++)
+                {
+                    Children[i].Measure(new Windows.Foundation.Size(cell, double.PositiveInfinity));
+                    row = Math.Max(row, Children[i].DesiredSize.Height);
+                }
+                height += row + (start > 0 ? rowGap : 0);
             }
+            return new Windows.Foundation.Size(width, height);
         }
-        grid.SizeChanged += (_, e) => Layout(e.NewSize.Width);
-        return grid;
+
+        protected override Windows.Foundation.Size ArrangeOverride(Windows.Foundation.Size finalSize)
+        {
+            int columns = Columns(finalSize.Width);
+            double cell = Math.Max(0, (finalSize.Width - colGap * (columns - 1)) / columns), y = 0;
+            for (int start = 0; start < Children.Count; start += columns)
+            {
+                double row = 0;
+                for (int i = start; i < Math.Min(Children.Count, start + columns); i++)
+                {
+                    Children[i].Arrange(new Windows.Foundation.Rect((i - start) * (cell + colGap), y, cell, Children[i].DesiredSize.Height));
+                    row = Math.Max(row, Children[i].DesiredSize.Height);
+                }
+                y += row + rowGap;
+            }
+            return finalSize;
+        }
     }
 
     // ---- charts ----

@@ -14,6 +14,7 @@ internal sealed class Segmented : Grid
     readonly List<Border> bars = [];
     readonly List<TextBlock> labels = [];
     readonly Dictionary<int, FontIcon> clouds = [];
+    readonly List<Microsoft.UI.Xaml.Shapes.Ellipse> dots = [];
     int selected = -1;
     readonly double fontSize;
 
@@ -35,6 +36,9 @@ internal sealed class Segmented : Grid
                 clouds[i] = icon;
                 content.Children.Add(icon);
             }
+            var dot = new Microsoft.UI.Xaml.Shapes.Ellipse { Width = 7, Height = 7, Fill = (Brush)Application.Current.Resources["MurmurAccent"], VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
+            AutomationProperties.SetAccessibilityView(dot, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+            content.Children.Add(dot); dots.Add(dot);
             var bar = new Border { Height = 2, VerticalAlignment = VerticalAlignment.Bottom, Style = MurmurStyle.Style("MurmurBubbleDot"), Opacity = 0 };
             var button = new Button
             {
@@ -68,6 +72,9 @@ internal sealed class Segmented : Grid
             AutomationProperties.SetAccessibilityView(bars[i], Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         }
     }
+
+    /// <summary>The Mac's ExploreDot beside a tab with something new in it.</summary>
+    public void SetDot(int index, bool shown) => dots[index].Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
 
     public void SetCloud(int index, bool shown) => clouds[index].Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
 
