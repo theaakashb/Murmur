@@ -2003,31 +2003,36 @@
         }
       ]
     },
-    "heyvedu/vedu-scribe-0.8b": {
-      "revision": "7dced5841c58d7d6e0118c4c123f222b35057871",
+    "clouddevaakash/murmur-cleanup-2b": {
+      "revision": "3416389d987405919dbc8fe5a22c0560f2e27507",
       "files": [
         {
           "rfilename": "chat_template.jinja",
-          "size": 7755,
-          "git_blob_sha1": "0ef09f214eaa6d9bca297988afc1454b5827b2c7"
+          "size": 7991,
+          "git_blob_sha1": "c7c8f996ef89234e681044289ef389a6694fc635"
         },
         {
           "rfilename": "config.json",
-          "size": 60445,
-          "git_blob_sha1": "2788bed4cb03ef483acfd55ab002831e2f21337d"
+          "size": 2168,
+          "git_blob_sha1": "feece42ea6e6e43091b50d9b6dadf6a941dbc380"
+        },
+        {
+          "rfilename": "generation_config.json",
+          "size": 116,
+          "git_blob_sha1": "492092d7d2781b5a645931eff9c03fc5ca79a7c7"
         },
         {
           "rfilename": "model.safetensors",
-          "size": 540713766,
+          "size": 1059403886,
           "lfs": {
-            "sha256": "9912660269b0a57dec85a368fa37b23ed7e76ca438b05b9b2238b4b887e7d2e6",
-            "size": 540713766
+            "sha256": "0e6a40043b887ae7fc4a4274b5abfc1215f3026d1dc46bb2a5c7701cd4111c86",
+            "size": 1059403886
           }
         },
         {
           "rfilename": "model.safetensors.index.json",
-          "size": 60784,
-          "git_blob_sha1": "cb0993241b2ce12100e02d1d709b30494e9715df"
+          "size": 60786,
+          "git_blob_sha1": "ca5c6a31ac631a337c436ab74effe7f3d02457cd"
         },
         {
           "rfilename": "tokenizer.json",
@@ -2039,13 +2044,14 @@
         },
         {
           "rfilename": "tokenizer_config.json",
-          "size": 1502,
-          "git_blob_sha1": "14e7c409ce2deb1d394bb5059a06553d7beb1e34"
+          "size": 1570,
+          "git_blob_sha1": "338ef61470a2cb539548d7d57df72066b89e2c00"
         }
       ],
       "batch_files": [
         "chat_template.jinja",
         "config.json",
+        "generation_config.json",
         "model.safetensors",
         "model.safetensors.index.json",
         "tokenizer.json",
@@ -2055,7 +2061,7 @@
         "name": "Apache-2.0",
         "url": "https://www.apache.org/licenses/LICENSE-2.0"
       },
-      "repository_bytes": 560833591
+      "repository_bytes": 1079465856
     }
   }
 }

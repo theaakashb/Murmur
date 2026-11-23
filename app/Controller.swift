@@ -115,7 +115,7 @@ enum ScreenRequest: Equatable {
     @Published var dictionarySlot: ModelSlot
     /// The helper could not start dictionary support and is transcribing without it.
     @Published var dictionarySupportFailed = false
-    /// The managed local cleanup model (Vedu): downloaded only after the user asks, in the app's own model folder.
+    /// The managed local cleanup model (Murmur Cleanup 2B): downloaded only after the user asks, in the app's own model folder.
     @Published var localSlot: ModelSlot
     var modelSlots: [ReferenceWritableKeyPath<AppController, ModelSlot>] { [\.modelSlot, \.tdtSlot, \.whisperSlot, \.dictionarySlot, \.liveWordsSlot, \.localSlot] }
     var usesCustomModelFolder: Bool { modelSlot.downloader.map { URL(fileURLWithPath: modelDirectory).standardizedFileURL.path != $0.target.path } ?? false }

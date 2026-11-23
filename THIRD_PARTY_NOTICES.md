@@ -150,7 +150,7 @@ Before distributing a binary, review the exact linked Rust dependency license te
 
 ## Managed local cleanup (optional model)
 
-- **Vedu Scribe 0.8B** (`heyvedu/vedu-scribe-0.8b`, revision `7dced58…`, Apache-2.0): downloaded only when the user chooses Local model and asks for it; verified against pinned checksums.
+- **Murmur Cleanup 2B** (`clouddevaakash/murmur-cleanup-2b`, revision `3416389…`, Apache-2.0; a fine-tune of `Qwen/Qwen3.5-2B` by the Qwen team, also Apache-2.0): downloaded only when the user chooses Local model and asks for it; verified against pinned checksums.
 - **mlx-swift 0.31.6** (prebuilt `Cmlx.framework`, SHA-256 `a202bf1d…ab86c9`), **mlx-swift-lm 2.31.3**, **swift-transformers**, **swift-jinja**, **swift-huggingface**, **yyjson**: bundled in `LocalCleanupRunner`; license texts are in `Contents/Resources/Licenses/LocalCleanup-LICENSES.txt`.
 
 ## Multilingual dictation

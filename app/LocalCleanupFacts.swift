@@ -4,7 +4,7 @@ import Foundation
 extension ModelFacts {
     static let localCleanup = ModelFacts(
         displayName: LocalCleanupIdentity.modelName,
-        repository: "heyvedu/vedu-scribe-0.8b",
+        repository: "clouddevaakash/murmur-cleanup-2b",
         directory: LocalCleanupIdentity.directory,
         confirmName: LocalCleanupIdentity.modelName,
         summaryLead: LocalCleanupIdentity.modelName,
