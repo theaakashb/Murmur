@@ -13,7 +13,8 @@ static class Multilingual
 {
     public const string ParakeetTdt = "--parakeet-tdt", WhisperTurbo = "--whisper-turbo";
 
-    public static IMultilingualAsr Create(string flag, string folder, string provider) => flag == ParakeetTdt ? new TdtAsr(folder, provider) : new WhisperAsr(folder, "cpu"); // DirectML crashes sherpa-onnx while creating the Whisper recognizer (access violation), so Whisper stays on CPU even with --gpu
+    /// <summary>Both multilingual models run on CPU whatever --gpu says (LocalSpeechModels.MayUseGpu): TDT is faster on CPU, and DirectML crashes sherpa-onnx while creating the Whisper recognizer.</summary>
+    public static IMultilingualAsr Create(string flag, string folder) => flag == ParakeetTdt ? new TdtAsr(folder, "cpu") : new WhisperAsr(folder, "cpu");
 
     /// <summary>The Silero VAD model, beside MurmurSpeech.exe (MIT; pinned with the Windows models later).</summary>
     public static string VadModel => Path.Combine(AppContext.BaseDirectory, "silero_vad.onnx");

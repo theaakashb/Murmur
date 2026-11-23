@@ -132,6 +132,10 @@ public sealed partial record ModelFacts
 /// <summary>What the local speech helper needs to know about each of the three models (DictationLanguages.LocalModel in app/ModelText.swift).</summary>
 public static class LocalSpeechModels
 {
+    /// <summary>Whether the helper may run this model on the GPU. The multilingual models always run on CPU: the user decided batch dictation runs on CPU,
+    /// the PC bench found TDT faster on CPU than DirectML, and sherpa-onnx crashes creating Whisper on DirectML.</summary>
+    public static bool MayUseGpu(this LocalSpeechModel model) => model == LocalSpeechModel.ParakeetEnglish;
+
     /// <summary>The helper's runner flag; null for the English path.</summary>
     public static string? RunnerFlag(this LocalSpeechModel model) => model switch
     {

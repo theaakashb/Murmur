@@ -68,6 +68,18 @@ public class MultilingualSpeechTests
         Assert.Null(HelperLaunch.Make(folder, model: model, manifest: manifest)); // a changed file no longer verifies
     }
 
+    [Theory]
+    [InlineData(LocalSpeechModel.ParakeetTDT)]
+    [InlineData(LocalSpeechModel.WhisperTurbo)]
+    public void MultilingualModelsNeverRequestTheGpu(LocalSpeechModel model)
+    {
+        Assert.False(model.MayUseGpu());
+        Assert.True(LocalSpeechModel.ParakeetEnglish.MayUseGpu());
+        var (folder, manifest) = Pinned(model);
+        var launch = HelperLaunch.Make(folder, preferGpu: true, model: model, manifest: manifest)!;
+        Assert.False(launch.PreferGpu); // the warm helper never adds --gpu, even with "Use GPU when available" on
+    }
+
     [Fact]
     public void MultilingualLaunchFailsCleanlyWithoutPinsOrFiles()
     {

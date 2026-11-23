@@ -14,12 +14,13 @@
   - Parakeet TDT v3 int8 `csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8@ed5d7456`: 670.6 MB, CC BY 4.0.
   - Whisper turbo int8 `csukuangfj/sherpa-onnx-whisper-turbo@2ca6ff69`: 1.04 GB, MIT upstream; the HF repo has no tag.
   - `silero_vad.onnx` (sha256 9e2449e1…, MIT) is bundled in Murmur.Speech.
-  - Whisper runs on CPU only, because sherpa-onnx access-violates creating it on DirectML. Clips up to 30 s decode whole. Longer ones split at Silero-chosen cuts into pieces of at most 28 s, and a small repeated fragment at a cut is possible.
+  - Both multilingual models run on CPU only (orchestrator decision; `LocalSpeechModels.MayUseGpu`, test `MultilingualModelsNeverRequestTheGpu`). TDT is faster on CPU, and sherpa-onnx access-violates creating Whisper on DirectML. The helper ignores `--gpu` for `--parakeet-tdt` and `--whisper-turbo`. Clips up to 30 s decode whole. Longer ones split at Silero-chosen cuts into pieces of at most 28 s, and a small repeated fragment at a cut is possible.
   - PC bench (test_wavs only): TDT CPU RTF about 0.04–0.05 (DML is slower); Whisper CPU RTF about 0.3.
   - Downloaded copies for VM side-loading: `T:\Paseo Project\Murmur\models\multilingual\{parakeet-tdt-v3,whisper-large-v3-turbo}`.
+- **Known issue (not fixed):** on clips over 30 s, Whisper can repeat a small fragment at a cut point (W2 saw one on a 40 s test clip). Pieces are at most 28 s, cut where Silero finds a pause, with no overlap handling. A fix would de-duplicate the words at the seam or cut only at longer pauses.
 - **PR #100 notes merge is DONE** (52263a0): origin/main 969168b, then windows-notes-contract 2eb78bf. The `wt-notescore` worktree is removed (branch kept).
 - **Builds:**
-  - app-next10 (1cd1846; models wired, DML runtime, VAD) is staged for the orchestrator's VM run.
+  - app-next11 (the CPU-only multilingual policy) is staged for the orchestrator's VM run. app-next10 (1cd1846) is superseded.
   - app-next9 (d1091a5) is older.
   - app-next8 is confirmed by the user, and app-next7 is the fallback. app-next6 is deleted.
   - The old `app` folder waits on the user. Never delete the folder the user runs (check the Murmur.exe path).

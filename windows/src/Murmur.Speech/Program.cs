@@ -25,7 +25,7 @@ static class Program
         {
             if (args.Count(a => a is Multilingual.ParakeetTdt or Multilingual.WhisperTurbo) != 1) return Fail(Usage);
             args.Remove(runner);
-            return Other(runner, args, gpu);
+            return Other(runner, args); // --gpu was already removed: the multilingual models run on CPU
         }
         string? vocabulary = Take(args, "--vocabulary"), lexicon = Take(args, "--lexicon"), embedding = Take(args, "--embedding");
         // The Mac's CTC dictionary model has no Windows counterpart: dictionary support here is hotwords on the same model.
@@ -51,7 +51,7 @@ static class Program
         catch (Exception) { return Fail("transcription failed"); }
     }
 
-    static int Other(string runner, List<string> args, bool gpu)
+    static int Other(string runner, List<string> args)
     {
         bool single = args.Count == 3 && args[2] == "--single";
         if (args.Count != 2 && !single) return Fail(Usage);
@@ -59,8 +59,7 @@ static class Program
         if (args.Skip(1).Any(a => a.StartsWith("--") && a is not ("--serve" or "--single"))) return Fail(Usage);
         try
         {
-            if (gpu && (!OperatingSystem.IsWindows() || !File.Exists(Path.Combine(AppContext.BaseDirectory, "DirectML.dll")))) return Fail("GPU runtime unavailable");
-            using var asr = Multilingual.Create(runner, args[0], gpu ? "directml" : "cpu");
+            using var asr = Multilingual.Create(runner, args[0]); // CPU only; --gpu is ignored here
             if (args[1] != "--serve") { Emit(new() { ["text"] = asr.Transcribe(WavReader.Read(args[1])) }); return 0; }
             Emit(new() { ["ready"] = true });
             using var input = new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(false));

@@ -179,7 +179,7 @@ public sealed record HelperLaunch(string Models, IReadOnlyList<string> Dictionar
             catch (Exception e) when (e is RetentionError or IOException or UnauthorizedAccessException) { return null; }
             key.Append('|').Append(model.RunnerFlag());
             foreach (var part in ModelVerificationCache.Fingerprint(models, manifest)) key.Append('|').Append(part);
-            return new HelperLaunch(models, arguments, key.ToString(), preferGpu, model);
+            return new HelperLaunch(models, arguments, key.ToString(), preferGpu && model.MayUseGpu(), model);
         }
         if (!ModelHelper.HasModelFiles(models)) return null;
         foreach (var f in ModelHelper.RequiredFiles) key.Append('|').Append(new FileInfo(Path.Combine(models, f)).Length);
