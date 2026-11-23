@@ -29,7 +29,7 @@ internal sealed class LocalTranscriber : IDisposable
     readonly object verifyGate = new();
     volatile bool damaged;
     /// <summary>True after a launch found the pinned model failing its checksums; cleared when the files verify again.</summary>
-    public bool ModelDamaged => damaged;
+    public bool ModelDamaged => damaged && RequiredModel == LocalSpeechModel.ParakeetEnglish;
 
     /// <summary>Verifies the pinned model against artifact-pins.json (HelperLaunch.make on the Mac); hashing happens once per launch of the app and again only if a file changes
     /// (ModelVerificationCache). A custom model folder is the user's own and is not checked. Blocks while hashing: call it off the UI thread.</summary>
@@ -44,13 +44,20 @@ internal sealed class LocalTranscriber : IDisposable
         return !damaged;
     }
 
-    public bool ModelFilesPresent => ModelHelper.HasModelFiles(ModelDirectory);
+    /// <summary>The model this setup needs (the chosen languages on the local route, else English).</summary>
+    public LocalSpeechModel RequiredModel => s.RequiredSpeechModel;
+
+    /// <summary>The English model in the chosen folder (the Advanced "Model folder" and meetings stay English-only).</summary>
+    public bool EnglishFilesPresent => ModelHelper.HasModelFiles(ModelDirectory);
+
+    /// <summary>True when the files of the model dictation needs are there; the gates, Home, Settings and the welcome guide follow it.</summary>
+    public bool ModelFilesPresent => FilesPresent(RequiredModel);
 
     /// <summary>The folder of a local speech model: English follows <see cref="ModelDirectory"/>; the multilingual models live in their slot's pinned folder (null while the model has no pins).</summary>
     public string? DirectoryFor(LocalSpeechModel model) => model == LocalSpeechModel.ParakeetEnglish ? ModelDirectory : s.SlotFor(model).Downloader?.Target;
 
     /// <summary>True when the model's files are all there (English: the chosen folder; the others: the slot's folder).</summary>
-    public bool FilesPresent(LocalSpeechModel model) => model == LocalSpeechModel.ParakeetEnglish ? ModelFilesPresent : DirectoryFor(model) is { } folder && model.RequiredFiles().All(f => File.Exists(Path.Combine(folder, f)));
+    public bool FilesPresent(LocalSpeechModel model) => model == LocalSpeechModel.ParakeetEnglish ? EnglishFilesPresent : DirectoryFor(model) is { } folder && model.RequiredFiles().All(f => File.Exists(Path.Combine(folder, f)));
     public bool HelperPresent => File.Exists(HelperPath);
 
     string VocabularyFile => Path.Combine(s.Locations.Dictionary, "parakeet-vocabulary.json");

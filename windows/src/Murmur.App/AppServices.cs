@@ -26,6 +26,11 @@ internal sealed class AppServices
     public ModelSlot SpeakerSegmentationSlot { get; }
     public ModelSlot SpeakerEmbeddingSlot { get; }
     /// <summary>The slot of a local speech model (Controller+Models.swift speechModelSlot).</summary>
+    /// <summary>Stored by the dictation-language picker (default English).</summary>
+    public IReadOnlyList<string> DictationLanguageCodes => Settings.Get("dictationLanguages") is IReadOnlyList<string> codes ? codes : DictationLanguages.English.Codes.ToArray();
+    public LocalSpeechModel ChosenSpeechModel => DictationLanguages.Create(DictationLanguageCodes)?.LocalModel ?? LocalSpeechModel.ParakeetEnglish;
+    /// <summary>The chosen model on the local route, else English (the cloud routes need no speech model).</summary>
+    public LocalSpeechModel RequiredSpeechModel => RouteSettings.Load(Settings).Transcription == TranscriptionRoute.Local ? ChosenSpeechModel : LocalSpeechModel.ParakeetEnglish;
     public ModelSlot SlotFor(LocalSpeechModel model) => model switch { LocalSpeechModel.ParakeetTDT => TdtSlot, LocalSpeechModel.WhisperTurbo => WhisperSlot, _ => SpeechSlot };
     public HistoryRouter<HistoryEntry> History { get; private set; } = null!;
     /// <summary>Null when the dictionary or ledger can't be read: only cleanup and the dictionary stop, and dictations are held in History (app/Controller.swift:348-351).</summary>
