@@ -159,3 +159,30 @@ public class MultilingualSpeechTests
         }
     }
 }
+
+public class SileroVadTests
+{
+    [Fact]
+    public void BundledSileroVadIsTheReleasedFile()
+    {
+        var path = Path.Combine(ModelTestSupport.RepoRoot(), "windows", "src", "Murmur.Speech", "silero_vad.onnx");
+        var bytes = File.ReadAllBytes(path);
+        Assert.Equal(643_854, bytes.Length);
+        Assert.Equal("9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6", Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)));
+    }
+
+    [Fact]
+    public void WindowsPinsHoldTheApprovedMultilingualModels()
+    {
+        var tdt = ModelFacts.MultilingualTDT.Manifest(BundledModels.Pins(ModelPinsSource.WindowsModels)!);
+        Assert.Equal("ed5d745623472f97cfc2e6c2916ee248798fc5a8", tdt.Revision);
+        Assert.Equal(670_576_784, tdt.TotalBytes);
+        var whisper = ModelFacts.MultilingualWhisper.Manifest(BundledModels.Pins(ModelPinsSource.WindowsModels)!);
+        Assert.Equal("2ca6ff69fc878651b770880507669577ac41c2ff", whisper.Revision);
+        Assert.Equal(1_036_613_791, whisper.TotalBytes);
+        Assert.True(whisper.License.IsPinned);
+        Assert.Equal("MIT", whisper.License.Declarations[0].Name);
+        Assert.Equal(LocalSpeechModel.WhisperTurbo.RequiredFiles(), whisper.Files.Select(f => f.Rfilename));
+        Assert.False(tdt.License.IsPinned);
+    }
+}

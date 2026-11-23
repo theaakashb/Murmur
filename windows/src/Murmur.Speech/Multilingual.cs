@@ -13,7 +13,7 @@ static class Multilingual
 {
     public const string ParakeetTdt = "--parakeet-tdt", WhisperTurbo = "--whisper-turbo";
 
-    public static IMultilingualAsr Create(string flag, string folder, string provider) => flag == ParakeetTdt ? new TdtAsr(folder, provider) : new WhisperAsr(folder, provider);
+    public static IMultilingualAsr Create(string flag, string folder, string provider) => flag == ParakeetTdt ? new TdtAsr(folder, provider) : new WhisperAsr(folder, "cpu"); // DirectML crashes sherpa-onnx while creating the Whisper recognizer (access violation), so Whisper stays on CPU even with --gpu
 
     /// <summary>The Silero VAD model, beside MurmurSpeech.exe (MIT; pinned with the Windows models later).</summary>
     public static string VadModel => Path.Combine(AppContext.BaseDirectory, "silero_vad.onnx");
@@ -34,7 +34,7 @@ sealed class WhisperAsr : IMultilingualAsr
 {
     public const string Encoder = "turbo-encoder.int8.onnx", Decoder = "turbo-decoder.int8.onnx", Tokens = "turbo-tokens.txt";
     const int Rate = WavReader.Rate, MinSamples = 4000;
-    const float MaxChunkSeconds = 30f;
+    const float MaxChunkSeconds = 30f, PieceSeconds = 28f;
 
     readonly OfflineRecognizer recognizer;
     readonly VadModelConfig vad;
@@ -55,11 +55,13 @@ sealed class WhisperAsr : IMultilingualAsr
         vad = new VadModelConfig { SampleRate = Rate, NumThreads = 1, Provider = "cpu", Debug = 0 };
         vad.SileroVad.Model = Multilingual.VadModel;
         vad.SileroVad.Threshold = 0.5f; vad.SileroVad.MinSilenceDuration = 0.5f; vad.SileroVad.MinSpeechDuration = 0.25f;
-        vad.SileroVad.WindowSize = 512; vad.SileroVad.MaxSpeechDuration = MaxChunkSeconds;
+        vad.SileroVad.WindowSize = 512; vad.SileroVad.MaxSpeechDuration = 20f;
     }
 
     public string Transcribe(float[] samples)
     {
+        // A recording that fits one Whisper window needs no cutting; building pieces from VAD segments clipped the opening words.
+        if (samples.Length <= (int)(MaxChunkSeconds * Rate)) return Decode(samples);
         var parts = new List<string>();
         foreach (var chunk in Chunks(samples))
         {
@@ -71,7 +73,10 @@ sealed class WhisperAsr : IMultilingualAsr
 
     List<float[]> Chunks(float[] samples)
     {
-        var chunks = new List<float[]>();
+        // Silero VAD only chooses where to cut: its segment starts come late (the first words of a clip were lost when pieces were built from the segments),
+        // so the pieces are consecutive slices of the whole recording, each at most PieceSeconds long, cut in the silence the VAD found.
+        var cuts = new List<int>();
+        int previousEnd = -1;
         var detector = new VoiceActivityDetector(vad, 2 * MaxChunkSeconds);
         try
         {
@@ -85,11 +90,29 @@ sealed class WhisperAsr : IMultilingualAsr
             Drain();
         }
         finally { detector.Dispose(); }
-        return chunks;
+        var pieces = new List<float[]>();
+        int max = (int)(PieceSeconds * Rate), start = 0;
+        while (samples.Length - start > (int)(MaxChunkSeconds * Rate))
+        {
+            int cut = cuts.Where(c => c > start && c - start <= max).DefaultIfEmpty(start + max).Max();
+            pieces.Add(samples[start..cut]);
+            start = cut;
+        }
+        pieces.Add(samples[start..]);
+        return pieces;
 
         void Drain()
         {
-            while (!detector.IsEmpty()) { chunks.Add(detector.Front().Samples); detector.Pop(); }
+            while (!detector.IsEmpty())
+            {
+                var segment = detector.Front();
+                int from = (int)Math.Min(int.MaxValue, segment.Start), to = (int)Math.Min(int.MaxValue, (long)segment.Start + segment.Samples.Length);
+                // The middle of the silence before this segment is a cut point.
+                if (previousEnd >= 0 && from > previousEnd) cuts.Add(previousEnd + (from - previousEnd) / 2);
+                else if (previousEnd >= 0) cuts.Add(from);
+                previousEnd = to;
+                detector.Pop();
+            }
         }
     }
 
