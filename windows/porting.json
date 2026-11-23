@@ -177,7 +177,7 @@
         "windows/src/Murmur.Core/MeetingNotesWriter.cs",
         "windows/src/Murmur.Core/NotesGrounding.cs"
       ],
-      "sha256": "3e4594e63968463c1a478458e63b7ec4527f7c9fc9406acd3c6775133e55d911"
+      "sha256": "891af288ca66748b4d888b605bae2cd0a767d32949cc763b459e444ea544f379"
     },
     "app/MeetingSpeakers.swift": {
       "csharp": [
@@ -258,7 +258,7 @@
       "csharp": [
         "windows/src/Murmur.Core/OpenAICompatible.cs"
       ],
-      "sha256": "dae97d8eaf12c14d97c543d1516fffc72e889155e9a5df3a76166bf195b32c5c"
+      "sha256": "01f3c18e2acb65699dd9179e86bd7a5ddf8928e5e547248c072023f018dc32a7"
     },
     "app/PrivateFiles.swift": {
       "csharp": [
@@ -288,7 +288,7 @@
       "csharp": [
         "windows/src/Murmur.Core/ProviderTypes.cs"
       ],
-      "sha256": "49831534e9ca28fa3a9a5b63747ac9fa287d30ba7f82c59251e5be0ad4791f5c"
+      "sha256": "74155d9b3732347a8e1cc84424b4676cc5dd9eac99839529ed107e0d81f76287"
     },
     "app/Retention.swift": {
       "csharp": [
@@ -457,7 +457,7 @@
         "windows/tests/Murmur.Core.Tests/MeetingNotesTests.cs",
         "windows/tests/Murmur.Core.Tests/MeetingGoldenTests.cs"
       ],
-      "sha256": "19a8a200e557366518cd3fff090ccc483fd639b7d1be49873479d910b3e00b62"
+      "sha256": "35b28bc1b1f85e601904f03c42ec11a5f98ab8f082a4cf8b54371ceef083bda0"
     },
     "app/check_model_download.swift": {
       "csharp": [
@@ -491,7 +491,7 @@
       "csharp": [
         "windows/tests/Murmur.Core.Tests/ProvidersTests.cs"
       ],
-      "sha256": "214213d7998b2d683d9ce35864791c787e0371762908202c578ec3ae083c0704"
+      "sha256": "b60d4f92abc651b3f1e80f76fd1c345ac37e3493229994b99d7e2b9cd4c16a79"
     },
     "app/check_routes.swift": {
       "csharp": [
