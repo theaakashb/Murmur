@@ -34,6 +34,9 @@ internal sealed class AppServices
     public ModelSlot SlotFor(LocalSpeechModel model) => model switch { LocalSpeechModel.ParakeetTDT => TdtSlot, LocalSpeechModel.WhisperTurbo => WhisperSlot, _ => SpeechSlot };
     /// <summary>Gemma 3 4B, the on-device meeting notes model (Settings › Meetings).</summary>
     public ModelSlot LocalNotesSlot { get; }
+    /// <summary>Raised on the UI thread when "Show in taskbar" (Prefs.ShowInDock) changes; the main window re-applies it.</summary>
+    public event Action? ShowInTaskbarChanged;
+    public void NotifyShowInTaskbarChanged() => ShowInTaskbarChanged?.Invoke();
     public HistoryRouter<HistoryEntry> History { get; private set; } = null!;
     /// <summary>Null when the dictionary or ledger can't be read: only cleanup and the dictionary stop, and dictations are held in History (app/Controller.swift:348-351).</summary>
     public ProcessingCoordinator? Processing { get; private set; }

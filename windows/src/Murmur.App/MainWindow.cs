@@ -31,6 +31,11 @@ internal sealed partial class MainWindow : Window
         s = services;
         this.controller = controller;
         Title = "Murmur";
+        // "Show in taskbar" (the Mac's "Show in Dock", app/main.swift activation policy): off keeps the window out of the taskbar and Alt+Tab; the tray icon always stays.
+        void ApplyTaskbar() => AppWindow.IsShownInSwitchers = s.Settings.Get(Prefs.ShowInDock);
+        ApplyTaskbar();
+        s.ShowInTaskbarChanged += ApplyTaskbar;
+        Closed += (_, _) => s.ShowInTaskbarChanged -= ApplyTaskbar;
         var caption = new TitleBar { Title = "Murmur" };
         AutomationProperties.SetName(caption, "Murmur title bar");
         body.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });

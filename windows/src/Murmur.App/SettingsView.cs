@@ -183,6 +183,7 @@ internal sealed partial class SettingsView
         SegmentedRow("Dictation indicator", "Where the recording indicator and its notices appear.",
             ["Top of the screen", "Bottom of the screen"], s.Settings.Get(Prefs.DictationIndicator) == DictationIndicator.Top ? 0 : 1,
             i => s.Settings.Set(Prefs.DictationIndicator, i == 0 ? DictationIndicator.Top : DictationIndicator.Bottom));
+        Toggle("Show in taskbar", "Adds Murmur's window to the taskbar and Alt+Tab. The tray icon always stays, so you can reopen Murmur from it.", Prefs.ShowInDock, s.NotifyShowInTaskbarChanged);
 
         Heading("Tips");
         var tips = new Tips(s.Settings);

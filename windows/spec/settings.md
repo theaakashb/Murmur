@@ -28,7 +28,7 @@ Derived from the Swift app at commit `c70cdb1`. References are `app/<file>:<line
 | updateChecksEnabled | bool | true | Automatic update checks | Settings.swift:54 | Velopack check schedule |
 | retention | `30-days`/`six-months`/`forever` | `30-days` | History retention; unknown reads as 30 days | Settings.swift:55, Retention.swift:13-17 | same |
 | showMenuBar | bool | true | Menu bar item | Settings.swift:56 | not ported: the tray icon is always shown in v1 |
-| showInDock | bool | false | Dock icon | Settings.swift:58 | not ported |
+| showInDock | bool | true | Dock icon | Settings.swift:57 | "Show in taskbar" (Settings > General): the main window's taskbar button and Alt+Tab entry (AppWindow.IsShownInSwitchers); the tray icon always stays |
 | inputDeviceUID | string | "" (system default) | Microphone | Settings.swift:59 | WASAPI endpoint ID |
 | intelligentLeadingSpace | bool | false | Leading space before inserted text | Settings.swift:60 | same |
 | automaticInsertion | bool | true | Paste automatically | Settings.swift:61 | same |
