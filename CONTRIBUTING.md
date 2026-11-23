@@ -75,10 +75,6 @@ app/check_ui.sh --meetings --separating
 
 Additional fixture flags and their side effects are described in [app/README.md](app/README.md). Standalone probes are in the [insertion spike](spike/README.md), [capture probe](module-one/capture/README.md) and [model tooling](module-one/models/README.md) guides. A synthetic fixture is not live capture, insertion, or provider evidence.
 
-## Windows port
-
-Murmur for Windows lives in `windows/` and is kept in step with the Mac app: change and test on the Mac first, then port. Run `app/check.sh windows_parity` after changing a ported file or corpus. It regenerates the golden and shared files the C# tests use and checks `windows/porting.json`. The checklist is in [windows/CONTRIBUTING.md](windows/CONTRIBUTING.md).
-
 ## Conventions
 
 These are the patterns in the existing code and docs.
@@ -108,6 +104,8 @@ The Mac code is the source of truth. A Mac change to a ported file, or to shared
 - `windows/porting.json` records the hash of every Swift file that has been ported.
 - `python3 windows/tools/check_parity.py` fails when a ported Swift file changed after its port. `--update` records the new hashes once the C# is updated.
 - Golden test files are exported from the Swift code by `windows/golden/generate.sh` on a Mac. Run it after changing ported logic or shared data, and commit what changes.
+
+On a Mac, `app/check.sh windows_parity` does both: it regenerates the golden and shared files and checks `windows/porting.json`.
 
 If you can't do the Windows part, say "Windows follow-up needed" in the PR.
 
