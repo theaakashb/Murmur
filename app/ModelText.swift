@@ -12,6 +12,8 @@ struct ModelFacts {
     let repository: String
     var list = ModelManifest.batchList
     let directory: (_ home: URL) -> URL
+    /// Folders of earlier releases' versions of this model. Deleted once the current one is installed; reported while they linger.
+    var retired: [(_ home: URL) -> URL] = []
     /// The license the model cards declare when the pins record none.
     var unpinnedLicense: ModelLicenseInfo? = nil
     /// The model's name in "Download …?".
@@ -165,6 +167,10 @@ struct ModelSlot {
 
     var row: ModelRowPresentation { ModelRowPresentation.make(downloader == nil ? nil : status) }
     var license: ModelLicenseInfo? { downloader?.license }
+    /// Retired folders from earlier releases that are still on disk.
+    func retiredFolders(home: URL) -> [URL] {
+        facts.retired.map { $0(home) }.filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
     var summary: String { downloader.map { facts.summary(downloadSize: $0.downloadSize) } ?? "" }
 }
 
@@ -185,7 +191,7 @@ enum LiveWordsFacts {
     }
 }
 
-enum ModelRowAction: Equatable { case download, cancel, retry, remove }
+enum ModelRowAction: Equatable { case download, cancel, retry, reinstall, remove }
 
 struct ModelRowPresentation: Equatable {
     let statusText: String
@@ -209,7 +215,7 @@ struct ModelRowPresentation: Equatable {
         case .verifying:
             return ModelRowPresentation(statusText: "Verifying downloaded files…", actions: [.cancel], progress: nil, isWorking: true, isReady: false)
         case .ready:
-            return ModelRowPresentation(statusText: "Downloaded", actions: [.remove], progress: nil, isWorking: false, isReady: true)
+            return ModelRowPresentation(statusText: "Downloaded", actions: [.reinstall, .remove], progress: nil, isWorking: false, isReady: true)
         case .corrupt(let reason):
             return ModelRowPresentation(statusText: reason, actions: [.retry, .remove], progress: nil, isWorking: false, isReady: false)
         case .failed(let error):

@@ -65,7 +65,7 @@ func checkModelRow() {
     let verifying = ModelRowPresentation.make(.verifying)
     check(verifying.actions == [.cancel] && verifying.isWorking && verifying.progress == nil, "verifying offers Cancel")
     let ready = ModelRowPresentation.make(.ready)
-    check(ready.actions == [.remove] && ready.isReady && !ready.isWorking, "ready offers Remove")
+    check(ready.actions == [.reinstall, .remove] && ready.isReady && !ready.isWorking, "ready offers Reinstall and Remove")
     check(ModelRowPresentation.make(.corrupt(ModelDownloader.corruptReason)).actions == [.retry, .remove], "corrupt offers Retry and Remove")
     let failed = ModelRowPresentation.make(.failed(.network))
     check(failed.actions == [.retry, .remove] && failed.statusText == ModelDownloadError.network.userMessage, "failed offers Retry and Remove")
