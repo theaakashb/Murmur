@@ -59,7 +59,10 @@ internal static class MurmurStyle
         AutomationProperties.SetHeadingLevel(heading, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level1);
         var lead = Text(lede, "MurmurDescription");
         lead.FontSize = 16; lead.Margin = new Thickness(0, 6, 0, 0);
-        return new StackPanel { Padding = new Thickness(40, 24, 40, 32), MaxWidth = 1000, HorizontalAlignment = HorizontalAlignment.Left, Children = { heading, lead } };
+        heading.TextWrapping = TextWrapping.NoWrap;
+        // At a narrow window the 64 px title would clip: it scales down to fit the width, and never up (the Mac's wider minimum window never needs this).
+        var fit = new Viewbox { Child = heading, Stretch = Microsoft.UI.Xaml.Media.Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, HorizontalAlignment = HorizontalAlignment.Left };
+        return new StackPanel { Padding = new Thickness(40, 24, 40, 32), MaxWidth = 1000, HorizontalAlignment = HorizontalAlignment.Left, Children = { fit, lead } };
     }
 
     public static Border Card(UIElement child) => new() { Child = child, Style = Style("MurmurCard"), Margin = new Thickness(0, 0, 0, 8) };

@@ -48,6 +48,10 @@ internal sealed partial class Controller : IDisposable
         public double Tail { get; set; } = 0.2;
         public double FinishedAt { get; set; }
         public CancellationTokenSource Cts { get; init; } = new();
+        /// <summary>True while the transcription runs: a cancel then deletes the audio (app/Controller.swift cancelCloudRequest).</summary>
+        public volatile bool Transcribing;
+        /// <summary>The local transcription hit its deadline; the error event says so (the Mac has no deadline).</summary>
+        public volatile bool DeadlineHit;
     }
 
     const double RecordingLimit = CaptureSession.RecordingLimit;
@@ -81,6 +85,7 @@ internal sealed partial class Controller : IDisposable
         ReloadShortcuts();
         InitMeetings();
         TipCards = new TipPresenter(services, this);
+        TipCards.Refresh(); // the Mac seeds the dots when History loads at launch (Controller+History.swift:12)
         // Injected keys are ignored (our own Ctrl+V, other tools) except under the synthetic-audio test hook, where the harness drives the key with SendInput.
         hook = new KeyboardHook(OnKey, ignoreInjected: Environment.GetEnvironmentVariable("MURMUR_SYNTHETIC_AUDIO") is not { Length: > 0 });
         TestEvents.Emit("hook-installed");
@@ -385,6 +390,8 @@ internal sealed partial class Controller : IDisposable
         machine.ProcessingFinished();
         phase = Phase.Ready;
         bubble.ShowNotice("Canceled.", 2);
+        // Like the Mac's cancelCloudRequest: a cancel during transcription deletes the audio.
+        if (ss.Transcribing) TryDelete(ss.WavPath);
     }
 
     void FinishSession(double? eventTime = null)
@@ -428,7 +435,7 @@ internal sealed partial class Controller : IDisposable
         // A deadline that cancelled the helper is a failure with the audio kept, not the user's cancel (which deletes it).
         if (answer is { } done && !(timedOut && done.Outcome is CloudTranscriptionOutcome.Cancelled)) return done;
         if (!timedOut) return (new CloudTranscriptionOutcome.Cancelled(), new CloudTranscriptionDetail { ClipSeconds = capture.Seconds });
-        TestEvents.Emit("error", ("stage", "transcription"), ("reason", "deadline"));
+        ss.DeadlineHit = true;
         return (new CloudTranscriptionOutcome.Failed("Transcription took too long.", true), new CloudTranscriptionDetail { ClipSeconds = capture.Seconds });
     }
 
@@ -468,15 +475,17 @@ internal sealed partial class Controller : IDisposable
         // Transcribe: one request, no retry, no fallback between transcribers.
         var provider = ss.Plan.Transcriber;
         var transcribeStart = Stopwatch.GetTimestamp();
+        ss.Transcribing = true;
         var (outcome, detail) = provider is null
             ? await TranscribeLocalWithinDeadline(ss, capture)
             : await CloudTranscription.RunDetailedAsync(provider, WAVAudio.EncodePCM16(capture.Samples16k, AudioConverter.TargetRate), ss.Languages, ss.Cts.Token);
+        ss.Transcribing = false;
         if (Stale(ss)) return;
         if (outcome is not CloudTranscriptionOutcome.Transcript transcript)
         {
             // Audio stays for retry (24 h) unless the provider's error discards it.
             if (outcome is CloudTranscriptionOutcome.Failed { KeepAudio: false } or CloudTranscriptionOutcome.Cancelled) TryDelete(ss.WavPath);
-            Fail(ss, "transcription", outcome switch { CloudTranscriptionOutcome.NoSpeech => "no-speech", CloudTranscriptionOutcome.Cancelled => "cancelled", _ => "failed" },
+            Fail(ss, "transcription", outcome switch { CloudTranscriptionOutcome.NoSpeech => "no-speech", CloudTranscriptionOutcome.Cancelled => "cancelled", _ => ss.DeadlineHit ? "deadline" : "failed" },
                 CloudTranscription.Message(outcome) ?? CloudTranscription.UnknownFailure, quick: outcome is CloudTranscriptionOutcome.NoSpeech);
             return;
         }
