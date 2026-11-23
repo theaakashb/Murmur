@@ -1,32 +1,27 @@
 # Murmur for Windows: coordinator handoff
 
-**Current coordinator: Coordinator 6, `aab5ff8e-d9fc-41bb-85a6-42a9f2aa4182`.** Claude Opus 5.5, on the Star Labs PC `srv_XXiOqPoelqaJ`, in the Murmur workspace `wks_c227e9c5312b0db4`, since 2026-11-21 about 00:05Z. Workers report to it. Its orchestrator is Mac agent `8f691026-6ec3-41d4-8c14-4cba2ef6db44` on `srv_c2AxDOwFn9yz`; the Mac is back online, and PC→Mac `send_agent_prompt` works.
+**Current coordinator: NONE. Coordinator 6 (`aab5ff8e-d9fc-41bb-85a6-42a9f2aa4182`) handed off at about 70% context on 2026-11-22.** The orchestrator (Mac agent `8f691026-6ec3-41d4-8c14-4cba2ef6db44` on `srv_c2AxDOwFn9yz`) starts Coordinator 7 in the Murmur workspace `wks_c227e9c5312b0db4` on the PC `srv_XXiOqPoelqaJ`. PC→Mac `send_agent_prompt` works. Only Claude runs on the PC.
 
-**State (2026-11-21):**
-- **The user runs app-next6** (or app-next5); check the Murmur.exe process path before any folder work. The **rounded pill dots are confirmed** and merged as `c0e83b4` (windows-pill-round).
-- **Staged folders:**
-  - Kept: app-next4 (fallback), app-next5, app-next6.
-  - `app`: NOT running, but its deletion is still pending with the user, so don't delete it.
-  - Deleted: app-next, app-next.old-20261119-2100, app-next2. `src` and `wt-fix2` are retired.
-  - `scratch-fix2` and `scratch-pill` hold render evidence.
-- **C: drive:** with the user's OK, deleted `C:\Users\aakash\AppData\Local\NuGet\v3-cache` (707 MB); `.dotnet` was already gone. **Its newest file was from 20:12 on 2026-11-20: our builds leaked it.** Every process must ALSO set `NUGET_HTTP_CACHE_PATH=T:\Paseo Project\Murmur\cache\nuget\http` and `NUGET_PLUGINS_CACHE_PATH=...\cache\nuget\plugins`, and every worker checks at the end that v3-cache is absent.
-- **The Windows sidebar cleanup is done.** Only the Murmur project `prj_45f0c70bbdc987ad` and workspace `wks_c227e9c5312b0db4` remain.
+**Every process sets** TEMP, TMP, DOTNET_CLI_HOME, NUGET_PACKAGES, NUGET_SCRATCH, NUGET_HTTP_CACHE_PATH and NUGET_PLUGINS_CACHE_PATH under `T:\Paseo Project\Murmur\cache\` (temp, dotnet, nuget\packages, nuget\scratch, nuget\http, nuget\plugins). The HTTP cache once leaked about 700 MB to `C:\Users\aakash\AppData\Local\NuGet\v3-cache`. Every worker checks at the end that the v3-cache and `C:\Users\aakash\.dotnet` are absent. The SDK is `T:\Paseo Project\Murmur\tools\dotnet\dotnet.exe`.
 
-**User decisions (via the orchestrator, 2026-11-21):**
-1. **Pill:** a 1px light-grey RECTANGULAR outline surrounds the whole pill window, so make the window fully frameless. Stage it as **app-next7** and send the switch steps.
-2. **Notes model:** **Gemma 3 4B is the Windows default local notes model.** Pin it the usual way once the bench results are in: verified repo, revision, sha256, licence, and a Settings › Models row with the responsive downloader.
-3. **Notes contract change APPROVED for both apps:** item caps on extraction AND merge, plus split-and-retry on output exhaustion.
-   - Windows: implement it in Core with tests and the golden files. The golden regeneration needs the Mac, so flag it.
-   - Mac: the orchestrator runs that PR from the Mac once the Windows side is ready. Tell it.
-4. **New UX:** when there's no usable GPU (the same DirectML/Vulkan capability check), warn plainly before the download and at the notes model row. Copy: "No compatible GPU found. Local meeting notes may take 10 minutes or more for a 30-minute meeting. Murmur Cloud is much faster." Use the measured numbers (5900X CPU: about 8–9 minutes per 30 minutes; laptops are slower) and suggest Murmur Cloud notes. On CPU, show progress and an estimate, and run in the background. Match the Mac copy style, with tests for the gating and the copy.
+**check_parity on the PC:** the CRLF checkout gives false CHANGED for every file. Run it on an LF export: `git -c core.autocrlf=false archive HEAD app module-one windows`, extract under cache\temp, then `py -3 -I -B windows/tools/check_parity.py [--update]`, and copy `windows/porting.json` back.
 
-**Session 2 (2026-11-21, the PC is back).**
-- **windows = 9e3c5d0:** origin/main merged (3507158, #98 and #99) and windows-modes-fix merged (bbb75bf). check_parity: 88/88 in step. Run it with `py -3 -I -B` on a `git -c core.autocrlf=false archive HEAD app module-one windows` export, because the CRLF checkout gives false CHANGED. Core tests 22,721 passed. The orchestrator runs the VM live harness on 9e3c5d0: triggers and website matching.
-- **The user's build comparison:** app-next5/6/7 ALL show an opaque black box behind the dots. app-next7 is otherwise right: frameless, click-through, multi-monitor focus OK, and the colours are "exactly what I want". It is the baseline to keep and the fallback.
-- **windows = bb00dd2:** pill-layered merged. It includes two VM-found launch fixes (8edab76): (1) the RuleCleaner.Icu static-init cycle that broke the first spoken mode after launch (StaticInitOrderTests, fresh AssemblyLoadContext); (2) App.xaml styles still in use were restored (AppResourceKeysTests). Core 22,724 passed; Release build 0 warnings. VM: the pill demo PASSED on every state, website modes PASSED, warm triggers PASSED.
-- **app-next8 is STAGED** at `T:\Paseo Project\Murmur\app-next8` (bb00dd2; 970 files identical to app-next7; DirectML from app-next7\Speech, read-only). **VM real-app pass on bb00dd2: ALL PASS** (cold-start Email 7/7, Prompt 7/7, 21/21 transparency crops clean, website modes in Edge, Chrome and Firefox). The orchestrator sent the user the switch steps; waiting on the user. Fallback: app-next7. Delete app-next6 after the user confirms app-next8. `app` still waits on the user.
-- **`windows-notes-contract@753268b`:** ready. The no-GPU copy now says "A Custom Provider, or a PC with a compatible GPU, is much faster." (the user said there is no Murmur Cloud notes route). **Merge it only after the Mac PR worker (16631096, feat/notes-item-caps) reports no golden diff.**
-- No live PC workers. Worktrees `wt-pill3` (merged; removable) and `wt-notescore`.
+**State (2026-11-22):**
+- **windows = b41f378:** origin/main is merged (PR #101 and #102) but NOT yet ported. Parity is **76/88**: CHANGED are CloudAudio, Controller+Settings, Dictionary, ModelHelper, ModelText, Routes, Settings, SettingsView, check_dictionary, check_processing, check_routes, and ModelBench.swift. CI's parity check stays red until the port lands.
+- **app-next8** (bb00dd2) passed the full VM real-app run: cold-start Email and Prompt 7/7 each, 21/21 transparency crops clean, website modes OK. The user got the switch steps; **waiting on the user's confirmation, then delete app-next6.** Keep app-next7 as the fallback. Never delete the folder the user runs (check the Murmur.exe process path). The old `app` folder waits on the user's decision.
+- **Notes contract:** `windows-notes-contract@2eb78bf` (worktree `T:\Paseo Project\Murmur\wt-notescore`, clean and pushed). The Mac ran the full generate.sh --check against it with PR #100's Swift: 45/45 the same. **When the user merges #100:** (1) merge origin/main into windows and confirm the C# matches MeetingNotes/OpenAICompatible/ProviderTypes and the check_meetings/check_providers cases; (2) merge windows-notes-contract; (3) run check_parity --update to 88/88, then the Core tests. Don't merge notes before #100 lands.
+  - Contract: prompts end "Return at most 8 POINT, 10 DECISION and 12 ACTION lines…"; replies are truncated to 8/10/12 (again after grounding and on the final draft); finish_reason "length" maps to OutputTruncated, which splits the chunk or merge batch in half ONCE.
+  - Gemma 3 4B pin: ggml-org/gemma-3-4b-it-GGUF @ d0976223…, sha256 882e8d2d…, in windows/shared/windows-models.json. The notes route is "On this PC (Gemma 3 4B)". Helper modes: `Murmur.Cleanup --notes` and `--probe`.
+  - The no-GPU copy says "…A Custom Provider, or a PC with a compatible GPU, is much faster." The user said there is NO Murmur Cloud notes route.
+- **NEW WORK (orchestrator, 2026-11-22). Plan it, then send the plan to the orchestrator first:**
+  - **Port PR #102 "Add multilingual dictation setup"** (f4c2fc9, 1906990, 6acdbd5):
+    - the DictationLanguages policy and picker; `cloudHint` passed to CloudAudio.prepare in Routes.swift; cloud routing by language;
+    - ModelText/ModelHelper and Settings/SettingsPaneViews/SettingsView/WelcomeGuideView;
+    - the new check_routes/check_processing/check_dictionary cases, the goldens (the Mac regenerates through the orchestrator) and porting.json.
+    - For LOCAL multilingual, the Mac uses WhisperKit (CoreML-only; module-one/models/Runner/Sources/ModelBench/Multilingual.swift, about 300 new lines in artifact-pins.json, a WhisperKit licence). Windows needs the same Whisper family in ONNX via sherpa-onnx (it supports Whisper) or ONNX Runtime, matching the Mac's pinned model choices as closely as possible. Verify the exact repos, revisions and licences; use the existing DirectML/CPU policy; pin in windows-models.json. **Bring the model plan (sizes, licences, languages) to the orchestrator BEFORE pinning or downloading big files.**
+  - **Port PR #101:** the onboarding and install copy (WelcomeGuideView) and the Home Dictionary shortcut (HomeView). The user-visible copy and behaviour only; the DMG work is Mac-only.
+- **Worktrees:** the main checkout and `wt-notescore`. **No live PC workers.** Earlier workers are archived.
+- **Lessons:** offscreen XAML captures never showed real composition, so the pill is now a ULW layered Win32 window (PillRenderer/PillWindow) with real-bitmap alpha tests; the orchestrator does live captures on the VM (`--bubble-demo`). Static-init order bugs only show in a fresh process: see StaticInitOrderTests. AppResourceKeysTests catches deleted App.xaml keys.
 
 **Older notes below are history.** Earlier notes bench: f6d92e6 on windows-local-notes; no 60-minute run completed before the fix. Old workers 76b8269f, 67fb94a5, fa8785fe and 8aa2528c are archived.
 
