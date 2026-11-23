@@ -58,7 +58,6 @@ enum Permission: CaseIterable {
     var title: String {
         switch self { case .microphone: "Microphone"; case .accessibility: "Accessibility"; case .inputMonitoring: "Input Monitoring" }
     }
-    var actionTitle: String { self == .microphone ? "Allow" : "Open Settings…" }
 }
 
 struct SettingsView: View {
@@ -67,6 +66,7 @@ struct SettingsView: View {
     @State var screen = Screen.home
     /// The welcome guide's current step, saved as it changes so the guide resumes there.
     @State var guideStep = WelcomeGuide.Step.welcome
+    @State private var requestedPermissions: Set<Permission> = []
     /// The last settings pane, restored by ⌘, and on relaunch.
     @AppStorage(Prefs.settingsSection.key) var section = SettingsPane.general
     @State var showAdvanced = false
@@ -264,10 +264,16 @@ struct SettingsView: View {
         switch permission { case .microphone: controller.microphoneAuthorized; case .accessibility: controller.accessibilityAuthorized; case .inputMonitoring: controller.inputMonitoringAuthorized }
     }
 
+    func permissionActionTitle(_ permission: Permission) -> String {
+        requestedPermissions.contains(permission) ? "Open System Settings…" : "Allow"
+    }
+
     func grant(_ permission: Permission) {
-        switch permission {
-        case .microphone: controller.requestMicrophone()
-        case .accessibility, .inputMonitoring: controller.openPermissionSettings(permission)
+        if requestedPermissions.contains(permission) {
+            controller.openPermissionSettings(permission)
+        } else {
+            requestedPermissions.insert(permission)
+            controller.requestPermission(permission)
         }
     }
 
@@ -275,7 +281,7 @@ struct SettingsView: View {
         controller.microphoneAuthorized && controller.accessibilityAuthorized && controller.inputMonitoringAuthorized && modelSatisfied
     }
 
-    var modelSatisfied: Bool { controller.modelSlot.row.isReady || controller.transcriptionRoute != .local }
+    var modelSatisfied: Bool { controller.requiredSpeechSlot.row.isReady || controller.transcriptionRoute != .local }
 
     @ViewBuilder var sidebar: some View {
         if screen == .settings { settingsSidebar } else { appSidebar }

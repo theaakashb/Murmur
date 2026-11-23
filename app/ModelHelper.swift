@@ -24,8 +24,8 @@ func readHelperOutput(_ handle: FileHandle) throws -> Data {
 struct HelperRuntime: Sendable {
     let helper: URL, manifest: URL, vocabulary: URL?, dictionaryModel: URL
     /// Verifies on a background queue (it hashes the models), then calls `body` there with the launch, or nil when verification fails.
-    func launch(models: URL, qos: DispatchQoS.QoSClass, _ body: @escaping @Sendable (HelperLaunch?) -> Void) {
-        DispatchQueue.global(qos: qos).async { body(HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel)) }
+    func launch(models: URL, model: DictationLanguages.LocalModel = .parakeetEnglish, qos: DispatchQoS.QoSClass, _ body: @escaping @Sendable (HelperLaunch?) -> Void) {
+        DispatchQueue.global(qos: qos).async { body(HelperLaunch.make(models: models, manifest: manifest, vocabulary: vocabulary, dictionaryModel: dictionaryModel, model: model)) }
     }
 }
 
@@ -38,21 +38,23 @@ func helperAnswer(_ line: Data?) -> [String: Any]? { line.flatMap { try? JSONSer
 struct HelperLaunch: Equatable {
     let models: URL
     let dictionaryArguments: [String]
+    var runnerFlag: String? = nil
+    var arguments: [String] { dictionaryArguments + (runnerFlag.map { [$0] } ?? []) }
     let key: String
 
     /// Nil unless the transcription model verifies. Off the main thread: verifying the models hashes them once per change.
-    static func make(models: URL, manifest: URL, vocabulary: URL?, dictionaryModel: URL) -> HelperLaunch? {
-        guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest)) != nil,
-              let fingerprint = try? ModelVerificationCache.fingerprint(models, manifest: manifest) else { return nil }
+    static func make(models: URL, manifest: URL, vocabulary: URL?, dictionaryModel: URL, model: DictationLanguages.LocalModel = .parakeetEnglish) -> HelperLaunch? {
+        guard (try? ModelVerificationCache.shared.verify(models, manifest: manifest, model: model.facts)) != nil,
+              let fingerprint = try? ModelVerificationCache.fingerprint(models, manifest: manifest, model: model.facts) else { return nil }
         var key = models.path + "|" + fingerprint.joined(separator: ",")
         var arguments: [String] = []
-        if let vocabulary, let terms = try? Data(contentsOf: vocabulary), !terms.isEmpty,
+        if model == .parakeetEnglish, let vocabulary, let terms = try? Data(contentsOf: vocabulary), !terms.isEmpty,
            (try? ModelVerificationCache.shared.verify(dictionaryModel, manifest: manifest, model: .dictionary)) != nil,
            let ctc = try? ModelVerificationCache.fingerprint(dictionaryModel, manifest: manifest, model: .dictionary) {
             arguments = ["--ctc", dictionaryModel.path, "--vocabulary", vocabulary.path]
             key += "|" + ctc.joined(separator: ",") + "|" + SHA256.hash(data: terms).map { String(format: "%02x", $0) }.joined()
         }
-        return HelperLaunch(models: models, dictionaryArguments: arguments, key: key)
+        return HelperLaunch(models: models, dictionaryArguments: arguments, runnerFlag: model.runnerFlag, key: key)
     }
 }
 
@@ -98,12 +100,13 @@ final class WarmRunner: @unchecked Sendable {
         if let task, task.isRunning, self.key == launch.key { return true }
         stopLocked()
         let next = Process(), toChild = Pipe(), fromChild = Pipe()
-        next.executableURL = helper; next.arguments = [launch.models.path, "--serve"] + launch.dictionaryArguments
+        next.executableURL = helper; next.arguments = [launch.models.path, "--serve"] + launch.arguments
         next.standardInput = toChild; next.standardOutput = fromChild; next.standardError = FileHandle.nullDevice
         do { try next.run() } catch { return false }
         task = next; input = toChild.fileHandleForWriting; output = fromChild.fileHandleForReading; self.key = launch.key; buffered = Data()
-        // The first load of dictionary support compiles its Core ML model (about 15 s).
-        guard let ready = readLine(timeout: launch.dictionaryArguments.isEmpty ? 60 : 120),
+        // The first load may compile Core ML graphs before reporting ready.
+        let readyTimeout: TimeInterval = launch.runnerFlag != nil ? 180 : launch.dictionaryArguments.isEmpty ? 60 : 120
+        guard let ready = readLine(timeout: readyTimeout),
               let status = try? JSONSerialization.jsonObject(with: ready) as? [String: Any],
               status["ready"] as? Bool == true else { stopLocked(); return false }
         if !launch.dictionaryArguments.isEmpty { onDictionaryStatus?(status["vocabulary_error"] as? Bool ?? false) }

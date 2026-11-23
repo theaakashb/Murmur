@@ -54,8 +54,7 @@ enum Prefs {
     static let updateChecks = Setting("updateChecksEnabled", true)
     static let retention = Setting("retention", HistoryRetention.thirtyDays)
     static let showMenuBar = Setting("showMenuBar", true)
-    /// Show Murmur in the Dock; off by default.
-    static let showInDock = Setting("showInDock", false)
+    static let showInDock = Setting("showInDock", true)
     static let inputDeviceUID = Setting("inputDeviceUID", "")
     static let intelligentLeadingSpace = Setting("intelligentLeadingSpace", false)
     static let automaticInsertion = Setting("automaticInsertion", true)

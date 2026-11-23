@@ -102,7 +102,7 @@ extension SettingsView {
     }
 
     func permissionRow(_ permission: Permission) -> some View {
-        permissionRow(permission.title, allowed: isAllowed(permission), actionTitle: permission.actionTitle) { grant(permission) }
+        permissionRow(permission.title, allowed: isAllowed(permission), actionTitle: permissionActionTitle(permission)) { grant(permission) }
     }
 
     func permissionRow(_ title: String, allowed: Bool, actionTitle: String, action: @escaping () -> Void) -> some View {
@@ -117,7 +117,8 @@ extension SettingsView {
 
     var transcription: some View {
         VStack(alignment: .leading, spacing: 0) {
-            modelRow(controller.modelSlot, readyText: "Model ready ✓", download: controller.downloadModel, cancel: controller.cancelModelDownload, remove: controller.removeModel)
+            dictationLanguagePicker
+            modelRow(controller.requiredSpeechSlot, readyText: "Model ready ✓", download: controller.downloadRequiredSpeechModel, cancel: controller.cancelRequiredSpeechModel, remove: controller.removeRequiredSpeechModel)
             .padding(.vertical, 18).padding(.top, 20)
 
             transcriptionRoutes
@@ -126,7 +127,7 @@ extension SettingsView {
                 mono((showAdvanced ? "▾" : "▸") + " Advanced", size: 13).frame(height: 44).contentShape(Rectangle())
             }
             .buttonStyle(.plain).padding(.top, 28)
-            if showAdvanced {
+            if showAdvanced && controller.requiredSpeechModel == .parakeetEnglish {
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Model folder").id("model-folder").font(Font.system(size: 16, weight: .semibold))
@@ -147,10 +148,17 @@ extension SettingsView {
         }
     }
 
+    var dictationLanguagePicker: some View {
+        DictationLanguagePicker(languages: $controller.dictationLanguages, onDevice: controller.transcriptionRoute == .local)
+            .padding(.top, 20)
+            .disabled(controller.isBusy || controller.speechModelDownloading)
+            .onChange(of: controller.dictationLanguages) { controller.settingsChanged() }
+    }
+
     var transcriptionRoutes: some View {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Where transcription runs").padding(.top, 28)
-            segmented([(TranscriptionRoute.local, "On this Mac (Parakeet)"), (TranscriptionRoute.cloud, "Cloud"), (TranscriptionRoute.murmurCloud, "Murmur Cloud")], $controller.transcriptionRoute).padding(.top, 8)
+            segmented([(TranscriptionRoute.local, "On this Mac"), (TranscriptionRoute.cloud, "Cloud"), (TranscriptionRoute.murmurCloud, "Murmur Cloud")], $controller.transcriptionRoute).padding(.top, 8).disabled(controller.speechModelDownloading)
             if controller.transcriptionRoute == .local {
                 help("Audio stays on this Mac. Downloading the model uses the network once; dictation does not.").padding(.top, 12)
             } else {

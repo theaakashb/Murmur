@@ -250,3 +250,45 @@ enum ModelGate {
 extension ModelLicenseDeclaration: Identifiable {
     var id: String { name + "|" + url.absoluteString }
 }
+
+extension DictationLanguages.LocalModel {
+    var runnerFlag: String? {
+        switch self {
+        case .parakeetEnglish: return nil
+        case .parakeetTDT: return "--parakeet-tdt"
+        case .whisperTurbo: return "--whisper-turbo"
+        }
+    }
+
+    var facts: ModelFacts {
+        switch self {
+        case .parakeetEnglish: return .batch
+        case .parakeetTDT: return .multilingualTDT
+        case .whisperTurbo: return .multilingualWhisper
+        }
+    }
+}
+
+extension ModelFacts {
+    static let multilingualTDT = multilingual(
+        "Parakeet TDT v3", repository: "FluidInference/parakeet-tdt-0.6b-v3-coreml", folder: "parakeet-tdt-v3",
+        license: ModelLicenseInfo(isPinned: false, declarations: [
+            .init(source: "NVIDIA upstream model card", name: "CC BY 4.0",
+                  url: URL(string: "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3")!),
+            .init(source: "FluidInference conversion model card", name: "CC BY 4.0 metadata, Apache 2.0 in card text",
+                  url: URL(string: "https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml/blob/7dd20fe6b1797d35f5e3307e8b1732d9a178edfe/README.md")!)
+        ], note: "Review the upstream and conversion license declarations before downloading."))
+
+    static let multilingualWhisper = multilingual(
+        "Whisper large-v3-turbo", repository: "DictionLabs/whisperkit-coreml", folder: "whisper-large-v3-turbo")
+
+    private static func multilingual(_ name: String, repository: String, folder: String, license: ModelLicenseInfo? = nil) -> ModelFacts {
+        ModelFacts(displayName: name, repository: repository,
+                   directory: { $0.appendingPathComponent("Library/Caches/Dictation/module-one").appendingPathComponent(folder) },
+                   unpinnedLicense: license, confirmName: name,
+                   placement: { _ in "After that, transcription runs on this Mac without the network." },
+                   removeTitle: "Remove the downloaded model?",
+                   removeBody: { _, size in "Download it again (\(formatBytes(size))) to dictate with these languages." },
+                   completed: "The model is downloaded and verified.", removed: "The model was removed.")
+    }
+}

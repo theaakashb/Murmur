@@ -38,6 +38,7 @@ enum ScreenRequest: Equatable {
     @Published var recoveryEntryID: String?
     @Published var recoveryAudio: URL?
     @Published var modelDirectory: String
+    @Published var dictationLanguages = Prefs.dictationLanguages.fallback
     @Published var shortcut = Prefs.shortcut.fallback
     @Published var voiceLevel = 0.0
     @Published var showMenuBar = Prefs.showMenuBar.fallback
@@ -109,12 +110,14 @@ enum ScreenRequest: Equatable {
     var spellingCache: [String: Bool] = [:]
     // Model downloads. Each slot's message reports the last download action, never interrupting dictation.
     @Published var modelSlot: ModelSlot
+    @Published var tdtSlot: ModelSlot
+    @Published var whisperSlot: ModelSlot
     @Published var dictionarySlot: ModelSlot
     /// The helper could not start dictionary support and is transcribing without it.
     @Published var dictionarySupportFailed = false
     /// The managed local cleanup model (Vedu): downloaded only after the user asks, in the app's own model folder.
     @Published var localSlot: ModelSlot
-    var modelSlots: [ReferenceWritableKeyPath<AppController, ModelSlot>] { [\.modelSlot, \.dictionarySlot, \.liveWordsSlot, \.localSlot] }
+    var modelSlots: [ReferenceWritableKeyPath<AppController, ModelSlot>] { [\.modelSlot, \.tdtSlot, \.whisperSlot, \.dictionarySlot, \.liveWordsSlot, \.localSlot] }
     var usesCustomModelFolder: Bool { modelSlot.downloader.map { URL(fileURLWithPath: modelDirectory).standardizedFileURL.path != $0.target.path } ?? false }
     // History-off mode and the size cap. History-off and update checks apply as soon as they change.
     @Published var historyMode = Prefs.historyMode.fallback
@@ -198,6 +201,7 @@ enum ScreenRequest: Equatable {
     @Published var voiceEditShortcut = Prefs.voiceEditShortcut.fallback
     /// This session's cloud transcriber, chosen at start; nil means local Parakeet.
     var sessionTranscriber: TranscriptionProvider?
+    private var sessionLanguages = DictationLanguages.english
     var capture: Capture?
     /// The field focused when recording started. Clearing it ends the session's mode and context too.
     var destination: FocusSnapshot? { didSet { if destination == nil { sessionMode = nil; sessionContext = nil } } }
@@ -315,6 +319,8 @@ enum ScreenRequest: Equatable {
         let defaults = UserDefaults.standard
         let home = FileManager.default.homeDirectoryForCurrentUser, pins = BundledModels.pins
         modelSlot = ModelSlot(.batch, pins: pins, home: home)
+        tdtSlot = ModelSlot(.multilingualTDT, pins: pins, home: home)
+        whisperSlot = ModelSlot(.multilingualWhisper, pins: pins, home: home)
         dictionarySlot = ModelSlot(.dictionary, pins: pins, home: home)
         liveWordsSlot = ModelSlot(.liveWords, pins: pins, home: home)
         let local = ModelSlot(.localCleanup, pins: pins, home: home)
@@ -460,7 +466,22 @@ enum ScreenRequest: Equatable {
     func requestMicrophone() {
         AVCaptureDevice.requestAccess(for: .audio) { [weak self] _ in DispatchQueue.main.async { self?.refreshPermissions() } }
     }
+    func requestPermission(_ permission: Permission) {
+        guard !preview else { return }
+        switch permission {
+        case .microphone:
+            if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined { requestMicrophone() }
+            else { openPermissionSettings(.microphone) }
+        case .accessibility:
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+        case .inputMonitoring:
+            if CGRequestListenEventAccess() { refreshPermissionsAndShortcut() }
+        }
+    }
+
     func openPermissionSettings(_ permission: Permission) {
+        guard !preview else { return }
         let pane = switch permission { case .inputMonitoring: "Privacy_ListenEvent"; case .microphone: "Privacy_Microphone"; case .accessibility: "Privacy_Accessibility" }
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") { NSWorkspace.shared.open(url) }
     }
@@ -634,22 +655,30 @@ enum ScreenRequest: Equatable {
                 }
             }
             let editing = pendingVoiceEdit != nil // An edit sends no dictation cleanup and reads no screen context.
-            let sendsText = !editing && ((processing?.settings.options.anyEnabled ?? false) || writingModes.contains { $0.enabled && $0.options?.anyEnabled == true })
+            guard let languages = DictationLanguages(codes: Set(dictationLanguages)) else {
+                refuse("Choose at least one supported dictation language.", done: done); return
+            }
+            let sendsText = !editing && languages == .english && ((processing?.settings.options.anyEnabled ?? false) || writingModes.contains { $0.enabled && $0.options?.anyEnabled == true })
             let plan = routePlan(appliedRoutes, cleanupSendsText: sendsText)
             if let refusal = plan.refusal { refuse(refusal, done: done); return }
-            if plan.usesLocalModel, let refusal = ModelGate.startRefusal(modelAvailable: modelFilesAvailable(), runtimeAvailable: BundledModels.helper != nil, downloadingActiveModel: modelSlot.inFlight && !usesCustomModelFolder) {
+            let slot = self[keyPath: speechModelSlot(for: languages.localModel)]
+            let modelPath = speechModelPath(for: languages.localModel)
+            let available = languages.localModel == .parakeetEnglish ? modelFilesAvailable() : slot.row.isReady
+            if plan.usesLocalModel, let refusal = ModelGate.startRefusal(modelAvailable: available, runtimeAvailable: BundledModels.helper != nil, downloadingActiveModel: slot.inFlight && (languages.localModel != .parakeetEnglish || !usesCustomModelFolder)) {
                 refuse(refusal, done: done); return
             }
+            sessionLanguages = languages
             sessionTranscriber = plan.transcriber; processing?.cloudCleaner = plan.cleaner; processing?.engineCleaner = engineProvider()
             (plan.cleaner as? LocalModelCleanupProvider)?.prewarm()
             destination = try? captureFocus()
             if destination?.secure == true { refuse("Password fields cannot receive dictation.", done: done); return }
             if destination?.pid == getpid() { destination = nil }
-            insertThisSession = automaticInsertion; leadingSpaceThisSession = intelligentLeadingSpace; activeModelDirectory = modelDirectory
+            insertThisSession = automaticInsertion; leadingSpaceThisSession = intelligentLeadingSpace; activeModelDirectory = modelPath ?? modelDirectory
             listeningStarted = Date(); generation = UUID(); recoveryEntryID = nil; recordingFailed = false
             voiceEdit = pendingVoiceEdit.map { var edit = $0; edit.generation = generation; return edit }; pendingVoiceEdit = nil
             destinationScreen = screenForDestination(destination)
-            captureModeAndContext(aiCleanup: plan.cleaner != nil && voiceEdit == nil)
+            if languages == .english { captureModeAndContext(aiCleanup: plan.cleaner != nil && voiceEdit == nil) }
+            else { sessionMode = nil; sessionContext = nil }
         }
         let wasListening = session.state == .listening
         if wasListening, action == .finish {
@@ -661,12 +690,12 @@ enum ScreenRequest: Equatable {
         let adoptsEarly = session.early != nil
         session.receive(action, completed: done)
         if action == .start, session.state == .listening, !adoptsEarly { cue(.start) }
-        if action == .start, session.state == .listening { startLiveWords() }
+        if action == .start, session.state == .listening, sessionLanguages == .english { startLiveWords() }
         if session.state != .listening { stopLiveWords() }
         if wasListening, action == .finish || (action == .cancel && listener?.cancelIsExplicit == true) { cue(.stop) }
         // Show processing at release, not after the release tail, so the stop feels immediate.
         if wasListening, action == .finish, session.state == .processing { setPhase(.processing, "Finishing recording…") }
-        if action == .start, session.state == .listening, sessionTranscriber == nil, let capture, let audio = session.audio { attachChunks(capture, audio: audio) }
+        if action == .start, session.state == .listening, sessionTranscriber == nil, sessionLanguages.localModel == .parakeetEnglish, let capture, let audio = session.audio { attachChunks(capture, audio: audio) }
         if action == .cancel {
             destination = nil
             if undo.isOpen {
@@ -780,6 +809,7 @@ enum ScreenRequest: Equatable {
         let samples: [Float]
         let destination: FocusSnapshot?, mode: WritingMode?, context: ScreenContext?, screen: NSScreen?
         let transcriber: TranscriptionProvider?, cleaner: CleanupProvider?
+        let languages: DictationLanguages
         let insert: Bool, leadingSpace: Bool, modelDirectory: String, started: Date
     }
     private let undo = UndoWindow<Canceled>()
@@ -787,7 +817,7 @@ enum ScreenRequest: Equatable {
     private func holdForUndo(_ url: URL) {
         guard listener?.cancelIsExplicit == true, let samples = Self.samples16k(url), !samples.isEmpty else { return }
         undo.hold(Canceled(samples: samples, destination: destination, mode: sessionMode, context: sessionContext, screen: destinationScreen,
-                           transcriber: sessionTranscriber, cleaner: processing?.cloudCleaner, insert: insertThisSession,
+                           transcriber: sessionTranscriber, cleaner: processing?.cloudCleaner, languages: sessionLanguages, insert: insertThisSession,
                            leadingSpace: leadingSpaceThisSession, modelDirectory: activeModelDirectory, started: listeningStarted))
     }
     /// The recording as 16 kHz mono floats, the helper's input rate (a five-minute recording is about 19 MB).
@@ -816,6 +846,7 @@ enum ScreenRequest: Equatable {
             self.destination = item.destination; self.sessionMode = item.mode; self.sessionContext = item.context
             self.destinationScreen = item.screen; self.sessionTranscriber = item.transcriber; self.processing?.cloudCleaner = item.cleaner; self.processing?.engineCleaner = self.engineProvider()
             self.insertThisSession = item.insert; self.leadingSpaceThisSession = item.leadingSpace
+            self.sessionLanguages = item.languages
             self.activeModelDirectory = item.modelDirectory; self.listeningStarted = item.started
             self.generation = UUID(); self.recoveryEntryID = nil
             self.transcribe(nil, held: item.samples, done: done)
@@ -886,7 +917,7 @@ enum ScreenRequest: Equatable {
         guard let runtime = helperRuntime, let store = records else { setPhase(.error, "The model runtime is unavailable. Audio is saved for retry."); done(); return }
         let timestamp = listeningStarted
         let began = ProcessInfo.processInfo.systemUptime
-        runtime.launch(models: models, qos: .userInitiated) { [weak self] launch in
+        runtime.launch(models: models, model: sessionLanguages.localModel, qos: .userInitiated) { [weak self] launch in
             let helper = runtime.helper
             defer { timingLog.notice("model-verify took=\(ProcessInfo.processInfo.systemUptime - began, format: .fixed(precision: 3))") }
             guard let launch
@@ -933,7 +964,7 @@ enum ScreenRequest: Equatable {
     }
     private func launchRunner(_ helper: URL, launch: HelperLaunch, audio: URL, store: HistoryRouter<HistoryEntry>, timestamp: Date, token: UUID, done: @escaping () -> Void) {
         let pipe = Pipe(), output = pipe.fileHandleForReading
-        let task = Process(); task.executableURL = helper; task.arguments = [launch.models.path, audio.path, "--single"] + launch.dictionaryArguments
+        let task = Process(); task.executableURL = helper; task.arguments = [launch.models.path, audio.path, "--single"] + launch.arguments
         task.standardOutput = pipe; task.standardError = FileHandle.nullDevice
         do { try task.run(); runner = task; try? pipe.fileHandleForWriting.close() } catch { try? output.close(); try? pipe.fileHandleForWriting.close(); setPhase(.error, "Transcription could not start. Audio is saved for retry."); done(); return }
         let timeout = DispatchWorkItem { if task.isRunning { task.terminate(); DispatchQueue.global().asyncAfter(deadline: .now() + 2) { if task.isRunning { kill(task.processIdentifier, SIGKILL) } } } }
@@ -990,10 +1021,11 @@ enum ScreenRequest: Equatable {
         let began = ProcessInfo.processInfo.systemUptime
         cloudStage = .transcription; cloudDone = done
         let heldWAV = held.map { WAVAudio.encodePCM16($0, sampleRate: AudioFormat.sampleRate) }
+        let languages = sessionLanguages
         cloudRequest.start({
-            if let heldWAV { return await CloudTranscription.runDetailed(provider: provider, audioData: heldWAV) }
-            guard let audio else { return await CloudTranscription.runDetailed(provider: provider, audioData: Data()) }
-            return await CloudTranscription.runDetailed(provider: provider, audioFile: audio)
+            if let heldWAV { return await CloudTranscription.runDetailed(provider: provider, audioData: heldWAV, languages: languages) }
+            guard let audio else { return await CloudTranscription.runDetailed(provider: provider, audioData: Data(), languages: languages) }
+            return await CloudTranscription.runDetailed(provider: provider, audioFile: audio, languages: languages)
         }) { [weak self] (result: (outcome: CloudTranscriptionOutcome, detail: CloudTranscriptionDetail)) in
             guard let self, self.generation == token else { return }
             let outcome = result.outcome
@@ -1036,6 +1068,14 @@ enum ScreenRequest: Equatable {
             timingLog.notice("release-to-transcribe took=\(waited, format: .fixed(precision: 3))")
         }
         recoveryEntryID = savedEntry.id
+        if sessionLanguages != .english {
+            sessionContext = nil
+            savedEntry.transcriptionProvider = sessionTranscriber?.id.rawValue ?? "local"
+            savedEntry.transcriptionModel = sessionTranscriber?.modelID ?? sessionLanguages.localModel.facts.repository
+            let text = processing?.dictionary.apply(to: savedEntry.rawText, manualVariantsOnly: true) ?? savedEntry.rawText
+            complete(ProcessingResult(outcome: .insert(text), cleanupPath: .off), entry: savedEntry, store: store, done: done)
+            return
+        }
         // A trigger word beats the app or website matched at start; it is cut from the text, not from History's raw transcript.
         let trigger = WritingModes.trigger(writingModes, in: savedEntry.rawText)
         let text = trigger?.text ?? savedEntry.rawText
@@ -1101,8 +1141,10 @@ enum ScreenRequest: Equatable {
         }
         timingLog.notice("cleanup took=\(ProcessInfo.processInfo.systemUptime - self.cleanupStartedAt, format: .fixed(precision: 3)) path=\(result.cleanupPath?.rawValue ?? "none", privacy: .public)")
         // A writing-mode dictation ran on the AI engine, whatever the cleanup route is.
-        entry.cleanupProvider = result.engine?.rawValue ?? (processing?.settings.route == .local ? "local-rules" : processing?.cloudCleaner?.id.rawValue)
-        entry.cleanupModel = result.engine != nil ? processing?.engineCleaner?.modelID : processing?.cloudCleaner?.modelID
+        if sessionLanguages == .english {
+            entry.cleanupProvider = result.engine?.rawValue ?? (processing?.settings.route == .local ? "local-rules" : processing?.cloudCleaner?.id.rawValue)
+            entry.cleanupModel = result.engine != nil ? processing?.engineCleaner?.modelID : processing?.cloudCleaner?.modelID
+        }
         entry.contextUsed = result.contextUsed
         let text = entry.rawText
         let saved = HistoryText.saved(persists: !store.sessionOnlyIDs.contains(entry.id))
@@ -1191,7 +1233,7 @@ enum ScreenRequest: Equatable {
             switch delivery {
             case .delivered(let insertion):
                 // An expansion is the user's stored text, not a dictation to learn spellings from.
-                if entry.cues == nil { watchCorrections(insertion, text: entry.finalText, entryID: entry.id, at: target?.selection?.location, pid: target?.pid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier) }
+                if sessionLanguages == .english, entry.cues == nil { watchCorrections(insertion, text: entry.finalText, entryID: entry.id, at: target?.selection?.location, pid: target?.pid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier) }
                 showInsertionResult(insertion, entryID: entry.id, text: entry.finalText)
                 if insertion.status != .failed { offerModeRecovery(entry: entry, inserted: entry.finalText, insertion: insertion, target: target) }
                 // A provider failure is not silent: a bad key or quota would otherwise degrade every dictation.
@@ -1243,6 +1285,7 @@ enum ScreenRequest: Equatable {
             do { try processing.update(local, persist: false) }
             catch { fputs("app-check=refused local-settings-failed\n", stderr); completion(); return }
         }
+        sessionLanguages = .english
         sessionTranscriber = nil; processing?.cloudCleaner = nil; processing?.engineCleaner = nil
         destination = focused; insertThisSession = true; leadingSpaceThisSession = intelligentLeadingSpace
         activeModelDirectory = modelDirectory; listeningStarted = Date(); generation = UUID()
@@ -1266,9 +1309,11 @@ enum ScreenRequest: Equatable {
     /// Starts (or restarts, when what it loads changed) the warm helper in the background, so the
     /// next dictation does not wait for a model load.
     func prewarm() {
-        guard !preview, let runtime = helperRuntime else { return }
+        let model = requiredSpeechModel
+        guard !preview, let runtime = helperRuntime, let path = speechModelPath(for: model),
+              model == .parakeetEnglish || requiredSpeechSlot.row.isReady else { return }
         let warm = warm
-        runtime.launch(models: URL(fileURLWithPath: modelDirectory), qos: .utility) { launch in
+        runtime.launch(models: URL(fileURLWithPath: path), model: model, qos: .utility) { launch in
             guard let launch else { return }
             warm.prepare(helper: runtime.helper, launch: launch)
         }
@@ -1311,6 +1356,7 @@ enum ScreenRequest: Equatable {
         watchTick(ending: true)
         flushClipboardRestore()
         modelSlot.downloader?.cancel()  // Verified and partial files stay staged; Retry resumes them.
+        tdtSlot.downloader?.cancel(); whisperSlot.downloader?.cancel()
         dictionarySlot.downloader?.cancel(); localSlot.downloader?.cancel()
         Task { await LocalCleanupRunner.shared.shutdown() }
         if sessionAvailable { session.shutdown() }
