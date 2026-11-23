@@ -11,7 +11,7 @@ namespace Murmur.Speech;
 // Nothing here logs a transcript, a path, a term or an exception message: every failure is a content-free line.
 static class Program
 {
-    const string Usage = "Usage: MurmurSpeech MODEL_DIRECTORY (AUDIO_FILE [--single] | --serve | --stream SAMPLE_RATE | --diarize KEPT_WAV THRESHOLD --embedding EMBEDDING_ONNX) [--gpu] [--vocabulary VOCABULARY_JSON] [--lexicon WORD_LIST]";
+    const string Usage = "Usage: MurmurSpeech MODEL_DIRECTORY (AUDIO_FILE [--single] | --serve | --stream SAMPLE_RATE | --diarize KEPT_WAV THRESHOLD --embedding EMBEDDING_ONNX) [--gpu] [--vocabulary VOCABULARY_JSON] [--lexicon WORD_LIST] [--parakeet-tdt | --whisper-turbo]";
 
     static readonly Stream StdOut = Console.OpenStandardOutput();
 
@@ -19,6 +19,14 @@ static class Program
     {
         var args = argv.ToList();
         bool gpu = args.Remove("--gpu");
+        // The multilingual runners (Multilingual.swift): MODEL_DIRECTORY (AUDIO_FILE [--single] | --serve) plus the runner flag; no dictionary hotwords.
+        string? runner = args.Contains(Multilingual.ParakeetTdt) ? Multilingual.ParakeetTdt : args.Contains(Multilingual.WhisperTurbo) ? Multilingual.WhisperTurbo : null;
+        if (runner is not null)
+        {
+            if (args.Count(a => a is Multilingual.ParakeetTdt or Multilingual.WhisperTurbo) != 1) return Fail(Usage);
+            args.Remove(runner);
+            return Other(runner, args, gpu);
+        }
         string? vocabulary = Take(args, "--vocabulary"), lexicon = Take(args, "--lexicon"), embedding = Take(args, "--embedding");
         // The Mac's CTC dictionary model has no Windows counterpart: dictionary support here is hotwords on the same model.
         if (args.Contains("--ctc") || args.Contains("--vocabulary") || args.Contains("--lexicon")) return Fail(Usage);
@@ -41,6 +49,50 @@ static class Program
             return Once(args[0], args[1], single, vocabulary, lexicon, provider);
         }
         catch (Exception) { return Fail("transcription failed"); }
+    }
+
+    static int Other(string runner, List<string> args, bool gpu)
+    {
+        bool single = args.Count == 3 && args[2] == "--single";
+        if (args.Count != 2 && !single) return Fail(Usage);
+        // Hotword options are English-only; an unknown option here is a usage error.
+        if (args.Skip(1).Any(a => a.StartsWith("--") && a is not ("--serve" or "--single"))) return Fail(Usage);
+        try
+        {
+            if (gpu && (!OperatingSystem.IsWindows() || !File.Exists(Path.Combine(AppContext.BaseDirectory, "DirectML.dll")))) return Fail("GPU runtime unavailable");
+            using var asr = Multilingual.Create(runner, args[0], gpu ? "directml" : "cpu");
+            if (args[1] != "--serve") { Emit(new() { ["text"] = asr.Transcribe(WavReader.Read(args[1])) }); return 0; }
+            Emit(new() { ["ready"] = true });
+            using var input = new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(false));
+            while (input.ReadLine() is { } line)
+            {
+                try { Emit(OtherAnswer(asr, line)); }
+                catch (Exception) { Emit(new() { ["error"] = "transcription failed" }); }
+            }
+            return 0;
+        }
+        catch (Exception) { return Fail("transcription failed"); }
+    }
+
+    static SortedDictionary<string, object?> OtherAnswer(IMultilingualAsr asr, string line)
+    {
+        float[] samples;
+        if (line.StartsWith('{'))
+        {
+            // Only {"samples": BASE64} (16 kHz mono little-endian Float32) is understood.
+            try
+            {
+                using var doc = JsonDocument.Parse(line);
+                if (doc.RootElement.ValueKind != JsonValueKind.Object || !doc.RootElement.TryGetProperty("samples", out var encoded) || encoded.ValueKind != JsonValueKind.String) return new() { ["error"] = "invalid audio request" };
+                var bytes = Convert.FromBase64String(encoded.GetString()!);
+                if (bytes.Length == 0 || bytes.Length % 4 != 0) return new() { ["error"] = "invalid audio request" };
+                samples = new float[bytes.Length / 4];
+                Buffer.BlockCopy(bytes, 0, samples, 0, bytes.Length);
+            }
+            catch (Exception e) when (e is JsonException or FormatException) { return new() { ["error"] = "invalid audio request" }; }
+        }
+        else samples = WavReader.Read(line);
+        return new() { ["text"] = asr.Transcribe(samples) };
     }
 
     static int Fail(string message) { Console.Error.WriteLine(message); return 1; }
