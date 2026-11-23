@@ -10,12 +10,12 @@ public static class CloudAudio
 {
     public sealed record Prepared(AudioPayload Payload, float? Peak, double? Duration);
 
-    public static Prepared Prepare(byte[] data)
+    public static Prepared Prepare(byte[] data, string? language = "en")
     {
-        if (WAVAudio.Decode(data) is not { SampleRate: > 0 } decoded) return new Prepared(new AudioPayload(data), null, null);
+        if (WAVAudio.Decode(data) is not { SampleRate: > 0 } decoded) return new Prepared(new AudioPayload(data, Language: language), null, null);
         var rate = decoded.SampleRate > AudioFormat.SampleRate ? AudioFormat.SampleRate : decoded.SampleRate;
         var samples = TrimTrailingSilence(WAVAudio.Downsample(decoded.Samples, decoded.SampleRate, AudioFormat.SampleRate), rate);
-        var payload = new AudioPayload(WAVAudio.EncodePCM16(samples, rate)) { Levels = WindowPeaks(samples, rate) };
+        var payload = new AudioPayload(WAVAudio.EncodePCM16(samples, rate), Language: language) { Levels = WindowPeaks(samples, rate) };
         return new Prepared(payload, Math.Min(Level(decoded.Samples, decoded.SampleRate), 1), (double)decoded.Samples.Length / decoded.SampleRate);
     }
 

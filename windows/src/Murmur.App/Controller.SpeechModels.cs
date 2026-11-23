@@ -63,6 +63,16 @@ internal sealed partial class Controller
         public bool ConfirmRemove(string title, string body) => false;
     }
 
+    /// <summary>The History "transcription model" for a local dictation (Mac: <c>localModel.facts.repository</c>).</summary>
+    string SpeechModelRepository(LocalSpeechModel model) => model == LocalSpeechModel.ParakeetEnglish ? LocalTranscriber.ModelId : model.Facts().Repository;
+
+    /// <summary>Transcribes the recording with the session's local model: English as it always was, the others through the helper with their runner flag (no chunks, no dictionary).</summary>
+    Task<(CloudTranscriptionOutcome Outcome, CloudTranscriptionDetail Detail)> TranscribeLocalAsync(Session ss, float[] samples16k, CancellationToken ct)
+    {
+        var model = ss.Languages.LocalModel;
+        return s.Local.TranscribeAsync(samples16k, ss.WavPath, model == LocalSpeechModel.ParakeetEnglish ? ss.Chunks : null, ct, model);
+    }
+
     /// <summary>Loads the required model into the warm helper in the background, so the next dictation does not wait for it. Does nothing until the model's files are there.</summary>
     public void PrewarmSpeech()
     {

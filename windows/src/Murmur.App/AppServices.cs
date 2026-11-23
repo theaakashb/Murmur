@@ -27,7 +27,7 @@ internal sealed class AppServices
     public ModelSlot SpeakerEmbeddingSlot { get; }
     /// <summary>The slot of a local speech model (Controller+Models.swift speechModelSlot).</summary>
     /// <summary>Stored by the dictation-language picker (default English).</summary>
-    public IReadOnlyList<string> DictationLanguageCodes => Settings.Get("dictationLanguages") is IReadOnlyList<string> codes ? codes : DictationLanguages.English.Codes.ToArray();
+    public IReadOnlyList<string> DictationLanguageCodes => Settings.Get(Prefs.DictationLanguages);
     public LocalSpeechModel ChosenSpeechModel => DictationLanguages.Create(DictationLanguageCodes)?.LocalModel ?? LocalSpeechModel.ParakeetEnglish;
     /// <summary>The chosen model on the local route, else English (the cloud routes need no speech model).</summary>
     public LocalSpeechModel RequiredSpeechModel => RouteSettings.Load(Settings).Transcription == TranscriptionRoute.Local ? ChosenSpeechModel : LocalSpeechModel.ParakeetEnglish;
