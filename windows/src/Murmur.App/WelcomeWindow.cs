@@ -232,6 +232,9 @@ internal sealed partial class WelcomeWindow : Window
                 var test = MurmurStyle.Named(new TextBox { PlaceholderText = "Waiting for your voice…", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 96, FontSize = 16 }, "Test dictation");
                 panel.Children.Add(MurmurStyle.Text($"Your shortcut: {Shortcut}. Change it in Settings → Dictation.", "MurmurCaption"));
                 panel.Children.Add(test);
+                panel.Children.Add(MurmurStyle.Text(s.Settings.Get(Prefs.LearningEnabled)
+                    ? "Correct a misheard word within a minute of dictating to teach Murmur its spelling. You can also add names and terms in Dictionary."
+                    : "Add names and terms in Dictionary. You can also turn on learning from your spelling corrections in Learning.", "MurmurCaption"));
                 break;
         }
         return panel;
