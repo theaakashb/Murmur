@@ -1,4 +1,4 @@
-using Murmur.Core;
+﻿using Murmur.Core;
 
 namespace Murmur.App;
 
@@ -29,7 +29,7 @@ internal sealed partial class Controller
     public IModelFlowDialogs? SpeechModelDialogs { get; set; }
 
     /// <summary>Raised after a speech model slot changes (progress, completion, removal), on the UI thread.</summary>
-    public Action? SpeechModelChanged { get; set; }
+    public event Action? SpeechModelChanged;
 
     /// <summary>The flow of a speech model's row: the same gates and release as the Settings rows, plus a prewarm once the required model arrives.</summary>
     ModelFlow SpeechFlow(LocalSpeechModel model)

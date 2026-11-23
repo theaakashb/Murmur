@@ -234,6 +234,7 @@ internal sealed partial class WelcomeWindow : Window
                 break;
             case Step.Model:
                 // Rebuilt each time: the required model follows the chosen languages.
+                modelRow?.Detach();
                 modelRow = new ModelRow(s, controller.RequiredSpeechSlot, controller, Root, go => { s.Local.Release(); go(); }, () => Render(), required: true);
                 if (modelRow.Panel.Parent is Panel op) op.Children.Remove(modelRow.Panel);
                 panel.Children.Add(MurmurStyle.Card(modelRow.Panel));

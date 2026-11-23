@@ -336,7 +336,8 @@ internal sealed partial class SettingsView
         Heading("Speech recognition");
         // The model row follows the chosen languages: English uses Parakeet, others the model that covers them (PR #102).
         var speechHost = new ContentControl { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-        void ShowSpeechRow() => speechHost.Content = MurmurStyle.Card(new ModelRow(s, controller.RequiredSpeechSlot, controller, root, go => { s.Local.Release(); go(); }, UpdateModelRoutes, required: true).Panel);
+        ModelRow? speechRow = null;
+        void ShowSpeechRow() { speechRow?.Detach(); speechRow = new ModelRow(s, controller.RequiredSpeechSlot, controller, root, go => { s.Local.Release(); go(); }, UpdateModelRoutes, required: true); speechHost.Content = MurmurStyle.Card(speechRow.Panel); }
         var picker = new DictationLanguagePicker(() => s.Settings.Get(Prefs.DictationLanguages), v => { s.Settings.Set(Prefs.DictationLanguages, v); ShowSpeechRow(); UpdateModelRoutes(); foreach (var refresh in refreshNotes) refresh(); }, () => Routes.Transcription == TranscriptionRoute.Local);
         refreshNotes.Add(picker.Refresh);
         refreshNotes.Add(() => picker.Panel.IsEnabled =!controller.IsBusy && !controller.SpeechModelDownloading);

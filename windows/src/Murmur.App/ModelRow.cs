@@ -20,6 +20,10 @@ internal sealed class ModelRow
     readonly ModelSlot slot;
     readonly ModelFlow? flow;
     readonly Controller? controller;
+    readonly Action? changedHandler;
+
+    /// <summary>Stops a required-model row listening to the controller; the owner calls it before dropping the row.</summary>
+    public void Detach() { if (controller is not null && changedHandler is not null) controller.SpeechModelChanged -= changedHandler; }
     readonly Answer answer = new();
     readonly Func<XamlRoot?> root;
     readonly TextBlock status = MurmurStyle.Text("", "BodyStrongTextBlockStyle");
@@ -38,8 +42,9 @@ internal sealed class ModelRow
         {
             // The controller owns the flow of the required speech model (it prewarms after a download); this row supplies its dialogs and redraws on its changes.
             this.controller = controller;
-            controller.SpeechModelDialogs = answer;
-            controller.SpeechModelChanged = () => { Refresh(); changed(); };
+            changedHandler = () => { Refresh(); changed(); };
+            controller.SpeechModelChanged += changedHandler;
+            Panel.Unloaded += (_, _) => Detach();
         }
         else
         flow = new ModelFlow(slot, answer)
@@ -108,7 +113,7 @@ internal sealed class ModelRow
         if (slot.Downloader is not { } downloader || slot.InFlight) return;
         var text = slot.Facts.Confirmation(downloader.DownloadSize, downloader.License, downloader.Target);
         answer.Yes = await Ask(text.Title, text.Body, "Download");
-        if (controller is not null) controller.DownloadRequiredSpeechModel(); else flow!.Download();
+        if (controller is not null) { controller.SpeechModelDialogs = answer; controller.DownloadRequiredSpeechModel(); } else flow!.Download();
         answer.Yes = false;
     }
 
@@ -116,7 +121,7 @@ internal sealed class ModelRow
     {
         if (slot.Downloader is not { } downloader || slot.InFlight) return;
         answer.Yes = await Ask(slot.Facts.RemoveTitle, slot.Facts.RemoveBody(downloader.Target, downloader.DownloadSize), "Remove");
-        if (controller is not null) controller.RemoveRequiredSpeechModel(); else flow!.Remove();
+        if (controller is not null) { controller.SpeechModelDialogs = answer; controller.RemoveRequiredSpeechModel(); } else flow!.Remove();
         answer.Yes = false;
     }
 
