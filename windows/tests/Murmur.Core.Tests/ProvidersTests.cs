@@ -298,7 +298,7 @@ public class ProvidersTests
 
         Assert.Equal("Shopping list:\n- apples\n- milk\n- bread", OpenAIChatFormat.Parse(c, Result(200, ChatSuccess)));
         Expect(ProviderError.Server(c, 502), () => OpenAIChatFormat.Parse(c, Result(200, ChatMidStream)));
-        Expect(ProviderError.MalformedResponse(c), () => OpenAIChatFormat.Parse(c, Result(200, ChatLength)));
+        Expect(ProviderError.OutputTruncated(c), () => OpenAIChatFormat.Parse(c, Result(200, ChatLength)));
         Expect(ProviderError.MalformedResponse(c), () => OpenAIChatFormat.Parse(c, Result(200, """{"choices": []}""")));
     }
 
@@ -485,7 +485,7 @@ public class ProvidersTests
         OpenAICompatibleCleanupProvider.MakeRequest(messages, ollama.ChatCompletionsURL, "lmstudio-community/qwen2.5-7b@q4_k_m", null);
 
         Assert.Equal("Please send the report.", OpenAICompatibleCleanupProvider.Parse(Result(200, LocalChatOK)));
-        Expect(ProviderError.MalformedResponse(ProviderID.LocalServer), () => OpenAICompatibleCleanupProvider.Parse(Result(200, LocalChatLength)));
+        Expect(ProviderError.OutputTruncated(ProviderID.LocalServer), () => OpenAICompatibleCleanupProvider.Parse(Result(200, LocalChatLength)));
         Expect(ProviderError.MalformedResponse(ProviderID.LocalServer), () => OpenAICompatibleCleanupProvider.Parse(Result(200, "<html>")));
         Expect(ProviderError.Rejected(ProviderID.LocalServer, 404), () => OpenAICompatibleCleanupProvider.Parse(Result(404, OllamaModelNotFound)));
         Expect(ProviderError.Authentication(ProviderID.LocalServer), () => OpenAICompatibleCleanupProvider.Parse(Result(401, """{"error":{"code":401,"message":"Invalid API Key","type":"authentication_error"}}""")));

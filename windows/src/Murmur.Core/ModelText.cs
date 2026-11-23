@@ -40,6 +40,8 @@ public sealed partial record ModelFacts
     public string? LicenseNotice { get; init; }
     /// <summary>A final paragraph of the confirmation.</summary>
     public string? Closing { get; init; }
+    /// <summary>A paragraph worked out when the confirmation is shown (null for none): Windows' notes model warns here when no GPU can run it.</summary>
+    public Func<string?>? ClosingSource { get; init; }
     public required string RemoveTitle { get; init; }
     public required Func<string, long, string> RemoveBody { get; init; }
     public required string Completed { get; init; }
@@ -83,7 +85,7 @@ public sealed partial record ModelFacts
     {
         var size = FormatBytes(downloadSize);
         return ($"Download {ConfirmName} ({size})?",
-                $"Murmur downloads {size} from Hugging Face and checks every file against its pinned checksum. {Placement(folder)}\n\n{LicenseNotice ?? $"License:\n{LicenseText(license)}"}" + (Closing is null ? "" : "\n\n" + Closing));
+                $"Murmur downloads {size} from Hugging Face and checks every file against its pinned checksum. {Placement(folder)}\n\n{LicenseNotice ?? $"License:\n{LicenseText(license)}"}" + ((Closing ?? ClosingSource?.Invoke()) is { } closing ? "\n\n" + closing : ""));
     }
 
     public static string SavedIn(string folder) => $"It is saved in {folder}.";

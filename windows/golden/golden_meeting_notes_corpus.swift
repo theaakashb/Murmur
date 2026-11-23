@@ -22,11 +22,15 @@ import Foundation
                                   + entry.traps.map { .init(text: $0, lines: [entry.lines.count + 1]) },
                                   decisions: entry.decisions.map { .init(text: entry.lines[$0[0] - 1][1], lines: $0) },
                                   actions: entry.actions.map { .init(text: entry.lines[$0.lines[0] - 1][1], lines: $0.lines, owner: $0.owner) })
-                let outcome = try await MeetingNotesWriter.write(meeting, route: .customAPI, routeName: "Fixture") { _, _ in draft.text }
+                // Grounding directly: the item caps would cut the traps before grounding, and this file tests grounding.
+                let numbered = MeetingNotesPrompt.number(meeting)
+                let whole = NotesGrounding.source(numbered, myNotes: meeting.myNotes)
+                var reasons: [NotesGrounding.Reason: Int] = [:]
+                let grounded = MeetingNotesWriter.ground(Draft.parse(draft.text)!, in: whole, reasons: &reasons)
                 result[entry.id] = [
-                    "points": outcome.notes.keyPoints.map(\.lines), "decisions": outcome.notes.decisions.map(\.lines),
-                    "actions": outcome.notes.actions.map(\.lines), "dropped": outcome.notes.dropped,
-                    "reasons": Dictionary(uniqueKeysWithValues: outcome.reasons.map { ($0.key.rawValue, $0.value) })
+                    "points": grounded.points.map(\.lines), "decisions": grounded.decisions.map(\.lines),
+                    "actions": grounded.actions.map(\.lines), "dropped": reasons.values.reduce(0, +),
+                    "reasons": Dictionary(uniqueKeysWithValues: reasons.map { ($0.key.rawValue, $0.value) })
                 ]
             }
         }

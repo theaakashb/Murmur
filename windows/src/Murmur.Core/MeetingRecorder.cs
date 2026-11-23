@@ -85,6 +85,9 @@ public sealed class MeetingRecorder
     public HashSet<string> NotesWriting { get; } = [];
     public Dictionary<string, int> Leftovers { get; private set; } = [];
     public Dictionary<string, string> NotesProblem { get; } = [];
+    /// <summary>How far each running notes write is (the on-device route reports it).</summary>
+    public Dictionary<string, NotesProgress> NotesProgressById { get; } = [];
+    public void ReportNotesProgress(string id, NotesProgress progress) => w.Post(() => { if (NotesWriting.Contains(id)) { NotesProgressById[id] = progress; Notify(); } });
     public MeetingSource? ConsentPending { get; set; }
     public string? SystemAudioProblem { get; set; }
     public string? Message { get; set; }
@@ -313,7 +316,7 @@ public sealed class MeetingRecorder
 
     void NotesDone(string id, bool lecture, MeetingNotesWriter.Outcome? outcome, Exception? error)
     {
-        NotesWriting.Remove(id);
+        NotesWriting.Remove(id); NotesProgressById.Remove(id);
         if (outcome is null)
         {
             var reason = error switch

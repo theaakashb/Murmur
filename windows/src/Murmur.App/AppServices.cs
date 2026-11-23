@@ -25,13 +25,15 @@ internal sealed class AppServices
     /// <summary>Speaker separation downloads two models (segmentation and embedding); the feature needs both.</summary>
     public ModelSlot SpeakerSegmentationSlot { get; }
     public ModelSlot SpeakerEmbeddingSlot { get; }
-    /// <summary>The slot of a local speech model (Controller+Models.swift speechModelSlot).</summary>
     /// <summary>Stored by the dictation-language picker (default English).</summary>
     public IReadOnlyList<string> DictationLanguageCodes => Settings.Get(Prefs.DictationLanguages);
     public LocalSpeechModel ChosenSpeechModel => DictationLanguages.Create(DictationLanguageCodes)?.LocalModel ?? LocalSpeechModel.ParakeetEnglish;
     /// <summary>The chosen model on the local route, else English (the cloud routes need no speech model).</summary>
     public LocalSpeechModel RequiredSpeechModel => RouteSettings.Load(Settings).Transcription == TranscriptionRoute.Local ? ChosenSpeechModel : LocalSpeechModel.ParakeetEnglish;
+    /// <summary>The slot of a local speech model (Controller+Models.swift speechModelSlot).</summary>
     public ModelSlot SlotFor(LocalSpeechModel model) => model switch { LocalSpeechModel.ParakeetTDT => TdtSlot, LocalSpeechModel.WhisperTurbo => WhisperSlot, _ => SpeechSlot };
+    /// <summary>Gemma 3 4B, the on-device meeting notes model (Settings › Meetings).</summary>
+    public ModelSlot LocalNotesSlot { get; }
     public HistoryRouter<HistoryEntry> History { get; private set; } = null!;
     /// <summary>Null when the dictionary or ledger can't be read: only cleanup and the dictionary stop, and dictations are held in History (app/Controller.swift:348-351).</summary>
     public ProcessingCoordinator? Processing { get; private set; }
@@ -59,8 +61,11 @@ internal sealed class AppServices
         CleanupSlot = ModelSlot.Create(ModelFacts.LocalCleanup, Root);
         SpeakerSegmentationSlot = ModelSlot.Create(ModelFacts.SpeakerSegmentation, Root);
         SpeakerEmbeddingSlot = ModelSlot.Create(ModelFacts.SpeakerEmbedding, Root);
-        foreach (var slot in new[] { SpeechSlot, TdtSlot, WhisperSlot, LiveWordsSlot, CleanupSlot, SpeakerSegmentationSlot, SpeakerEmbeddingSlot }) if (slot.Downloader is { } downloader) slot.Status = downloader.Status();
+        LocalNotesSlot = ModelSlot.Create(ModelFacts.LocalNotes, Root);
+        foreach (var slot in new[] { SpeechSlot, TdtSlot, WhisperSlot, LiveWordsSlot, CleanupSlot, SpeakerSegmentationSlot, SpeakerEmbeddingSlot, LocalNotesSlot }) if (slot.Downloader is { } downloader) slot.Status = downloader.Status();
         ConfigureCleanupRunner();
+        // Whether a GPU can run the notes model: asked once, off the UI thread, so the no-GPU warning is known by the time Settings or the download dialog needs it.
+        if (!testing) _ = NotesGpu.Available();
         Local = new LocalTranscriber(this);
         ReopenData();
         PurgeAtLaunch();
