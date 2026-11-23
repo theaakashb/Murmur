@@ -17,7 +17,8 @@ internal sealed class DictationLanguagePicker
     readonly Func<IReadOnlyList<string>> get;
     readonly Action<IReadOnlyList<string>> set;
     readonly Func<bool> onDevice;
-    readonly TextBlock selected = MurmurStyle.Text("", "MurmurSettingLabel");
+    // A RichTextBlock: a TextBlock cannot hold the flag images (InlineUIContainer throws ArgumentException in WinUI 3 and Settings failed to open).
+    readonly RichTextBlock selected = new() { IsTextSelectionEnabled = false };
     readonly TextBox search = MurmurStyle.Named(new TextBox { PlaceholderText = "Search languages" }, "Search languages");
     readonly StackPanel list = new();
     readonly ScrollViewer scroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -77,13 +78,15 @@ internal sealed class DictationLanguagePicker
     public void Refresh()
     {
         var codes = get();
-        selected.Inlines.Clear();
+        var line = new Paragraph();
         for (var i = 0; i < codes.Count; i++)
         {
-            if (i > 0) selected.Inlines.Add(new Run { Text = "  ·  " });
-            selected.Inlines.Add(new InlineUIContainer { Child = Flag(codes[i], new Thickness(0, 0, 7, -2)) });
-            selected.Inlines.Add(new Run { Text = Name(codes[i]) });
+            if (i > 0) line.Inlines.Add(new Run { Text = "  ·  " });
+            line.Inlines.Add(new InlineUIContainer { Child = Flag(codes[i], new Thickness(0, 0, 7, -2)) });
+            line.Inlines.Add(new Run { Text = Name(codes[i]) });
         }
+        selected.Blocks.Clear();
+        selected.Blocks.Add(line);
         AutomationProperties.SetName(selected, "Selected: " + string.Join(", ", codes.Select(Name)));
         selected.Visibility = codes.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         speedNote.Visibility = onDevice() && DictationLanguages.Create(codes)?.LocalModel == LocalSpeechModel.WhisperTurbo ? Visibility.Visible : Visibility.Collapsed;
