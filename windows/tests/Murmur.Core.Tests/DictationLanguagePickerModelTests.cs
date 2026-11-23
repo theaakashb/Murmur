@@ -6,11 +6,27 @@ namespace Murmur.Core.Tests;
 public class DictationLanguagePickerModelTests
 {
     [Fact]
-    public void FlagsAreRegionalIndicatorsOrAGlobe()
+    public void FlagsAreRegionsOrNullForTheGlobe()
     {
-        Assert.Equal("\U0001F1FA\U0001F1F8", DictationLanguagePickerModel.Flag("en"));
-        Assert.Equal("\U0001F1EE\U0001F1F3", DictationLanguagePickerModel.Flag("hi"));
-        Assert.Equal("\U0001F310", DictationLanguagePickerModel.Flag("haw"));
+        Assert.Equal("us", DictationLanguagePickerModel.FlagRegion("en"));
+        Assert.Equal("in", DictationLanguagePickerModel.FlagRegion("hi"));
+        Assert.Null(DictationLanguagePickerModel.FlagRegion("haw"));
+    }
+
+    [Fact]
+    public void EveryFlagRegionHasAnAssetThatIsBundled()
+    {
+        var app = Path.Combine(ModelTestSupport.RepoRoot(), "windows", "src", "Murmur.App");
+        var project = File.ReadAllText(Path.Combine(app, "Murmur.App.csproj"));
+        Assert.Contains(@"Assets\Flags\*.svg", project);
+        Assert.NotEmpty(DictationLanguagePickerModel.FlagRegions);
+        foreach (var region in DictationLanguagePickerModel.FlagRegions)
+        {
+            var file = Path.Combine(app, "Assets", "Flags", region + ".svg");
+            Assert.True(File.Exists(file), $"missing flag asset {region}.svg");
+            Assert.Contains("<svg", File.ReadAllText(file));
+        }
+        Assert.Equal(DictationLanguagePickerModel.FlagRegions.Count, Directory.GetFiles(Path.Combine(app, "Assets", "Flags"), "*.svg").Length);
     }
 
     [Fact]

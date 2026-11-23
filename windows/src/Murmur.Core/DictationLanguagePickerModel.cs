@@ -15,11 +15,11 @@ public static class DictationLanguagePickerModel
         ["tr"] = "TR", ["uk"] = "UA", ["ur"] = "PK", ["vi"] = "VN", ["zh"] = "CN",
     };
 
-    /// <summary>The regional-indicator flag for the language's usual region, or a globe.</summary>
-    public static string Flag(string code) =>
-        Regions.TryGetValue(code, out var region)
-            ? string.Concat(region.Select(c => char.ConvertFromUtf32(c + 127397)))
-            : "\U0001F310";
+    /// <summary>The lower-case region whose flag image (Assets/Flags/&lt;region&gt;.svg) shows for the language, or null for the globe. Windows has no emoji flag glyphs, so the Mac's regional-indicator flags are bundled images.</summary>
+    public static string? FlagRegion(string code) => Regions.TryGetValue(code, out var region) ? region.ToLowerInvariant() : null;
+
+    /// <summary>Every region <see cref="FlagRegion"/> can return.</summary>
+    public static IReadOnlyCollection<string> FlagRegions => [.. Regions.Values.Select(r => r.ToLowerInvariant()).Distinct().Order(StringComparer.Ordinal)];
 
     /// <summary>With an empty search the suggested languages come first, then the rest in the given order; otherwise the matches as they are.</summary>
     public static IReadOnlyList<string> Results(string query, IReadOnlyList<string> matches) =>

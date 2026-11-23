@@ -3,6 +3,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Murmur.Core;
 
 namespace Murmur.App;
@@ -44,6 +46,20 @@ internal sealed class DictationLanguagePicker
         Refresh();
     }
 
+    /// <summary>The language's flag at the Mac's emoji size (13 pt text: about 17 x 13), or the globe the Mac shows when it has no flag. Hidden from accessibility, as on the Mac.</summary>
+    static FrameworkElement Flag(string code, Thickness margin)
+    {
+        FrameworkElement flag;
+        if (DictationLanguagePickerModel.FlagRegion(code) is { } region)
+            flag = new Image { Width = 17, Height = 13, Stretch = Microsoft.UI.Xaml.Media.Stretch.Uniform, Source = new SvgImageSource(new Uri($"ms-appx:///Assets/Flags/{region}.svg")) { RasterizePixelWidth = 68, RasterizePixelHeight = 52 } };
+        else
+            flag = new TextBlock { Text = "🌐", FontSize = 13 };
+        flag.Margin = margin;
+        flag.VerticalAlignment = VerticalAlignment.Center;
+        AutomationProperties.SetAccessibilityView(flag, AccessibilityView.Raw);
+        return flag;
+    }
+
     string Name(string code)
     {
         try { var n = CultureInfo.GetCultureInfo(code).DisplayName; if (!string.IsNullOrWhiteSpace(n)) return n; }
@@ -61,7 +77,13 @@ internal sealed class DictationLanguagePicker
     public void Refresh()
     {
         var codes = get();
-        selected.Text = string.Join("  ·  ", codes.Select(c => $"{DictationLanguagePickerModel.Flag(c)} {Name(c)}"));
+        selected.Inlines.Clear();
+        for (var i = 0; i < codes.Count; i++)
+        {
+            if (i > 0) selected.Inlines.Add(new Run { Text = "  ·  " });
+            selected.Inlines.Add(new InlineUIContainer { Child = Flag(codes[i], new Thickness(0, 0, 7, -2)) });
+            selected.Inlines.Add(new Run { Text = Name(codes[i]) });
+        }
         AutomationProperties.SetName(selected, "Selected: " + string.Join(", ", codes.Select(Name)));
         selected.Visibility = codes.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         speedNote.Visibility = onDevice() && DictationLanguages.Create(codes)?.LocalModel == LocalSpeechModel.WhisperTurbo ? Visibility.Visible : Visibility.Collapsed;
@@ -81,8 +103,7 @@ internal sealed class DictationLanguagePicker
             var name = Name(code);
             var native = Native(code);
             var line = new Grid { ColumnSpacing = 8, ColumnDefinitions = { new ColumnDefinition { Width = GridLength.Auto }, new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } } };
-            var flag = new TextBlock { Text = DictationLanguagePickerModel.Flag(code), VerticalAlignment = VerticalAlignment.Center };
-            AutomationProperties.SetAccessibilityView(flag, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+            var flag = Flag(code, new Thickness(0));
             var label = new TextBlock { Text = name, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
             Grid.SetColumn(label, 1);
             line.Children.Add(flag); line.Children.Add(label);

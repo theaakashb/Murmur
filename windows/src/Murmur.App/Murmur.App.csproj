@@ -31,6 +31,10 @@
   <ItemGroup>
     <Content Include="Assets\tray-light.ico;Assets\tray-dark.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <!-- Flag images for the dictation language picker (lipis/flag-icons, MIT; see Assets\Flags\README.md). -->
+  <ItemGroup>
+    <Content Include="Assets\Flags\*.svg;Assets\Flags\LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <!-- Shared editorial fonts and their SIL Open Font License notices. -->
   <ItemGroup>
     <Content Include="..\..\..\app\Fonts\InstrumentSerif-Regular.ttf;..\..\..\app\Fonts\DMSans.ttf"
