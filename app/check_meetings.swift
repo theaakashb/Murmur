@@ -472,6 +472,56 @@ func check(_ condition: @autoclosure () throws -> Bool, _ name: String) {
             do { _ = try await MeetingNotesWriter.write(long2, route: .appleIntelligence, routeName: "Apple Intelligence", generate: twice); check(false, "overflow twice fails with a reason") }
             catch { check(error as? NotesFailure == .failed("Part of this meeting is too long for the notes route."), "overflow twice fails with a reason") }
 
+            // Item caps and output exhaustion.
+            let rulesEnd = "- Leave a list empty rather than inventing items.\n" + MeetingNotesLimits.instruction
+            let numberedLong = MeetingNotesPrompt.number(long2)
+            check(MeetingNotesPrompt.extract(numberedLong, myNotes: "", nonce: "n").system.hasSuffix(rulesEnd)
+                  && MeetingNotesPrompt.merge([Draft(), Draft()], nonce: "n").system.hasSuffix(rulesEnd)
+                  && MeetingNotesPrompt.merge([Draft(), Draft()], nonce: "n", speakers: ["Ana"]).system.hasSuffix(rulesEnd), "prompts end with the item caps")
+            var lastSystem = ""
+            _ = try await MeetingNotesWriter.write(long2, route: .appleIntelligence, routeName: "Apple Intelligence", lecture: true) { system, _ in lastSystem = system; return "POINT | L1 | x" }
+            check(lastSystem.hasSuffix(MeetingNotesLimits.instruction + "\n" + MeetingNotesPrompt.lectureRules), "lecture rules follow the item caps")
+            var big = Draft(); big.title = "T"; big.summary = "S"
+            big.points = (0..<20).map { Draft.Item(text: "p\($0)", lines: [1]) }
+            big.decisions = (0..<20).map { Draft.Item(text: "d\($0)", lines: [1]) }
+            big.actions = (0..<20).map { Draft.Item(text: "a\($0)", lines: [1]) }
+            let capped = big.capped()
+            check(capped.points.count == 8 && capped.decisions.count == 10 && capped.actions.count == 12 && capped.points.first?.text == "p0" && capped.title == "T" && capped.summary == "S", "capped keeps the first items, title and summary")
+            let oneChunk = try await MeetingNotesWriter.write(long2, route: .customAPI, routeName: "Custom Provider") { _, _ in
+                (1...12).map { "POINT | L\($0) | Line \($0 - 1) about the quarterly roadmap" }.joined(separator: "\n") + "\n"
+                    + (1...14).map { "DECISION | L\($0) | Line \($0 - 1) about the quarterly roadmap" }.joined(separator: "\n") + "\n"
+                    + (1...15).map { "ACTION | L\($0) | - | - | Line \($0 - 1) about the quarterly roadmap" }.joined(separator: "\n")
+            }.notes
+            check(oneChunk.keyPoints.count <= 8 && oneChunk.decisions.count <= 10 && oneChunk.actions.count <= 12 && !oneChunk.keyPoints.isEmpty, "an extraction reply is capped")
+            let mergedCap = try await MeetingNotesWriter.write(long2, route: .appleIntelligence, routeName: "Apple Intelligence") { system, user in
+                if system.hasPrefix("You merge") { return (1...20).map { "POINT | L\($0) | Line \($0 - 1) about the quarterly roadmap" }.joined(separator: "\n") }
+                return "POINT | L1 | Quarterly roadmap"
+            }.notes
+            check(mergedCap.keyPoints.count == 8, "a merge reply is capped")
+            // Output exhaustion splits once, like a context overflow.
+            var four = Meeting(id: UUID().uuidString, recordedAt: Date(), source: .microphoneOnly)
+            for i in 0..<4 { four.insert(stream: .them, start: Double(i * 5), end: Double(i * 5 + 4), text: "Line \(i) about the roadmap.") }
+            calls = 0
+            _ = try await MeetingNotesWriter.write(four, route: .customAPI, routeName: "Custom Provider", generate: { _, _ in calls += 1; if calls == 1 { throw NotesFailure.tooLarge }; return "POINT | L1 | Line 0 about the roadmap" })
+            check(calls == 4, "a truncated reply splits the chunk once: three extractions, one merge")
+            calls = 0
+            do { _ = try await MeetingNotesWriter.write(four, route: .customAPI, routeName: "Custom Provider", generate: { _, _ in calls += 1; throw NotesFailure.tooLarge }); check(false, "truncation twice fails") }
+            catch { check(calls == 2 && error as? NotesFailure == .failed("Part of this meeting is too long for the notes route."), "truncation twice fails after one retry") }
+            var one = Meeting(id: UUID().uuidString, recordedAt: Date(), source: .microphoneOnly)
+            one.insert(stream: .them, start: 0, end: 4, text: "Line about the roadmap.")
+            calls = 0
+            do { _ = try await MeetingNotesWriter.write(one, route: .customAPI, routeName: "Custom Provider", generate: { _, _ in calls += 1; throw NotesFailure.tooLarge }); check(false, "one line fails") }
+            catch { check(calls == 1 && error as? NotesFailure == .failed("Part of this meeting is too long for the notes route."), "a one-line chunk is not split") }
+            // A merge batch that throws splits 1 + 2; the lone draft is never sent.
+            var mergeCalls = 0, loneSent = false
+            do {
+                _ = try await MeetingNotesWriter.write(long2, route: .appleIntelligence, routeName: "Apple Intelligence") { system, user in
+                    if system.hasPrefix("You merge") { mergeCalls += 1; if user.components(separatedBy: "POINT | ").count == 2 { loneSent = true }; throw NotesFailure.tooLarge }
+                    return "POINT | L1 | Quarterly roadmap"
+                }
+                check(false, "merge exhaustion fails")
+            } catch { check(error as? NotesFailure == .failed("This meeting is too long for the notes route.") && mergeCalls >= 1 && !loneSent, "merge exhaustion fails without sending a lone draft") }
+
             // The route setting: unset until the first Stop asks; Apple carries its label.
             let defaultsSuite = "murmur-notes-\(UUID().uuidString)"
             let defaults = UserDefaults(suiteName: defaultsSuite)!

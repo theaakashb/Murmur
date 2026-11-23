@@ -277,7 +277,7 @@ func checkKeychainStore() {
 
         check((try? OpenAIChatFormat.parse(provider: .customAPI, result: result(200, chatSuccess))) == "Shopping list:\n- apples\n- milk\n- bread", "chat success parse")
         expectError(.server(.customAPI, status: 502), "error inside HTTP 200") { try OpenAIChatFormat.parse(provider: .customAPI, result: result(200, chatMidStream)) }
-        expectError(.malformedResponse(.customAPI), "truncated output") { try OpenAIChatFormat.parse(provider: .customAPI, result: result(200, chatLength)) }
+        expectError(.outputTruncated(.customAPI), "truncated output") { try OpenAIChatFormat.parse(provider: .customAPI, result: result(200, chatLength)) }
         expectError(.malformedResponse(.customAPI), "no choices") { try OpenAIChatFormat.parse(provider: .customAPI, result: result(200, #"{"choices": []}"#)) }
     }
 
@@ -308,7 +308,7 @@ func checkKeychainStore() {
 
         check(ProviderError.rateLimited(.customAPI, retryAfter: 3).disposition == .preserveRetryLater, "rate limit keeps session for retry")
         check(ProviderError.network(.customAPI).disposition == .preserveRetryLater && ProviderError.timeout(.customAPI).disposition == .preserveRetryLater, "network/timeout keep session")
-        check(ProviderError.server(.customAPI, status: 500).disposition == .preserveRetryLater && ProviderError.malformedResponse(.customAPI).disposition == .preserveRetryLater, "server/malformed keep session")
+        check(ProviderError.server(.customAPI, status: 500).disposition == .preserveRetryLater && ProviderError.malformedResponse(.customAPI).disposition == .preserveRetryLater && ProviderError.outputTruncated(.customAPI).disposition == .preserveRetryLater, "server/malformed keep session")
         check(ProviderError.authentication(.customAPI).disposition == .preserveNeedsChange && ProviderError.quota(.customAPI).disposition == .preserveNeedsChange, "auth/quota keep session, need change")
         check(ProviderError.payloadTooLarge(.customAPI, limitBytes: 1).disposition == .preserveNeedsChange, "payload keeps session, needs change")
         check(ProviderError.cancelled.disposition == .discard, "cancel discards")
@@ -520,7 +520,7 @@ extension ProviderChecks {
 
 
         check((try? OpenAICompatibleCleanupProvider.parse(result(200, localChatOK))) == "Please send the report.", "local chat parse")
-        expectError(.malformedResponse(.localServer), "local truncated output") { try OpenAICompatibleCleanupProvider.parse(result(200, localChatLength)) }
+        expectError(.outputTruncated(.localServer), "local truncated output") { try OpenAICompatibleCleanupProvider.parse(result(200, localChatLength)) }
         expectError(.malformedResponse(.localServer), "local non-JSON") { try OpenAICompatibleCleanupProvider.parse(result(200, "<html>")) }
         expectError(.rejected(.localServer, status: 404), "Ollama unknown model 404") { try OpenAICompatibleCleanupProvider.parse(result(404, ollamaModelNotFound)) }
         expectError(.authentication(.localServer), "local 401 (key required)") { try OpenAICompatibleCleanupProvider.parse(result(401, #"{"error":{"code":401,"message":"Invalid API Key","type":"authentication_error"}}"#)) }
