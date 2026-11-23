@@ -66,14 +66,14 @@
       "csharp": [
         "windows/src/Murmur.Core/CloudAudio.cs"
       ],
-      "sha256": "3fbc27ef3178ac4e5bb277c34b0964c763e53d6105514f091dee7be013b10e24"
+      "sha256": "a61e138a5bfd97392c46563d41330a16ae68c429dfb72435fb957e140efbb413"
     },
     "app/Controller+Settings.swift": {
       "csharp": [
         "windows/src/Murmur.Core/CleanupStyle.cs",
         "windows/tests/Murmur.Core.Tests/CleanupStyleTests.cs"
       ],
-      "sha256": "23cdbe385e8107b0c3c536b57c3337191b2730951565d2dd9fc18eae2c0f5fa8"
+      "sha256": "2af58a0b840ee522699d3f8fafd0be6582d68ed26121919e332156db981744ce"
     },
     "app/Credentials.swift": {
       "csharp": [
@@ -91,7 +91,7 @@
       "csharp": [
         "windows/src/Murmur.Core/Dictionary.cs"
       ],
-      "sha256": "573e936db26c694ea44af30841cc3df6111bd41e769ece5e77573fe17387a122"
+      "sha256": "ef84aa04a788e15172609b0df4d334a9acc04c90765fee0c3059e218e714d241"
     },
     "app/Digests.swift": {
       "csharp": [
@@ -222,7 +222,7 @@
         "windows/src/Murmur.Core/WarmRunner.cs",
         "windows/src/Murmur.Core/ChunkJob.cs"
       ],
-      "sha256": "2713294a3dde84eed948132cc1f3a589b3176feff385bb5524181c7aca34cd87"
+      "sha256": "959dfc596a35e695f3b6b9f4505e696bb92f94d3f3a6d7a0cec7cbe46e92e9bd"
     },
     "app/ModelManifest.swift": {
       "csharp": [
@@ -234,7 +234,7 @@
       "csharp": [
         "windows/src/Murmur.Core/ModelText.cs"
       ],
-      "sha256": "2eeb042fdbb227e5ebf233016cd124f502c37278f36342e3ec168568ff2db777"
+      "sha256": "874b73387ee27e04bcd2506f4e818e92435c2dd0252dbf249e0500cfddeaeaf7"
     },
     "app/MurmurCloud.swift": {
       "csharp": [
@@ -300,7 +300,7 @@
       "csharp": [
         "windows/src/Murmur.Core/Routes.cs"
       ],
-      "sha256": "66af16d34287842c830323d364283b7ff0288e63f9c9e4dc22af2d77695247b0"
+      "sha256": "5cf316978946a59edcac18840113e6f25e4749683b98ff3e85892e549a2c42a8"
     },
     "app/RuleCleaner.swift": {
       "csharp": [
@@ -320,14 +320,14 @@
         "windows/src/Murmur.Core/Settings.cs",
         "windows/src/Murmur.Core/JsonSettingsStore.cs"
       ],
-      "sha256": "0860f7c917f89b70671c0709dbe3bc1b0fc2ea50680ef6f7dd9013512c1de809"
+      "sha256": "3ad3ed29e1a3f81c6b36749ea66f907ec352efc50e350daf133a2d13070d583c"
     },
     "app/SettingsView.swift": {
       "csharp": [
         "windows/src/Murmur.Core/CleanupStyle.cs",
         "windows/tests/Murmur.Core.Tests/CleanupStyleTests.cs"
       ],
-      "sha256": "2561aa53e7430c9816f806ec5d46476c1cf5fa684335137b03ff2245b45bce81"
+      "sha256": "462dc08ae3978c20b36c51356fa0ae0d4941ac465b53141683aee63cfd5cea2e"
     },
     "app/Shortcut.swift": {
       "csharp": [
@@ -418,7 +418,7 @@
         "windows/tests/Murmur.Core.Tests/LearningTests.cs",
         "windows/tests/Murmur.Core.Tests/PrivateFilesTests.cs"
       ],
-      "sha256": "441b217263f7861a28e6008e8b67848d3ea72b1ee0d1bdb8051495630bc495c2"
+      "sha256": "24482da84a56a1741ea5a823477eb826c8abcafc600cd86c20acd9c39578074b"
     },
     "app/check_history.swift": {
       "csharp": [
@@ -478,7 +478,7 @@
         "windows/tests/Murmur.Core.Tests/ProcessingTests.cs",
         "windows/tests/Murmur.Core.Tests/ObservationTests.cs"
       ],
-      "sha256": "9f512fe33c37ccfda3a74b5fa8ff2ac43f66df257a4a1195be73f37709231fff"
+      "sha256": "8c5c170d3f790b3823c5ed5269a60bdf38b07cd8acce24193787ccadd8ccc4a9"
     },
     "app/check_professional_hint.swift": {
       "csharp": [
@@ -497,7 +497,7 @@
       "csharp": [
         "windows/tests/Murmur.Core.Tests/RoutesTests.cs"
       ],
-      "sha256": "d56eddc9ac1a2bc5a6ef68bbb3d7c72fff28f7da2b2d139ae0449c026f49ef6c"
+      "sha256": "c6776aff5fe0b7e755e26bf9c2e59343c97e56cf97946213c69bd43869db7830"
     },
     "app/check_speakers.swift": {
       "csharp": [
@@ -554,7 +554,7 @@
       "csharp": [
         "windows/src/Murmur.Speech/Program.cs"
       ],
-      "sha256": "acec1e71f7455fb621156d3d3a77adb13b017698e30ba5332b3e30045f570985"
+      "sha256": "69d1c35b36b81f5ec97853aebab9dff422b86895f0adeaa0fb99fc09b61519ff"
     }
   }
 }
