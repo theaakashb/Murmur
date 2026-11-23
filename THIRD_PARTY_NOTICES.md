@@ -76,6 +76,20 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 - Runs through LLamaSharp and llama.cpp (see above), locally; the transcript is never sent anywhere.
 - Windows only: the Mac does not use it.
 
+### Speaker separation (Windows, downloaded at run time)
+
+- pyannote segmentation 3.0 as ONNX by csukuangfj (`csukuangfj/sherpa-onnx-pyannote-segmentation-3-0`), MIT.
+- WeSpeaker VoxCeleb ResNet34 speaker embedding (`csukuangfj/speaker-embedding-models`, file `wespeaker_en_voxceleb_resnet34.onnx`), Apache-2.0.
+- Pinned by revision and SHA-256 in `windows/shared/windows-models.json`.
+
+### Velopack (installer and updates)
+
+- Velopack 1.2.161 (MIT) installs the Windows app and updates it from GitHub releases tagged `windows-v*`.
+
+### Windows App SDK and WinUI 3 (app shell)
+
+- Microsoft.WindowsAppSDK 2.7.0 (Microsoft, https://github.com/microsoft/WindowsAppSDK). Release duty: check the package's licence terms at the pinned version and ship the required notice; not yet checked.
+
 ## Downloaded at run time, not bundled
 
 ### Parakeet Unified English 0.6B

@@ -25,3 +25,9 @@ Use synthetic data for fixtures and examples. Store provider keys through Settin
 The optional scripts under `app/tools/` include live provider benchmarks that can read configured Keychain credentials and send supplied text or audio to the selected provider. Read the script and its arguments before running it; the offline checks in CONTRIBUTING.md do not require provider keys.
 
 The app is a desktop client, with no repository-hosted backend or account service. Custom servers are user-selected trust boundaries; plain HTTP outside loopback exposes audio or transcript content to the network path and is disclosed in Settings. Local history is protected with filesystem permissions, rather than application-level encryption.
+
+## Windows
+
+The Windows app (in development on the `windows` branch) keeps settings, History, the dictionary, downloaded models and retry audio in `%LOCALAPPDATA%\Murmur`, not the roaming profile, so transcripts do not sync. Uninstalling keeps this folder; **Delete All Data** in Settings removes History and meeting notes, the dictionary and learned entries, retry audio and saved API keys; settings and downloaded models stay. Provider keys are stored in Windows Credential Manager, encrypted per user, rather than in a file.
+
+Windows builds are not code-signed yet; signing comes later. Until then Microsoft Defender or SmartScreen may warn about the installer, and some antivirus tools may flag the global keyboard hook and clipboard paste that dictation uses. Check that you got the build from this repository's releases.
