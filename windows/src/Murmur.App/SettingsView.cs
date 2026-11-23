@@ -340,7 +340,7 @@ internal sealed partial class SettingsView
         void ShowSpeechRow() { speechRow?.Detach(); speechRow = new ModelRow(s, controller.RequiredSpeechSlot, controller, root, go => { s.Local.Release(); go(); }, UpdateModelRoutes, required: true); speechHost.Content = MurmurStyle.Card(speechRow.Panel); }
         var picker = new DictationLanguagePicker(() => s.Settings.Get(Prefs.DictationLanguages), v => { s.Settings.Set(Prefs.DictationLanguages, v); ShowSpeechRow(); UpdateModelRoutes(); foreach (var refresh in refreshNotes) refresh(); }, () => Routes.Transcription == TranscriptionRoute.Local);
         refreshNotes.Add(picker.Refresh);
-        refreshNotes.Add(() => picker.Panel.IsEnabled =!controller.IsBusy && !controller.SpeechModelDownloading);
+        refreshNotes.Add(() => picker.IsEnabled = !controller.IsBusy && !controller.SpeechModelDownloading);
         page.Children.Add(picker.Panel);
         ShowSpeechRow();
         page.Children.Add(speechHost);

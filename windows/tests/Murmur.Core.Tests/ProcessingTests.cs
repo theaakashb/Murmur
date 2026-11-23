@@ -89,6 +89,10 @@ public class ProcessingTests
         c.Check(fresh == new ProcessingSettings(), "missing keys load approved defaults");
         c.Check(fresh.Options == new CleanupOptions(punctuation: true, spoken: true, trustModel: true) && fresh.Route == CleanupRoute.Local && fresh.LearningEnabled
                 && defaults.Get(Prefs.HistoryMode) == HistoryMode.On && defaults.Get(Prefs.UpdateChecks), "defaults: all comforts on, local, learning on");
+        c.Check(defaults.Get(Prefs.ShowInDock), "Dock icon on by default");
+        defaults.Set(Prefs.ShowInDock, false);
+        c.Check(!defaults.Get(Prefs.ShowInDock), "stored Dock opt-out takes precedence");
+        defaults.Remove(Prefs.ShowInDock.Key);
         var next = new ProcessingSettings { Options = new CleanupOptions(fillers: false, corrections: true, lists: false, professional: true, trustModel: true), Route = CleanupRoute.Cloud, LearningEnabled = false };
         next.Save(defaults);
         defaults.Set(Prefs.ReadableLearning, true); defaults.Set(Prefs.HistoryMode, HistoryMode.Off); defaults.Set(Prefs.UpdateChecks, false);

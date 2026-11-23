@@ -177,7 +177,7 @@
     },
     {
       "key" : "showInDock",
-      "mac" : false,
+      "mac" : true,
       "type" : "bool"
     },
     {

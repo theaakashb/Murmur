@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Murmur.Core;
 
@@ -21,6 +22,9 @@ internal sealed class DictationLanguagePicker
     readonly TextBlock none = MurmurStyle.Text("No matching languages");
     readonly TextBlock speedNote = MurmurStyle.Text("Your selected languages need a larger speech model. Transcription may take longer on this PC.", "MurmurCaption");
     public StackPanel Panel { get; } = new() { Spacing = 10 };
+    bool enabled = true;
+    /// <summary>StackPanel has no IsEnabled in WinUI 3, so the search box and rows are disabled directly.</summary>
+    public bool IsEnabled { get => enabled; set { if (enabled == value) return; enabled = value; search.IsEnabled = value; Rebuild(); } }
 
     /// <param name="get">The saved codes, in the order chosen.</param>
     /// <param name="set">Saves the new selection.</param>
@@ -87,7 +91,7 @@ internal sealed class DictationLanguagePicker
                 var n = MurmurStyle.Text(native, "MurmurCaption"); n.VerticalAlignment = VerticalAlignment.Center;
                 Grid.SetColumn(n, 2); line.Children.Add(n);
             }
-            var box = MurmurStyle.Named(new CheckBox { Content = line, MinHeight = RowHeight, MinWidth = 0, IsChecked = codes.Contains(code), IsEnabled = !DictationLanguagePickerModel.IsLocked(codes, code), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch }, name);
+            var box = MurmurStyle.Named(new CheckBox { Content = line, MinHeight = RowHeight, MinWidth = 0, IsChecked = codes.Contains(code), IsEnabled = enabled && !DictationLanguagePickerModel.IsLocked(codes, code), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch }, name);
             var chosen = code;
             box.Click += (_, _) => { set(DictationLanguagePickerModel.Toggle(get(), chosen, box.IsChecked == true)); Refresh(); };
             list.Children.Add(box);
