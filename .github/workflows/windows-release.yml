@@ -63,7 +63,9 @@ jobs:
       - name: Sign (M6 placeholder; manual runs only)
         if: ${{ github.ref_type != 'tag' && inputs.sign }}
         shell: pwsh
-        run: Write-Error 'Signing is not wired yet: add --azureTrustedSignFile / --signParams in package.ps1 and the Azure login step first.'; exit 1
+        run: |
+          Write-Error 'Signing is not wired yet: add --azureTrustedSignFile / --signParams in package.ps1 and the Azure login step first.'
+          exit 1
       # 4. Draft upload only.
       - name: Upload to draft release
         if: ${{ env.UPLOAD == 'true' }}
