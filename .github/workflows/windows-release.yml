@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version X.Y.Z (the tag becomes windows-vX.Y.Z)
+        description: Version X.Y.Z or X.Y.Z-pre.N, e.g. 0.1.0-beta.1 (the tag becomes windows-v<version>)
         required: true
       sign:
         description: Sign with Azure Artifact Signing (needs the secrets below)
@@ -36,8 +36,11 @@ jobs:
         shell: pwsh
         run: |
           $v = $env:VERSION -replace '^windows-v', ''
-          if ($v -notmatch '^\d+\.\d+\.\d+$') { Write-Error "Bad version '$env:VERSION' (want windows-vX.Y.Z)"; exit 1 }
+          # SemVer 2 core plus an optional pre-release (no build metadata); Velopack and the .NET SDK both accept it.
+          if ($v -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$') { Write-Error "Bad version '$env:VERSION' (want windows-vX.Y.Z or windows-vX.Y.Z-beta.N)"; exit 1 }
           "VERSION=$v" >> $env:GITHUB_ENV
+          # A pre-release version uploads as a GitHub pre-release (still a draft).
+          "PRE=$(if ($v.Contains('-')) { '--pre' } else { '' })" >> $env:GITHUB_ENV
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
@@ -66,6 +69,8 @@ jobs:
         if: ${{ env.UPLOAD == 'true' }}
         shell: pwsh
         env: { GH_TOKEN: "${{ github.token }}" }
-        run: windows/tools/.vpk/vpk.exe upload github --repoUrl "https://github.com/${{ github.repository }}" --channel win --outputDir releases --tag "windows-v$env:VERSION" --merge --token $env:GH_TOKEN
+        run: |
+          $pre = @(); if ($env:PRE) { $pre = @($env:PRE) }
+          windows/tools/.vpk/vpk.exe upload github --repoUrl "https://github.com/${{ github.repository }}" --channel win --outputDir releases --tag "windows-v$env:VERSION" --merge @pre --token $env:GH_TOKEN
       - uses: actions/upload-artifact@v4
         with: { name: "windows-release-${{ env.VERSION }}", path: releases/*.nupkg }
