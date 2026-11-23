@@ -88,6 +88,85 @@
         "name": "Gemma Terms of Use",
         "url": "https://ai.google.dev/gemma/terms"
       }
+    },
+    "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8": {
+      "comment": "NVIDIA Parakeet TDT 0.6B v3 (25 European languages) as sherpa-onnx NeMo-transducer int8 files (csukuangfj conversion), for multilingual dictation. License CC BY 4.0 per the upstream NVIDIA card and the conversion card; the app discloses both before download. Sizes and SHA-256 checked against the Hugging Face API and a local download on 2026-11-22.",
+      "platform": "windows",
+      "revision": "ed5d745623472f97cfc2e6c2916ee248798fc5a8",
+      "files": [
+        {
+          "rfilename": "encoder.int8.onnx",
+          "size": 652282294,
+          "lfs": {
+            "sha256": "1afbe69c1ffdabee94755f42e4daf1d93549131a3da11356bda84fcef0f2c479",
+            "size": 652282294
+          }
+        },
+        {
+          "rfilename": "decoder.int8.onnx",
+          "size": 11845274,
+          "lfs": {
+            "sha256": "0222a86147299d4dee90edf95b6d13827edb42ad8b7c9cf0b2582f030937c0b5",
+            "size": 11845274
+          }
+        },
+        {
+          "rfilename": "joiner.int8.onnx",
+          "size": 6355277,
+          "lfs": {
+            "sha256": "cbd02f3696e9944970111fb439d9c3fd365a80374565f13f2b9c7007d253fc98",
+            "size": 6355277
+          }
+        },
+        {
+          "rfilename": "tokens.txt",
+          "size": 93939,
+          "git_blob_sha1": "fc43e1c723e262df60b70e1919614417162d1fe2"
+        }
+      ],
+      "batch_files": [
+        "encoder.int8.onnx",
+        "decoder.int8.onnx",
+        "joiner.int8.onnx",
+        "tokens.txt"
+      ]
+    },
+    "csukuangfj/sherpa-onnx-whisper-turbo": {
+      "comment": "OpenAI Whisper large-v3-turbo as sherpa-onnx int8 files (csukuangfj export), for multilingual dictation. Upstream openai/whisper-large-v3-turbo is MIT. This Hugging Face repository carries no license tag; the sherpa-onnx export code is Apache-2.0. Sizes and SHA-256 checked against the Hugging Face API and a local download on 2026-11-22.",
+      "platform": "windows",
+      "revision": "2ca6ff69fc878651b770880507669577ac41c2ff",
+      "files": [
+        {
+          "rfilename": "turbo-encoder.int8.onnx",
+          "size": 674716297,
+          "lfs": {
+            "sha256": "b02dcdf54f348741e93fe732b67d933c8dcb6735655f710640143081db38878b",
+            "size": 674716297
+          }
+        },
+        {
+          "rfilename": "turbo-decoder.int8.onnx",
+          "size": 361080764,
+          "lfs": {
+            "sha256": "20accd02388482eb3a46bd615631adfdc85e1eb2c7db9ea3f02a40ffe6b81547",
+            "size": 361080764
+          }
+        },
+        {
+          "rfilename": "turbo-tokens.txt",
+          "size": 816730,
+          "git_blob_sha1": "a4edf0b719c10d28cd83f8c294449f99ff5d5dc0"
+        }
+      ],
+      "batch_files": [
+        "turbo-encoder.int8.onnx",
+        "turbo-decoder.int8.onnx",
+        "turbo-tokens.txt"
+      ],
+      "license": {
+        "name": "MIT",
+        "url": "https://huggingface.co/openai/whisper-large-v3-turbo"
+      }
     }
   }
 }

@@ -45,6 +45,9 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 - `windows/src/Murmur.Speech` uses sherpa-onnx 2.0.1 (k2-fsa, Apache-2.0, https://github.com/k2-fsa/sherpa-onnx) through the `org.k2fsa.sherpa.onnx` NuGet packages. The nuspec and the repository LICENSE at v2.0.1 declare Apache-2.0.
 - The runtime packages bundle ONNX Runtime 1.28.2 (Microsoft, MIT, https://github.com/microsoft/onnxruntime). The packages carry no license file, so the MIT license is not yet checked from the package. Check it before release.
 - The Parakeet Unified ONNX conversion stays under the NVIDIA Open Model License, recorded below.
+- **Silero VAD** (`silero_vad.onnx`, snakers4/silero-vad, MIT, https://github.com/snakers4/silero-vad) is bundled beside `MurmurSpeech.exe` (`windows/src/Murmur.Speech/silero_vad.onnx`, 643,854 bytes, SHA-256 `9e2449e1…bb1fd6`, from the k2-fsa/sherpa-onnx `asr-models` release). Whisper dictation uses it to cut recordings at silence.
+- **Whisper large-v3-turbo** by OpenAI, MIT (https://huggingface.co/openai/whisper-large-v3-turbo), exported to int8 ONNX for sherpa-onnx by csukuangfj (`csukuangfj/sherpa-onnx-whisper-turbo`, revision `2ca6ff69…`). That repository has no license tag; the sherpa-onnx export code is Apache-2.0. The Windows app downloads the pinned files on request and verifies their SHA-256. It does not bundle the model.
+- **Parakeet TDT 0.6B v3** by NVIDIA, CC BY 4.0, as int8 ONNX for sherpa-onnx by csukuangfj (`csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8`, revision `ed5d7456…`). The Windows app downloads the pinned files on request; the download confirmation shows the upstream and conversion cards. [Upstream model](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
 
 ### LLamaSharp and llama.cpp (local cleanup helper)
 
