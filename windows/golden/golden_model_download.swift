@@ -1,4 +1,4 @@
-// deps: Digests ModelManifest ModelDownload ModelText
+// deps: Digests ModelManifest ModelDownload ModelText DictationLanguages
 import Foundation
 
 // Golden outputs of Digests.swift, ModelManifest.swift and ModelDownload.swift over synthetic data and a fake transport (no network):

@@ -1,4 +1,4 @@
-// deps: AudioFormat Capture ModelHelper ModelFiles ModelManifest ModelDownload ModelText Digests Retention HistoryRouter
+// deps: AudioFormat Capture ModelHelper ModelFiles ModelManifest ModelDownload ModelText Digests Retention HistoryRouter DictationLanguages
 import Foundation
 import os
 

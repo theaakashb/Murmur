@@ -1,4 +1,4 @@
-// deps: AudioFormat CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention Cleanup Settings CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Credentials VoiceCues Processing WritingModes MurmurCloud Routes CloudAudio KeyCheck AppleCleanup LocalCleanup AIEngine
+// deps: AudioFormat CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention Cleanup Settings CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Credentials VoiceCues Processing WritingModes MurmurCloud Routes CloudAudio KeyCheck AppleCleanup LocalCleanup AIEngine DictationLanguages
 import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking

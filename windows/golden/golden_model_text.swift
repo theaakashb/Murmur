@@ -1,4 +1,4 @@
-// deps: Digests ModelManifest ModelDownload ModelText
+// deps: Digests ModelManifest ModelDownload ModelText DictationLanguages
 import Foundation
 
 // Golden outputs of the pure parts of ModelText.swift: byte formatting, the model row's presentation for every status, the download/remove/start gates,

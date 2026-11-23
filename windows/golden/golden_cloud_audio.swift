@@ -1,4 +1,4 @@
-// deps: AudioFormat CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Credentials MurmurCloud CloudAudio
+// deps: AudioFormat CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Credentials MurmurCloud CloudAudio DictationLanguages
 import Foundation
 import CryptoKit
 
