@@ -32,6 +32,48 @@ FluidAudio's package includes these targets, which are linked into the FluidAudi
 - The local Swift 6.4 package dump selected FluidAudio's `Package@swift-6.2.swift`, whose default trait enables `NemoTextProcessing`; build workspace metadata resolves the v0.3.1 xcframework, and the built helper contains FluidAudio `TextNormalizer` symbols.
 - These checks do not establish which individual framework components are included in the final executable. Verify that list and its required notices for the exact binary before distribution.
 
+## Murmur for Windows (in development on the `windows` branch)
+
+These entries are copied from the `windows` branch's notices. That branch's file is the one to update; the dependency versions and the unchecked items below are as recorded there.
+
+### sherpa-onnx and ONNX Runtime (local speech helper)
+
+- sherpa-onnx 2.0.1 (k2-fsa, Apache-2.0, https://github.com/k2-fsa/sherpa-onnx) through the `org.k2fsa.sherpa.onnx` NuGet packages. The runtime packages bundle ONNX Runtime 1.28.2 (Microsoft, MIT, https://github.com/microsoft/onnxruntime). The packages carry no license file, so the MIT license is not yet checked from the package.
+- **Silero VAD** (`silero_vad.onnx`, snakers4/silero-vad, MIT, https://github.com/snakers4/silero-vad) is bundled with the speech helper. Whisper dictation uses it to cut recordings at silence.
+- **Whisper large-v3-turbo** by OpenAI, MIT, exported to int8 ONNX for sherpa-onnx by csukuangfj (`csukuangfj/sherpa-onnx-whisper-turbo`). That repository has no license tag; the sherpa-onnx export code is Apache-2.0. Downloaded on request, verified by SHA-256, not bundled.
+- **Parakeet TDT 0.6B v3** by NVIDIA, CC BY 4.0, as int8 ONNX for sherpa-onnx by csukuangfj (`csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8`). Downloaded on request; the download confirmation shows the upstream and conversion cards.
+- Parakeet Unified English on Windows is an ONNX conversion under the NVIDIA Open Model License, as described below.
+
+### LLamaSharp and llama.cpp (local cleanup and meeting notes helpers)
+
+- LLamaSharp 0.30.0 (MIT, https://github.com/SciSharp/LLamaSharp) and its native backends, built from llama.cpp and ggml (MIT, https://github.com/ggml-org/llama.cpp).
+- Release duty: ship both MIT texts. The copyright lines are not yet checked against each project's LICENSE at the pinned versions.
+
+### Vedu Scribe 0.8B, GGUF (downloaded at run time)
+
+- Apache-2.0. Converted from the MLX checkpoint `heyvedu/vedu-scribe-0.8b@7dced58`, a fine-tune of `Qwen/Qwen3.5-0.8B` (dequantized, repacked, requantized to Q8_0, header edited to 24 layers). These are not the original weights, and HeyVedu and the Qwen team have not endorsed them.
+- Hosted at https://huggingface.co/clouddevaakash/vedu-scribe-0.8b-gguf (revision `edf275972c822fb7787226a89afa4282feb74ec4`); the app downloads it pinned by revision and SHA-256.
+
+### Gemma 3 4B, GGUF (Windows local meeting notes, downloaded at run time)
+
+- Gemma 3 4B instruction-tuned by Google, as `gemma-3-4b-it-Q4_K_M.gguf` from https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF (revision `d0976223747697cb51e056d85c532013931fe52e`).
+- Terms: the Gemma Terms of Use, https://ai.google.dev/gemma/terms. This is not an open-source licence. Use restrictions: https://ai.google.dev/gemma/prohibited_use_policy.
+- Murmur does not change or bundle the weights. The app downloads them only when the user asks, after showing the terms and the Prohibited Use Policy link. Windows only.
+
+### Speaker separation (Windows, downloaded at run time)
+
+- pyannote segmentation 3.0 as ONNX by csukuangfj (`csukuangfj/sherpa-onnx-pyannote-segmentation-3-0`), MIT.
+- WeSpeaker VoxCeleb ResNet34 speaker embedding (`csukuangfj/speaker-embedding-models`, file `wespeaker_en_voxceleb_resnet34.onnx`), Apache-2.0.
+- Pinned by revision and SHA-256 in `windows/shared/windows-models.json`.
+
+### Velopack (installer and updates)
+
+- Velopack 1.2.161 (MIT) installs the Windows app and updates it from GitHub releases tagged `windows-v*`.
+
+### Windows App SDK and WinUI 3 (app shell)
+
+- Microsoft.WindowsAppSDK 2.7.0 (Microsoft, https://github.com/microsoft/WindowsAppSDK). Release duty: check the package's licence terms at the pinned version and ship the required notice; not yet checked.
+
 ## Downloaded at run time, not bundled
 
 ### Parakeet Unified English 0.6B

@@ -86,6 +86,25 @@ Choose languages in the Welcome Guide or **Settings → Transcription**. Local E
 
 Murmur Cloud detects the language automatically for multilingual dictation. Language choices apply to dictation.
 
+## Windows
+
+Murmur for Windows is in development on the `windows` branch. It needs Windows 11 22H2 or later on x64. Updates use Velopack and come from GitHub releases tagged `windows-v*`, which are never marked latest, so the Mac update feed ignores them. See [windows/](windows/) on that branch for the plan and build steps.
+
+Everything runs on this PC unless you choose a cloud provider. Apart from the bundled Silero voice detector, each model below is downloaded only when needed and checked against a pinned hash.
+
+| Job | Model | Licence |
+| --- | --- | --- |
+| English dictation | Parakeet Unified | NVIDIA Open Model License |
+| Other languages | Parakeet TDT v3 | CC BY 4.0 |
+| Other languages | Whisper large-v3-turbo | MIT |
+| Cleanup | Vedu Scribe 0.8B (GGUF) | Apache-2.0 |
+| Meeting notes | Gemma 3 4B | Gemma Terms of Use |
+| Speaker separation | pyannote segmentation | MIT |
+| Speaker separation | WeSpeaker embeddings | Apache-2.0 |
+| Splitting long Whisper recordings | Silero VAD (bundled) | MIT |
+
+Dictation speech, including Parakeet TDT and Whisper, runs on the CPU. Live words, local cleanup and local meeting notes use the GPU when **Use GPU when available** is on and a compatible GPU is found, and the CPU otherwise. Without a compatible GPU, local meeting notes show: "No compatible GPU found. Local meeting notes may take 10 minutes or more for a 30-minute meeting. A Custom Provider, or a PC with a compatible GPU, is much faster."
+
 ## License
 
 Murmur is released under the [MIT License](LICENSE). Third-party licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Model weights are downloaded separately and are not bundled. The upstream Parakeet and Core ML conversion cards declare different licenses; the pinned manifest does not resolve the discrepancy. Review both declarations before downloading or redistributing weights.
