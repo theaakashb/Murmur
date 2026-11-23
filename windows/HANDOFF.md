@@ -20,12 +20,12 @@
 - **Known issue (not fixed):** on clips over 30 s, Whisper can repeat a small fragment at a cut point (W2 saw one on a 40 s test clip). Pieces are at most 28 s, cut where Silero finds a pause, with no overlap handling. A fix would de-duplicate the words at the seam or cut only at longer pauses.
 - **PR #100 notes merge is DONE** (52263a0): origin/main 969168b, then windows-notes-contract 2eb78bf. The `wt-notescore` worktree is removed (branch kept).
 - **Builds:**
-  - app-next11 (the CPU-only multilingual policy) is staged for the orchestrator's VM run. app-next10 is deleted.
+  - app-next12 (f052069: the CPU-only multilingual policy plus "Show in taskbar") is staged for the orchestrator's VM run. app-next11 (b21d8be) is the previous build. app-next10 is deleted.
   - app-next9 (d1091a5) is older.
   - app-next8 is confirmed by the user, and app-next7 is the fallback. app-next6 is deleted.
   - The old `app` folder waits on the user. Never delete the folder the user runs (check the Murmur.exe path).
 - **Pending:**
-  - The VM real-app run of app-next11: the picker, TDT/Whisper downloads and dictation, Welcome, and the Home Dictionary row.
+  - The VM real-app run of app-next12 (plus the Show in taskbar toggle): the picker, TDT/Whisper downloads and dictation, Welcome, and the Home Dictionary row.
 - **Workers:** none live. W1 67ee7e44, W2 f829b4dc and W3 9b32e188 are archived. Their worktrees are removed; the branches windows-langcore, windows-langspeech and windows-langui are kept.
 - **Lessons:**
   - Offscreen XAML captures never show real composition. The pill is a ULW layered window, and the orchestrator captures it on the VM.
