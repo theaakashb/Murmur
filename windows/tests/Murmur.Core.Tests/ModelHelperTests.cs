@@ -167,4 +167,29 @@ public class ModelHelperTests
         Assert.Equal("done", ModelHelper.Answer(await ModelHelper.RunOnceAsync(ok, launch, "a.wav"))!["text"]!.GetValue<string>());
         Assert.Null(await ModelHelper.RunOnceAsync(bad, launch, "a.wav")); // a failing exit status is a failure whatever it printed
     }
+
+    /// <summary>A helper that answers ready, reads one request and then never answers, on any OS.</summary>
+    static string HungHelper()
+    {
+        if (!OperatingSystem.IsWindows()) return FakeHelper("sleep 60");
+        var path = Path.Combine(Dir("helper"), "hung.cmd");
+        File.WriteAllText(path, "@echo off\r\necho {\"ready\":true}\r\nset /p line=\r\nping -n 60 127.0.0.1 >nul\r\n");
+        return path;
+    }
+
+    // Stop() runs on the UI thread (Release from a model row, Controller.Dispose at exit). It used to wait for the in-flight request's own timeout (300 s in the app).
+    [Fact]
+    public async Task StopEndsAnInFlightRequestAtOnceInsteadOfWaitingForItsTimeout()
+    {
+        var helper = HungHelper();
+        using var runner = new WarmRunner(readySeconds: 20, readyWithVocabularySeconds: 20, requestSeconds: 45);
+        var launch = HelperLaunch.Make(ModelFolder())!;
+        await runner.PrepareAsync(helper, launch);
+        var request = runner.TranscribeAsync(new float[16000], helper, launch);
+        await Task.Delay(1000); // the helper has the request and is not answering
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        runner.Stop();
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), $"Stop took {clock.Elapsed.TotalSeconds:F1} s");
+        Assert.Null(await request.WaitAsync(TimeSpan.FromSeconds(10)));
+    }
 }

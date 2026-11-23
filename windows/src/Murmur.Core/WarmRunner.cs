@@ -139,8 +139,13 @@ public sealed class WarmRunner : IDisposable
         process = null; key = null; pending.Clear();
     }
 
-    /// <summary>Ends the helper (waits for an in-flight request to finish or time out).</summary>
-    public void Stop() { gate.Wait(); try { StopLocked(); } finally { gate.Release(); } }
+    /// <summary>Ends the helper. Callers are on the UI thread (a model row's Release, Controller.Dispose), so an in-flight request is not waited out: killing the process ends its read at once and the request answers null.</summary>
+    public void Stop()
+    {
+        if (Volatile.Read(ref process) is { } running) ModelHelper.Kill(running);
+        gate.Wait();
+        try { StopLocked(); } finally { gate.Release(); }
+    }
 
     public void Dispose() { Stop(); gate.Dispose(); }
 }
