@@ -95,6 +95,18 @@ These are the patterns in the existing code and docs.
 - Merge commits describe what is merged in plain words, such as "Merge cloud providers, Keychain credentials and GitHub update checker".
 - Write commit messages as a human and do not add Codex co-author trailers.
 
+## Windows
+
+The Windows app is a C# port that lives on the `windows` branch. Read `windows/CONTRIBUTING.md` there first. It needs the .NET 10 SDK; the C# tests (`dotnet test windows/Murmur.Windows.slnx`) run on Windows, macOS and Linux, and the app itself builds on Windows only.
+
+The Mac code is the source of truth. A Mac change to a ported file, or to shared data, needs a matching Windows change:
+
+- `windows/porting.json` records the hash of every Swift file that has been ported.
+- `python3 windows/tools/check_parity.py` fails when a ported Swift file changed after its port. `--update` records the new hashes once the C# is updated.
+- Golden test files are exported from the Swift code by `windows/golden/generate.sh` on a Mac. Run it after changing ported logic or shared data, and commit what changes.
+
+If you can't do the Windows part, say "Windows follow-up needed" in the PR.
+
 ## Licensing
 
 Murmur's source is MIT licensed ([LICENSE](LICENSE)); contributions are accepted under the same license. Add any new dependency or model to [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) after checking its license at the pinned version.
