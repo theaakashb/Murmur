@@ -51,7 +51,11 @@ internal sealed partial class WelcomeWindow : Window
         Render();
     }
 
-    string Shortcut => ShortcutSpec.Label(s.Settings.Get(Prefs.Shortcut));
+    /// <summary>The chosen languages use the English Parakeet model (the Mac's chosenSpeechModel == .parakeetEnglish).</summary>
+    bool EnglishModel => (DictationLanguages.Create(s.Settings.Get(Prefs.DictationLanguages)) ?? DictationLanguages.English).LocalModel == LocalSpeechModel.ParakeetEnglish;
+    bool CloudOnly => RouteSettings.Load(s.Settings).Transcription != TranscriptionRoute.Local && MeetingRoute.Load(s.Settings) == MeetingTranscription.Cloud && !controller.RequiredSpeechSlot.Row.IsReady;
+
+    string Shortcut =>ShortcutSpec.Label(s.Settings.Get(Prefs.Shortcut));
     XamlRoot? Root() => Content.XamlRoot;
 
     IReadOnlyList<Step> Steps => WelcomeGuide.Steps(missingRightCtrl);
@@ -62,9 +66,12 @@ internal sealed partial class WelcomeWindow : Window
     {
         Step.Microphone => ("Microphone", "A little access, a clear reason. So Murmur can hear you while the shortcut is held. Audio stays on this PC unless you choose a cloud route."),
         Step.RecordShortcut => ("Your key", "This keyboard may not have a Right Ctrl key; some laptops use that spot for Copilot. Pick another key to hold while you speak."),
-        Step.Transcription => ("Transcription", "Choose where dictation audio is transcribed. Cloud routes send audio to the provider shown below."),
-        Step.Cleanup => ("Cleanup", "Choose where cleanup runs and how much it changes your words. Faithful keeps cleanup off."),
-        Step.Model => ("Speech model", s.Local.ModelFilesPresent ? "The speech model is on this PC." : "Murmur transcribes on this PC with a speech model you download once."),
+        Step.Transcription => ("Transcription", "Choose your languages and where Murmur transcribes your audio."),
+        Step.Cleanup => ("Cleanup", EnglishModel
+            ? "Choose where cleanup runs and how much it changes your words. Faithful keeps cleanup off."
+            : "With these languages, Murmur keeps your words as spoken and applies only the spellings you’ve added to Dictionary."),
+        Step.Model => ("Speech model", CloudOnly ? "Dictation and meeting transcription run in the cloud."
+            : controller.RequiredSpeechSlot is { Downloader: { } d } slot ? $"{slot.Facts.DisplayName} · {ModelFacts.FormatBytes(d.DownloadSize)} download" : controller.RequiredSpeechSlot.Facts.DisplayName),
         Step.TryIt => ("Find your words.", $"Hold {Shortcut} and say a sentence in any app. Or click the field below, then hold {Shortcut} and speak."),
         _ => ("A little room for thought.", "Speak freely. Your voice becomes text, right where you’re writing."),
     };
@@ -219,12 +226,15 @@ internal sealed partial class WelcomeWindow : Window
             case Step.Transcription:
             case Step.Cleanup:
                 if (!settingsViews.TryGetValue(step, out var view)) settingsViews[step] = view = new SettingsView(s, controller, Root, () => WindowNative.GetWindowHandle(this));
+                // The language picker is part of the Transcription pane (SettingsView.BuildTranscription), as on the Mac; Cleanup shows nothing to choose for other languages.
+                if (step == Step.Cleanup && !EnglishModel) break;
                 var pane = view.Body(step == Step.Cleanup ? "Cleanup" : "Transcription");
                 if (pane.Parent is Panel old) old.Children.Remove(pane);
                 panel.Children.Add(pane);
                 break;
             case Step.Model:
-                modelRow ??= new ModelRow(s, s.SpeechSlot, controller, Root, go => { s.Local.Release(); go(); }, () => Render());
+                // Rebuilt each time: the required model follows the chosen languages.
+                modelRow = new ModelRow(s, controller.RequiredSpeechSlot, controller, Root, go => { s.Local.Release(); go(); }, () => Render());
                 if (modelRow.Panel.Parent is Panel op) op.Children.Remove(modelRow.Panel);
                 panel.Children.Add(MurmurStyle.Card(modelRow.Panel));
                 break;
@@ -232,9 +242,10 @@ internal sealed partial class WelcomeWindow : Window
                 var test = MurmurStyle.Named(new TextBox { PlaceholderText = "Waiting for your voice…", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 96, FontSize = 16 }, "Test dictation");
                 panel.Children.Add(MurmurStyle.Text($"Your shortcut: {Shortcut}. Change it in Settings → Dictation.", "MurmurCaption"));
                 panel.Children.Add(test);
-                panel.Children.Add(MurmurStyle.Text(s.Settings.Get(Prefs.LearningEnabled)
+                var tip = s.Settings.Get(Prefs.LearningEnabled)
                     ? "Correct a misheard word within a minute of dictating to teach Murmur its spelling. You can also add names and terms in Dictionary."
-                    : "Add names and terms in Dictionary. You can also turn on learning from your spelling corrections in Learning.", "MurmurCaption"));
+                    : "Add names and terms in Dictionary. You can also turn on learning from your spelling corrections in Learning.";
+                panel.Children.Add(MurmurStyle.Text(EnglishModel ? tip : "Add names and their misheard forms in Dictionary.", "MurmurCaption"));
                 break;
         }
         return panel;

@@ -334,14 +334,22 @@ internal sealed partial class SettingsView
     void BuildTranscription()
     {
         Heading("Speech recognition");
-        var speechRow = new ModelRow(s, s.SpeechSlot, controller, root, go => { s.Local.Release(); go(); }, UpdateModelRoutes);
-        page.Children.Add(MurmurStyle.Card(speechRow.Panel));
+        // The model row follows the chosen languages: English uses Parakeet, others the model that covers them (PR #102).
+        var speechHost = new ContentControl { HorizontalContentAlignment = HorizontalAlignment.Stretch };
+        void ShowSpeechRow() => speechHost.Content = MurmurStyle.Card(new ModelRow(s, controller.RequiredSpeechSlot, controller, root, go => { s.Local.Release(); go(); }, UpdateModelRoutes).Panel);
+        var picker = new DictationLanguagePicker(() => s.Settings.Get(Prefs.DictationLanguages), v => { s.Settings.Set(Prefs.DictationLanguages, v); ShowSpeechRow(); UpdateModelRoutes(); foreach (var refresh in refreshNotes) refresh(); }, () => Routes.Transcription == TranscriptionRoute.Local);
+        refreshNotes.Add(picker.Refresh);
+        refreshNotes.Add(() => picker.Panel.IsEnabled =!controller.IsBusy && !controller.SpeechModelDownloading);
+        page.Children.Add(picker.Panel);
+        ShowSpeechRow();
+        page.Children.Add(speechHost);
         Toggle("Use GPU when available", "Accelerates live words and local cleanup.", Prefs.UseGpuWhenAvailable,
             LocalCleanupRunner.Shared.MemoryPressure, visible: true);
         var tabs = SegmentedRow("Where transcription runs", null, [.. TranscriptionChoices.Select(c => c.Label)], Array.FindIndex(TranscriptionChoices, c => c.Route == Routes.Transcription),
             i => SaveRoutes(r => r with { Transcription = TranscriptionChoices[i].Route }), i => TranscriptionNote(TranscriptionChoices[i].Route));
         tabs.SetEnabled(0, false);
-        modelRoutes[TranscriptionRoute.Local] = on => tabs.SetEnabled(0, on);
+        modelRoutes[TranscriptionRoute.Local] = on => tabs.SetEnabled(0, on && !controller.SpeechModelDownloading);
+        refreshNotes.Add(() => { for (int i = 1; i < TranscriptionChoices.Length; i++) tabs.SetEnabled(i, !controller.SpeechModelDownloading); });
         var body = page;
         var providerSection = new StackPanel();
         body.Children.Add(providerSection);
