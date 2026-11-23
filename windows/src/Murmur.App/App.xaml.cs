@@ -119,7 +119,10 @@ public partial class App : Application
         if (launchArgs.Contains("--meetings")) Main().ShowMeetings();
         // First launch, as on the Mac. A throwaway data folder (tests, the harness) never opens it unprompted: it would take the focus.
         var forced = launchArgs.Contains("--welcome");
-        if (forced || (string.IsNullOrWhiteSpace(dataDir) && new Murmur.Core.WelcomeGuide(services.Settings).OpensAtLaunch(services.Local.ModelFilesPresent))) OpenWelcome();
+        var welcome = forced || (string.IsNullOrWhiteSpace(dataDir) && new Murmur.Core.WelcomeGuide(services.Settings).OpensAtLaunch(services.Local.ModelFilesPresent));
+        if (welcome) OpenWelcome();
+        // Windows only: after Setup.exe a tray-only start looks like a failed install, so the first run opens Home (unless Welcome already shows).
+        else if (Program.JustInstalled && string.IsNullOrWhiteSpace(dataDir)) Main().ShowHome();
         if (launchArgs.Contains("--bubble")) bubble.ShowListening();
         if (launchArgs.Contains("--start-meeting")) controller.StartMeeting();
     }
