@@ -25,7 +25,7 @@
   - app-next8 is confirmed by the user, and app-next7 is the fallback. app-next6 is deleted.
   - The old `app` folder waits on the user. Never delete the folder the user runs (check the Murmur.exe path).
 - **Pending:**
-  - The VM real-app run of app-next10: the picker, TDT/Whisper downloads and dictation, Welcome, and the Home Dictionary row.
+  - The VM real-app run of app-next11: the picker, TDT/Whisper downloads and dictation, Welcome, and the Home Dictionary row.
 - **Workers:** none live. W1 67ee7e44, W2 f829b4dc and W3 9b32e188 are archived. Their worktrees are removed; the branches windows-langcore, windows-langspeech and windows-langui are kept.
 - **Lessons:**
   - Offscreen XAML captures never show real composition. The pill is a ULW layered window, and the orchestrator captures it on the VM.
