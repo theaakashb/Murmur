@@ -8,6 +8,7 @@ internal sealed class CoordinatorProcessor(Func<ProcessingCoordinator?> coordina
     public async Task<DictationResult> ProcessAsync(DictationRequest request, CancellationToken cancellationToken)
     {
         if (coordinator() is not { } p) return new DictationResult(request.RawTranscript, CleanupPath.Off, null, null, Held: true);
+        if (request.ManualDictionaryOnly) return new DictationResult(p.Dictionary.Apply(request.RawTranscript, manualVariantsOnly: true), CleanupPath.Off, null, null);
         p.Update(p.Settings with { Options = request.Options, Route = request.Cleanup.ProcessingRoute() }, persist: false);
         p.CloudCleaner = request.Cleaner;
         p.EngineCleaner = request.Engine;

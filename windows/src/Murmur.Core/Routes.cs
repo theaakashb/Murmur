@@ -333,12 +333,12 @@ public static class CloudTranscription
 
     /// <summary>Reads the recording and runs <see cref="RunAsync(ITranscriptionProvider, byte[], CancellationToken)"/>.</summary>
     public static async Task<CloudTranscriptionOutcome> RunAsync(ITranscriptionProvider provider, string audioFile, CancellationToken cancellationToken = default) =>
-        (await RunDetailedAsync(provider, audioFile, cancellationToken).ConfigureAwait(false)).Outcome;
+        (await RunDetailedAsync(provider, audioFile, cancellationToken: cancellationToken).ConfigureAwait(false)).Outcome;
 
     public static async Task<CloudTranscriptionOutcome> RunAsync(ITranscriptionProvider provider, byte[] audioData, CancellationToken cancellationToken = default) =>
-        (await RunDetailedAsync(provider, audioData, cancellationToken).ConfigureAwait(false)).Outcome;
+        (await RunDetailedAsync(provider, audioData, cancellationToken: cancellationToken).ConfigureAwait(false)).Outcome;
 
-    public static async Task<(CloudTranscriptionOutcome Outcome, CloudTranscriptionDetail Detail)> RunDetailedAsync(ITranscriptionProvider provider, string audioFile, CancellationToken cancellationToken = default)
+    public static async Task<(CloudTranscriptionOutcome Outcome, CloudTranscriptionDetail Detail)> RunDetailedAsync(ITranscriptionProvider provider, string audioFile, DictationLanguages? languages = null, CancellationToken cancellationToken = default)
     {
         byte[] data;
         try { data = await File.ReadAllBytesAsync(audioFile, cancellationToken).ConfigureAwait(false); }
@@ -346,15 +346,15 @@ public static class CloudTranscription
         {
             return (new CloudTranscriptionOutcome.Failed(UnreadableAudio, true), new CloudTranscriptionDetail());
         }
-        return await RunDetailedAsync(provider, data, cancellationToken).ConfigureAwait(false);
+        return await RunDetailedAsync(provider, data, languages, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>One provider call at most: silence pre-check, then one request, no retry, no fallback.
     /// No dictionary-derived prompt is ever attached (VOCABULARY.md).
     /// The detail (clip loudness, pre-check, segments) is for History; it never changes the outcome.</summary>
-    public static async Task<(CloudTranscriptionOutcome Outcome, CloudTranscriptionDetail Detail)> RunDetailedAsync(ITranscriptionProvider provider, byte[] audioData, CancellationToken cancellationToken = default)
+    public static async Task<(CloudTranscriptionOutcome Outcome, CloudTranscriptionDetail Detail)> RunDetailedAsync(ITranscriptionProvider provider, byte[] audioData, DictationLanguages? languages = null, CancellationToken cancellationToken = default)
     {
-        var prepared = CloudAudio.Prepare(audioData);
+        var prepared = CloudAudio.Prepare(audioData, (languages ?? DictationLanguages.English).CloudHint);
         var detail = new CloudTranscriptionDetail { ClipSeconds = prepared.Duration, SilencePeak = prepared.Peak };
         if (prepared.Payload.Levels is { } levels && OpenAITranscriptionFormat.PeakPercentiles(levels) is var (p50, p90)) { detail.PeakP50 = p50; detail.PeakP90 = p90; }
         if (provider is ISilencePrecheckedTranscriber checker && prepared.Peak is float peak)

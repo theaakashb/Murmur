@@ -124,6 +124,8 @@ public static class Prefs
     public static readonly Setting<bool> AutomaticInsertion = Bool("automaticInsertion");
     public static readonly Setting<bool> PressToToggle = Bool("pressToToggle");
     public static readonly Setting<bool> RecordingSounds = Bool("recordingSounds");
+    /// <summary>The dictation language codes (default English only); see <see cref="DictationLanguages"/>.</summary>
+    public static readonly Setting<IReadOnlyList<string>> DictationLanguages = StringList("dictationLanguages");
     public static readonly Setting<bool> KeepRecordings = Bool("keepRecordings");
     public static readonly Setting<bool> LiveWords = Bool("liveWords");
     public static readonly Setting<bool> LiveWordsOnCloud = Bool("liveWordsOnCloud");

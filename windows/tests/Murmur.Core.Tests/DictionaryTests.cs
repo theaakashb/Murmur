@@ -48,6 +48,11 @@ public class DictionaryTests
         c.Check(store.Apply("Acne and Akmee and acmes") == "Acne and Akmee and acmes", "similar words untouched");
         c.Check(store.Apply("café ☕ Acme 🙂") == "café ☕ Akme 🙂", "unicode neighbours");
         c.Check(store.Apply("") == "", "empty text");
+        var multilingual = new DictionaryStore(Path.Combine(dir, "multilingual"));
+        multilingual.Add("Akme", ["Acme"]);
+        multilingual.Add("WidgetCo", ["widget company"], EntrySource.Learned);
+        c.Check(multilingual.Apply("नमस्ते Acme widget company مرحبًا", manualVariantsOnly: true) == "नमस्ते Akme widget company مرحبًا",
+            "multilingual correction preserves scripts and skips learned variants");
 
         // An entry whose target is a spoken command applies first and is never a hint.
         {
@@ -56,6 +61,7 @@ public class DictionaryTests
             commands.Add("Marc", ["mark"]);
             commands.Add("Kocia Inc", ["kocia mark please"]);
             c.Check(commands.Apply("Is it done kocia mark") == "Is it done question mark", "misheard command replaced");
+            c.Check(commands.Apply("Kocia Mark", manualVariantsOnly: true) != "question mark", "multilingual correction skips spoken commands");
             c.Check(commands.Apply("Kocia Mark") == "question mark", "command target keeps its form at a sentence start");
             c.Check(commands.Apply("kocia mark please") == "question mark please", "command target wins over a longer entry");
             c.Check(commands.Apply("ask mark") == "ask Marc", "other entries still apply");
