@@ -79,6 +79,14 @@ enum MeetingNotesRoute: String, CaseIterable, Codable {
     }
 }
 
+/// How many items of each kind one reply keeps: a long meeting's drafts stay small enough to merge.
+enum MeetingNotesLimits {
+    static let maxPoints = 8, maxDecisions = 10, maxActions = 12
+    static var instruction: String {
+        "Return at most \(maxPoints) POINT, \(maxDecisions) DECISION and \(maxActions) ACTION lines. Prefer the most important supported items."
+    }
+}
+
 enum MeetingNotesPrompt {
     static let lectureRules = """
     Format: lecture study notes. Override meeting-specific category and ownership rules above:
@@ -131,6 +139,7 @@ enum MeetingNotesPrompt {
         - owner: the person's name as said, or "Me" for the user, \(owner); leave it out if nobody took it. due: only a time that was said.
         - The title has at most 8 words, in sentence case: capitalize only its first word and names. The summary has 2 to 4 sentences.
         - Leave a list empty rather than inventing items.
+        \(MeetingNotesLimits.instruction)
         """
     }
 
@@ -188,6 +197,15 @@ struct Draft: Equatable {
     var points: [Item] = []
     var decisions: [Item] = []
     var actions: [Item] = []
+
+    /// The first `MeetingNotesLimits` items of each kind.
+    func capped() -> Draft {
+        var copy = self
+        copy.points = Array(points.prefix(MeetingNotesLimits.maxPoints))
+        copy.decisions = Array(decisions.prefix(MeetingNotesLimits.maxDecisions))
+        copy.actions = Array(actions.prefix(MeetingNotesLimits.maxActions))
+        return copy
+    }
 
     var text: String {
         func cites(_ lines: [Int]) -> String { lines.map { "L\($0)" }.joined(separator: " ") }
@@ -524,8 +542,8 @@ enum NotesGrounding {
     }
 }
 
-/// Why notes could not be written. `tooLarge` is the route's context limit, which splits the
-/// request and retries once; anything else leaves the meeting saved without notes.
+/// Why notes could not be written. `tooLarge` is the route's context limit or a reply that stopped at
+/// the output cap; either splits the request and retries once; anything else leaves the meeting saved without notes.
 enum NotesFailure: Error, Equatable {
     case tooLarge
     case failed(String)
@@ -560,9 +578,9 @@ enum MeetingNotesWriter {
             parts += try await extract(chunk, myNotes: meeting.myNotes, structured: structured, nonce: nonce, generate: generate, splitOnOverflow: true)
         }
         // Ground each part before merging, so the merge never sees an unsupported item.
-        parts = parts.map { ground($0, in: whole, reasons: &reasons, lecture: lecture) }
+        parts = parts.map { ground($0, in: whole, reasons: &reasons, lecture: lecture).capped() }
         var draft = parts.count == 1 ? parts[0] : try await reduce(parts, budget: budget, structured: structured, speakers: MeetingNotesPrompt.speakers(numbered), nonce: nonce, generate: generate)
-        draft = ground(draft, in: whole, reasons: &reasons, lecture: lecture)
+        draft = ground(draft, in: whole, reasons: &reasons, lecture: lecture).capped()
 
         let ids = Dictionary(uniqueKeysWithValues: numbered.map { ($0.number, $0.line.id) })
         func items(_ list: [Draft.Item], action: Bool = false) -> [NoteItem] {
@@ -590,7 +608,7 @@ enum MeetingNotesWriter {
         let prompt = MeetingNotesPrompt.extract(chunk, myNotes: myNotes, nonce: nonce(), structured: structured)
         do {
             guard let draft = Draft.parse(try await generate(prompt.system, prompt.user)) else { throw NotesFailure.failed("The notes route did not answer with notes.") }
-            return [draft]
+            return [draft.capped()]
         } catch NotesFailure.tooLarge where splitOnOverflow && chunk.count > 1 {
             let half = chunk.count / 2
             return try await extract(Array(chunk[..<half]), myNotes: myNotes, structured: structured, nonce: nonce, generate: generate, splitOnOverflow: false)
@@ -621,10 +639,11 @@ enum MeetingNotesWriter {
     }
 
     private static func merge(_ batch: [Draft], structured: Bool, speakers: [String], nonce: () -> String, generate: Generate, splitOnOverflow: Bool) async throws -> [Draft] {
+        if batch.count == 1 { return batch }
         let prompt = MeetingNotesPrompt.merge(batch, nonce: nonce(), structured: structured, speakers: speakers)
         do {
             guard let draft = Draft.parse(try await generate(prompt.system, prompt.user)) else { throw NotesFailure.failed("The notes route did not answer with notes.") }
-            return [draft]
+            return [draft.capped()]
         } catch NotesFailure.tooLarge where splitOnOverflow && batch.count > 2 {
             let half = batch.count / 2
             return try await merge(Array(batch[..<half]), structured: structured, speakers: speakers, nonce: nonce, generate: generate, splitOnOverflow: false)
