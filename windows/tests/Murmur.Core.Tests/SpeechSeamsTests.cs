@@ -38,8 +38,8 @@ public class SpeechSeamsTests
     public void CaseAndPunctuationDoNotHideAnOverlapAndTheEarlierCopyIsKept()
     {
         Assert.Equal("He said, \"Hello there.\" Then left.", Join("He said, \"Hello there.\"", "hello THERE Then left."));
-        Assert.Equal("It is done. Next, we go.", Join("It is done.", "done Next, we go."));
-        Assert.Equal("wait... what is it", Join("wait...", "wait what is it"));
+        Assert.Equal("It is done done. Next, we go.", Join("It is done done.", "done done Next, we go."));
+        Assert.Equal("wait, wait... what is it", Join("wait, wait...", "wait wait what is it"));
         Assert.Equal("Dr. Smith's plan works", Join("Dr. Smith's", "smiths plan works"));
         Assert.Equal("The café is open. Come in", Join("The café is open.", "CAFÉ is open Come in"));
     }
@@ -49,6 +49,16 @@ public class SpeechSeamsTests
     {
         Assert.Equal("we left — and then", Join("we left —", "left and then"));
         Assert.Equal("we left and then", Join("we left", "left — and then"));
+    }
+
+    [Fact]
+    public void OneRepeatedWordAfterAFinishedSentenceIsKept()
+    {
+        Assert.Equal("Okay. Okay, so we start", Join("Okay.", "Okay, so we start"));
+        Assert.Equal("Is it done? Done, yes", Join("Is it done?", "Done, yes"));
+        Assert.Equal("He said \"stop.\" Stop now", Join("He said \"stop.\"", "Stop now"));
+        // Mid-sentence, one word is the classic seam repeat and drops.
+        Assert.Equal("we went to the market", Join("we went to the", "the market"));
     }
 
     [Fact]

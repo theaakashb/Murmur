@@ -75,7 +75,9 @@ public static class SpeechSeams
     {
         var tail = Tokens(previous, fromEnd: true);
         var head = Tokens(next, fromEnd: false);
-        for (int k = Math.Min(MaxOverlap, Math.Min(tail.Count, head.Count)); k >= 1; k--)
+        // One repeated word after a finished sentence ("Okay." / "Okay, so") is usually the speaker, not the seam: drop a single word only mid-sentence.
+        int least = EndsSentence(previous) ? 2 : 1;
+        for (int k = Math.Min(MaxOverlap, Math.Min(tail.Count, head.Count)); k >= least; k--)
         {
             bool same = true;
             for (int i = 0; i < k && same; i++)
@@ -86,6 +88,12 @@ public static class SpeechSeams
             if (same) return next[head[k - 1].End..].TrimStart();
         }
         return next;
+    }
+
+    static bool EndsSentence(string text)
+    {
+        var t = text.TrimEnd().TrimEnd('"', '”', '’', '\'', ')');
+        return t.Length > 0 && t[^1] is '.' or '!' or '?' or '…';
     }
 
     readonly record struct Token(string Folded, int End);
