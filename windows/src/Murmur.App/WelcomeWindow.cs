@@ -93,7 +93,7 @@ internal sealed partial class WelcomeWindow : Window
         return t;
     }
 
-    static Button Filled(string text, Action click)
+    internal static Button Filled(string text, Action click)
     {
         var accent = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 77, 111, 240));
         var b = MurmurStyle.Named(new Button { Content = text, BorderThickness = new Thickness(0), Style = MurmurStyle.Style("AccentButtonStyle"), MinHeight = 36, Padding = new Thickness(18, 0, 18, 0), CornerRadius = new CornerRadius(18) }, text);
@@ -171,9 +171,11 @@ internal sealed partial class WelcomeWindow : Window
         if (step == Step.TryIt) next = Filled(guide.NextUnconfirmed() == null ? "Finish" : "Review Choices →", Finish);
         else
         {
-            var label = step == Step.Welcome ? "Get started →" : WelcomeGuide.IsConfiguration(step) ? "Use These Settings →" : Done(step) ? "Continue →" : "Skip for Now →";
+            // While the speech model downloads, Continue is the way on (the download keeps going and a notification says when it is ready).
+            bool downloading = step == Step.Model && controller.RequiredSpeechSlot.Row.IsWorking;
+            var label = step == Step.Welcome ? "Get started →" : WelcomeGuide.IsConfiguration(step) ? "Use These Settings →" : Done(step) || downloading ? OnboardingText.ContinueWhileDownloading : "Skip for Now →";
             var go = () => { guide.Confirm(step); Go(steps[index + 1]); };
-            next = step == Step.Welcome || Done(step) ? Filled(label, go) : Outline(label, go);
+            next = step == Step.Welcome || Done(step) || downloading ? Filled(label, go) : Outline(label, go);
         }
         spacer.Children.Add(nav); Grid.SetColumn(next, 1); spacer.Children.Add(next);
         Grid.SetRow(spacer, 1);
@@ -227,7 +229,12 @@ internal sealed partial class WelcomeWindow : Window
             case Step.Cleanup:
                 if (!settingsViews.TryGetValue(step, out var view)) settingsViews[step] = view = new SettingsView(s, controller, Root, () => WindowNative.GetWindowHandle(this));
                 // The language picker is part of the Transcription pane (SettingsView.BuildTranscription), as on the Mac; Cleanup shows nothing to choose for other languages.
-                if (step == Step.Cleanup && !EnglishModel) break;
+                // The Mac shows a bare page here; say plainly that there is nothing to set (a fresh-PC user read the empty page as broken).
+                if (step == Step.Cleanup && !EnglishModel)
+                {
+                    panel.Children.Add(MurmurStyle.Card(new StackPanel { Spacing = 6, Children = { MurmurStyle.Text(OnboardingText.NothingToSetTitle, "BodyStrongTextBlockStyle"), MurmurStyle.Text(OnboardingText.NothingToSetBody, "MurmurCaption") } }));
+                    break;
+                }
                 var pane = view.Body(step == Step.Cleanup ? "Cleanup" : "Transcription");
                 if (pane.Parent is Panel old) old.Children.Remove(pane);
                 panel.Children.Add(pane);
@@ -235,7 +242,8 @@ internal sealed partial class WelcomeWindow : Window
             case Step.Model:
                 // Rebuilt each time: the required model follows the chosen languages.
                 modelRow?.Detach();
-                modelRow = new ModelRow(s, controller.RequiredSpeechSlot, controller, Root, go => { s.Local.Release(); go(); }, () => Render(), required: true);
+                if (CloudOnly) break;
+                modelRow = new ModelRow(s, controller.RequiredSpeechSlot, controller, Root, go => { s.Local.Release(); go(); }, () => Render(), required: true, onboarding: true);
                 if (modelRow.Panel.Parent is Panel op) op.Children.Remove(modelRow.Panel);
                 panel.Children.Add(MurmurStyle.Card(modelRow.Panel));
                 break;

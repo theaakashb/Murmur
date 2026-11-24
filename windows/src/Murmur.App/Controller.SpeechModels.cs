@@ -31,6 +31,12 @@ internal sealed partial class Controller
     /// <summary>Raised after a speech model slot changes (progress, completion, removal), on the UI thread.</summary>
     public event Action? SpeechModelChanged;
 
+    /// <summary>A speech or cleanup model download ended (error is null on success), on the UI thread. The app notifies the user from here.</summary>
+    public event Action<ModelNoticeKind, string, ModelDownloadError?>? ModelDownloadFinished;
+
+    /// <summary>The Settings and Welcome rows of the cleanup model report their downloads through here.</summary>
+    internal void ReportCleanupDownload(string modelName, ModelDownloadError? error) => ModelDownloadFinished?.Invoke(ModelNoticeKind.Cleanup, modelName, error);
+
     /// <summary>The flow of a speech model's row: the same gates and release as the Settings rows, plus a prewarm once the required model arrives.</summary>
     ModelFlow SpeechFlow(LocalSpeechModel model)
     {
@@ -43,7 +49,7 @@ internal sealed partial class Controller
             Changed = () => SpeechModelChanged?.Invoke(),
             DownloadGate = () => ModelGate.DownloadRefusal(IsBusy, false, false),
             RemoveGate = () => ModelGate.RemoveRefusal(IsBusy, false, slot.InFlight),
-            DidDownload = error => { Forget(); if (error is null && RequiredSpeechModel == model) PrewarmSpeech(); },
+            DidDownload = error => { Forget(); if (error is null && RequiredSpeechModel == model) PrewarmSpeech(); ModelDownloadFinished?.Invoke(ModelNoticeKind.Speech, slot.Facts.DisplayName, error); },
             Release = go => { s.Local.Release(); go(); },
             DidRemove = Forget,
         };

@@ -14,7 +14,7 @@ public static class Program
     static void Main(string[] args)
     {
         // Uninstall removes the install folder but not our HKCU Run value; take it out so Windows doesn't keep starting a missing launcher.
-        VelopackApp.Build().OnBeforeUninstallFastCallback(_ => LoginItem.Set(false)).OnFirstRun(_ => JustInstalled = true).Run();
+        VelopackApp.Build().OnBeforeUninstallFastCallback(_ => { LoginItem.Set(false); ModelToast.RemoveAll(); }).OnFirstRun(_ => JustInstalled = true).Run();
         WinRT.ComWrappersSupport.InitializeComWrappers();
         Application.Start(_ =>
         {
