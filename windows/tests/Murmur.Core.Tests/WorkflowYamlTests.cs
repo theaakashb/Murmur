@@ -27,4 +27,18 @@ public class WorkflowYamlTests
         }
         Assert.True(bad.Count == 0, "Invalid workflow YAML: " + string.Join("; ", bad));
     }
+
+    /// <summary>The Mac's Sparkle feed is releases/latest/download/appcast.xml. A Windows release must never become "latest", so every
+    /// upload is a GitHub pre-release, and the Windows updater has to follow pre-releases to see them.</summary>
+    [Fact]
+    public void WindowsReleasesAreAlwaysPreReleasesSoTheMacFeedNeverSeesThem()
+    {
+        var root = ModelTestSupport.RepoRoot();
+        var upload = File.ReadAllLines(Path.Combine(root, ".github", "workflows", "windows-release.yml")).Where(l => l.Contains("vpk.exe upload github")).ToList();
+        Assert.Single(upload);
+        Assert.Contains(" --pre ", upload[0]);
+        Assert.DoesNotContain("--publish", upload[0]);
+        var updater = File.ReadAllText(Path.Combine(root, "windows", "src", "Murmur.App", "Updater.cs"));
+        Assert.Contains("prerelease: true", updater);
+    }
 }

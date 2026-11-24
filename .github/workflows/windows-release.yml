@@ -39,8 +39,6 @@ jobs:
           # SemVer 2 core plus an optional pre-release (no build metadata); Velopack and the .NET SDK both accept it.
           if ($v -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$') { Write-Error "Bad version '$env:VERSION' (want windows-vX.Y.Z or windows-vX.Y.Z-beta.N)"; exit 1 }
           "VERSION=$v" >> $env:GITHUB_ENV
-          # A pre-release version uploads as a GitHub pre-release (still a draft).
-          "PRE=$(if ($v.Contains('-')) { '--pre' } else { '' })" >> $env:GITHUB_ENV
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
@@ -54,7 +52,7 @@ jobs:
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           dotnet tool install vpk --version 1.2.161 --tool-path windows/tools/.vpk
-          windows/tools/.vpk/vpk.exe download github --repoUrl "https://github.com/${{ github.repository }}" --channel win --outputDir releases --token $env:GH_TOKEN
+          windows/tools/.vpk/vpk.exe download github --repoUrl "https://github.com/${{ github.repository }}" --channel win --outputDir releases --pre --token $env:GH_TOKEN
         continue-on-error: true
       # 3. Pack (self-contained x64 publish + vpk pack). Signing flags: edit windows/tools/package.ps1 when enabling.
       - name: Pack
@@ -66,13 +64,13 @@ jobs:
         run: |
           Write-Error 'Signing is not wired yet: add --azureTrustedSignFile / --signParams in package.ps1 and the Azure login step first.'
           exit 1
-      # 4. Draft upload only.
+      # 4. Draft upload only, ALWAYS as a GitHub pre-release: a pre-release can never be "latest", and the Mac's Sparkle feed is
+      #    releases/latest/download/appcast.xml, so a Windows release must never become latest (user rule; even windows-v0.3.4).
       - name: Upload to draft release
         if: ${{ env.UPLOAD == 'true' }}
         shell: pwsh
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
-          $pre = @(); if ($env:PRE) { $pre = @($env:PRE) }
-          windows/tools/.vpk/vpk.exe upload github --repoUrl "https://github.com/${{ github.repository }}" --channel win --outputDir releases --tag "windows-v$env:VERSION" --merge @pre --token $env:GH_TOKEN
+          windows/tools/.vpk/vpk.exe upload github --repoUrl "https://github.com/${{ github.repository }}" --channel win --outputDir releases --tag "windows-v$env:VERSION" --merge --pre --token $env:GH_TOKEN
       - uses: actions/upload-artifact@v4
         with: { name: "windows-release-${{ env.VERSION }}", path: releases/*.nupkg }
