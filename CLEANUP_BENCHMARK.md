@@ -229,3 +229,22 @@ Adopt a variant for a level only if it scores at least as well as the production
 - **Configuration:** this branch's runs used the production `CleanupPrompt.build` with punctuation, spoken commands, fillers, corrections and lists on. They used `--runs 1 --delay 8 --retries 1`, on October 22, 2026. Cerebras and Groq ran at the same time on separate keys.
 - **Isolation:** the benchmark reads only the endpoint, the model and its Keychain key. It uses an isolated `UserDefaults` suite and a temporary directory.
 - **Data handling:** raw JSON reports stay outside the repository.
+
+# Natural (local) — November 20, 2026
+
+Natural on the managed Local model (Vedu Scribe 0.8B, installed Murmur 0.3.3 helper) under the guard, with the rule-based cleanup as fallback. Cleanup code on `main` (`2239a4f`) differs from tag v0.3.3 only in a comment in `app/Processing.swift`; `module-one` is unchanged, so `main` was measured.
+
+- Device: MacBook Air, Apple M3, 16 GB, macOS 27.0.1.
+- Tool: `app/tools/check_professional_live.swift` with `--endpoint local` (model + guard + fallback) and `--endpoint rules` (rules only); both with `--mode strict --context off --delay 0`. The same 24 hand-written cases that apply to Natural; model route 3 runs each (72), rules route 1 run (24, deterministic).
+- Counts are against this tool's checks. A **hard** failure breaks a rule in the first list above (a lost "not", name, number or weekday, an added word); a **style** miss is anything else.
+
+| Route | Runs | Hard failures | Style misses | Failed in total |
+|---|---:|---:|---:|---:|
+| Local model output, before the guard | 72 | 6 | 3 | 9 |
+| Natural as shipped (model + guard + rule fallback) | 72 | 9 | 6 | 15 |
+| Rules only | 24 | 5 | 3 | 8 |
+
+- The guard held the model's output in 30 of 72 runs; the final text came from the rules in those runs, which is why the shipped route has more failures than the model alone.
+- Rules-only hard failures: a lost "we won't", two weekday names, and two other changed words.
+- **Not re-measured:** the 60 private real dictations. The replay set and its expected-text checks were not kept, and rebuilding them would mean reading History. The published "0 hard failures in 180 runs, guard fell back in 54 of 180" has no public evidence in this repository.
+- Limits: 24 hand-written cases, one Mac, one model revision (`7dced58`). Raw reports are kept outside git.

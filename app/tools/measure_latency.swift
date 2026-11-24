@@ -4,7 +4,7 @@
 // Prints numbers only: never the synthetic or transcribed text, never a key. Murmur Cloud is skipped without a stored key.
 //
 //   app/tools/build.sh measure_latency   # prints the executable path, called /tmp/ml below
-//   [ML_N=20] [ML_COLD=3] /tmp/ml HELPER_EXECUTABLE PARAKEET_MODEL_DIR [local,apple,cloud]
+//   [ML_N=20] [ML_COLD=3] /tmp/ml HELPER_EXECUTABLE PARAKEET_MODEL_DIR [local,apple,cloud,natural]
 import Foundation
 
 let buckets: [(name: String, words: Int)] = [("short", 17), ("medium", 56), ("long", 166)]
@@ -66,8 +66,8 @@ func asr(_ warm: WarmRunner, _ helper: URL, _ launch: HelperLaunch, _ wav: URL) 
         print("\n| Stage | Length | n | Median ms | P95 ms | Max ms | Failed |\n|---|---|---:|---:|---:|---:|---:|---:|")
 
         let warm = WarmRunner(); defer { warm.stopNow() }
-        var transcripts: [String: [String]] = [:]
-        if stages.contains("local") || stages.contains("apple") {
+        var transcripts: [String: [String]] = [:], asrTimes: [String: [Double]] = [:]
+        if stages.contains("local") || stages.contains("apple") || stages.contains("natural") {
             // Cold: a new helper process (Core ML caches on disk are warm) to its first answer for a short clip.
             var cold: [Double] = [], coldFailed = 0
             for _ in 0..<coldRuns {
@@ -80,12 +80,12 @@ func asr(_ warm: WarmRunner, _ helper: URL, _ launch: HelperLaunch, _ wav: URL) 
             _ = await asr(warm, helper, launch, clips["short"]![0].url)  // load once; not recorded
             for b in buckets {
                 var xs: [Double] = [], failed = 0
-                for c in clips[b.name]! { let (t, ok) = await asr(warm, helper, launch, c.url); if ok { xs.append(t) } else { failed += 1 } }
+                for c in clips[b.name]! { let (t, ok) = await asr(warm, helper, launch, c.url); if ok { xs.append(t); asrTimes[b.name, default: []].append(t) } else { failed += 1 } }
                 cell("Local ASR, warm", b.name, xs, failed: failed)
             }
         }
         // Text for the cleanup stages comes from the local ASR so cleanup sees realistic transcripts; it is never printed.
-        if stages.contains("local") || stages.contains("apple") {
+        if stages.contains("local") || stages.contains("apple") || stages.contains("natural") {
             for b in buckets {
                 for c in clips[b.name]! {
                     let line: Data? = await withCheckedContinuation { k in warm.transcribe(c.url, helper: helper, launch: launch) { k.resume(returning: $0) } }
@@ -108,6 +108,27 @@ func asr(_ warm: WarmRunner, _ helper: URL, _ launch: HelperLaunch, _ wav: URL) 
                     if r.providerError != nil { failed += 1 } else if first && b.name == "short" && i == 0 { cell(label + ", first call (cold)", b.name, [dt], failed: 0) } else { xs.append(dt); if provider != nil && r.fallback != nil { fallbacks += 1 } }
                 }
                 cell(label, b.name, xs, failed: failed, fallbacks: fallbacks)
+            }
+        }
+        if stages.contains("natural") {
+            // Natural: warm ASR + processAsync per clip (insertion excluded). Rules route, then the managed Local model route.
+            // LOCAL_CLEANUP_HELPER names the installed LocalCleanupRunner.
+            if let h = ProcessInfo.processInfo.environment["LOCAL_CLEANUP_HELPER"] { LocalCleanupRunner.helperURL = URL(fileURLWithPath: h) }
+            let model = LocalModelCleanupProvider()
+            for (label, provider) in [("Natural, rules", nil), ("Natural, local model", model)] as [(String, CleanupProvider?)] {
+                if let why = model.status(), provider != nil { print("| \(label) | - | 0 | - | - | - | - | unavailable: \(why.userMessage) |"); continue }
+                let o = CleanupOptions(fillers: true, corrections: true, lists: true, punctuation: true, polish: false, professional: false, spoken: true)
+                var s = p.settings; s.route = provider == nil ? .local : .cloud; s.options = o; try? p.update(s, persist: false); p.cloudCleaner = provider
+                _ = await p.processAsync(transcripts["short"]![0])  // load the model once; not recorded
+                for b in buckets {
+                    var xs: [Double] = [], failed = 0, fallbacks = 0
+                    precondition(asrTimes[b.name]?.count == transcripts[b.name]?.count, "ASR failures misalign clips")
+                    for (i, t) in transcripts[b.name]!.enumerated() {
+                        let start = now(); let r = await p.processAsync(t); let dt = now() - start
+                        if r.providerError != nil { failed += 1 } else { xs.append(asrTimes[b.name]![i] + dt); if provider != nil && r.fallback != nil { fallbacks += 1 } }
+                    }
+                    cell(label + " (ASR + processing)", b.name, xs, failed: failed, fallbacks: fallbacks)
+                }
             }
         }
         if stages.contains("local") { await cleanup("Local rules cleanup (Strict)", route: .local, provider: nil, level: "strict", texts: transcripts) }
