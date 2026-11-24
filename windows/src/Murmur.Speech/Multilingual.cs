@@ -1,3 +1,4 @@
+using Murmur.Core;
 using SherpaOnnx;
 
 namespace Murmur.Speech;
@@ -30,12 +31,12 @@ sealed class TdtAsr : IMultilingualAsr
 }
 
 /// <summary>Whisper large-v3-turbo int8: language auto-detected, task transcribe. Whisper decodes 30 s windows, so the audio is cut at silence with Silero VAD
-/// (the Mac's chunkingStrategy .vad) and the chunks' texts are joined with spaces.</summary>
+/// (the Mac's chunkingStrategy .vad) and the chunks' texts are joined with seam de-duplication.</summary>
 sealed class WhisperAsr : IMultilingualAsr
 {
     public const string Encoder = "turbo-encoder.int8.onnx", Decoder = "turbo-decoder.int8.onnx", Tokens = "turbo-tokens.txt";
     const int Rate = WavReader.Rate, MinSamples = 4000;
-    const float MaxChunkSeconds = 30f, PieceSeconds = 28f;
+    const float MaxChunkSeconds = 30f, PieceSeconds = 28f, MinPieceSeconds = 15f;
 
     readonly OfflineRecognizer recognizer;
     readonly VadModelConfig vad;
@@ -63,20 +64,18 @@ sealed class WhisperAsr : IMultilingualAsr
     {
         // A recording that fits one Whisper window needs no cutting; building pieces from VAD segments clipped the opening words.
         if (samples.Length <= (int)(MaxChunkSeconds * Rate)) return Decode(samples);
-        var parts = new List<string>();
-        foreach (var chunk in Chunks(samples))
-        {
-            var text = Decode(chunk);
-            if (text.Length > 0) parts.Add(text);
-        }
-        return string.Join(" ", parts);
+        var pieces = new List<string>();
+        foreach (var chunk in Chunks(samples)) pieces.Add(Decode(chunk));
+        // A word cut in two, or a fragment Whisper repeats at a cut, is dropped here (SpeechSeams.Join).
+        return SpeechSeams.Join(pieces);
     }
 
     List<float[]> Chunks(float[] samples)
     {
-        // Silero VAD only chooses where to cut: its segment starts come late (the first words of a clip were lost when pieces were built from the segments),
-        // so the pieces are consecutive slices of the whole recording, each at most PieceSeconds long, cut in the silence the VAD found.
-        var cuts = new List<int>();
+        // Silero VAD only finds the pauses: its segment starts come late (the first words of a clip were lost when pieces were built from the segments),
+        // so the pieces are consecutive slices of the whole recording, each at most PieceSeconds long. Each is cut in the middle of the longest pause
+        // of its window, so a piece holds only the silence on its own side of the cut and no word is split.
+        var pauses = new List<Silence>();
         int previousEnd = -1;
         var detector = new VoiceActivityDetector(vad, 2 * MaxChunkSeconds);
         try
@@ -92,10 +91,10 @@ sealed class WhisperAsr : IMultilingualAsr
         }
         finally { detector.Dispose(); }
         var pieces = new List<float[]>();
-        int max = (int)(PieceSeconds * Rate), start = 0;
+        int max = (int)(PieceSeconds * Rate), min = (int)(MinPieceSeconds * Rate), start = 0;
         while (samples.Length - start > (int)(MaxChunkSeconds * Rate))
         {
-            int cut = cuts.Where(c => c > start && c - start <= max).DefaultIfEmpty(start + max).Max();
+            int cut = SpeechSeams.ChooseCut(samples, pauses, start, min, max, minPause: Rate / 5, fallbackWindow: 6 * Rate, frame: Rate / 20);
             pieces.Add(samples[start..cut]);
             start = cut;
         }
@@ -108,9 +107,8 @@ sealed class WhisperAsr : IMultilingualAsr
             {
                 var segment = detector.Front();
                 int from = (int)Math.Min(int.MaxValue, segment.Start), to = (int)Math.Min(int.MaxValue, (long)segment.Start + segment.Samples.Length);
-                // The middle of the silence before this segment is a cut point.
-                if (previousEnd >= 0 && from > previousEnd) cuts.Add(previousEnd + (from - previousEnd) / 2);
-                else if (previousEnd >= 0) cuts.Add(from);
+                // Only real silence between two segments is a pause; segments the VAD split inside speech (its maximum speech length) touch and are not.
+                if (previousEnd >= 0 && from > previousEnd) pauses.Add(new Silence(previousEnd, from));
                 previousEnd = to;
                 detector.Pop();
             }
