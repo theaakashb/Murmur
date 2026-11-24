@@ -34,7 +34,7 @@ internal sealed class Updater : IDisposable
     public static IUpdateSource ProductionSource() =>
         Environment.GetEnvironmentVariable("MURMUR_UPDATE_FEED") is { Length: > 0 } folder
             ? new SimpleFileSource(new DirectoryInfo(folder))
-            : new GithubSource(RepoUrl, accessToken: null, prerelease: false);
+            : new GithubSource(RepoUrl, accessToken: null, prerelease: true); // every Windows release is a GitHub pre-release, so the Mac's "latest" feed never sees one
 
     /// <summary>First check now, then every few hours. Does nothing for a build that isn't installed by Velopack.</summary>
     public void Start()
