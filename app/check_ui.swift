@@ -292,7 +292,7 @@ extension AppController {
                 let synthetic = Diagnostics(
                     appVersion: "0.3.0", build: "12", macOS: "Version 26.1 (Build 25B1)", macModel: "Mac15,6", microphone: "authorized",
                     accessibilityAllowed: true, inputMonitoringAllowed: false, transcription: .thisMac(model: "FluidInference/parakeet-unified-en-0.6b-coreml"),
-                    cleanup: .service(name: "Local model (this Mac)", model: "clouddevaakash/murmur-cleanup-2b@6737cd3"), cleanupStyle: "Polish", historyOn: true, retention: "30 days",
+                    cleanup: .service(name: "Local model (this Mac)", model: "clouddevaakash/murmur-cleanup-2b@b591570"), cleanupStyle: "Polish", historyOn: true, retention: "30 days",
                     models: [("Parakeet Unified English 0.6B", true), ("Local cleanup", false)],
                     lastResult: .init(insertionStatus: "verified", cleanupFailure: "lengthRatio", cleanupPath: "modelAccepted", totalSeconds: 2.3))
                 print("Report details:\n\(synthetic.details)\nReport URL length: \(IssueReport.url(body: IssueReport.body(description: "", details: synthetic.details)).absoluteString.count)")

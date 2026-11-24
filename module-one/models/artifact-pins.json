@@ -2004,7 +2004,7 @@
       ]
     },
     "clouddevaakash/murmur-cleanup-2b": {
-      "revision": "6737cd3f0bb45ec1d819d934c9935df7a5dc1316",
+      "revision": "b591570bf6e9c44898cbf9d64f6519b727648e22",
       "files": [
         {
           "rfilename": "chat_template.jinja",
@@ -2014,13 +2014,13 @@
         {
           "rfilename": "config.json",
           "size": 2461,
-          "git_blob_sha1": "6cdacf27d07f01c6c1e90eff0ec4431c94483cf3"
+          "git_blob_sha1": "f25914ee62aa5dfc0d455bf720860d2bf189783d"
         },
         {
           "rfilename": "model.safetensors",
           "size": 1176983844,
           "lfs": {
-            "sha256": "463c2878b1b6c5e8b414ed1e1f744785f1c96ca6a2b36fe310fefb4d54691e07",
+            "sha256": "b2ffaf46948580f7bfe5f5b1e34741fdf346663e654192429a4469362077ed59",
             "size": 1176983844
           }
         },
