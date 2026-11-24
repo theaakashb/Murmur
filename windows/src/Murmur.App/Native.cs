@@ -16,6 +16,10 @@ internal static class Native
     [DllImport("user32.dll")] public static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")] public static extern bool ShowWindow(nint hwnd, int command);
     [DllImport("user32.dll")] public static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(nint hwnd, out uint pid);
+
+    /// <summary>True when the window the user is looking at belongs to this process (Welcome, Home, Settings; the pill never takes focus).</summary>
+    public static bool ForegroundIsThisProcess() => GetForegroundWindow() is var fg && fg != 0 && GetWindowThreadProcessId(fg, out var pid) != 0 && pid == (uint)Environment.ProcessId;
     [DllImport("user32.dll")] public static extern uint GetDpiForWindow(nint hwnd);
     [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(nint hwnd, uint key, byte alpha, uint flags);
     [DllImport("user32.dll")] public static extern int SetWindowRgn(nint hwnd, nint region, bool redraw);

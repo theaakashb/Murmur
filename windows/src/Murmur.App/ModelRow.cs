@@ -21,6 +21,8 @@ internal sealed class ModelRow
     readonly ModelFlow? flow;
     readonly Controller? controller;
     readonly Action? changedHandler;
+    readonly bool onboarding;
+    readonly TextBlock hint = MurmurStyle.Text("", "MurmurCaption");
 
     /// <summary>Stops a required-model row listening to the controller; the owner calls it before dropping the row.</summary>
     public void Detach() { if (controller is not null && changedHandler is not null) controller.SpeechModelChanged -= changedHandler; }
@@ -34,9 +36,10 @@ internal sealed class ModelRow
 
     /// <param name="release">Stops what holds the model's files open, before they are deleted.</param>
     /// <param name="changed">After the slot's state changed (the page re-checks what that enables).</param>
-    public ModelRow(AppServices services, ModelSlot slot, Controller controller, Func<XamlRoot?> root, Action<Action> release, Action changed, bool required = false)
+    /// <param name="onboarding">The Welcome step: a filled "Download name (size)" button and a line saying what happens next.</param>
+    public ModelRow(AppServices services, ModelSlot slot, Controller controller, Func<XamlRoot?> root, Action<Action> release, Action changed, bool required = false, bool onboarding = false)
     {
-        s = services; this.slot = slot; this.root = root;
+        s = services; this.slot = slot; this.root = root; this.onboarding = onboarding;
         var facts = slot.Facts;
         if (required)
         {
@@ -54,7 +57,7 @@ internal sealed class ModelRow
             Changed = Refresh,
             DownloadGate = () => ModelGate.DownloadRefusal(controller.IsBusy, false, false),
             RemoveGate = () => ModelGate.RemoveRefusal(controller.IsBusy, false, slot.InFlight),
-            DidDownload = _ => { Forget(); changed(); },
+            DidDownload = error => { Forget(); changed(); if (slot == s.CleanupSlot) controller.ReportCleanupDownload(slot.Facts.DisplayName, error); },
             Release = go => release(go),
             DidRemove = () => { Forget(); changed(); },
         };
@@ -67,13 +70,18 @@ internal sealed class ModelRow
         Panel.Children.Add(status);
         Panel.Children.Add(bar);
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        foreach (var (action, label, click) in new (ModelRowAction, string, Func<Task>)[] { (ModelRowAction.Download, "Download", Download), (ModelRowAction.Retry, "Retry", Download), (ModelRowAction.Cancel, "Cancel", () => { if (controller is not null) controller.CancelRequiredSpeechModel(); else flow!.Cancel(); return Task.CompletedTask; }), (ModelRowAction.Remove, "Remove", Remove) })
+        var size = slot.Downloader is { } sized ? ModelFacts.FormatBytes(sized.DownloadSize) : "";
+        foreach (var (action, label, click) in new (ModelRowAction, string, Func<Task>)[] { (ModelRowAction.Download, onboarding ? OnboardingText.DownloadButton(facts.DisplayName, size) : "Download", Download), (ModelRowAction.Retry, onboarding ? "Retry download" : "Retry", Download), (ModelRowAction.Cancel, "Cancel", () => { if (controller is not null) controller.CancelRequiredSpeechModel(); else flow!.Cancel(); return Task.CompletedTask; }), (ModelRowAction.Remove, "Remove", Remove) })
         {
-            var button = MurmurStyle.Named(new Button { Content = label }, $"{label} {facts.Title}");
+            // The Welcome step has one obvious action: the accent-filled download button (the Mac's InkButtonStyle "Download…").
+            var button = onboarding && action is ModelRowAction.Download or ModelRowAction.Retry
+                ? WelcomeWindow.Filled(label, () => { })
+                : MurmurStyle.Named(new Button { Content = label }, $"{label} {facts.Title}");
             button.Click += async (_, _) => await click();
             buttons[action] = button; row.Children.Add(button);
         }
         Panel.Children.Add(row);
+        if (onboarding) Panel.Children.Add(hint);
         Panel.Children.Add(message);
         Refresh();
     }
@@ -102,6 +110,8 @@ internal sealed class ModelRow
             button.Visibility = row.Actions.Contains(action) ? Visibility.Visible : Visibility.Collapsed;
             button.IsEnabled = !slot.InFlight || action == ModelRowAction.Cancel;
         }
+        hint.Text = row.IsReady ? OnboardingText.ReadyHint : row.IsWorking ? OnboardingText.DownloadingHint : row.Actions.Contains(ModelRowAction.Download) ? OnboardingText.DownloadHint : "";
+        hint.Visibility = hint.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         message.Message = slot.Message;
         message.Severity = slot.Status.Error is { } error && error != ModelDownloadError.Cancelled
             ? InfoBarSeverity.Error : InfoBarSeverity.Informational;

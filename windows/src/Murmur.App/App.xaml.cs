@@ -25,6 +25,7 @@ public partial class App : Application
     readonly Windows.UI.ViewManagement.UISettings trayTheme = new(); // held so its change event keeps firing
     MainWindow? main;
     WelcomeWindow? welcome;
+    ModelToast? toast;
 
     public App()
     {
@@ -84,6 +85,10 @@ public partial class App : Application
         _ = new CallOfferPanel(services, controller, queue); // held by the controller's CallOffered event
         _ = new TipPanel(services, controller.TipCards, (pane, tab) => Main().ShowSettingsPane(pane, tab), () => Main().ShowHome()); // held by the presenter's events
         liveMeetingPanel = new LiveMeetingPanel(services, controller, queue);
+        // Registered only here, after the single-instance check: a second process started by a notification click has already exited above, so it never takes over the clicks.
+        toast = new ModelToast(queue, () => this.welcome is not null, OpenFromToast);
+        var startedByToast = toast.Start();
+        controller.ModelDownloadFinished += (kind, model, error) => toast.Finished(kind, model, error, ShortcutSpec.Label(services.Settings.Get(Prefs.Shortcut)));
 
         // Mac parity (main.swift:28): start at login is on after the first launch, then the user's choice.
         if (!services.Settings.Get(Prefs.OpenAtLoginDefaulted)) { if (LoginItem.Set(true)) services.Settings.Set(Prefs.OpenAtLoginDefaulted, true); }
@@ -122,7 +127,7 @@ public partial class App : Application
         var welcome = forced || (string.IsNullOrWhiteSpace(dataDir) && new Murmur.Core.WelcomeGuide(services.Settings).OpensAtLaunch(services.Local.ModelFilesPresent));
         if (welcome) OpenWelcome();
         // Windows only: after Setup.exe a tray-only start looks like a failed install, so the first run opens Home (unless Welcome already shows).
-        else if (Program.JustInstalled && string.IsNullOrWhiteSpace(dataDir)) Main().ShowHome();
+        else if ((Program.JustInstalled && string.IsNullOrWhiteSpace(dataDir)) || startedByToast) Main().ShowHome();
         if (launchArgs.Contains("--bubble")) bubble.ShowListening();
         if (launchArgs.Contains("--start-meeting")) controller.StartMeeting();
     }
@@ -149,6 +154,20 @@ public partial class App : Application
         welcome.Activate();
     }
 
+    /// <summary>A click on the "Murmur is ready" notification: the Welcome window if it is open, else Home; either one is restored if minimized.</summary>
+    void OpenFromToast(ModelNoticeTarget target)
+    {
+        if (target == ModelNoticeTarget.Welcome && welcome is not null)
+        {
+            Native.ShowWindow(WinRT.Interop.WindowNative.GetWindowHandle(welcome), 9);
+            welcome.Activate();
+            return;
+        }
+        var window = Main();
+        window.ShowHome();
+        Native.ShowWindow(WinRT.Interop.WindowNative.GetWindowHandle(window), 9);
+    }
+
     void OpenSettings() => Main().ShowSettings();
 
     void OpenHistory() => Main().ShowHistory();
@@ -161,6 +180,7 @@ public partial class App : Application
         controller?.Dispose();
         Updater?.ApplyOnExit();
         services?.Paste.FlushRestore();
+        toast?.Stop();
         tray?.Dispose();
         Environment.Exit(0);
     }
