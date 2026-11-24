@@ -25,7 +25,7 @@ public static class OnboardingText
     public static ModelNoticeTarget NoticeTarget(bool welcomeOpen) => welcomeOpen ? ModelNoticeTarget.Welcome : ModelNoticeTarget.Home;
 
     // ---- the Welcome "Speech model" step ----
-    public static string DownloadButton(string modelName, string size) => $"Download {modelName} ({size})";
+    public static string DownloadButton(string modelName, string size) => size.Length > 0 ? $"Download {modelName} ({size})" : $"Download {modelName}";
     public const string DownloadHint = "Murmur downloads it in the background. You can keep going, and it will tell you when it is ready.";
     public const string DownloadingHint = "Downloading. You can continue to the next step; Murmur will tell you when it is ready.";
     public const string ReadyHint = "The model is on this PC. Continue when you are ready.";

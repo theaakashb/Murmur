@@ -30,6 +30,9 @@ public class OnboardingTextTests
     }
 
     [Fact]
-    public void DownloadButtonCarriesTheNameAndSize() =>
+    public void DownloadButtonCarriesTheNameAndSize()
+    {
         Assert.Equal("Download Parakeet (670.6 MB)", OnboardingText.DownloadButton("Parakeet", "670.6 MB"));
+        Assert.Equal("Download Parakeet", OnboardingText.DownloadButton("Parakeet", ""));
+    }
 }
