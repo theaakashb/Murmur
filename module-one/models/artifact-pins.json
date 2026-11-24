@@ -2004,7 +2004,7 @@
       ]
     },
     "clouddevaakash/murmur-cleanup-2b": {
-      "revision": "3416389d987405919dbc8fe5a22c0560f2e27507",
+      "revision": "b591570bf6e9c44898cbf9d64f6519b727648e22",
       "files": [
         {
           "rfilename": "chat_template.jinja",
@@ -2013,26 +2013,21 @@
         },
         {
           "rfilename": "config.json",
-          "size": 2168,
-          "git_blob_sha1": "feece42ea6e6e43091b50d9b6dadf6a941dbc380"
-        },
-        {
-          "rfilename": "generation_config.json",
-          "size": 116,
-          "git_blob_sha1": "492092d7d2781b5a645931eff9c03fc5ca79a7c7"
+          "size": 2461,
+          "git_blob_sha1": "f25914ee62aa5dfc0d455bf720860d2bf189783d"
         },
         {
           "rfilename": "model.safetensors",
-          "size": 1059403886,
+          "size": 1176983844,
           "lfs": {
-            "sha256": "0e6a40043b887ae7fc4a4274b5abfc1215f3026d1dc46bb2a5c7701cd4111c86",
-            "size": 1059403886
+            "sha256": "b2ffaf46948580f7bfe5f5b1e34741fdf346663e654192429a4469362077ed59",
+            "size": 1176983844
           }
         },
         {
           "rfilename": "model.safetensors.index.json",
           "size": 60786,
-          "git_blob_sha1": "ca5c6a31ac631a337c436ab74effe7f3d02457cd"
+          "git_blob_sha1": "11e95f9dfe12e7d2f59d2c3bef3be07515dc4907"
         },
         {
           "rfilename": "tokenizer.json",
@@ -2044,14 +2039,13 @@
         },
         {
           "rfilename": "tokenizer_config.json",
-          "size": 1570,
-          "git_blob_sha1": "338ef61470a2cb539548d7d57df72066b89e2c00"
+          "size": 1534,
+          "git_blob_sha1": "d92dfcb8f506b4b8b990b1925a29a615731d8c56"
         }
       ],
       "batch_files": [
         "chat_template.jinja",
         "config.json",
-        "generation_config.json",
         "model.safetensors",
         "model.safetensors.index.json",
         "tokenizer.json",
@@ -2061,7 +2055,7 @@
         "name": "Apache-2.0",
         "url": "https://www.apache.org/licenses/LICENSE-2.0"
       },
-      "repository_bytes": 1079465856
+      "repository_bytes": 1197045955
     }
   }
 }
