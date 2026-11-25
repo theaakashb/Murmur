@@ -308,7 +308,7 @@ extension SettingsView {
             toggleRow("Suggest Professional", "Now and then, in History, Murmur notes when Professional would have tidied a dictation. It decides on this Mac and never sends anything until you ask for a preview.", isOn: Binding(get: { controller.professionalHint.enabled }, set: { UserDefaults.standard.set($0, forKey: ProfessionalHint.enabledKey); controller.objectWillChange.send() }))
                 .padding(.top, 12)
             toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by Local rules. Modes can turn it on or off.", isOn: $controller.screenContext)
-                .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel).id("screen-context")
+                .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel && !(cleanupStyle.wrappedValue == .strict && controller.cleanupChoice == .localModel)).id("screen-context")
             if cleanupStyle.wrappedValue != .faithful {
                 let customOn = controller.cleanupChoice == .customAPI
                 advancedButton($showCleanupAdvanced, locked: customOn).padding(.top, 28).id("cleanup-advanced")

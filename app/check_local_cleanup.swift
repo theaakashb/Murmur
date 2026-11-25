@@ -148,10 +148,11 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         let dropped = await p.processAsync(deadlineRaw)
         if case .insert(let text) = dropped.outcome { check(text.contains("5"), "a model output that drops the deadline is not inserted: \(text)") } else { check(false, "inserts") }
         check(dropped.fallback != nil && dropped.cleanupPath != .modelAccepted, "dropped deadline is recorded as a rejection")
-        // Polish and Professional are trusted like Murmur Cloud: only malfunctions are held, so this rewrite is accepted.
+        // Polish and Professional are trusted like Murmur Cloud: a rewrite only the full guard rejects is accepted.
         settings.options.polish = true; settings.options.professional = true; try p.update(settings, persist: false)
-        let trusted = await p.processAsync(deadlineRaw)
-        check(trusted.outcome == .insert(deadlineDropped) && trusted.cleanupPath == .modelAccepted, "Professional on the Local model is trusted")
+        p.cloudCleaner = provider(rec) { _ in "Are you free later?" }
+        let trusted = await p.processAsync("um hi are you free later")
+        check(trusted.outcome == .insert("Are you free later?") && trusted.cleanupPath == .modelAccepted, "Professional on the Local model is trusted")
         p.cloudCleaner = provider(rec) { _ in "Can you send me the report by 5, the quarterly one, not the monthly one?" }
         let ok = await p.processAsync(deadlineRaw)
         check(ok.fallback == nil && ok.promptHash == "local-fixed", "a faithful output is accepted and the fixed prompt is recorded")

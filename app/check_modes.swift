@@ -113,6 +113,9 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(DictationStyle.needsScreenContext(mode: nil, modes: [], settings: natural, localModel: true), "Natural on the Local model reads opted-in context")
         natural.screenContext = false
         check(!DictationStyle.needsScreenContext(mode: nil, modes: [], settings: natural, localModel: true), "Natural on the Local model respects the context setting")
+        natural.screenContext = true
+        var naturalMode = WritingMode(); naturalMode.options = .standard; naturalMode.triggers = ["note"]
+        check(!DictationStyle.needsScreenContext(mode: naturalMode, modes: [], settings: natural, localModel: true), "a Natural writing mode runs on the AI engine, so the Local model reads nothing for it")
         var strictMode = WritingMode(); strictMode.options = .standard
         check(!captures(strictMode), "Strict mode overrides a global rewrite")
         var trigger = WritingMode(); trigger.transform = .aiPrompt; trigger.triggers = ["prompt mode"]

@@ -68,7 +68,7 @@ struct DictationStyle: Equatable, Sendable {
     static func needsScreenContext(mode: WritingMode?, modes: [WritingMode], settings: ProcessingSettings, localModel: Bool = false) -> Bool {
         func needs(_ mode: WritingMode?) -> Bool {
             let style = DictationStyle(mode: mode, settings: settings)
-            return (mode?.screenContext ?? settings.screenContext) && (style.usesModel || (localModel && style.options.anyEnabled))
+            return (mode?.screenContext ?? settings.screenContext) && (style.usesModel || (localModel && !style.usesEngine && style.options.anyEnabled))
         }
         return needs(mode) || modes.contains { $0.enabled && !$0.triggers.isEmpty && needs($0) }
     }
