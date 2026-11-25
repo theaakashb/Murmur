@@ -15,8 +15,6 @@ enum MurmurCloud {
         URL(string: "https://\(infoHost.flatMap { $0.isEmpty ? nil : $0 } ?? defaultHost)") ?? URL(string: "https://\(defaultHost)")!
     }
     static var host: String { baseURL.host! }
-    /// No subscription purchase or free trial in this release. Flip to true to show "Start a trial" everywhere.
-    static let purchaseAvailable = false
     static let cleanupModel = "murmur-cleanup"
     static let transcriptionModel = "murmur-transcribe"
     /// The server's cleanup call to its model times out after 30 s; this leaves room for the upload and reply.

@@ -125,7 +125,7 @@ extension AppController {
             var routes = appliedRoutes; routes.transcription = .cloud
             let plan = routePlan(routes, cleanupSendsText: false)
             guard let provider = plan.transcriber else {
-                meetingRecorder.message = (plan.refusal ?? "The cloud transcriber is not set up.") + " Set it up in Settings → Transcription, or choose On this Mac in Settings → Meetings."
+                meetingRecorder.message = (plan.refusal ?? "The cloud transcriber is not set up.") + " Set it up under Advanced in Settings → Transcription, or turn off the Custom Provider in Settings → Meetings."
                 screenRequest = .meetings; openSettings?(); return
             }
             cloudName = provider.id.displayName

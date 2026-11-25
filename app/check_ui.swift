@@ -189,6 +189,9 @@ extension AppController {
             if args.contains("--settings") { controller.screenRequest = .settings }
             if args.contains("--dictionary") { controller.screenRequest = .settingsPane(.dictionary) }
             if args.contains("--cues") { controller.screenRequest = .settingsPane(.cues) }
+            if args.contains("--cleanup-pane") { controller.screenRequest = .settingsPane(.cleanup) }
+            if args.contains("--modes-pane") { controller.screenRequest = .settingsPane(.modes) }
+            if args.contains("--transcription-pane") { controller.screenRequest = .settingsPane(.transcription) }
             // --cleanup-style -1|0|1|2: Faithful, Strict, Polish or Professional, with an AI model stored.
             if let flag = args.firstIndex(of: "--cleanup-style"), args.indices.contains(flag + 1), let style = Int(args[flag + 1]) {
                 controller.cleanupChoice = args.contains("--custom-cleanup") ? .customAPI : args.contains("--murmur-cloud") ? .murmurCloud : .localModel; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2

@@ -10,11 +10,14 @@ extension SettingsView {
                 eyebrow("Meeting transcription")
                 SettingInfoButton(text: "A change applies to meetings started afterwards; a meeting in progress keeps its route. Dictation’s route is set separately in Transcription.\n\n" + (controller.meetingTranscription == .local
                     ? "Meeting audio is transcribed on this Mac and never leaves it. This is the default."
-                    : controller.meetingCloudNote.map { $0.note + "\n\n" + $0.disclosure } ?? "Choose a cloud transcriber in Settings → Transcription."))
+                    : controller.meetingCloudNote.map { $0.note + "\n\n" + $0.disclosure } ?? "Set up a Custom Provider under Advanced in Settings → Transcription."))
             }.padding(.top, 20)
-            segmented([(MeetingTranscription.local, "On this Mac (Parakeet)"), (MeetingTranscription.cloud, "Cloud (Custom Provider)")], $controller.meetingTranscription)
+            help("Meeting audio is transcribed on this Mac with Parakeet unless you turn on a Custom Provider.").padding(.top, 8)
+            toggleRow("Use a Custom Provider for meeting transcription", "Sends meeting audio to the Custom Provider set up in Settings → Transcription.",
+                      isOn: Binding(get: { controller.meetingTranscription == .cloud }, set: { controller.meetingTranscription = $0 ? .cloud : .local }))
+                .padding(.top, 8)
             if controller.meetingTranscription == .cloud && controller.meetingCloudNote == nil {
-                help("No cloud transcriber is set up. Choose one and save its key in Settings → Transcription and API Keys.", color: EditorialPalette.ink)
+                help("No Custom Provider is set up. Add one under Advanced in Settings → Transcription.", color: EditorialPalette.ink)
             }
             HStack(spacing: 4) {
                 eyebrow("Meeting notes")
@@ -123,10 +126,17 @@ extension SettingsView {
 
             transcriptionRoutes
 
-            Button { showAdvanced.toggle() } label: {
-                mono((showAdvanced ? "▾" : "▸") + " Advanced", size: 13).frame(height: 44).contentShape(Rectangle())
+            let customOn = controller.transcriptionRoute == .cloud
+            advancedButton($showAdvanced, locked: customOn).padding(.top, 28).id("transcription-advanced")
+            if showAdvanced || customOn {
+                toggleRow("Use a Custom Provider for transcription", "Sends audio to your own OpenAI-compatible endpoint instead of the choice above.",
+                          isOn: Binding(get: { customOn }, set: { controller.transcriptionRoute = $0 ? .cloud : .local }))
+                    .disabled(controller.speechModelDownloading)
+                if customOn {
+                    cloudTranscriptionSettings
+                    disclosure(controller.routeDisclosure(.transcription)).padding(.top, 16)
+                }
             }
-            .buttonStyle(.plain).padding(.top, 28)
             if showAdvanced && controller.requiredSpeechModel == .parakeetEnglish {
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -158,11 +168,13 @@ extension SettingsView {
     var transcriptionRoutes: some View {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Where transcription runs").padding(.top, 28)
-            segmented([(TranscriptionRoute.local, "On this Mac"), (TranscriptionRoute.cloud, "Cloud"), (TranscriptionRoute.murmurCloud, "Murmur Cloud")], $controller.transcriptionRoute).padding(.top, 8).disabled(controller.speechModelDownloading)
+            // Custom Provider is chosen under Advanced, so while it is on neither of these is selected.
+            segmented([(TranscriptionRoute.local, "On this Mac"), (TranscriptionRoute.murmurCloud, "Murmur Cloud")], $controller.transcriptionRoute, cloud: { $0 == .murmurCloud })
+                .padding(.top, 8).disabled(controller.speechModelDownloading)
             if controller.transcriptionRoute == .local {
                 help("Audio stays on this Mac. Downloading the model uses the network once; dictation does not.").padding(.top, 12)
-            } else {
-                if controller.transcriptionRoute == .murmurCloud { keyRow(.murmurCloud).padding(.top, 16) } else { cloudTranscriptionSettings }
+            } else if controller.transcriptionRoute == .murmurCloud {
+                keyRow(.murmurCloud).padding(.top, 16)
                 disclosure(controller.routeDisclosure(.transcription)).padding(.top, 16)
             }
         }
@@ -183,6 +195,15 @@ extension SettingsView {
         }
     }
 
+    /// The "▸ Advanced" disclosure; `locked` keeps it open while a setting inside it is in use.
+    func advancedButton(_ isOpen: Binding<Bool>, locked: Bool) -> some View {
+        let open = isOpen.wrappedValue || locked
+        return Button { isOpen.wrappedValue.toggle() } label: {
+            mono((open ? "▾" : "▸") + " Advanced", size: 13).frame(height: 44).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).disabled(locked)
+    }
+
     @ViewBuilder func disclosure(_ text: String?) -> some View {
         if let text {
             Text(text)
@@ -196,36 +217,16 @@ extension SettingsView {
         Binding(get: { controller.cleanupStyle }, set: { controller.cleanupStyle = $0 })
     }
 
-    /// Cleanup levels for the route: Local rules has Faithful and Natural; Polish and Professional need a model route, shown with a cloud icon there.
-    private var styleChoices: [(CleanupStyle, String)] { CleanupStyle.allCases.map { ($0, $0.label) } }
-
-    private var routeStyle: Binding<CleanupStyle> {
-        Binding(get: { controller.cleanupStyle }, set: { style in
-            if style.needsModel && !controller.cleanupChoice.runsModelLevels { levelOffer = style } else { levelOffer = nil; controller.cleanupStyle = style }
-        })
-    }
-
     var cleanupChoices: some View {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Cleanup style").padding(.top, 28)
-            HStack(spacing: 4) {
-                segmented(styleChoices, routeStyle, size: 14, cloud: { $0.needsModel && !controller.cleanupChoice.runsModelLevels })
-                SettingInfoButton(text: "Polish and Professional run on the Local model, Murmur Cloud or a Custom Provider.")
-                    .accessibilityLabel("About cleanup styles")
-            }.padding(.top, 8)
+            segmented(CleanupStyle.allCases.map { ($0, $0.label) }, cleanupStyle, size: 14).padding(.top, 8)
             help(cleanupStyle.wrappedValue.help)
                 .padding(.top, 8)
-            if let offered = levelOffer {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("\(offered.label) runs on Murmur Cloud or a Custom Provider.")
-                        .font(Font.system(size: 14)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
-                    Button { NSWorkspace.shared.open(MurmurCloud.getURL) } label: { Text(MurmurCloud.getTitle).frame(maxWidth: .infinity, minHeight: 44) }
-                        .buttonStyle(InkButtonStyle(kind: .filled)).disabled(!MurmurCloud.purchaseAvailable)
-                }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(EditorialPalette.accent16).padding(.top, 12)
-            }
             if cleanupStyle.wrappedValue != .faithful {
                 eyebrow("Cleanup runs on").padding(.top, 20)
-                segmented(CleanupChoice.allCases.map { ($0, short($0.displayName)) }, Binding(get: { controller.cleanupChoice }, set: { levelOffer = nil; controller.cleanupChoice = $0 }), size: 14)
+                // Custom Provider is chosen under Advanced, so while it is on none of these is selected.
+                segmented(CleanupChoice.allCases.filter { $0 != .customAPI }.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14, cloud: { $0 == .murmurCloud })
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
                 if controller.cleanupChoice == .localModel { localModelSection }
                 if cleanupStyle.wrappedValue == .strict {
@@ -257,10 +258,16 @@ extension SettingsView {
 
             toggleRow("Suggest Professional", "Now and then, in History, Murmur notes when Professional would have tidied a dictation. It decides on this Mac and never sends anything until you ask for a preview.", isOn: Binding(get: { controller.professionalHint.enabled }, set: { UserDefaults.standard.set($0, forKey: ProfessionalHint.enabledKey); controller.objectWillChange.send() }))
                 .padding(.top, 12)
-            toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac or Local model. Modes can turn it on or off.", isOn: $controller.screenContext)
-                .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel)
-            if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .customAPI {
-                customCleanupSettings
+            toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by Local rules. Modes can turn it on or off.", isOn: $controller.screenContext)
+                .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel).id("screen-context")
+            if cleanupStyle.wrappedValue != .faithful {
+                let customOn = controller.cleanupChoice == .customAPI
+                advancedButton($showCleanupAdvanced, locked: customOn).padding(.top, 28).id("cleanup-advanced")
+                if showCleanupAdvanced || customOn {
+                    toggleRow("Use a Custom Provider for cleanup", "Sends cleanup to your own OpenAI-compatible endpoint instead of the choice above.",
+                              isOn: Binding(get: { customOn }, set: { controller.cleanupChoice = $0 ? .customAPI : .localModel }))
+                    if customOn { customCleanupSettings }
+                }
             }
             if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .murmurCloud {
                 keyRow(.murmurCloud).padding(.top, 16)
@@ -290,7 +297,9 @@ extension SettingsView {
     var modes: some View {
         VStack(alignment: .leading, spacing: 0) {
             if controller.aiEngine == nil {
-                help("Writing modes need Apple Intelligence (macOS 26), a Custom Provider or Murmur Cloud.").padding(.top, 12)
+                help(controller.cleanupChoice == .localModel
+                     ? "Email, Notes and Prompt run on the Local model. Other modes need Apple Intelligence (macOS 26), Murmur Cloud or a Custom Provider."
+                     : "Writing modes need Apple Intelligence (macOS 26), Murmur Cloud or a Custom Provider. Email, Notes and Prompt also run on the Local model.").padding(.top, 12)
             }
             HStack(spacing: 4) {
                 Text("How modes are chosen").font(Font.system(size: 14, weight: .semibold))

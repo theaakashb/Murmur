@@ -66,8 +66,8 @@ extension AppController {
             if newValue == .faithful { useFaithfulTranscription(); return }
             if cleanupStyle == .faithful { cleanupFillers = true; cleanupCorrections = true; cleanupLists = true; cleanupPunctuation = true; cleanupSpoken = true }
             cleanupPolish = newValue.needsModel; cleanupProfessional = newValue == .professional
-            // Polish and Professional need a model route (the Settings picker offers one first); Murmur Cloud is the default.
-            if newValue.needsModel, !cleanupChoice.runsModelLevels { cleanupChoice = .murmurCloud }
+            // Polish and Professional need a model route; from Local rules they move to the Local model.
+            if newValue.needsModel, !cleanupChoice.runsModelLevels { cleanupChoice = .localModel }
         }
     }
 

@@ -70,8 +70,8 @@ struct SettingsView: View {
     /// The last settings pane, restored by ⌘, and on relaunch.
     @AppStorage(Prefs.settingsSection.key) var section = SettingsPane.general
     @State var showAdvanced = false
+    @State var showCleanupAdvanced = false
     /// A Polish or Professional tap on a local route: the offer shown instead of switching routes silently.
-    @State var levelOffer: CleanupStyle? = CommandLine.arguments.contains("--level-offer") ? .polish : nil // the flag is for check_ui snapshots
     @State var showLiveModel = false
     @State var selectedID: String?
     /// An entry History should scroll into view once it is showing.
@@ -173,7 +173,10 @@ struct SettingsView: View {
         case .insights: screen = .insights
         case .meetings: screen = .meetings
         case .settings: screen = .settings
-        case .settingsPane(let pane): settingsTarget = "top"; section = pane; screen = .settings
+        case .settingsPane(let pane):
+            // --scroll-to ID is for check_ui snapshots of sections below the fold.
+            settingsTarget = CommandLine.arguments.firstIndex(of: "--scroll-to").flatMap { CommandLine.arguments.dropFirst($0 + 1).first } ?? "top"
+            settingsNavigationID = UUID(); section = pane; screen = .settings
         case .history:
             screen = .history
             if let id = HistoryEntry.recoveryEntryToOpen(controller.recoveryEntryID, in: controller.history) { searchText = ""; selectedID = id; scrollTarget = id }
@@ -416,7 +419,8 @@ struct SettingsView: View {
     }
 
     private func openSetting(_ result: SettingsSearch.Result) {
-        if result.target == "model-folder" { showAdvanced = true }
+        if result.target == "model-folder" || result.target == "transcription-advanced" { showAdvanced = true }
+        if result.target == "cleanup-advanced" { showCleanupAdvanced = true }
         if result.target == "live-words" { showLiveModel = true }
         settingsTarget = result.target; settingsNavigationID = UUID()
         section = result.section; screen = .settings
