@@ -14,6 +14,9 @@ import AppKit
     /// Also show the downloader's byte progress as it arrives (otherwise the owner samples it).
     var pushProgress = false
     var didDownload: (Result<Void, ModelDownloadError>) -> Void = { _ in }
+    /// Asks for notification permission as the download starts, and announces a finished one.
+    var askToNotify: () -> Void = {}
+    var announceReady: () -> Void = {}
     /// Runs the removal after the user confirmed; release what holds the files first, then call `go`.
     var release: (_ go: @escaping () -> Void) -> Void = { $0() }
     var didRemove: () -> Void = {}
@@ -34,7 +37,7 @@ import AppKit
         // A dictation may have started while the alert was open.
         if let refusal = downloadGate() { update { $0.message = refusal }; return }
         update { $0.inFlight = true; $0.message = "" }
-        willDownload()
+        willDownload(); askToNotify()
         update { $0.status = .downloading(ModelDownloadProgress(bytesDone: 0, totalBytes: downloader.downloadSize)) }
         let facts = state.facts, this = self
         downloader.start(progress: pushProgress ? { progress in
@@ -43,7 +46,7 @@ import AppKit
             DispatchQueue.main.async { MainActor.assumeIsolated {
                 if case .success = result { for old in this.state?.retiredFolders(home: FileManager.default.homeDirectoryForCurrentUser) ?? [] { try? FileManager.default.removeItem(at: old) } }
                 this.update { $0.inFlight = false; $0.status = downloader.status(); $0.message = facts.completionMessage(result) }
-                if this.owner != nil { this.didDownload(result) }
+                if this.owner != nil { this.didDownload(result); if case .success = result { this.announceReady() } }
             } }
         }
     }
