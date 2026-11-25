@@ -14,7 +14,8 @@ enum CleanupGuard {
         var commaAfter = false
         var endAfter = false
         var capitalized: Bool { text.first?.isUppercase ?? false }
-        var isName: Bool { capitalized && !sentenceStart && lower != "i" && !lower.hasPrefix("i'") }
+        // Speech recognition capitalizes a stray "Uh" mid-sentence; a hesitation is never a name.
+        var isName: Bool { capitalized && !sentenceStart && lower != "i" && !lower.hasPrefix("i'") && !CleanupText.hesitations.contains(lower) }
     }
 
     /// Assistant-specific phrases that rarely occur in dictation.
@@ -586,6 +587,12 @@ enum CleanupGuard {
                     j += 1
                 }
             }
+            // An echo of the previous word's ending ("unnecessary Necessary"): only the echo may go, so
+            // "unnecessary" itself is never dropped for "necessary".
+            // shortcut: a spoken self-correction "unhappy, happy" keeps the first word; add a cue check if History shows one.
+            for i in a.indices.dropFirst() where a[i].count >= 4 && a[i - 1].count > a[i].count && a[i - 1].hasSuffix(a[i]) {
+                repeats.insert(i)
+            }
             // Restarted phrases, often split by a chunk cut ("the final reason that. The final reason
             // that shaped"): only the first copy of an immediately repeated 2–6 word run may go.
             for n in 2...6 {
@@ -738,6 +745,12 @@ enum CleanupGuard {
             if let i = rawWords.indices.first(where: { window.contains($0) && !consumedRaw.contains($0) && a[$0] == w.lower }) {
                 consumedRaw.insert(i); continue
             }
+            // A hyphen may join 2–3 adjacent raw words in order ("sub agents" -> "sub-agents").
+            if options.polish || options.professional, w.lower.contains("-"),
+               let run = gap(j).lazy.flatMap({ x in [x + 1, x + 2].map { x...$0 } }).first(where: { r in
+                   r.upperBound < gap(j).upperBound && r.allSatisfy { !consumedRaw.contains($0) } && r.map { a[$0] }.joined(separator: "-") == w.lower }) {
+                consumedRaw.formUnion(run); continue
+            }
             // A negative contraction may complete one speech recognition truncated in the same place,
             // with the same auxiliary ("couldn" -> "couldn't", never "shouldn't"; "doesn" may be "don't").
             if let i = gap(j).first(where: { !consumedRaw.contains($0) && CleanupText.truncatedNegations[a[$0]]?.contains(w.lower) == true }) {
@@ -880,7 +893,7 @@ enum CleanupGuard {
                 let run = dropped[k...end], after = (run.last! + 1)..<min(a.count, run.last! + 5)
                 // Every content word of the dropped phrase must come back, not just a shared "the".
                 let content = run.filter { !grammarWords.contains(a[$0]) }
-                let restated = !content.isEmpty && content.allSatisfy { i in after.contains { CleanupText.similarity(a[i], a[$0]) >= 0.5 } }
+                let restated = !content.isEmpty && content.allSatisfy { i in after.contains { CleanupText.similarity(a[i], a[$0]) >= 0.5 && !polarityFlip(a[i], a[$0]) } }
                 if !run.allSatisfy({ droppableGrammarWords.contains(a[$0]) }) && !(options.corrections && restated) { return .fail(.unexplainedDeletion) }
                 k = end + 1
             }
