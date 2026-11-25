@@ -238,6 +238,8 @@ enum ScreenRequest: Equatable {
         func take() -> TimeInterval? { lock.withLock { defer { value = nil }; return value } }
     }
     let warm = WarmRunner()
+    /// Meetings whose languages need a different model than dictation keep their own helper, so neither reloads the other's.
+    let meetingWarm = WarmRunner()
     /// Chunk transcripts of local recordings, keyed by each recording's audio file.
     var chunkJobs: [URL: ChunkJob] = [:]
     private var noNap: NSObjectProtocol?
@@ -292,6 +294,11 @@ enum ScreenRequest: Equatable {
     // Stored properties of the per-feature extensions (Controller+*.swift), which cannot declare their own.
     /// Settings → Meetings: where meeting audio is transcribed (decision of October 15, 2026). Applies
     /// to meetings started after it changes; a meeting keeps the route it started with.
+    /// Settings → Meetings: the languages meetings are held in, separate from dictation. Empty until the
+    /// Meetings page's first-time setup (or Settings) saves them; until then they follow the dictation languages.
+    @Published var meetingLanguages = UserDefaults.standard.stringArray(forKey: "meetingLanguages") ?? [] {
+        didSet { UserDefaults.standard.set(meetingLanguages, forKey: "meetingLanguages") }
+    }
     @Published var meetingTranscription = MeetingTranscription.load(.standard) {
         didSet { UserDefaults.standard.set(meetingTranscription.rawValue, forKey: MeetingTranscription.key) }
     }
@@ -1371,7 +1378,7 @@ enum ScreenRequest: Equatable {
             if runner.isRunning { kill(runner.processIdentifier, SIGKILL) }
             runner.waitUntilExit()
         }
-        warm.stopNow()
+        warm.stopNow(); meetingWarm.stopNow()
         bubble.hide()
         if let previewDirectory { try? FileManager.default.removeItem(at: previewDirectory) }
     }

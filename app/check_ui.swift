@@ -211,7 +211,10 @@ extension AppController {
                 if let pane = Int(args[flag + 1]).flatMap(SettingsPane.init(rawValue:)) { controller.screenRequest = .settingsPane(pane) }
             }
             if args.contains("--speaker-settings") { controller.speakerSettings.showFixture(enabled: true, status: args.contains("--ready") ? .ready : .notDownloaded) }
-            if args.contains("--meeting-settings") { controller.meetingTranscription = args.contains("--cloud") ? .cloud : .local; controller.screenRequest = .settingsPane(.meetings) }
+            // --meeting-setup shows the Meetings page's first-time setup; --meeting-languages a,b saves meeting languages.
+            controller.meetingLanguages = args.contains("--meeting-setup") ? [] : args.firstIndex(of: "--meeting-languages").map { args[$0 + 1].split(separator: ",").map(String.init) } ?? ["en"]
+            if args.contains("--meeting-setup") { controller.screenRequest = .meetings }
+            if args.contains("--meeting-settings") { controller.meetingsUseCustomProvider = args.contains("--cloud"); controller.screenRequest = .settingsPane(.meetings) }
             if args.contains("--settings-search") { controller.screenRequest = .settingsSearch }
             controller.voiceLevel = 0.6
             controller.phase = CommandLine.arguments.contains("--processing") ? .processing : CommandLine.arguments.contains("--listening") ? .listening : CommandLine.arguments.contains("--saved") ? .saved : .error

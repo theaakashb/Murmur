@@ -71,6 +71,10 @@ struct MeetingsPage: View {
     private var selected: Meeting? { filtered.first { $0.id == selectedID } ?? filtered.first }
 
     var body: some View {
+        if controller.meetingLanguages.isEmpty { MeetingsSetup(controller: controller) } else { page }
+    }
+
+    private var page: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -529,7 +533,7 @@ struct MeetingNotesRoutePicker: View {
     @Binding var selection: MeetingNotesRoute
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            segmented([(MeetingNotesRoute.none, "None (transcript only)")] + (AppleSystemModel.isSupported ? [(.appleIntelligence, "Apple Intelligence")] : []) + [(.customAPI, "Custom Provider")], $selection, size: 14)
+            segmented([(MeetingNotesRoute.none, "None (transcript only)")] + (AppleSystemModel.isSupported ? [(.appleIntelligence, "Apple Intelligence")] : []), $selection, size: 14)
             HStack(spacing: 4) {
                 if selection == .appleIntelligence { lede("On-device", color: Palette.ink70) }
                 if tooltipDetails && selection != .appleIntelligence { SettingInfoButton(text: controller.meetingNotesDisclosure(selection)) }
@@ -537,6 +541,54 @@ struct MeetingNotesRoutePicker: View {
             if !tooltipDetails { lede(controller.meetingNotesDisclosure(selection), color: Palette.ink) }
             if selection != MeetingNotesRoute.none, let refusal = controller.meetingNotesSetupProblem(selection) { lede(refusal, color: Palette.accentInk) }
         }
+    }
+}
+
+/// The Meetings page the first time it opens: meeting languages (a copy of the dictation languages to start),
+/// the on-device model they need, and how notes are written. Continue saves the languages, which ends setup.
+struct MeetingsSetup: View {
+    @ObservedObject var controller: AppController
+    @State private var languages: [String] = []
+
+    private var model: DictationLanguages.LocalModel { DictationLanguages(codes: Set(languages))?.localModel ?? .parakeetEnglish }
+    private var slot: ModelSlot { controller[keyPath: controller.speechModelSlot(for: model)] }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Set up meetings").font(WindowType.body(28, weight: .bold))
+                lede("Murmur transcribes meetings on this Mac and can write notes when you stop. Meetings can use different languages from dictation, for example when you speak one language and the other person another.")
+                DictationLanguagePicker(languages: $languages, onDevice: true, title: "What languages do you take meetings in?")
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Meeting transcription").font(WindowType.body(16, weight: .semibold))
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(slot.facts.title).font(WindowType.body(15, weight: .medium))
+                            lede(slot.row.isReady ? "Ready ✓" : slot.row.statusText + (slot.row.isReady || slot.row.isWorking ? "" : " · needed for these languages"), color: Palette.ink70)
+                        }
+                        Spacer()
+                        if slot.row.isWorking {
+                            Button("Cancel") { slot.downloader?.cancel() }.buttonStyle(InkButtonStyle(kind: .outline))
+                        } else if !slot.row.isReady {
+                            Button("Download…") { controller.downloadSpeechModel(model) }.buttonStyle(InkButtonStyle(kind: .outline))
+                        }
+                    }
+                    lede("Transcripts are written after each part of the meeting is recorded, so a larger model only means they finish a little later.", color: Palette.ink70)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Meeting notes").font(WindowType.body(16, weight: .semibold))
+                    MeetingNotesRoutePicker(controller: controller, tooltipDetails: true, selection: Binding(get: { controller.meetingNotesRoute ?? .none }, set: controller.chooseNotesRoute))
+                }
+                lede("A Custom Provider for both is under Advanced in Settings → Meetings.", color: Palette.ink70)
+                HStack {
+                    Spacer()
+                    Button("Continue") { controller.meetingLanguages = languages }
+                        .buttonStyle(InkButtonStyle(kind: .filled)).keyboardShortcut(.defaultAction).disabled(languages.isEmpty)
+                }
+            }
+            .padding(48).frame(maxWidth: 760, alignment: .leading)
+        }
+        .onAppear { if languages.isEmpty { languages = controller.dictationLanguages } }
     }
 }
 
