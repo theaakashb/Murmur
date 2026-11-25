@@ -59,13 +59,16 @@ struct DictationStyle: Equatable, Sendable {
         options.trustModel = settings.options.trustModel
         transform = mode?.transform
         usesEngine = mode != nil
-        if !usesModel { self.context = nil } // Strict and Faithful run on this Mac; nothing to send context to.
+        // With every option off nothing runs. Natural keeps it: the Local model cleans Natural with it (the app reads it only then).
+        if !options.anyEnabled { self.context = nil }
     }
 
     /// Trigger modes are chosen after transcription, so capture for any enabled candidate that needs it.
-    static func needsScreenContext(mode: WritingMode?, modes: [WritingMode], settings: ProcessingSettings) -> Bool {
+    /// `localModel`: the cleanup route is the Local model, which also runs Natural as a model pass.
+    static func needsScreenContext(mode: WritingMode?, modes: [WritingMode], settings: ProcessingSettings, localModel: Bool = false) -> Bool {
         func needs(_ mode: WritingMode?) -> Bool {
-            (mode?.screenContext ?? settings.screenContext) && DictationStyle(mode: mode, settings: settings).usesModel
+            let style = DictationStyle(mode: mode, settings: settings)
+            return (mode?.screenContext ?? settings.screenContext) && (style.usesModel || (localModel && !style.usesEngine && style.options.anyEnabled))
         }
         return needs(mode) || modes.contains { $0.enabled && !$0.triggers.isEmpty && needs($0) }
     }

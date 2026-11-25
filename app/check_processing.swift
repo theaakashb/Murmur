@@ -36,7 +36,7 @@ private final class SpyCleaner: Cleaner {
 
 /// A cloud cleanup provider that records prompts and never touches the network.
 private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
-    let id = ProviderID.customAPI
+    var id = ProviderID.customAPI
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .cleanup, destinationHost: "example.invalid", leavesDevice: ["transcript"], staysOnDevice: ["audio"], retentionNote: "test")
     }
@@ -423,6 +423,21 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         let result39 = await expect(p, "every like give or take twenty seconds okay", .insert("every like give or take twenty seconds okay"), "rejection without punctuation uses local rules")
         check(result39.fallback != nil && result39.cleanupPath == .localRules, "rejected without punctuation outcome is local rules")
         settings.options = .standard; settings.options.polish = true
+        // The Local model: Polish and Professional are trusted like Murmur Cloud; Natural and Apple Intelligence keep the full guard.
+        let greeting = MockCloudCleaner(.success("Are you free later?")); greeting.id = .localModel; p.cloudCleaner = greeting
+        var trusted = settings; trusted.route = .cloud
+        trusted.options = ProcessingSettings.options(fillers: true, corrections: true, lists: true, punctuation: true, polish: true, professional: true, spoken: false)
+        try p.update(trusted, persist: false)
+        let professional = await p.processAsync("Um, hi, are you free later?")
+        check(professional.cleanupPath == .modelAccepted, "Professional on the Local model is trusted like Murmur Cloud")
+        trusted.options.polish = false; trusted.options.professional = false; trusted.screenContext = true; try p.update(trusted, persist: false)
+        let screen = ScreenContext(selected: "", clipboard: "", window: "Calendar")
+        let natural = await p.processAsync("Um, hi, are you free later?", style: DictationStyle(mode: nil, settings: trusted, context: screen))
+        check(natural.contextUsed && greeting.messages.last?.input?.context == screen, "Natural on the Local model sends opted-in screen context")
+        check(greeting.messages.count == 2 && natural.cleanupPath == .modelPunctuationOnLocal && natural.fallback == .unexplainedDeletion, "Natural on the Local model keeps the full guard")
+        greeting.id = .appleIntelligence; trusted.options.polish = true; try p.update(trusted, persist: false)
+        let apple = await p.processAsync("Um, hi, are you free later?")
+        check(apple.cleanupPath == .modelPunctuationOnLocal, "Apple Intelligence keeps the full guard")
         try p.update(settings)
         p.cloudCleaner = MockCloudCleaner(.success("Call Akme."))
         let result40 = await expect(p, "Um, call acme.", .insert("Call Akme."), "next dictation passes")
