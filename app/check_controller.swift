@@ -148,6 +148,15 @@ import AVFoundation
         controller.cleanupStyle = .strict
         precondition(controller.cleanupChoice == .customAPI && !controller.cleanupPolish && !controller.cleanupProfessional,
                      "Strict remembers the AI provider without using it")
+        controller.dictationLanguages = ["en"]; controller.meetingLanguages = []
+        precondition(controller.effectiveMeetingLanguages == ["en"] && controller.meetingSpeechModel == .parakeetEnglish, "unsaved meeting languages follow dictation")
+        controller.meetingLanguages = ["en", "hi"]
+        precondition(controller.meetingSpeechModel == .whisperTurbo && controller.dictationLanguages == ["en"], "meeting languages pick their own model, apart from dictation")
+        controller.meetingsUseCustomProvider = true
+        precondition(controller.meetingTranscription == .cloud && controller.meetingNotesRoute == .customAPI, "one switch sends meeting transcription and notes to the Custom Provider")
+        controller.meetingsUseCustomProvider = false
+        precondition(controller.meetingTranscription == .local && controller.meetingNotesRoute != .customAPI, "turning it off returns both to this Mac")
+        controller.meetingLanguages = []
         controller.cleanupStyle = .professional
         precondition(controller.cleanupChoice == .customAPI && controller.cleanupProfessional,
                      "Professional restores the chosen provider")

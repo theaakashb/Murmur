@@ -3,6 +3,7 @@ import SwiftUI
 struct DictationLanguagePicker: View {
     @Binding var languages: [String]
     let onDevice: Bool
+    var title = "What languages do you dictate in?"
     @State private var query = ""
     @FocusState private var searchFocused: Bool
     @Environment(\.locale) private var locale
@@ -24,7 +25,7 @@ struct DictationLanguagePicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("What languages do you dictate in?")
+            Text(title)
                 .font(WindowType.body(16, weight: .semibold))
             if !languages.isEmpty {
                 Text(languages.map { "\(flag($0)) \(name($0))" }.joined(separator: "  ·  "))

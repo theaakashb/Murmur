@@ -6,24 +6,31 @@ import SwiftUI
 extension SettingsView {
     var meetingRoutes: some View {
         VStack(alignment: .leading, spacing: 12) {
+            DictationLanguagePicker(languages: Binding(get: { controller.effectiveMeetingLanguages }, set: { controller.meetingLanguages = $0 }),
+                                    onDevice: !controller.meetingsUseCustomProvider, title: "What languages do you take meetings in?")
+                .padding(.top, 20).disabled(controller.isBusy || controller.meetingSpeechSlot.inFlight)
             HStack(spacing: 4) {
                 eyebrow("Meeting transcription")
-                SettingInfoButton(text: "A change applies to meetings started afterwards; a meeting in progress keeps its route. Dictation’s route is set separately in Transcription.\n\n" + (controller.meetingTranscription == .local
-                    ? "Meeting audio is transcribed on this Mac and never leaves it. This is the default."
-                    : controller.meetingCloudNote.map { $0.note + "\n\n" + $0.disclosure } ?? "Set up a Custom Provider under Advanced in Settings → Transcription."))
+                SettingInfoButton(text: "Meetings are transcribed after each chunk is recorded, not live, so a larger model only means the transcript finishes a little later. A change applies to meetings started afterwards. Dictation's languages and model are set separately in Transcription.")
             }.padding(.top, 20)
-            help("Meeting audio is transcribed on this Mac with Parakeet unless you turn on a Custom Provider.").padding(.top, 8)
-            toggleRow("Use a Custom Provider for meeting transcription", "Sends meeting audio to the Custom Provider set up in Settings → Transcription.",
-                      isOn: Binding(get: { controller.meetingTranscription == .cloud }, set: { controller.meetingTranscription = $0 ? .cloud : .local }))
-                .padding(.top, 8)
-            if controller.meetingTranscription == .cloud && controller.meetingCloudNote == nil {
-                help("No Custom Provider is set up. Add one under Advanced in Settings → Transcription.", color: EditorialPalette.ink)
+            if controller.meetingsUseCustomProvider {
+                help("Meeting audio goes to your Custom Provider (Advanced, below).")
+            } else {
+                let shared = controller.transcriptionRoute == .local && controller.meetingSpeechModel == controller.requiredSpeechModel
+                modelRow(controller.meetingSpeechSlot, readyText: "Model ready ✓", download: controller.downloadMeetingSpeechModel,
+                         cancel: controller.cancelMeetingSpeechModel, remove: controller.removeMeetingSpeechModel,
+                         extras: shared ? [AnyView(help("Also used by dictation: removing it here removes it for dictation too."))] : [])
+                help("Audio stays on this Mac.")
             }
             HStack(spacing: 4) {
                 eyebrow("Meeting notes")
                 SettingInfoButton(text: controller.meetingNotesRoute == nil ? "Not chosen yet: Murmur asks after your first meeting." : "Notes are written after Stop from the transcript and your own notes. Every item cites the lines it rests on; items the transcript does not support are left out.")
             }.padding(.top, 20)
-            MeetingNotesRoutePicker(controller: controller, tooltipDetails: true, selection: Binding(get: { controller.meetingNotesRoute ?? .none }, set: controller.chooseNotesRoute))
+            if controller.meetingsUseCustomProvider {
+                help("Notes are written by your Custom Provider (Advanced, below).")
+            } else {
+                MeetingNotesRoutePicker(controller: controller, tooltipDetails: true, selection: Binding(get: { controller.meetingNotesRoute ?? .none }, set: controller.chooseNotesRoute))
+            }
             HStack(spacing: 4) {
                 eyebrow("Minimized meeting indicator")
                 SettingInfoButton(text: "Where the recording timer sits when you minimize the meeting panel. Click it to bring the panel back. A display without a notch always uses the menu bar, and the menu bar item appears for the recording even if the menu bar icon is turned off.")
@@ -37,6 +44,48 @@ extension SettingsView {
             meetingRoutes
             CallDetectionRows(presenter: controller.callOffers).id("call-detection")
             SpeakerSettingsSection(settings: controller.speakerSettings).id("speaker-separation")
+            meetingAdvanced
+        }
+    }
+
+    /// One switch sends both meeting transcription and notes to a Custom Provider, set up right here. The fields are
+    /// the same Custom Provider settings as Transcription and Cleanup use; "same provider" writes one address and key to both.
+    var meetingAdvanced: some View {
+        let customOn = controller.meetingsUseCustomProvider
+        let same = meetingSameProvider ?? (controller.customAPIBaseURL == controller.customTranscriptionAPIBaseURL)
+        return VStack(alignment: .leading, spacing: 12) {
+            advancedButton($showMeetingAdvanced, locked: customOn).padding(.top, 20).id("meeting-advanced")
+            if showMeetingAdvanced || customOn {
+                toggleRow("Use a Custom Provider for meetings", "Sends meeting audio for transcription, and the transcript for notes, to OpenAI-compatible endpoints you choose.",
+                          isOn: Binding(get: { customOn }, set: { controller.meetingsUseCustomProvider = $0 }))
+                if customOn {
+                    toggleRow("Same provider for transcription and notes", "One address and API key for both.",
+                              isOn: Binding(get: { same }, set: { on in
+                                  meetingSameProvider = on
+                                  if on { controller.customAPIBaseURL = controller.customTranscriptionAPIBaseURL; controller.settingsChanged() }
+                              }))
+                    if same {
+                        meetingField("API base URL", RouteSettings.placeholderAPIURL, Binding(get: { controller.customTranscriptionAPIBaseURL }, set: { controller.customTranscriptionAPIBaseURL = $0; controller.customAPIBaseURL = $0 }))
+                    } else {
+                        meetingField("Transcription API base URL", RouteSettings.placeholderAPIURL, $controller.customTranscriptionAPIBaseURL)
+                        meetingField("Notes API base URL", RouteSettings.placeholderAPIURL, $controller.customAPIBaseURL)
+                    }
+                    meetingField("Transcription model", RouteSettings.placeholderModel, $controller.customTranscriptionModel)
+                    meetingField("Notes model", RouteSettings.placeholderModel, $controller.customAPIModel)
+                    if same { keyRow(.customTranscription, also: .customCleanup, title: "Custom Provider") }
+                    else { keyRow(.customTranscription); keyRow(.customCleanup) }
+                    help("Transcription needs POST /v1/audio/transcriptions and notes POST /v1/chat/completions. These are the same Custom Provider settings as in Transcription and Cleanup.")
+                    if let note = controller.meetingCloudNote { disclosure(note.note + "\n\n" + note.disclosure) }
+                    if controller.meetingNotesSetupProblem(.customAPI) == nil { disclosure(controller.meetingNotesDisclosure(.customAPI)) }
+                }
+            }
+        }
+    }
+
+    private func meetingField(_ label: String, _ placeholder: String, _ text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(Font.system(size: 14, weight: .semibold))
+            field(placeholder, text: text).focused($apiFieldFocused).onSubmit(controller.settingsChanged)
         }
     }
 
@@ -669,28 +718,29 @@ extension SettingsView {
         }
     }
 
-    func keyRow(_ provider: ProviderID) -> some View {
-        let has = controller.savedKeys.contains(provider), open = openKey == provider
+    /// `also`: a second provider that shares this key and address (meetings' "same provider" switch); saved and removed together.
+    func keyRow(_ provider: ProviderID, also: ProviderID? = nil, title: String? = nil) -> some View {
+        let has = controller.savedKeys.contains(provider) && also.map { controller.savedKeys.contains($0) } ?? true, open = openKey == provider
         // A custom provider's key is saved for its server address, so the address comes first.
         let address = controller.routeSettings.apiBaseURL(for: provider), needsAddress = address?.trimmingCharacters(in: .whitespaces).isEmpty == true
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(provider.displayName).font(Font.system(size: 16, weight: .semibold))
+                    Text(title ?? provider.displayName).font(Font.system(size: 16, weight: .semibold))
                     mono(has ? "Saved in Keychain ✓" : KeyText.none, color: has ? EditorialPalette.accentInk : EditorialPalette.ink70)
                 }
                 Spacer()
                 if has {
                     Button("Validate") { controller.validateKey(provider) }.buttonStyle(InkButtonStyle(kind: .outline))
                 }
-                if has { Button("Remove", role: .destructive) { controller.removeKey(provider) }.buttonStyle(InkButtonStyle(kind: .outline)) }
+                if has { Button("Remove", role: .destructive) { controller.removeKey(provider); also.map(controller.removeKey) }.buttonStyle(InkButtonStyle(kind: .outline)) }
                 Button(open ? "Cancel" : has ? "Replace" : "Add Key") { keyDraft = ""; openKey = open ? nil : provider }
                     .buttonStyle(InkButtonStyle()).disabled(needsAddress && !has)
             }
             if open {
                 HStack(spacing: 8) {
                     field("Paste your \(provider.displayName) API key", text: $keyDraft, secure: true)
-                    Button("Save Key") { if controller.saveKey(provider, keyDraft) { keyDraft = ""; openKey = nil } }
+                    Button("Save Key") { if controller.saveKey(provider, keyDraft) && also.map({ controller.saveKey($0, keyDraft) }) ?? true { keyDraft = ""; openKey = nil } }
                         .buttonStyle(InkButtonStyle(kind: .accent)).disabled(keyDraft.isEmpty)
                 }
             }

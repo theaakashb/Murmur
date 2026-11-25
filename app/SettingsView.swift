@@ -71,6 +71,8 @@ struct SettingsView: View {
     @AppStorage(Prefs.settingsSection.key) var section = SettingsPane.general
     @State var showAdvanced = false
     @State var showCleanupAdvanced = false
+    @State var showMeetingAdvanced = false
+    @State var meetingSameProvider: Bool?
     /// A Polish or Professional tap on a local route: the offer shown instead of switching routes silently.
     @State var showLiveModel = false
     @State var selectedID: String?
@@ -421,6 +423,7 @@ struct SettingsView: View {
     private func openSetting(_ result: SettingsSearch.Result) {
         if result.target == "model-folder" || result.target == "transcription-advanced" { showAdvanced = true }
         if result.target == "cleanup-advanced" { showCleanupAdvanced = true }
+        if result.target == "meeting-advanced" { showMeetingAdvanced = true }
         if result.target == "live-words" { showLiveModel = true }
         settingsTarget = result.target; settingsNavigationID = UUID()
         section = result.section; screen = .settings
