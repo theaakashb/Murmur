@@ -172,7 +172,10 @@ struct SettingsView: View {
         case .insights: screen = .insights
         case .meetings: screen = .meetings
         case .settings: screen = .settings
-        case .settingsPane(let pane): settingsTarget = "top"; section = pane; screen = .settings
+        case .settingsPane(let pane):
+            // --scroll-to ID is for check_ui snapshots of sections below the fold.
+            settingsTarget = CommandLine.arguments.firstIndex(of: "--scroll-to").flatMap { CommandLine.arguments.dropFirst($0 + 1).first } ?? "top"
+            settingsNavigationID = UUID(); section = pane; screen = .settings
         case .history:
             screen = .history
             if let id = HistoryEntry.recoveryEntryToOpen(controller.recoveryEntryID, in: controller.history) { searchText = ""; selectedID = id; scrollTarget = id }
