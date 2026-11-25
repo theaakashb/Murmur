@@ -237,7 +237,7 @@ extension SettingsView {
 
             toggleRow("Suggest Professional", "Now and then, in History, Murmur notes when Professional would have tidied a dictation. It decides on this Mac and never sends anything until you ask for a preview.", isOn: Binding(get: { controller.professionalHint.enabled }, set: { UserDefaults.standard.set($0, forKey: ProfessionalHint.enabledKey); controller.objectWillChange.send() }))
                 .padding(.top, 12)
-            toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac or Local model. Modes can turn it on or off.", isOn: $controller.screenContext)
+            toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by Local rules. Modes can turn it on or off.", isOn: $controller.screenContext)
                 .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel)
             if cleanupStyle.wrappedValue != .faithful {
                 eyebrow("Advanced").padding(.top, 28)
@@ -274,7 +274,9 @@ extension SettingsView {
     var modes: some View {
         VStack(alignment: .leading, spacing: 0) {
             if controller.aiEngine == nil {
-                help("Writing modes need Apple Intelligence (macOS 26), a Custom Provider or Murmur Cloud.").padding(.top, 12)
+                help(controller.cleanupChoice == .localModel
+                     ? "Email, Notes and Prompt run on the Local model. Other modes need Apple Intelligence (macOS 26), Murmur Cloud or a Custom Provider."
+                     : "Writing modes need Apple Intelligence (macOS 26), Murmur Cloud or a Custom Provider. Email, Notes and Prompt also run on the Local model.").padding(.top, 12)
             }
             HStack(spacing: 4) {
                 Text("How modes are chosen").font(Font.system(size: 14, weight: .semibold))
