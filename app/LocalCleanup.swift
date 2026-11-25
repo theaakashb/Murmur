@@ -2,8 +2,8 @@ import Foundation
 
 // Managed local cleanup: the Murmur Cleanup 2B model (a Qwen3.5-2B fine-tune, Apache-2.0, pinned in artifact-pins.json) run by the bundled
 // LocalCleanupRunner helper over stdin/stdout. No network is used for inference and no transcript is logged. The model has
-// one fixed prompt, so this provider reads the typed `CleanupInput` and ignores the built prompt text: screen context,
-// custom instructions and rewrite presets are not supported on this route (ProcessingCoordinator never sends them).
+// one fixed prompt, so this provider reads the typed `CleanupInput` (or `PresetInput`) and ignores the built prompt text:
+// screen context goes as one flattened line, rewrite presets as `[mode:]`, and custom instructions are not followed.
 
 enum LocalCleanupIdentity {
     static let modelName = "Murmur Cleanup 2B"
@@ -18,9 +18,23 @@ enum LocalCleanupIdentity {
 
 struct LocalCleanupRequest: Equatable, Sendable {
     var text: String
-    /// Always "casual" (the model's default): Professional does not run on this Mac.
+    /// "formal" for Professional (the model's `[tone: formal]` header), otherwise "casual".
     var tone: String
     var terms: [String]
+    /// "email", "notes" or "prompt" for a rewrite preset; empty for cleanup.
+    var mode = ""
+    /// Screen context as one line (`LocalCleanup.screenLine`); empty for none or for a preset.
+    var screen = ""
+}
+
+enum LocalCleanup {
+    /// Selected, clipboard and window text in that order, whitespace collapsed, "[" "]" written "(" ")", at most 400
+    /// characters: the `[screen:]` line the model was trained on (MurmurModel `common.screen_text`).
+    static func screenLine(_ context: ScreenContext?) -> String {
+        guard let c = context else { return "" }
+        let parts = [c.selected, c.clipboard, c.window].map { $0.split(whereSeparator: \.isWhitespace).joined(separator: " ") }.filter { !$0.isEmpty }
+        return String(parts.joined(separator: " | ").replacingOccurrences(of: "[", with: "(").replacingOccurrences(of: "]", with: ")").prefix(400))
+    }
 }
 
 /// Longest input accepted by one request; the helper also checks the token count.
@@ -32,19 +46,26 @@ struct LocalModelCleanupProvider: CleanupProvider {
     var status: @Sendable () -> OnDeviceModelUnavailable? = { LocalCleanupRunner.installedStatus() }
     var generate: @Sendable (LocalCleanupRequest) async throws -> String = { try await LocalCleanupRunner.shared.clean($0) }
     var modelID: String? { LocalCleanupIdentity.modelID }
-    /// One fixed prompt: no screen context or style notes, and rewrite presets fall back to local rules.
-    var shape: CleanupShape { CleanupShape(takesContext: false, sectionTarget: 150, keepsCorrectionsAttached: true, takesPresets: false) }
+    /// One fixed prompt: screen context and presets go as header lines; style notes are not followed.
+    var shape: CleanupShape { CleanupShape(takesContext: true, sectionTarget: 150, keepsCorrectionsAttached: true, takesPresets: true) }
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .cleanup, destinationHost: "\(LocalCleanupIdentity.modelName), downloaded to this Mac", leavesDevice: [],
                        staysOnDevice: ["the transcript"], retentionNote: "")
     }
 
     func cleanup(_ messages: CleanupMessages) async throws -> String {
-        // Rewrite presets and notes carry no typed input: this model cannot follow them, so they are refused, not approximated.
+        if let preset = messages.preset {
+            if let reason = status() { throw ProviderError.modelUnavailable(id, reason) }
+            guard preset.transcript.count <= localCleanupMaximumCharacters else { throw ProviderError.payloadTooLarge(id, limitBytes: nil) }
+            let mode = switch preset.kind { case .aiPrompt: "prompt"; case .email: "email"; case .notes: "notes" }
+            return try await generate(LocalCleanupRequest(text: preset.transcript, tone: "casual", terms: Array(preset.terms.prefix(12)), mode: mode))
+        }
+        // Meeting notes and voice edits carry no typed input: this model cannot follow them, so they are refused, not approximated.
         guard let input = messages.input else { throw ProviderError.invalidConfiguration(id) }
         if let reason = status() { throw ProviderError.modelUnavailable(id, reason) }
         guard input.raw.count <= localCleanupMaximumCharacters else { throw ProviderError.payloadTooLarge(id, limitBytes: nil) }
-        return try await generate(LocalCleanupRequest(text: input.raw, tone: "casual", terms: Array(input.terms.prefix(12))))
+        return try await generate(LocalCleanupRequest(text: input.raw, tone: input.options.professional ? "formal" : "casual", terms: Array(input.terms.prefix(12)),
+                                                      screen: LocalCleanup.screenLine(input.context)))
     }
 
     func validate() async throws { if let reason = status() { throw ProviderError.modelUnavailable(id, reason) } }
@@ -160,7 +181,7 @@ actor LocalCleanupRunner {
             guard let hello = await nextLine(timeout: startupSeconds), hello.contains("\"ready\":true") else { terminate(); return .timeout }
         }
         let id = nextID; nextID += 1
-        let body: [String: Any] = ["id": id, "text": request.text, "tone": request.tone, "terms": request.terms]
+        let body: [String: Any] = ["id": id, "text": request.text, "tone": request.tone, "terms": request.terms, "mode": request.mode, "screen": request.screen]
         guard let data = try? JSONSerialization.data(withJSONObject: body), let input else { terminate(); return .failed }
         do { try input.write(contentsOf: data + Data("\n".utf8)) } catch { terminate(); return .failed }
         guard let line = await nextLine(timeout: requestSeconds) else { terminate(); return .timeout }

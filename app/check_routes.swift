@@ -641,7 +641,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         let key = APIKey("shape-key")!
         let apple: CleanupProvider = AppleCleanupProvider(), local: CleanupProvider = LocalModelCleanupProvider()
         check(apple.shape == CleanupShape(contextCaps: .init(selected: 400, clipboard: 400, window: 1_000), sectionTarget: 400) && apple.modelID == nil, "Apple: capped context, 400-word sections, no model id")
-        check(local.shape == CleanupShape(takesContext: false, sectionTarget: 150, keepsCorrectionsAttached: true, takesPresets: false) && local.modelID == LocalCleanupIdentity.modelID, "local model: no context or presets, 150-word sections kept with corrections")
+        check(local.shape == CleanupShape(takesContext: true, sectionTarget: 150, keepsCorrectionsAttached: true, takesPresets: true) && local.modelID == LocalCleanupIdentity.modelID, "local model: context and presets, 150-word sections kept with corrections")
         let custom = try? OpenAICompatibleCleanupProvider(baseURL: "https://api.example.com/v1", model: "m", apiKey: key, provider: .customAPI)
         check(custom?.shape == CleanupShape() && custom?.modelID == "m" && (custom?.forMeetingNotes() as? OpenAICompatibleCleanupProvider)?.timeout == OpenAICompatibleCleanupProvider.maximumTimeout, "custom cleanup: its model id, the longest notes wait")
         check(apple.forMeetingNotes() is AppleCleanupProvider, "providers without a longer wait are unchanged for notes")

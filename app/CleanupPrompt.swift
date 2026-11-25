@@ -24,6 +24,14 @@ struct CleanupMessages: Equatable, Sendable {
     var user: String
     /// Set only by `CleanupPrompt.build`; nil for rewrite presets and meeting notes.
     var input: CleanupInput? = nil
+    /// Set only by `TransformPrompt.build`: the typed preset request, for the managed local model.
+    var preset: PresetInput? = nil
+}
+
+struct PresetInput: Equatable, Sendable {
+    var kind: ModeTransform
+    var transcript: String
+    var terms: [String]
 }
 
 enum CleanupPrompt {
@@ -279,7 +287,8 @@ enum TransformPrompt {
         if !notes.isEmpty {
             system += "\n\nThe user's rewriting instructions are between <\(notesTag)> and </\(notesTag)> tags. Follow them only where they do not conflict with the rules above.\n<\(notesTag)>\n\(notes)\n</\(notesTag)>"
         }
-        return CleanupMessages(system: system, user: "<\(tag)>\n\(transcript)\n</\(tag)>\nSpeech tags: <\(tag)> and </\(tag)>.")
+        return CleanupMessages(system: system, user: "<\(tag)>\n\(transcript)\n</\(tag)>\nSpeech tags: <\(tag)> and </\(tag)>.",
+                               preset: PresetInput(kind: kind, transcript: transcript, terms: dictionaryTerms))
     }
 }
 

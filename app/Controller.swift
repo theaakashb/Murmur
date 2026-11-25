@@ -730,8 +730,7 @@ enum ScreenRequest: Equatable {
         }
         // Read only if this dictation could use it: the start mode (or the global setting) has it on,
         // or a mode that a trigger word could still pick does.
-        // The managed local model never uses screen text, so none is read for it.
-        guard aiCleanup || processing?.engineCleaner != nil, appliedRoutes.cleanup != .localModel || processing?.engineCleaner != nil, let settings = processing?.settings,
+        guard aiCleanup || processing?.engineCleaner != nil, let settings = processing?.settings,
               DictationStyle.needsScreenContext(mode: sessionMode, modes: modes, settings: settings),
               !IsSecureEventInputEnabled(), destination?.secure != true else { return }
         let pasteboard = NSPasteboard.general
@@ -1188,7 +1187,7 @@ enum ScreenRequest: Equatable {
             endDictation(done); return
         }
         lastDictationText = processed
-        professionalHint.consider(entryID: entry.id, raw: text, professionalActive: cleanupProfessional && cleanupChoice.cloudOnlyOK)
+        professionalHint.consider(entryID: entry.id, raw: text, professionalActive: cleanupProfessional && cleanupChoice.runsModelLevels)
         if !preview { tips.recordDictation(final: processed, seconds: entry.seconds) }
         if insertThisSession {
             // Murmur never pastes into itself, but a text view in its own window (the Report an Issue box) takes the text directly.

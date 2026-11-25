@@ -196,12 +196,12 @@ extension SettingsView {
         Binding(get: { controller.cleanupStyle }, set: { controller.cleanupStyle = $0 })
     }
 
-    /// Cleanup levels for the route: the local routes have Faithful and Natural; Polish and Professional are Murmur Cloud levels there, shown with a cloud icon.
+    /// Cleanup levels for the route: Local rules has Faithful and Natural; Polish and Professional need a model route, shown with a cloud icon there.
     private var styleChoices: [(CleanupStyle, String)] { CleanupStyle.allCases.map { ($0, $0.label) } }
 
     private var routeStyle: Binding<CleanupStyle> {
         Binding(get: { controller.cleanupStyle }, set: { style in
-            if style.needsModel && !controller.cleanupChoice.cloudOnlyOK { levelOffer = style } else { levelOffer = nil; controller.cleanupStyle = style }
+            if style.needsModel && !controller.cleanupChoice.runsModelLevels { levelOffer = style } else { levelOffer = nil; controller.cleanupStyle = style }
         })
     }
 
@@ -209,8 +209,8 @@ extension SettingsView {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Cleanup style").padding(.top, 28)
             HStack(spacing: 4) {
-                segmented(styleChoices, routeStyle, size: 14, cloud: { $0.needsModel && !controller.cleanupChoice.cloudOnlyOK })
-                SettingInfoButton(text: "Polish and Professional run on Murmur Cloud or a Custom Provider.")
+                segmented(styleChoices, routeStyle, size: 14, cloud: { $0.needsModel && !controller.cleanupChoice.runsModelLevels })
+                SettingInfoButton(text: "Polish and Professional run on the Local model, Murmur Cloud or a Custom Provider.")
                     .accessibilityLabel("About cleanup styles")
             }.padding(.top, 8)
             help(cleanupStyle.wrappedValue.help)

@@ -35,8 +35,8 @@ enum ProviderID: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// Professional is cloud-only: neither the Local model nor Apple Intelligence runs it.
-    var runsProfessional: Bool { self != .localModel && self != .appleIntelligence }
+    /// Apple Intelligence does not run Professional; the Local model does (its `[tone: formal]` header).
+    var runsProfessional: Bool { self != .appleIntelligence }
 }
 
 /// An API key. Every textual and reflective representation is redacted, so printing,

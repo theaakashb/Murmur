@@ -226,16 +226,17 @@ final class ProcessingCoordinator {
     @MainActor private func processSegmentAsync(_ raw: String, style: DictationStyle?) async -> ProcessingResult {
         var evidence = ProcessingResult(outcome: .insert(raw))
         let style = style ?? DictationStyle(mode: nil, settings: settings)
-        // Writing-mode dictations run on the AI engine; the rest use the cleanup route.
-        let cleaner = style.usesEngine ? engineCleaner : cloudCleaner
-        // The Local model's Natural cleanup is its one model pass (no levels); other routes use the model for the rewrite styles and presets only.
+        // Writing-mode dictations run on the AI engine; the rest use the cleanup route. The Local model rewrites presets itself.
+        let onEngine = style.usesEngine && !(style.transform != nil && cloudCleaner?.id == .localModel)
+        let cleaner = onEngine ? engineCleaner : cloudCleaner
+        // Natural on the Local model is one Polish model pass; other routes use the model for the rewrite styles and presets only.
         let naturalOnLocalModel = !style.usesEngine && cloudCleaner?.id == .localModel && style.options.anyEnabled
         guard settings.route == .cloud || style.usesEngine, style.usesModel || naturalOnLocalModel else { return processSegment(raw, style: style) }
         let prepared = prepare(raw)
         var options = style.options; let terms = prepared.terms
         if naturalOnLocalModel { options.polish = true }
         if cleaner?.id.runsProfessional == false { options.professional = false }
-        if style.usesEngine, let id = cleaner?.id { evidence.engine = id }
+        if onEngine, let id = cleaner?.id { evidence.engine = id }
         evidence.terms = terms; evidence.cleanupInput = prepared.text == raw ? nil : prepared.text
         var context = style.context, instructions = style.instructions
         // The provider declares what it takes (CleanupShape): a fixed prompt gets no context or style notes (rewrite presets fall back below), a small window gets capped context.
