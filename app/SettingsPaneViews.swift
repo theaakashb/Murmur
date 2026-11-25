@@ -196,36 +196,16 @@ extension SettingsView {
         Binding(get: { controller.cleanupStyle }, set: { controller.cleanupStyle = $0 })
     }
 
-    /// Cleanup levels for the route: Local rules has Faithful and Natural; Polish and Professional need a model route, shown with a cloud icon there.
-    private var styleChoices: [(CleanupStyle, String)] { CleanupStyle.allCases.map { ($0, $0.label) } }
-
-    private var routeStyle: Binding<CleanupStyle> {
-        Binding(get: { controller.cleanupStyle }, set: { style in
-            if style.needsModel && !controller.cleanupChoice.runsModelLevels { levelOffer = style } else { levelOffer = nil; controller.cleanupStyle = style }
-        })
-    }
-
     var cleanupChoices: some View {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Cleanup style").padding(.top, 28)
-            HStack(spacing: 4) {
-                segmented(styleChoices, routeStyle, size: 14, cloud: { $0.needsModel && !controller.cleanupChoice.runsModelLevels })
-                SettingInfoButton(text: "Polish and Professional run on the Local model, Murmur Cloud or a Custom Provider.")
-                    .accessibilityLabel("About cleanup styles")
-            }.padding(.top, 8)
+            segmented(CleanupStyle.allCases.map { ($0, $0.label) }, cleanupStyle, size: 14).padding(.top, 8)
             help(cleanupStyle.wrappedValue.help)
                 .padding(.top, 8)
-            if let offered = levelOffer {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("\(offered.label) runs on Murmur Cloud or a Custom Provider.")
-                        .font(Font.system(size: 14)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
-                    Button { NSWorkspace.shared.open(MurmurCloud.getURL) } label: { Text(MurmurCloud.getTitle).frame(maxWidth: .infinity, minHeight: 44) }
-                        .buttonStyle(InkButtonStyle(kind: .filled)).disabled(!MurmurCloud.purchaseAvailable)
-                }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(EditorialPalette.accent16).padding(.top, 12)
-            }
             if cleanupStyle.wrappedValue != .faithful {
                 eyebrow("Cleanup runs on").padding(.top, 20)
-                segmented(CleanupChoice.allCases.map { ($0, short($0.displayName)) }, Binding(get: { controller.cleanupChoice }, set: { levelOffer = nil; controller.cleanupChoice = $0 }), size: 14)
+                // Custom Provider is chosen under Advanced, so while it is on none of these is selected.
+                segmented(CleanupChoice.allCases.filter { $0 != .customAPI }.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14, cloud: { $0 == .murmurCloud })
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
                 if controller.cleanupChoice == .localModel { localModelSection }
                 if cleanupStyle.wrappedValue == .strict {
@@ -259,8 +239,12 @@ extension SettingsView {
                 .padding(.top, 12)
             toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by On this Mac or Local model. Modes can turn it on or off.", isOn: $controller.screenContext)
                 .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel)
-            if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .customAPI {
-                customCleanupSettings
+            if cleanupStyle.wrappedValue != .faithful {
+                eyebrow("Advanced").padding(.top, 28)
+                toggleRow("Use a Custom Provider for cleanup", "Sends cleanup to your own OpenAI-compatible endpoint instead of the choice above.",
+                          isOn: Binding(get: { controller.cleanupChoice == .customAPI }, set: { controller.cleanupChoice = $0 ? .customAPI : .localModel }))
+                    .padding(.top, 8)
+                if controller.cleanupChoice == .customAPI { customCleanupSettings }
             }
             if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .murmurCloud {
                 keyRow(.murmurCloud).padding(.top, 16)

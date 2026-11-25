@@ -71,7 +71,6 @@ struct SettingsView: View {
     @AppStorage(Prefs.settingsSection.key) var section = SettingsPane.general
     @State var showAdvanced = false
     /// A Polish or Professional tap on a local route: the offer shown instead of switching routes silently.
-    @State var levelOffer: CleanupStyle? = CommandLine.arguments.contains("--level-offer") ? .polish : nil // the flag is for check_ui snapshots
     @State var showLiveModel = false
     @State var selectedID: String?
     /// An entry History should scroll into view once it is showing.
