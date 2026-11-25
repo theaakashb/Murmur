@@ -46,7 +46,7 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         let terms = (1...15).map { "Term\($0)" }
         let built = CleanupPrompt.build(transcript: "hello there", options: pro, dictionaryTerms: terms, context: ScreenContext(selected: "SECRET-SCREEN-TEXT", clipboard: "", window: ""), instructions: "STYLE-NOTE")
         _ = try await provider(rec) { $0 }.cleanup(built)
-        check(rec.requests.count == 1 && rec.requests[0].text == "hello there" && rec.requests[0].tone == "casual", "Professional never reaches this Mac's model as a formal tone: the request is the typed transcript, casual")
+        check(rec.requests.count == 1 && rec.requests[0].text == "hello there" && rec.requests[0].tone == "formal", "Professional reaches this Mac's model as the formal tone: the request is the typed transcript, never the built prompt")
         check(rec.requests[0].terms == Array(terms.prefix(12)), "at most 12 relevant terms")
         let casual = CleanupPrompt.build(transcript: "hello there", options: .standard)
         _ = try await provider(rec) { $0 }.cleanup(casual)
@@ -144,7 +144,9 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         let ok = await p.processAsync(deadlineRaw)
         check(ok.fallback == nil && ok.promptHash == "local-fixed", "a faithful output is accepted and the fixed prompt is recorded")
 
-        let fridayRaw = "Priya and I were thinking we could ship on Friday, actually no, on Monday" // Polish only here: Professional is cloud-only
+        // Polish here: the full guard holds a comma-cued repair under Professional (unexplainedDeletion), which the local route always uses.
+        settings.options.professional = false; try p.update(settings, persist: false)
+        let fridayRaw = "Priya and I were thinking we could ship on Friday, actually no, on Monday"
         p.cloudCleaner = provider(rec) { _ in "Priya and I were thinking we could ship on Monday." }
         let friday = await p.processAsync(fridayRaw)
         check(friday.outcome == .insert("Priya and I were thinking we could ship on Monday.") && friday.fallback == nil, "the correct \"actually no\" repair is accepted")

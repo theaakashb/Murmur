@@ -59,15 +59,15 @@ extension AppController {
     var cleanupStyle: CleanupStyle {
         get {
             guard cleanupFillers || cleanupCorrections || cleanupLists || cleanupPunctuation || cleanupSpoken else { return .faithful }
-            // The local routes have no levels: their one cleanup is Natural. A stored cloud level is kept for when a cloud route is chosen again.
-            return !cleanupChoice.cloudOnlyOK ? .strict : cleanupProfessional ? .professional : cleanupPolish ? .polish : .strict
+            // Local rules has no model levels: its one cleanup is Natural. A stored level is kept for when a model route is chosen again.
+            return !cleanupChoice.runsModelLevels ? .strict : cleanupProfessional ? .professional : cleanupPolish ? .polish : .strict
         }
         set {
             if newValue == .faithful { useFaithfulTranscription(); return }
             if cleanupStyle == .faithful { cleanupFillers = true; cleanupCorrections = true; cleanupLists = true; cleanupPunctuation = true; cleanupSpoken = true }
             cleanupPolish = newValue.needsModel; cleanupProfessional = newValue == .professional
-            // Polish and Professional run on Murmur Cloud or a Custom Provider (the Settings picker offers them first).
-            if newValue.needsModel, !cleanupChoice.cloudOnlyOK { cleanupChoice = .murmurCloud }
+            // Polish and Professional need a model route (the Settings picker offers one first); Murmur Cloud is the default.
+            if newValue.needsModel, !cleanupChoice.runsModelLevels { cleanupChoice = .murmurCloud }
         }
     }
 

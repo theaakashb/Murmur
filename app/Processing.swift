@@ -228,7 +228,7 @@ final class ProcessingCoordinator {
         let style = style ?? DictationStyle(mode: nil, settings: settings)
         // Writing-mode dictations run on the AI engine; the rest use the cleanup route.
         let cleaner = style.usesEngine ? engineCleaner : cloudCleaner
-        // The Local model's Natural cleanup is its one model pass (no levels); other routes use the model for the rewrite styles and presets only.
+        // Natural on the Local model is one Polish model pass; other routes use the model for the rewrite styles and presets only.
         let naturalOnLocalModel = !style.usesEngine && cloudCleaner?.id == .localModel && style.options.anyEnabled
         guard settings.route == .cloud || style.usesEngine, style.usesModel || naturalOnLocalModel else { return processSegment(raw, style: style) }
         let prepared = prepare(raw)
