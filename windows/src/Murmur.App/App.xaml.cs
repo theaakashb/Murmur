@@ -157,15 +157,19 @@ public partial class App : Application
     /// <summary>A click on the "Murmur is ready" notification: the Welcome window if it is open, else Home; either one is restored if minimized.</summary>
     void OpenFromToast(ModelNoticeTarget target)
     {
-        if (target == ModelNoticeTarget.Welcome && welcome is not null)
-        {
-            Native.ShowWindow(WinRT.Interop.WindowNative.GetWindowHandle(welcome), 9);
-            welcome.Activate();
-            return;
-        }
+        // A notification click hands this process the right to take the foreground; Activate() alone can leave the window behind the app in front.
+        if (target == ModelNoticeTarget.Welcome && welcome is not null) { BringForward(welcome); return; }
         var window = Main();
         window.ShowHome();
-        Native.ShowWindow(WinRT.Interop.WindowNative.GetWindowHandle(window), 9);
+        BringForward(window);
+    }
+
+    static void BringForward(Window window)
+    {
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+        Native.ShowWindow(hwnd, 9); // SW_RESTORE
+        window.Activate();
+        Native.SetForegroundWindow(hwnd);
     }
 
     void OpenSettings() => Main().ShowSettings();

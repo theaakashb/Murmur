@@ -16,6 +16,7 @@ internal static class Native
     [DllImport("user32.dll")] public static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")] public static extern bool ShowWindow(nint hwnd, int command);
     [DllImport("user32.dll")] public static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(nint hwnd);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(nint hwnd, out uint pid);
 
     /// <summary>True when the window the user is looking at belongs to this process (Welcome, Home, Settings; the pill never takes focus).</summary>
