@@ -5,8 +5,15 @@ extension AppController {
     // MARK: Model download
 
     /// The shared flow for one model; the transcription, dictionary and live-words models refuse while dictating.
-    private func flow(_ slot: ReferenceWritableKeyPath<AppController, ModelSlot>, gated: Bool = true) -> ModelFlow<AppController> {
+    private func flow(_ slot: ReferenceWritableKeyPath<AppController, ModelSlot>, gated: Bool = true, ready: ModelReady.Kind? = nil) -> ModelFlow<AppController> {
         var flow = ModelFlow(owner: self, slot: slot)
+        if let ready, !preview {
+            flow.askToNotify = { [weak self] in self?.readyNotifier.requestPermission() }
+            flow.announceReady = { [weak self] in
+                guard let self else { return }
+                self.readyNotifier.post(ready, model: self[keyPath: slot].facts.displayName, shortcut: self.shortcutName)
+            }
+        }
         if gated {
             flow.downloadGate = { [weak self] in self.flatMap { ModelGate.downloadRefusal(isBusy: $0.isBusy, preview: $0.preview, downloading: $0[keyPath: slot].inFlight) } }
             flow.removeGate = { [weak self] in self.flatMap { ModelGate.removeRefusal(isBusy: $0.isBusy, preview: $0.preview, downloading: $0[keyPath: slot].inFlight) } }
@@ -15,7 +22,7 @@ extension AppController {
     }
 
     func downloadModel() {
-        var flow = flow(\.modelSlot)
+        var flow = flow(\.modelSlot, ready: .speech)
         flow.didDownload = { [weak self] result in
             if case .success = result, let self, let target = self.modelSlot.downloader?.target {
                 self.modelDirectory = target.path
@@ -44,7 +51,7 @@ extension AppController {
         flow.remove()
     }
     func downloadLocalModel() {
-        var flow = flow(\.localSlot, gated: false)
+        var flow = flow(\.localSlot, gated: false, ready: .cleanup)
         flow.didDownload = { _ in Task { await LocalCleanupRunner.shared.shutdown() } }
         flow.download()
     }
@@ -139,7 +146,7 @@ extension AppController {
     func downloadRequiredSpeechModel() {
         let model = requiredSpeechModel
         if model == .parakeetEnglish { downloadModel(); return }
-        var flow = flow(speechModelSlot(for: model))
+        var flow = flow(speechModelSlot(for: model), ready: .speech)
         flow.didDownload = { [weak self] result in
             if case .success = result, self?.requiredSpeechModel == model { self?.prewarm() }
         }

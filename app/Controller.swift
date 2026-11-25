@@ -254,6 +254,7 @@ enum ScreenRequest: Equatable {
     private var applyScheduled = false
     private var folderWatch: AnyCancellable?
     var preview = false
+    let readyNotifier = ModelReadyNotifier()
     private var previewDirectory: URL?
     private lazy var session: CaptureSession = {
         let session = CaptureSession(store: retry!, start: { [weak self] url in

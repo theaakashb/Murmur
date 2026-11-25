@@ -19,6 +19,8 @@ import Combine
         NSApp.setActivationPolicy(controller.showInDock ? .regular : .accessory)
         NSApp.mainMenu = buildMainMenu()
         controller.openSettings = { [weak self] in self?.showWindow() }
+        controller.readyNotifier.onOpen = { [weak self] in self?.showWindow() } // Onboarding stays on its current step; otherwise the main window.
+        controller.readyNotifier.attach()
         controller.updateMenu = { [weak self] in self?.meetingPanel.indicatorChanged(); self?.refreshMenu() }
         // The meeting indicator shows whether or not the menu bar icon is otherwise visible.
         controller.meetingPanelChanged = { [weak self] in self?.meetingPanel.update() }
