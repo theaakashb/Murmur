@@ -75,7 +75,8 @@ internal static class MurmurStyle
     }
 
     // Initial dimensions are in device-independent pixels, like the XAML layout.
-    public static void SetInitialSize(Window window, int width, int height)
+    /// <param name="minWidth">The smallest size the user can drag it to (0: none), also in device-independent pixels.</param>
+    public static void SetInitialSize(Window window, int width, int height, int minWidth = 0, int minHeight = 0)
     {
         window.Activated += SizeOnFirstActivation;
         void SizeOnFirstActivation(object sender, WindowActivatedEventArgs args)
@@ -89,6 +90,12 @@ internal static class MurmurStyle
             int w = Math.Min((int)(width * scale), work.Width);
             int h = Math.Min((int)(height * scale), work.Height);
             appWindow.MoveAndResize(new Windows.Graphics.RectInt32(work.X + (work.Width - w) / 2, work.Y + (work.Height - h) / 2, w, h));
+            // AppWindow sizes are physical pixels, like MoveAndResize; never larger than the screen allows.
+            if (minWidth > 0 && appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+            {
+                presenter.PreferredMinimumWidth = Math.Min((int)(minWidth * scale), work.Width);
+                presenter.PreferredMinimumHeight = Math.Min((int)(minHeight * scale), work.Height);
+            }
         }
     }
 }

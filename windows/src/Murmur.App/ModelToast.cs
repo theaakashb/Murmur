@@ -65,5 +65,8 @@ internal sealed class ModelToast
     {
         try { AppNotificationManager.Default.RemoveAllAsync().AsTask().Wait(5000); } catch (Exception) { }
         try { AppNotificationManager.Default.UnregisterAll(); } catch (Exception) { }
+        // Windows keeps per-app notification counters under this key after unregistering; uninstall leaves nothing behind.
+        // The key is the app's AUMID, which Velopack sets to velopack.<packId>.
+        try { Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\velopack.MurmurApp", throwOnMissingSubKey: false); } catch (Exception) { }
     }
 }

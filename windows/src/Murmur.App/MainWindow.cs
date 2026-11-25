@@ -48,7 +48,8 @@ internal sealed partial class MainWindow : Window
         Content = root;
         AddSearchOverlay(root);
         MurmurStyle.SetTitleBar(this, caption);
-        MurmurStyle.SetInitialSize(this, 1100, 760);
+        // The Mac window's minimum is 880 x 680 (app/main.swift:93, contentMinSize); the pages are laid out for at least that.
+        MurmurStyle.SetInitialSize(this, 1100, 760, minWidth: 880, minHeight: 680);
         controller.TipCards.Changed += RefreshSidebar;
         Closed += (_, _) => { controller.TipCards.Changed -= RefreshSidebar; settings?.Detach(); };
         Navigate(Page.Home);
