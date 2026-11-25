@@ -540,14 +540,17 @@ struct ThrowingCleaner: Cleaner {
         expect(CleanupGuard.applyCommaFreeCorrections("I told him I meant he told me") == "I told him I meant he told me", "nested I meant kept")
         expect(CleanupGuard.check(raw: "I told him I meant he told me", cleaned: "He told me.", options: professional) != .pass, "professional refuses a dropped outer clause")
         // Speech recognition artifacts: a capitalized hesitation is not a name, an echoed word ending may go, a hyphen may join words.
-        for o in [polish, professional] {
+        var polishedProfessional = professional; polishedProfessional.polish = true // The app turns both on for Professional.
+        for o in [polish, professional, polishedProfessional] {
             expect(CleanupGuard.check(raw: "we can keep the old layout Uh", cleaned: "We can keep the old layout.", options: o) == .pass, "a capitalized hesitation is not a name")
             expect(CleanupGuard.check(raw: "the extra step felt unhelpful Helpful", cleaned: "The extra step felt unhelpful.", options: o) == .pass, "an echoed word ending may go")
             expect(CleanupGuard.check(raw: "the extra step felt unhelpful Helpful", cleaned: "The extra step felt helpful.", options: o) != .pass, "the echoed word never replaces the full word")
             expect(CleanupGuard.check(raw: "start two sub tasks for the import", cleaned: "Start two sub-tasks for the import.", options: o) == .pass, "a hyphen may join adjacent words")
         }
         expect(CleanupGuard.check(raw: "start two tasks for the import", cleaned: "Start two sub-tasks for the import.", options: professional) != .pass, "a hyphenated word adds no part")
-        expect(CleanupGuard.check(raw: "Um, hi, are you free later?", cleaned: "Are you free later?", options: professional) != .pass, "professional keeps a greeting")
+        for o in [professional, polishedProfessional] {
+            expect(CleanupGuard.check(raw: "Um, hi, are you free later?", cleaned: "Are you free later?", options: o) != .pass, "professional keeps a greeting")
+        }
         expect(CleanupGuard.check(raw: "Yesterday I told him about it", cleaned: "Yesterday he told me about it.", options: professional) != .pass, "professional refuses swapped pronoun roles")
         expect(CleanupGuard.check(raw: "tell sam the update", cleaned: "Tell the client the update.", options: professional) != .pass, "professional refuses replacing a lowercase name")
         // Fourth review: a repair restates right away; moved words stay local.
