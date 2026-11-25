@@ -739,7 +739,7 @@ enum ScreenRequest: Equatable {
         // Read only if this dictation could use it: the start mode (or the global setting) has it on,
         // or a mode that a trigger word could still pick does.
         guard aiCleanup || processing?.engineCleaner != nil, let settings = processing?.settings,
-              DictationStyle.needsScreenContext(mode: sessionMode, modes: modes, settings: settings),
+              DictationStyle.needsScreenContext(mode: sessionMode, modes: modes, settings: settings, localModel: processing?.cloudCleaner?.id == .localModel),
               !IsSecureEventInputEnabled(), destination?.secure != true else { return }
         let pasteboard = NSPasteboard.general
         let types = pasteboard.types?.map(\.rawValue) ?? []

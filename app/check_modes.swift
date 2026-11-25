@@ -108,6 +108,11 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         check(!captures(), "Faithful does not read screen context")
         captureSettings.options = CleanupOptions(polish: true)
         check(captures(), "Polish reads opted-in context")
+        var natural = captureSettings; natural.options = .standard
+        check(!DictationStyle.needsScreenContext(mode: nil, modes: [], settings: natural), "Natural reads no context where it runs no model")
+        check(DictationStyle.needsScreenContext(mode: nil, modes: [], settings: natural, localModel: true), "Natural on the Local model reads opted-in context")
+        natural.screenContext = false
+        check(!DictationStyle.needsScreenContext(mode: nil, modes: [], settings: natural, localModel: true), "Natural on the Local model respects the context setting")
         var strictMode = WritingMode(); strictMode.options = .standard
         check(!captures(strictMode), "Strict mode overrides a global rewrite")
         var trigger = WritingMode(); trigger.transform = .aiPrompt; trigger.triggers = ["prompt mode"]

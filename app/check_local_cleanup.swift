@@ -138,21 +138,25 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         try await Task.sleep(for: .seconds(1.2))
         check(!alive(idlePid), "an idle helper exits and releases the model")
 
-        // Guard through the pipeline: the full guard applies even with the global trust option on.
+        // Guard through the pipeline: Natural keeps the full guard even with the global trust option on.
         let p = try ProcessingCoordinator(directory: root.appendingPathComponent("p"), defaults: defaults)
-        var settings = p.settings; settings.route = .cloud; settings.options = .standard
-        settings.options.polish = true; settings.options.professional = true; settings.options.trustModel = true
+        var settings = p.settings; settings.route = .cloud; settings.options = .standard; settings.options.trustModel = true
         try p.update(settings, persist: false)
         let deadlineRaw = "can you send me the report by 5 the quarterly one not the monthly one"
-        p.cloudCleaner = provider(rec) { _ in "Can you send me the quarterly report, not the monthly one?" }
+        let deadlineDropped = "Can you send me the quarterly report, not the monthly one?"
+        p.cloudCleaner = provider(rec) { _ in deadlineDropped }
         let dropped = await p.processAsync(deadlineRaw)
         if case .insert(let text) = dropped.outcome { check(text.contains("5"), "a model output that drops the deadline is not inserted: \(text)") } else { check(false, "inserts") }
         check(dropped.fallback != nil && dropped.cleanupPath != .modelAccepted, "dropped deadline is recorded as a rejection")
+        // Polish and Professional are trusted like Murmur Cloud: only malfunctions are held, so this rewrite is accepted.
+        settings.options.polish = true; settings.options.professional = true; try p.update(settings, persist: false)
+        let trusted = await p.processAsync(deadlineRaw)
+        check(trusted.outcome == .insert(deadlineDropped) && trusted.cleanupPath == .modelAccepted, "Professional on the Local model is trusted")
         p.cloudCleaner = provider(rec) { _ in "Can you send me the report by 5, the quarterly one, not the monthly one?" }
         let ok = await p.processAsync(deadlineRaw)
         check(ok.fallback == nil && ok.promptHash == "local-fixed", "a faithful output is accepted and the fixed prompt is recorded")
 
-        // Polish here: the full guard holds a comma-cued repair under Professional (unexplainedDeletion), which the local route always uses.
+        // Polish: trusted, so the dropped negation below is held only by the truncation check.
         settings.options.professional = false; try p.update(settings, persist: false)
         let fridayRaw = "Priya and I were thinking we could ship on Friday, actually no, on Monday"
         p.cloudCleaner = provider(rec) { _ in "Priya and I were thinking we could ship on Monday." }
@@ -169,7 +173,7 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         tones.generate = { _ in "Please send the contract today." }
         p.cloudCleaner = tones
         let refusedTwice = await p.processAsync(notRaw)
-        check(refusedTwice.fallback == .negationChanged && refusedTwice.cleanupPath != .modelAccepted, "a refused answer falls back with no second try")
+        check(refusedTwice.fallback != nil && refusedTwice.cleanupPath != .modelAccepted, "a refused answer falls back with no second try")
         // A rewrite preset runs on the Local model itself as [mode: email], not on the AI engine.
         var preset = WritingMode(); preset.transform = .email
         let presetRec = Recorder()
