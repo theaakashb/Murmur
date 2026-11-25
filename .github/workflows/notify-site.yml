@@ -7,7 +7,7 @@ on:
 permissions: {} # the job uses only SITE_DISPATCH_TOKEN, never GITHUB_TOKEN
 jobs:
   notify:
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ !github.event.release.prerelease && !startsWith(github.event.release.tag_name, 'windows-') }}
     runs-on: ubuntu-latest
     steps:
       - env:
