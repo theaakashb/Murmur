@@ -16,8 +16,10 @@ extension SettingsView {
             if controller.meetingsUseCustomProvider {
                 help("Meeting audio goes to your Custom Provider (Advanced, below).")
             } else {
+                let shared = controller.transcriptionRoute == .local && controller.meetingSpeechModel == controller.requiredSpeechModel
                 modelRow(controller.meetingSpeechSlot, readyText: "Model ready ✓", download: controller.downloadMeetingSpeechModel,
-                         cancel: controller.cancelMeetingSpeechModel, remove: controller.removeMeetingSpeechModel)
+                         cancel: controller.cancelMeetingSpeechModel, remove: controller.removeMeetingSpeechModel,
+                         extras: shared ? [AnyView(help("Also used by dictation: removing it here removes it for dictation too."))] : [])
                 help("Audio stays on this Mac.")
             }
             HStack(spacing: 4) {

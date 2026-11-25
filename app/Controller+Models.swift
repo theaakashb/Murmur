@@ -27,7 +27,7 @@ extension AppController {
     func cancelModelDownload() { modelSlot.downloader?.cancel() }
     func removeModel() {
         var flow = flow(\.modelSlot)
-        flow.release = { [weak self] go in self?.warm.stopNow(); go() } // Release the helper's open model files before deleting them.
+        flow.release = { [weak self] go in self?.warm.stopNow(); self?.meetingWarm.stopNow(); go() } // Release the helper's open model files before deleting them.
         flow.remove()
     }
     func downloadDictionaryModel() {
@@ -39,7 +39,7 @@ extension AppController {
     func cancelDictionaryModelDownload() { dictionarySlot.downloader?.cancel() }
     func removeDictionaryModel() {
         var flow = flow(\.dictionarySlot)
-        flow.release = { [weak self] go in self?.warm.stopNow(); go() }
+        flow.release = { [weak self] go in self?.warm.stopNow(); self?.meetingWarm.stopNow(); go() }
         flow.didRemove = { [weak self] in self?.dictionarySupportFailed = false; self?.prewarm() }
         flow.remove()
     }
@@ -165,7 +165,7 @@ extension AppController {
     func removeRequiredSpeechModel() {
         if requiredSpeechModel == .parakeetEnglish { removeModel(); return }
         var flow = flow(speechModelSlot(for: requiredSpeechModel))
-        flow.release = { [weak self] go in self?.warm.stopNow(); go() }
+        flow.release = { [weak self] go in self?.warm.stopNow(); self?.meetingWarm.stopNow(); go() }
         flow.remove()
     }
 }

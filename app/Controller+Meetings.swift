@@ -19,13 +19,18 @@ extension AppController {
             }
             local = .init(
                 transcribe: { [weak self] url, done in
+                    // The pump calls this from helper queues; settings are read on the main thread.
+                    DispatchQueue.main.async {
                     guard let self, let (models, model, warm) = helperFor(self) else { done(nil); return }
                     runtime.launch(models: models, model: model, qos: .utility) { launch in
                         guard let launch else { done(nil); return }
                         warm.transcribe(url, helper: runtime.helper, launch: launch) { done(helperAnswer($0)?["text"] as? String) }
                     }
+                    }
                 },
                 transcribeTimed: { [weak self] url, done in
+                    // The pump calls this from helper queues; settings are read on the main thread.
+                    DispatchQueue.main.async {
                     guard let self, let (models, model, warm) = helperFor(self) else { done(nil); return }
                     runtime.launch(models: models, model: model, qos: .utility) { launch in
                         guard let launch else { done(nil); return }
@@ -39,6 +44,7 @@ extension AppController {
                             guard let text = answer?["text"] as? String else { done(nil); return }
                             done(ChunkText(text: text, words: answer?["words"] as? [[Double]]))
                         }
+                    }
                     }
                 },
                 helper: runtime.helper)

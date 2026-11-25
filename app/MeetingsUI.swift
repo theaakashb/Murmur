@@ -582,7 +582,7 @@ struct MeetingsSetup: View {
                 lede("A Custom Provider for both is under Advanced in Settings → Meetings.", color: Palette.ink70)
                 HStack {
                     Spacer()
-                    Button("Continue") { controller.meetingLanguages = languages }
+                    Button("Continue") { controller.chooseNotesRoute(controller.meetingNotesRoute ?? .none); controller.meetingLanguages = languages }
                         .buttonStyle(InkButtonStyle(kind: .filled)).keyboardShortcut(.defaultAction).disabled(languages.isEmpty)
                 }
             }
