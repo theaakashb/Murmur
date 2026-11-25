@@ -72,6 +72,7 @@ struct SettingsView: View {
     @State var showAdvanced = false
     @State var showCleanupAdvanced = false
     @State var showMeetingAdvanced = false
+    @State var meetingSameProvider: Bool?
     /// A Polish or Professional tap on a local route: the offer shown instead of switching routes silently.
     @State var showLiveModel = false
     @State var selectedID: String?

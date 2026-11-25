@@ -573,7 +573,6 @@ struct MeetingsSetup: View {
                             Button("Download…") { controller.downloadSpeechModel(model) }.buttonStyle(InkButtonStyle(kind: .outline))
                         }
                     }
-                    lede("Transcripts are written after each part of the meeting is recorded, so a larger model only means they finish a little later.", color: Palette.ink70)
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Meeting notes").font(WindowType.body(16, weight: .semibold))
