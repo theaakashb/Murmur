@@ -9,10 +9,10 @@ enum LocalCleanupIdentity {
     static let modelName = "Murmur Cleanup 2B"
     static let helperName = "LocalCleanupRunner"
     /// Recorded in History: the pinned repository and the first 7 characters of its revision (artifact-pins.json).
-    static let modelID = "clouddevaakash/murmur-cleanup-2b@b591570"
+    static let modelID = "clouddevaakash/murmur-cleanup-2b@d0dc6f7"
     /// A stable app-owned location, not a user setting.
     static func directory(home: URL) -> URL {
-        home.appendingPathComponent("Library/Application Support/Dictation/Models/murmur-cleanup-2b-r3")
+        home.appendingPathComponent("Library/Application Support/Dictation/Models/murmur-cleanup-2b-r4")
     }
 }
 
