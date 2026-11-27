@@ -644,4 +644,23 @@ public class CleanupGuardTests
         Assert.Empty(enabled.Where(a => Check(a.Raw, a.Output, a.Options with { Polish = true, Professional = true }).IsPass).Select(a => a.Label));
         Assert.Empty(enabled.Where(a => Check(a.Raw, a.Output, a.Options with { Spoken = true }).IsPass).Select(a => a.Label));
     }
+
+    // Mac 0.3.6 (check_cleanup.swift): speech recognition artifacts.
+    [Fact]
+    public void SpeechRecognitionArtifactsDoNotBlockACorrectCleanup()
+    {
+        var polish = CleanupOptions.Standard with { Polish = true };
+        var professional = CleanupOptions.Standard with { Professional = true };
+        var polishedProfessional = professional with { Polish = true }; // The app turns both on for Professional.
+        foreach (var o in new[] { polish, professional, polishedProfessional })
+        {
+            Assert.True(Check("we can keep the old layout Uh", "We can keep the old layout.", o).IsPass, "a capitalized hesitation is not a name");
+            Assert.True(Check("the extra step felt unhelpful Helpful", "The extra step felt unhelpful.", o).IsPass, "an echoed word ending may go");
+            Assert.False(Check("the extra step felt unhelpful Helpful", "The extra step felt helpful.", o).IsPass, "the echoed word never replaces the full word");
+            Assert.True(Check("start two sub tasks for the import", "Start two sub-tasks for the import.", o).IsPass, "a hyphen may join adjacent words");
+        }
+        Assert.False(Check("start two tasks for the import", "Start two sub-tasks for the import.", professional).IsPass, "a hyphenated word adds no part");
+        foreach (var o in new[] { professional, polishedProfessional })
+            Assert.False(Check("Um, hi, are you free later?", "Are you free later?", o).IsPass, "professional keeps a greeting");
+    }
 }
