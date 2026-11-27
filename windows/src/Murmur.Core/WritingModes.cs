@@ -68,14 +68,19 @@ public sealed record DictationStyle
         var style = new DictationStyle((mode?.Options ?? globalOptions) with { TrustModel = globalOptions.TrustModel }, mode?.Tone ?? Tone.Formal,
             SwiftText.Prefix(mode?.Instructions ?? "", WritingModeLimits.Instructions), (mode?.ScreenContext ?? globalScreenContext) ? context : null)
         { Transform = mode?.Transform, UsesEngine = mode is not null };
-        // Strict and Faithful run on this PC; nothing to send context to.
-        return style.UsesModel ? style : style with { Context = null };
+        // With every option off nothing runs. Natural keeps its context: the Local model cleans Natural with it (the app reads it only then).
+        return style.Options.AnyEnabled ? style : style with { Context = null };
     }
 
-    /// <summary>Trigger modes are chosen after transcription, so capture for any enabled candidate that needs it.</summary>
-    public static bool NeedsScreenContext(WritingMode? mode, IEnumerable<WritingMode> modes, CleanupOptions globalOptions, bool globalScreenContext)
+    /// <summary>Trigger modes are chosen after transcription, so capture for any enabled candidate that needs it.
+    /// <paramref name="localModel"/>: the cleanup route is a Local model that takes screen text and also runs Natural as a model pass.</summary>
+    public static bool NeedsScreenContext(WritingMode? mode, IEnumerable<WritingMode> modes, CleanupOptions globalOptions, bool globalScreenContext, bool localModel = false)
     {
-        bool Needs(WritingMode? m) => (m?.ScreenContext ?? globalScreenContext) && ForMode(m, globalOptions, globalScreenContext).UsesModel;
+        bool Needs(WritingMode? m)
+        {
+            var style = ForMode(m, globalOptions, globalScreenContext);
+            return (m?.ScreenContext ?? globalScreenContext) && (style.UsesModel || (localModel && !style.UsesEngine && style.Options.AnyEnabled));
+        }
         return Needs(mode) || modes.Any(m => m.Enabled && m.Triggers.Count > 0 && Needs(m));
     }
 

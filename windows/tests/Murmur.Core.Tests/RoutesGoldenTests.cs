@@ -76,7 +76,7 @@ public class RoutesGoldenTests
                 Assert.Equal(S(c, "raw"), choice.RawValue());
                 Assert.Equal(S(c, "id"), choice.Id());
                 Assert.Equal(S(c, "displayName"), choice.DisplayName());
-                Assert.Equal(ProviderGolden.Bool(c, "cloudOnlyOK"), choice.CloudOnlyOK());
+                Assert.Equal(ProviderGolden.Bool(c, "runsModelLevels"), choice.RunsModelLevels());
                 Assert.Equal(S(c, "processingRoute"), choice.ProcessingRoute().RawValue());
                 Assert.Equal(ProviderGolden.Str(c, "providerID"), choice.ProviderID()?.RawValue());
                 Assert.Equal(ProviderGolden.Str(c, "credentialID"), choice.CredentialID()?.RawValue());

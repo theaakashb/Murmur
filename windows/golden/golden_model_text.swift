@@ -22,7 +22,7 @@ struct FailureCase: Encodable { var error: String, message: String }
 struct LayoutCase: Encodable { var label: String, downloadSize: Int64, folder: String, summary: String, title: String, body: String, completed: String, failed: String, removeBody: String }
 
 func action(_ a: ModelRowAction) -> String {
-    switch a { case .download: return "download"; case .cancel: return "cancel"; case .retry: return "retry"; case .remove: return "remove" }
+    switch a { case .download: return "download"; case .cancel: return "cancel"; case .retry: return "retry"; case .reinstall: return "reinstall"; case .remove: return "remove" }
 }
 
 func statusCase(_ kind: String, _ status: ModelStatus?, done: Int64? = nil, total: Int64? = nil, reason: String? = nil, error: String? = nil, errorStatus: Int? = nil) -> StatusCase {

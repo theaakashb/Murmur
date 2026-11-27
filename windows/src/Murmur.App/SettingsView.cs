@@ -431,7 +431,7 @@ internal sealed partial class SettingsView
             i =>
             {
                 var style = (CleanupStyle)i;
-                if (style.NeedsModel() && !Routes.Cleanup.CloudOnlyOK())
+                if (style.NeedsModel() && !Routes.Cleanup.RunsModelLevels())
                 {
                     offerText.Text = $"{style} runs on Murmur Cloud or a Custom Provider.";
                     offer.Visibility = Visibility.Visible;
@@ -483,8 +483,8 @@ internal sealed partial class SettingsView
             providerSection.Visibility = ProviderFieldGating.ShowCleanupFields(route, style) ? Visibility.Visible : Visibility.Collapsed;
             modelCard.Visibility = route == CleanupChoice.LocalModel ? Visibility.Visible : Visibility.Collapsed;
             screenContext.IsEnabled = style.NeedsModel();
-            styleTabs.SetCloud(2, !route.CloudOnlyOK());
-            styleTabs.SetCloud(3, !route.CloudOnlyOK());
+            styleTabs.SetCloud(2, !route.RunsModelLevels());
+            styleTabs.SetCloud(3, !route.RunsModelLevels());
             naturalHelp.Visibility = style == CleanupStyle.Natural ? Visibility.Visible : Visibility.Collapsed;
             naturalHelp.Text = route switch
             {

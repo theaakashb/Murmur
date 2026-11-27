@@ -65,7 +65,7 @@ internal sealed class AppServices
         SpeakerSegmentationSlot = ModelSlot.Create(ModelFacts.SpeakerSegmentation, Root);
         SpeakerEmbeddingSlot = ModelSlot.Create(ModelFacts.SpeakerEmbedding, Root);
         LocalNotesSlot = ModelSlot.Create(ModelFacts.LocalNotes, Root);
-        foreach (var slot in new[] { SpeechSlot, TdtSlot, WhisperSlot, LiveWordsSlot, CleanupSlot, SpeakerSegmentationSlot, SpeakerEmbeddingSlot, LocalNotesSlot }) if (slot.Downloader is { } downloader) slot.Status = downloader.Status();
+        foreach (var slot in new[] { SpeechSlot, TdtSlot, WhisperSlot, LiveWordsSlot, CleanupSlot, SpeakerSegmentationSlot, SpeakerEmbeddingSlot, LocalNotesSlot }) { if (slot.Downloader is { } downloader) slot.Status = downloader.Status(); slot.ReconcileRetired(); }
         ConfigureCleanupRunner();
         // Whether a GPU can run the notes model: asked once, off the UI thread, so the no-GPU warning is known by the time Settings or the download dialog needs it.
         if (!testing) _ = NotesGpu.Available();

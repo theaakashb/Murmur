@@ -53,8 +53,13 @@ public static class CleanupChoiceExtensions
 {
     public static string Id(this CleanupChoice choice) => choice.RawValue();
 
-    /// <summary>Professional is cloud-only (ProviderID.RunsProfessional): Murmur Cloud and Custom Provider.</summary>
-    public static bool CloudOnlyOK(this CleanupChoice choice) => choice is CleanupChoice.MurmurCloud or CleanupChoice.CustomAPI;
+    /// <summary>Polish and Professional need a model: Murmur Cloud, a Custom Provider, or the Local model when the installed one runs them (<see cref="LocalCleanupModel.RunsModelLevels"/>); never Local rules.</summary>
+    public static bool RunsModelLevels(this CleanupChoice choice) => choice switch
+    {
+        CleanupChoice.LocalRules => false,
+        CleanupChoice.LocalModel => LocalCleanupModels.Current.RunsModelLevels,
+        _ => true,
+    };
 
     public static string DisplayName(this CleanupChoice choice) => choice switch
     {

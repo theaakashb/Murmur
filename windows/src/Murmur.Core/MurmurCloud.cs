@@ -22,8 +22,6 @@ public static class MurmurCloud
     }
 
     public static string Host => BaseURL.Host;
-    /// <summary>No subscription purchase or free trial in this release.</summary>
-    public static readonly bool PurchaseAvailable = ProvidersData.Value.MurmurCloud.PurchaseAvailable;
     public static readonly string CleanupModel = ProvidersData.Value.MurmurCloud.CleanupModel;
     public static readonly string TranscriptionModel = ProvidersData.Value.MurmurCloud.TranscriptionModel;
     /// <summary>Seconds. The server's cleanup call to its model times out after 30 s; this leaves room for the upload and reply.</summary>

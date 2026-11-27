@@ -8,7 +8,6 @@
     "cleanupDeadline" : 45,
     "cleanupModel" : "murmur-cleanup",
     "defaultHost" : "api.murmurdictation.com",
-    "purchaseAvailable" : false,
     "transcriptionModel" : "murmur-transcribe"
   },
   "openAI" : {

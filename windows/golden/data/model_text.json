@@ -24,7 +24,7 @@
 {"actions":[],"isReady":false,"isWorking":false,"kind":"missing","statusText":"The pinned model manifest is missing or invalid. Reinstall Murmur."},
 {"actions":["download"],"isReady":false,"isWorking":false,"kind":"notDownloaded","statusText":"Not downloaded"},
 {"actions":["cancel"],"isReady":false,"isWorking":true,"kind":"verifying","statusText":"Verifying downloaded files…"},
-{"actions":["remove"],"isReady":true,"isWorking":false,"kind":"ready","statusText":"Downloaded"},
+{"actions":["reinstall","remove"],"isReady":true,"isWorking":false,"kind":"ready","statusText":"Downloaded"},
 {"actions":["cancel"],"done":0,"isReady":false,"isWorking":true,"kind":"downloading","progress":0,"statusText":"Downloading… 0% (0 bytes of 0 bytes)","total":0},
 {"actions":["cancel"],"done":0,"isReady":false,"isWorking":true,"kind":"downloading","progress":0,"statusText":"Downloading… 0% (0 bytes of 100 bytes)","total":100},
 {"actions":["cancel"],"done":1,"isReady":false,"isWorking":true,"kind":"downloading","progress":0.3333333333333333,"statusText":"Downloading… 33% (1 bytes of 3 bytes)","total":3},

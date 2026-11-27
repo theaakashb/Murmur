@@ -8,10 +8,10 @@ public static class CleanupStyles
     public static bool NeedsModel(this CleanupStyle style) => style is CleanupStyle.Polish or CleanupStyle.Professional;
 
     public static CleanupOptions EffectiveOptions(this CleanupChoice route, CleanupOptions saved) =>
-        route.CloudOnlyOK() ? saved : saved with { Polish = false, Professional = false, TrustModel = false };
+        route.RunsModelLevels() ? saved : saved with { Polish = false, Professional = false, TrustModel = false };
 
     public static DictationStyle EffectiveStyle(this CleanupChoice route, DictationStyle style) =>
-        route.CloudOnlyOK() ? style : style with
+        route.RunsModelLevels() ? style : style with
         {
             Options = route.EffectiveOptions(style.Options),
             Context = null,
@@ -32,7 +32,8 @@ public static class CleanupStyles
     {
         if (style == CleanupStyle.Faithful) return (route, CleanupOptions.Faithful);
         if (!saved.AnyEnabled) saved = CleanupOptions.Standard;
-        if (style.NeedsModel() && !route.CloudOnlyOK()) route = CleanupChoice.MurmurCloud;
+        // Polish and Professional need a model route: from Local rules they move to the Local model when it runs them, else to Murmur Cloud.
+        if (style.NeedsModel() && !route.RunsModelLevels()) route = LocalCleanupModels.Current.RunsModelLevels ? CleanupChoice.LocalModel : CleanupChoice.MurmurCloud;
         return (route, saved with { Polish = style.NeedsModel(), Professional = style == CleanupStyle.Professional });
     }
 }
