@@ -13,6 +13,9 @@ public static class MacLikeModel
         RetiredFolderNames = ["vedu-scribe-0.8b"], RunsModelLevels = true, RunsProfessional = true, TakesContextAndPresets = true, TrustedLikeCloud = true, MaximumCharacters = 4_000,
     };
     public static IDisposable Use() => LocalCleanupModels.Use(Profile);
+    /// <summary>The tests ported from the Mac (and its goldens) describe the Mac's model; the swap tests choose theirs with <see cref="LocalCleanupModels.Use"/>.</summary>
+    [System.Runtime.CompilerServices.ModuleInitializer]
+    internal static void SetTestDefault() => LocalCleanupModels.TestDefault = Profile;
 }
 
 public class LocalCleanupModelSwapTests
@@ -32,6 +35,8 @@ public class LocalCleanupModelSwapTests
     [Fact]
     public void ShippedModelKeepsTheEarlierBehavior()
     {
+        Assert.Same(LocalCleanupModels.VeduScribe08B, LocalCleanupModels.Installed);
+        using var _ = LocalCleanupModels.Use(LocalCleanupModels.Installed);
         Assert.Same(LocalCleanupModels.VeduScribe08B, LocalCleanupModels.Current);
         Assert.False(CleanupChoice.LocalModel.RunsModelLevels());
         Assert.False(ProviderID.LocalModel.RunsProfessional());
@@ -43,7 +48,7 @@ public class LocalCleanupModelSwapTests
     [Fact]
     public async Task ACapableModelTakesLevelsPresetsAndTone()
     {
-        using var _ = MacLikeModel.Use();
+        using var _ = LocalCleanupModels.Use(MacLikeModel.Profile);
         Assert.True(CleanupChoice.LocalModel.RunsModelLevels());
         Assert.False(CleanupChoice.LocalRules.RunsModelLevels());
         Assert.True(ProviderID.LocalModel.RunsProfessional());
@@ -62,6 +67,7 @@ public class LocalCleanupModelSwapTests
     [Fact]
     public async Task AModelWithoutPresetsRefusesThem()
     {
+        using var _ = LocalCleanupModels.Use(LocalCleanupModels.Installed);
         var rec = new Recorder();
         var failure = await Failure(() => Provider(rec).CleanupAsync(TransformPrompt.Build(ModeTransform.Email, "send the report")));
         Assert.Equal(ProviderError.InvalidConfiguration(ProviderID.LocalModel), failure);

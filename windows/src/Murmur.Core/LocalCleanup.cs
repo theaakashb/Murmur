@@ -48,7 +48,9 @@ public static class LocalCleanupModels
 
     static readonly AsyncLocal<LocalCleanupModel?> scoped = new();
     /// <summary>The model in effect: <see cref="Installed"/>, or the one a test put in scope with <see cref="Use"/>.</summary>
-    public static LocalCleanupModel Current => scoped.Value ?? Installed;
+    public static LocalCleanupModel Current => scoped.Value ?? TestDefault ?? Installed;
+    /// <summary>Set once by the test assembly: the Mac's model, so the tests ported from the Mac and its goldens compare like for like. Never set by the app.</summary>
+    internal static LocalCleanupModel? TestDefault { get; set; }
 
     /// <summary>Test seam: runs code as if <paramref name="model"/> were installed, for this async flow only (tests run in parallel).</summary>
     public static IDisposable Use(LocalCleanupModel model)
