@@ -78,11 +78,11 @@ internal sealed partial class MeetingSheets(AppServices s)
         void Refresh()
         {
             disclosure.Text = route.Disclosure(host, uri?.IsLoopback == true, null);
-            problem.Text = route == MeetingNotesRoute.CustomProvider && (routes.CustomAPIBaseURL.Length == 0 || routes.CustomAPIModel.Length == 0)
-                ? "Enter an address and a model under Settings → Writing → Cleanup → Custom Provider first." : "";
+            problem.Text = route == MeetingNotesRoute.LocalModel && !s.LocalNotesSlot.Row.IsReady
+                ? "Download the meeting notes model in Settings → Meetings first. A Custom Provider is set up under Advanced there." : "";
         }
         Refresh();
-        var tabs = new Segmented("Notes route", ["None (transcript only)", "Custom Provider"], 0, i => { route = i == 0 ? MeetingNotesRoute.None : MeetingNotesRoute.CustomProvider; Refresh(); }, stretch: false);
+        var tabs = new Segmented("Notes route", [MeetingNotesRoute.None.Label(), MeetingNotesRoute.LocalModel.Label()], 0, i => { route = i == 0 ? MeetingNotesRoute.None : MeetingNotesRoute.LocalModel; Refresh(); }, stretch: false);
         Action close = () => { };
         bool answered = false;
         void Answer() { if (answered) return; answered = true; close(); done(route); }

@@ -135,11 +135,19 @@ internal sealed partial class MeetingsView
 
     // ---- render ----
 
+    MeetingsSetup? setup;
+
     void Render()
     {
         signature = Signature();
         view.Children.Clear();
         view.RowDefinitions.Clear();
+        // The first time Meetings opens it asks which languages you use (kept across redraws so a half-made choice is not lost).
+        if (MeetingLanguages.NeedsSetup(s.Settings))
+        {
+            view.Children.Add((setup ??= new MeetingsSetup(s, controller, root, () => { setup = null; Render(); })).View);
+            return;
+        }
         var r = Recorder;
         foreach (var h in new[] { GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star) }) view.RowDefinitions.Add(new RowDefinition { Height = h });
 

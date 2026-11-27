@@ -56,11 +56,25 @@ internal sealed partial class Controller
     }
 
     /// <summary>Asks <see cref="SpeechModelDialogs"/> for the license-and-size confirmation, then downloads the required model.</summary>
-    public void DownloadRequiredSpeechModel() => SpeechFlow(RequiredSpeechModel).Download();
+    public void DownloadRequiredSpeechModel() => DownloadSpeechModel(RequiredSpeechModel);
 
-    public void CancelRequiredSpeechModel() => RequiredSpeechSlot.Downloader?.Cancel();
+    public void CancelRequiredSpeechModel() => CancelSpeechModel(RequiredSpeechModel);
 
-    public void RemoveRequiredSpeechModel() => SpeechFlow(RequiredSpeechModel).Remove();
+    public void RemoveRequiredSpeechModel() => RemoveSpeechModel(RequiredSpeechModel);
+
+    /// <summary>Any speech model's flow (the meetings' model, or the one the Meetings setup is about to need). Finished downloads announce themselves through <see cref="ModelDownloadFinished"/>.
+    /// Removing one releases the helpers (dictation's and the meeting one) first.</summary>
+    public void DownloadSpeechModel(LocalSpeechModel model) => SpeechFlow(model).Download();
+    public void CancelSpeechModel(LocalSpeechModel model) => SpeechModelSlot(model).Downloader?.Cancel();
+    public void RemoveSpeechModel(LocalSpeechModel model) => SpeechFlow(model).Remove();
+
+    // --- meetings: their own languages and model, separate from dictation (app/Controller+Meetings.swift "Meeting languages and model") ---
+    public IReadOnlyList<string> EffectiveMeetingLanguages => MeetingLanguages.Effective(s.Settings);
+    public LocalSpeechModel MeetingSpeechModel => MeetingLanguages.Model(s.Settings);
+    public ModelSlot MeetingSpeechSlot => SpeechModelSlot(MeetingSpeechModel);
+    public bool MeetingSpeechReady => SpeechModelReady(MeetingSpeechModel);
+    /// <summary>Dictation uses the same model on the local route, so removing it here removes it there too.</summary>
+    public bool MeetingModelSharedWithDictation => RouteSettings.Load(s.Settings).Transcription == TranscriptionRoute.Local && MeetingSpeechModel == RequiredSpeechModel;
 
     sealed class NoDialogs : IModelFlowDialogs
     {
