@@ -79,7 +79,8 @@ internal sealed class MeetingsSetup
     void Finish()
     {
         if (languages.Count == 0) return;
-        s.Settings.Set("meetingNotesRoute", NoteRoutes[Math.Max(0, notes.SelectedIndex)].SettingValue());
+        // The setup offers None or on this PC only: an existing Custom Provider notes route is kept.
+        if (MeetingNotesRoutes.Load(s.Settings) != MeetingNotesRoute.CustomProvider) s.Settings.Set("meetingNotesRoute", NoteRoutes[Math.Max(0, notes.SelectedIndex)].SettingValue());
         row?.Detach();
         s.Settings.Set(MeetingLanguages.Setting, languages);
         done();

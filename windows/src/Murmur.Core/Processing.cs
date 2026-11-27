@@ -276,7 +276,7 @@ public sealed class ProcessingCoordinator
         style ??= Settings.Style();
         // Writing-mode dictations run on the AI engine; the rest use the cleanup route.
         // The Local model rewrites presets itself when the installed one takes them (LocalCleanupModel.TakesContextAndPresets).
-        var onEngine = style.UsesEngine && !(style.Transform is not null && CloudCleaner?.Id == ProviderID.LocalModel);
+        var onEngine = style.UsesEngine && !(style.Transform is not null && CloudCleaner?.Id == ProviderID.LocalModel && LocalCleanupModels.Current.TakesContextAndPresets);
         var cleaner = onEngine ? EngineCleaner : CloudCleaner;
         // Natural on the Local model is one Polish model pass; other routes use the model for the rewrite styles and presets only.
         var naturalOnLocalModel = !style.UsesEngine && CloudCleaner?.Id == ProviderID.LocalModel && style.Options.AnyEnabled;

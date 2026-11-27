@@ -215,7 +215,8 @@ public sealed class ModelSlot
     {
         var root = ModelFacts.ModelsRoot(dataRoot);
         if (Facts.Retired.Count == 0 || !System.IO.Directory.Exists(root)) return [];
-        return [.. System.IO.Directory.EnumerateDirectories(root).Where(d =>
+        var current = Downloader is null ? null : Path.GetFullPath(Downloader.Target);
+        return [.. System.IO.Directory.EnumerateDirectories(root).Where(d => !string.Equals(Path.GetFullPath(d), current, StringComparison.OrdinalIgnoreCase) &&
             Facts.Retired.Any(name => System.Text.RegularExpressions.Regex.IsMatch(Path.GetFileName(d), $"^{System.Text.RegularExpressions.Regex.Escape(name)}-[0-9a-f]{{7}}$")))];
     }
     /// <summary>At launch, after an update that pins a new model: deletes the old folders if the new model is ready, else says how to replace it.</summary>

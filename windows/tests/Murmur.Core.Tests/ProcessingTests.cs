@@ -870,6 +870,20 @@ public class ProcessingTests
 
     static string Body(CleanupMessages m) => MockProvider.Body(m.User);
 
+    // A rewrite preset runs on the Local model itself only when the installed model takes presets; the shipped 0.8B keeps using the AI engine.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PresetsRunOnTheLocalModelOnlyWhenItTakesThem(bool modelTakesPresets)
+    {
+        using var _ = LocalCleanupModels.Use(modelTakesPresets ? MacLikeModel.Profile : LocalCleanupModels.Installed);
+        var p = With(Make(), s => s with { Route = CleanupRoute.Cloud, Options = CleanupOptions.Standard });
+        var local = new MockProvider(m => Body(m), id: ProviderID.LocalModel); var engine = MockProvider.Fixed("Hi,\n\nthe draft is ready.");
+        p.CloudCleaner = local; p.EngineCleaner = engine;
+        await p.ProcessAsync("the draft is ready", new DictationStyle(CleanupOptions.Standard) { Transform = ModeTransform.Email, UsesEngine = true });
+        Assert.Equal(modelTakesPresets ? (1, 0) : (0, 1), (local.Messages.Count, engine.Messages.Count));
+    }
+
     // MARK: Windows: a regex timeout takes the guard-rejection path (PLAN.md M2)
 
     static Action<string> TimeoutAt(params string[] stages) => stage => { if (stages.Contains(stage)) throw new RegexMatchTimeoutException("x", "y", TimeSpan.FromMilliseconds(1)); };

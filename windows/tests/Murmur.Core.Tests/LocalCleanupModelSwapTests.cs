@@ -98,6 +98,11 @@ public class LocalCleanupModelSwapTests
             slot.ReconcileRetired();
             Assert.False(Directory.Exists(old));
             Assert.True(Directory.Exists(other));
+            // A swap that lists its own folder name as retired never deletes the model it just installed.
+            var current = ModelFacts.LocalCleanup with { Retired = [LocalCleanupModels.Installed.FolderName] };
+            var installed = ModelSlot.Create(current, root);
+            Directory.CreateDirectory(installed.Downloader!.Target);
+            Assert.DoesNotContain(installed.Downloader.Target, installed.RetiredFolders());
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
