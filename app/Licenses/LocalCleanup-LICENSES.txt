@@ -1,4 +1,4 @@
-Licenses for the managed local cleanup helper (LocalCleanupRunner). Vedu Scribe 0.8B itself is Apache-2.0 (https://huggingface.co/heyvedu/vedu-scribe-0.8b), downloaded on request and not bundled.
+Licenses for the managed local cleanup helper (LocalCleanupRunner). Murmur Cleanup 2B itself is Apache-2.0 (https://huggingface.co/clouddevaakash/murmur-cleanup-2b, a fine-tune of Qwen/Qwen3.5-2B), downloaded on request and not bundled.
 
 === mlx-swift 0.31.6 (and the prebuilt Cmlx.framework) ===
 MIT License

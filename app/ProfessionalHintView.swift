@@ -2,16 +2,13 @@ import AppKit
 import SwiftUI
 
 // The History row's Professional hint. It appears after enough use, on a dictation Professional would visibly
-// improve (ProfessionalHint.swift). Without a Murmur Cloud key it explains and offers a trial; with one, a
+// improve (ProfessionalHint.swift). Without a Murmur Cloud key it offers to turn Professional on; with one, a
 // preview is a single request the user starts after the disclosure. Nothing is ever sent in the background.
 
 @MainActor final class ProfessionalHint: ObservableObject {
     enum Preview: Equatable { case idle, asking, working, ready(String), unchanged, unavailable(String) }
 
     static let stateKey = "professionalHintState", enabledKey = "professionalHints"
-    /// Professional is in both plans; the trial starts on the lowest-cost one.
-    static let trialPlan = "basic"
-    static var checkoutURL: URL { MurmurCloud.baseURL.appendingPathComponent("billing/checkout").appending(queryItems: [URLQueryItem(name: "plan", value: trialPlan)]) }
 
     @Published private(set) var state: ProfessionalHintState
     @Published var preview = Preview.idle
@@ -30,7 +27,7 @@ import SwiftUI
         state.consider(entryID: entryID, raw: raw, now: Date(), enabled: enabled, professionalActive: professionalActive); save()
     }
     func dismiss() { state.dismissals += 1; close() }
-    /// The user previewed or started a trial: the hint has done its job.
+    /// The user previewed or turned Professional on: the hint has done its job.
     func finish() { state.acted = true; close() }
     private func close() { state.offerID = nil; preview = .idle; save() }
     /// Fixture only: opens an offer without the gate.
@@ -73,13 +70,13 @@ struct ProfessionalHintLine: View {
             case .idle:
                 HStack(spacing: 8) {
                     if key == nil {
-                        Button(MurmurCloud.getTitle) { NSWorkspace.shared.open(MurmurCloud.getURL); hint.finish() }.buttonStyle(InkButtonStyle(kind: .filled)).fixedSize().disabled(!MurmurCloud.purchaseAvailable)
+                        Button("Use Professional") { controller.cleanupStyle = .professional; controller.settingsChanged(); hint.finish() }.buttonStyle(InkButtonStyle(kind: .filled)).fixedSize()
                     } else {
                         Button("See it in Professional") { hint.preview = .asking }.buttonStyle(InkButtonStyle(kind: .filled)).fixedSize()
                     }
                     Button("Not now") { hint.dismiss() }.buttonStyle(InkButtonStyle(kind: .plain)).fixedSize()
                 }
-                if key == nil { note(MurmurCloud.purchaseAvailable ? "Professional runs on Murmur Cloud. A card is required to start a trial; your key arrives by email." : "Professional runs on Murmur Cloud.") }
+                if key == nil { note("Professional runs on this Mac with the Local model.") }
             case .asking:
                 note("This sends this dictation's text to \(MurmurCloud.host) so Murmur Cloud can write the Professional version. Nothing is sent until you press Preview.")
                 HStack(spacing: 8) {
@@ -108,11 +105,4 @@ struct ProfessionalHintLine: View {
         .padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
         .background(Palette.accent16).padding(.bottom, 12)
     }
-}
-
-extension MurmurCloud {
-    /// The one place the "get Murmur Cloud" button is defined; "Coming soon" and disabled until purchase exists.
-    static var getTitle: String { purchaseAvailable ? "Start a trial" : "Coming soon" }
-    /// Callers disable the button while `purchaseAvailable` is false, so nothing opens.
-    @MainActor static var getURL: URL { ProfessionalHint.checkoutURL }
 }

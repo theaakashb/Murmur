@@ -3,11 +3,11 @@ import MLXLLM
 import MLXLMCommon
 
 // Managed local cleanup helper: one JSON object per line on stdin, one reply per line on stdout.
-//   {"id":1,"text":"...","tone":"formal"|"casual","terms":["..."]}  ->  {"id":1,"text":"..."} | {"id":1,"error":"too-long"|"failed"}
+//   {"id":1,"text":"...","tone":"formal"|"casual","terms":["..."],"mode":"email"|"notes"|"prompt"?,"screen":"..."?}  ->  {"id":1,"text":"..."} | {"id":1,"error":"too-long"|"failed"}
 // No networking and no transcript logging. A fresh chat session per request, so nothing carries over.
 // argv[1] is the verified model directory. The app owns cancellation by terminating this process.
 
-let maximumInputTokens = 400   // The model card's recommended input size, counted over the whole prompt: system line, header and text.
+let maximumInputTokens = 512   // Counted over system line, header and text; training rows stayed under 400 tokens.
 let maximumOutputTokens = 512
 let system = "Clean up this dictation."
 
@@ -16,11 +16,14 @@ func send(_ object: [String: Any]) {
     FileHandle.standardOutput.write(data + Data("\n".utf8))
 }
 
-func header(tone: String, terms: [String]) -> String {
+func header(tone: String, mode: String, terms: [String], screen: String) -> String {
     var lines: [String] = []
     if tone == "formal" { lines.append("[tone: formal]") }
+    if ["email", "notes", "prompt"].contains(mode) { lines.append("[mode: \(mode)]") }
     let vocab = terms.prefix(12).map { $0.replacingOccurrences(of: ";", with: ",").replacingOccurrences(of: "\n", with: " ") }
     if !vocab.isEmpty { lines.append("[vocab: " + vocab.joined(separator: "; ") + "]") }
+    // The app flattens screen text to one line (LocalCleanup.screenLine); a preset never takes it.
+    if mode.isEmpty, !screen.isEmpty { lines.append("[screen: " + screen + "]") }
     return lines.isEmpty ? "" : lines.joined(separator: "\n") + "\n"
 }
 
@@ -35,7 +38,8 @@ func header(tone: String, terms: [String]) -> String {
         while let line = readLine(strippingNewline: true) {
             guard let object = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
                   let id = object["id"] as? Int, let text = object["text"] as? String else { send(["id": -1, "error": "failed"]); continue }
-            let prompt = header(tone: object["tone"] as? String ?? "casual", terms: object["terms"] as? [String] ?? []) + text
+            let prompt = header(tone: object["tone"] as? String ?? "casual", mode: object["mode"] as? String ?? "",
+                                terms: object["terms"] as? [String] ?? [], screen: object["screen"] as? String ?? "") + text
             let tokens = await model.perform { context in context.tokenizer.encode(text: system + "\n" + prompt).count }
             guard tokens <= maximumInputTokens else { send(["id": id, "error": "too-long"]); continue }
             let session = ChatSession(model, instructions: system, generateParameters: .init(maxTokens: maximumOutputTokens, temperature: 0),

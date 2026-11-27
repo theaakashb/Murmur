@@ -115,7 +115,7 @@ enum ScreenRequest: Equatable {
     @Published var dictionarySlot: ModelSlot
     /// The helper could not start dictionary support and is transcribing without it.
     @Published var dictionarySupportFailed = false
-    /// The managed local cleanup model (Vedu): downloaded only after the user asks, in the app's own model folder.
+    /// The managed local cleanup model (Murmur Cleanup 2B): downloaded only after the user asks, in the app's own model folder.
     @Published var localSlot: ModelSlot
     var modelSlots: [ReferenceWritableKeyPath<AppController, ModelSlot>] { [\.modelSlot, \.tdtSlot, \.whisperSlot, \.dictionarySlot, \.liveWordsSlot, \.localSlot] }
     var usesCustomModelFolder: Bool { modelSlot.downloader.map { URL(fileURLWithPath: modelDirectory).standardizedFileURL.path != $0.target.path } ?? false }
@@ -238,6 +238,8 @@ enum ScreenRequest: Equatable {
         func take() -> TimeInterval? { lock.withLock { defer { value = nil }; return value } }
     }
     let warm = WarmRunner()
+    /// Meetings whose languages need a different model than dictation keep their own helper, so neither reloads the other's.
+    let meetingWarm = WarmRunner()
     /// Chunk transcripts of local recordings, keyed by each recording's audio file.
     var chunkJobs: [URL: ChunkJob] = [:]
     private var noNap: NSObjectProtocol?
@@ -254,6 +256,7 @@ enum ScreenRequest: Equatable {
     private var applyScheduled = false
     private var folderWatch: AnyCancellable?
     var preview = false
+    let readyNotifier = ModelReadyNotifier()
     private var previewDirectory: URL?
     private lazy var session: CaptureSession = {
         let session = CaptureSession(store: retry!, start: { [weak self] url in
@@ -292,6 +295,11 @@ enum ScreenRequest: Equatable {
     // Stored properties of the per-feature extensions (Controller+*.swift), which cannot declare their own.
     /// Settings → Meetings: where meeting audio is transcribed (decision of October 15, 2026). Applies
     /// to meetings started after it changes; a meeting keeps the route it started with.
+    /// Settings → Meetings: the languages meetings are held in, separate from dictation. Empty until the
+    /// Meetings page's first-time setup (or Settings) saves them; until then they follow the dictation languages.
+    @Published var meetingLanguages = UserDefaults.standard.stringArray(forKey: "meetingLanguages") ?? [] {
+        didSet { UserDefaults.standard.set(meetingLanguages, forKey: "meetingLanguages") }
+    }
     @Published var meetingTranscription = MeetingTranscription.load(.standard) {
         didSet { UserDefaults.standard.set(meetingTranscription.rawValue, forKey: MeetingTranscription.key) }
     }
@@ -372,6 +380,11 @@ enum ScreenRequest: Equatable {
             historySaved(); refreshRecoveryAudio(); refreshDictionary(); refreshCues()
         } catch { store = nil; records = nil; retry = nil; processing = nil; phase = .error; message = "Private storage is unavailable. Murmur cannot start." }
         for slot in modelSlots { self[keyPath: slot].status = self[keyPath: slot].downloader?.status() ?? .notDownloaded }
+        // An update that pins a new model leaves the old folder behind: delete it if the new model is ready, else say how to replace it.
+        for slot in modelSlots where !self[keyPath: slot].retiredFolders(home: home).isEmpty {
+            if self[keyPath: slot].status == .ready { self[keyPath: slot].retiredFolders(home: home).forEach { try? FileManager.default.removeItem(at: $0) } }
+            else { self[keyPath: slot].message = "This update uses a newer model. Download it to replace the old one; the old one is deleted once the new one is verified." }
+        }
         warm.onDictionaryStatus = { [weak self] failed in DispatchQueue.main.async { self?.dictionarySupportFailed = failed } }
         if !preview {
             do { try RouteSettings.migrateCustomAPI(in: defaults, credentials: credentials) }
@@ -725,9 +738,8 @@ enum ScreenRequest: Equatable {
         }
         // Read only if this dictation could use it: the start mode (or the global setting) has it on,
         // or a mode that a trigger word could still pick does.
-        // The managed local model never uses screen text, so none is read for it.
-        guard aiCleanup || processing?.engineCleaner != nil, appliedRoutes.cleanup != .localModel || processing?.engineCleaner != nil, let settings = processing?.settings,
-              DictationStyle.needsScreenContext(mode: sessionMode, modes: modes, settings: settings),
+        guard aiCleanup || processing?.engineCleaner != nil, let settings = processing?.settings,
+              DictationStyle.needsScreenContext(mode: sessionMode, modes: modes, settings: settings, localModel: processing?.cloudCleaner?.id == .localModel),
               !IsSecureEventInputEnabled(), destination?.secure != true else { return }
         let pasteboard = NSPasteboard.general
         let types = pasteboard.types?.map(\.rawValue) ?? []
@@ -1183,7 +1195,7 @@ enum ScreenRequest: Equatable {
             endDictation(done); return
         }
         lastDictationText = processed
-        professionalHint.consider(entryID: entry.id, raw: text, professionalActive: cleanupProfessional && cleanupChoice.cloudOnlyOK)
+        professionalHint.consider(entryID: entry.id, raw: text, professionalActive: cleanupProfessional && cleanupChoice.runsModelLevels)
         if !preview { tips.recordDictation(final: processed, seconds: entry.seconds) }
         if insertThisSession {
             // Murmur never pastes into itself, but a text view in its own window (the Report an Issue box) takes the text directly.
@@ -1367,7 +1379,7 @@ enum ScreenRequest: Equatable {
             if runner.isRunning { kill(runner.processIdentifier, SIGKILL) }
             runner.waitUntilExit()
         }
-        warm.stopNow()
+        warm.stopNow(); meetingWarm.stopNow()
         bubble.hide()
         if let previewDirectory { try? FileManager.default.removeItem(at: previewDirectory) }
     }

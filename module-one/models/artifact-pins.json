@@ -2003,6 +2003,60 @@
         }
       ]
     },
+    "clouddevaakash/murmur-cleanup-2b": {
+      "revision": "b591570bf6e9c44898cbf9d64f6519b727648e22",
+      "files": [
+        {
+          "rfilename": "chat_template.jinja",
+          "size": 7991,
+          "git_blob_sha1": "c7c8f996ef89234e681044289ef389a6694fc635"
+        },
+        {
+          "rfilename": "config.json",
+          "size": 2461,
+          "git_blob_sha1": "f25914ee62aa5dfc0d455bf720860d2bf189783d"
+        },
+        {
+          "rfilename": "model.safetensors",
+          "size": 1176983844,
+          "lfs": {
+            "sha256": "b2ffaf46948580f7bfe5f5b1e34741fdf346663e654192429a4469362077ed59",
+            "size": 1176983844
+          }
+        },
+        {
+          "rfilename": "model.safetensors.index.json",
+          "size": 60786,
+          "git_blob_sha1": "11e95f9dfe12e7d2f59d2c3bef3be07515dc4907"
+        },
+        {
+          "rfilename": "tokenizer.json",
+          "size": 19989339,
+          "lfs": {
+            "sha256": "a5cd9732badce41de57e6efce8302930ded1c1188c5f81feb2bd6c24c4a1941f",
+            "size": 19989339
+          }
+        },
+        {
+          "rfilename": "tokenizer_config.json",
+          "size": 1534,
+          "git_blob_sha1": "d92dfcb8f506b4b8b990b1925a29a615731d8c56"
+        }
+      ],
+      "batch_files": [
+        "chat_template.jinja",
+        "config.json",
+        "model.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0"
+      },
+      "repository_bytes": 1197045955
+    },
     "heyvedu/vedu-scribe-0.8b": {
       "revision": "7dced5841c58d7d6e0118c4c123f222b35057871",
       "files": [

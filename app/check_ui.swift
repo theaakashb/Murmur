@@ -189,6 +189,9 @@ extension AppController {
             if args.contains("--settings") { controller.screenRequest = .settings }
             if args.contains("--dictionary") { controller.screenRequest = .settingsPane(.dictionary) }
             if args.contains("--cues") { controller.screenRequest = .settingsPane(.cues) }
+            if args.contains("--cleanup-pane") { controller.screenRequest = .settingsPane(.cleanup) }
+            if args.contains("--modes-pane") { controller.screenRequest = .settingsPane(.modes) }
+            if args.contains("--transcription-pane") { controller.screenRequest = .settingsPane(.transcription) }
             // --cleanup-style -1|0|1|2: Faithful, Strict, Polish or Professional, with an AI model stored.
             if let flag = args.firstIndex(of: "--cleanup-style"), args.indices.contains(flag + 1), let style = Int(args[flag + 1]) {
                 controller.cleanupChoice = args.contains("--custom-cleanup") ? .customAPI : args.contains("--murmur-cloud") ? .murmurCloud : .localModel; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
@@ -208,7 +211,10 @@ extension AppController {
                 if let pane = Int(args[flag + 1]).flatMap(SettingsPane.init(rawValue:)) { controller.screenRequest = .settingsPane(pane) }
             }
             if args.contains("--speaker-settings") { controller.speakerSettings.showFixture(enabled: true, status: args.contains("--ready") ? .ready : .notDownloaded) }
-            if args.contains("--meeting-settings") { controller.meetingTranscription = args.contains("--cloud") ? .cloud : .local; controller.screenRequest = .settingsPane(.meetings) }
+            // --meeting-setup shows the Meetings page's first-time setup; --meeting-languages a,b saves meeting languages.
+            controller.meetingLanguages = args.contains("--meeting-setup") ? [] : args.firstIndex(of: "--meeting-languages").map { args[$0 + 1].split(separator: ",").map(String.init) } ?? ["en"]
+            if args.contains("--meeting-setup") { controller.screenRequest = .meetings }
+            if args.contains("--meeting-settings") { controller.meetingsUseCustomProvider = args.contains("--cloud"); controller.screenRequest = .settingsPane(.meetings) }
             if args.contains("--settings-search") { controller.screenRequest = .settingsSearch }
             controller.voiceLevel = 0.6
             controller.phase = CommandLine.arguments.contains("--processing") ? .processing : CommandLine.arguments.contains("--listening") ? .listening : CommandLine.arguments.contains("--saved") ? .saved : .error
@@ -292,7 +298,7 @@ extension AppController {
                 let synthetic = Diagnostics(
                     appVersion: "0.3.0", build: "12", macOS: "Version 26.1 (Build 25B1)", macModel: "Mac15,6", microphone: "authorized",
                     accessibilityAllowed: true, inputMonitoringAllowed: false, transcription: .thisMac(model: "FluidInference/parakeet-unified-en-0.6b-coreml"),
-                    cleanup: .service(name: "Local model (this Mac)", model: "heyvedu/vedu-scribe-0.8b@7dced58"), cleanupStyle: "Polish", historyOn: true, retention: "30 days",
+                    cleanup: .service(name: "Local model (this Mac)", model: "clouddevaakash/murmur-cleanup-2b@b591570"), cleanupStyle: "Polish", historyOn: true, retention: "30 days",
                     models: [("Parakeet Unified English 0.6B", true), ("Local cleanup", false)],
                     lastResult: .init(insertionStatus: "verified", cleanupFailure: "lengthRatio", cleanupPath: "modelAccepted", totalSeconds: 2.3))
                 print("Report details:\n\(synthetic.details)\nReport URL length: \(IssueReport.url(body: IssueReport.body(description: "", details: synthetic.details)).absoluteString.count)")

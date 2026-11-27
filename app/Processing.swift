@@ -226,16 +226,18 @@ final class ProcessingCoordinator {
     @MainActor private func processSegmentAsync(_ raw: String, style: DictationStyle?) async -> ProcessingResult {
         var evidence = ProcessingResult(outcome: .insert(raw))
         let style = style ?? DictationStyle(mode: nil, settings: settings)
-        // Writing-mode dictations run on the AI engine; the rest use the cleanup route.
-        let cleaner = style.usesEngine ? engineCleaner : cloudCleaner
-        // The Local model's Natural cleanup is its one model pass (no levels); other routes use the model for the rewrite styles and presets only.
+        // Writing-mode dictations run on the AI engine; the rest use the cleanup route. The Local model rewrites presets itself.
+        let onEngine = style.usesEngine && !(style.transform != nil && cloudCleaner?.id == .localModel)
+        let cleaner = onEngine ? engineCleaner : cloudCleaner
+        // Natural on the Local model is one Polish model pass; other routes use the model for the rewrite styles and presets only.
         let naturalOnLocalModel = !style.usesEngine && cloudCleaner?.id == .localModel && style.options.anyEnabled
         guard settings.route == .cloud || style.usesEngine, style.usesModel || naturalOnLocalModel else { return processSegment(raw, style: style) }
         let prepared = prepare(raw)
         var options = style.options; let terms = prepared.terms
-        if naturalOnLocalModel { options.polish = true }
+        // Natural is guarded in full: on other routes it never reaches a model, so it was never trusted.
+        if naturalOnLocalModel { options.polish = true; if !style.usesModel { options.trustModel = false } }
         if cleaner?.id.runsProfessional == false { options.professional = false }
-        if style.usesEngine, let id = cleaner?.id { evidence.engine = id }
+        if onEngine, let id = cleaner?.id { evidence.engine = id }
         evidence.terms = terms; evidence.cleanupInput = prepared.text == raw ? nil : prepared.text
         var context = style.context, instructions = style.instructions
         // The provider declares what it takes (CleanupShape): a fixed prompt gets no context or style notes (rewrite presets fall back below), a small window gets capped context.
@@ -334,7 +336,7 @@ final class ProcessingCoordinator {
     /// One provider call, no retry (a rate limit or an outage would only fail again). If the guard
     /// rejects the cleaned words, the transcript's words take the model's punctuation instead.
     /// The guard judges against the transcript section only. On a trusted route (polish or professional
-    /// on a cloud or custom model) it holds only malfunctions, so it does not stop words from screen
+    /// on a cloud, custom or Local model) it holds only malfunctions, so it does not stop words from screen
     /// context reaching the paste: the prompt's data-only tags are the defense there. A replay of
     /// History (Nov 2026) found the full guard would hold 23% of good polish written with context.
     static func cloudClean(_ section: String, provider: CleanupProvider, options: CleanupOptions, terms: [String],
@@ -346,9 +348,10 @@ final class ProcessingCoordinator {
         do { output = try await provider.cleanup(messages) }
         catch { return CloudAttempt(text: nil, reason: .cleanerFailed, error: error as? ProviderError, promptHash: hash) }
         let reason: CleanupFailureReason
-        // The managed local model and Apple Intelligence are always held to the full guard (numbers, names, negations), whatever the global trust setting.
+        // Apple Intelligence is always held to the full guard (numbers, names, negations). The Local model's Polish and
+        // Professional are trusted like Murmur Cloud: on a held-out set it failed less than the cloud model in every mode (#108).
         var judged = options
-        if provider.id == .localModel || provider.id == .appleIntelligence { judged.trustModel = false }
+        if provider.id == .appleIntelligence { judged.trustModel = false }
         var verdict = CleanupPipeline.judge(raw: section, cleaned: output, options: judged, allowedTerms: terms, soundsLike: DictionaryStore.soundsLike)
         switch verdict {
         case .cleaned(let text): return CloudAttempt(text: text, reason: nil, error: nil, accepted: output, verdict: .cleaned, promptHash: hash)

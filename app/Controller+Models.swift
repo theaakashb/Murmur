@@ -5,8 +5,15 @@ extension AppController {
     // MARK: Model download
 
     /// The shared flow for one model; the transcription, dictionary and live-words models refuse while dictating.
-    private func flow(_ slot: ReferenceWritableKeyPath<AppController, ModelSlot>, gated: Bool = true) -> ModelFlow<AppController> {
+    private func flow(_ slot: ReferenceWritableKeyPath<AppController, ModelSlot>, gated: Bool = true, ready: ModelReady.Kind? = nil) -> ModelFlow<AppController> {
         var flow = ModelFlow(owner: self, slot: slot)
+        if let ready, !preview {
+            flow.askToNotify = { [weak self] in self?.readyNotifier.requestPermission() }
+            flow.announceReady = { [weak self] in
+                guard let self else { return }
+                self.readyNotifier.post(ready, model: self[keyPath: slot].facts.displayName, shortcut: self.shortcutName)
+            }
+        }
         if gated {
             flow.downloadGate = { [weak self] in self.flatMap { ModelGate.downloadRefusal(isBusy: $0.isBusy, preview: $0.preview, downloading: $0[keyPath: slot].inFlight) } }
             flow.removeGate = { [weak self] in self.flatMap { ModelGate.removeRefusal(isBusy: $0.isBusy, preview: $0.preview, downloading: $0[keyPath: slot].inFlight) } }
@@ -15,7 +22,7 @@ extension AppController {
     }
 
     func downloadModel() {
-        var flow = flow(\.modelSlot)
+        var flow = flow(\.modelSlot, ready: .speech)
         flow.didDownload = { [weak self] result in
             if case .success = result, let self, let target = self.modelSlot.downloader?.target {
                 self.modelDirectory = target.path
@@ -27,7 +34,7 @@ extension AppController {
     func cancelModelDownload() { modelSlot.downloader?.cancel() }
     func removeModel() {
         var flow = flow(\.modelSlot)
-        flow.release = { [weak self] go in self?.warm.stopNow(); go() } // Release the helper's open model files before deleting them.
+        flow.release = { [weak self] go in self?.warm.stopNow(); self?.meetingWarm.stopNow(); go() } // Release the helper's open model files before deleting them.
         flow.remove()
     }
     func downloadDictionaryModel() {
@@ -39,12 +46,12 @@ extension AppController {
     func cancelDictionaryModelDownload() { dictionarySlot.downloader?.cancel() }
     func removeDictionaryModel() {
         var flow = flow(\.dictionarySlot)
-        flow.release = { [weak self] go in self?.warm.stopNow(); go() }
+        flow.release = { [weak self] go in self?.warm.stopNow(); self?.meetingWarm.stopNow(); go() }
         flow.didRemove = { [weak self] in self?.dictionarySupportFailed = false; self?.prewarm() }
         flow.remove()
     }
     func downloadLocalModel() {
-        var flow = flow(\.localSlot, gated: false)
+        var flow = flow(\.localSlot, gated: false, ready: .cleanup)
         flow.didDownload = { _ in Task { await LocalCleanupRunner.shared.shutdown() } }
         flow.download()
     }
@@ -139,7 +146,7 @@ extension AppController {
     func downloadRequiredSpeechModel() {
         let model = requiredSpeechModel
         if model == .parakeetEnglish { downloadModel(); return }
-        var flow = flow(speechModelSlot(for: model))
+        var flow = flow(speechModelSlot(for: model), ready: .speech)
         flow.didDownload = { [weak self] result in
             if case .success = result, self?.requiredSpeechModel == model { self?.prewarm() }
         }
@@ -148,10 +155,24 @@ extension AppController {
 
     func cancelRequiredSpeechModel() { requiredSpeechSlot.downloader?.cancel() }
 
+    /// The meeting languages' model (Settings → Meetings), downloaded like dictation's.
+    func downloadMeetingSpeechModel() { downloadSpeechModel(meetingSpeechModel) }
+    /// Meetings setup downloads the model for languages it has not saved yet.
+    func downloadSpeechModel(_ model: DictationLanguages.LocalModel) {
+        if model == .parakeetEnglish { downloadModel() } else { flow(speechModelSlot(for: model)).download() }
+    }
+    func cancelMeetingSpeechModel() { meetingSpeechSlot.downloader?.cancel() }
+    func removeMeetingSpeechModel() {
+        if meetingSpeechModel == .parakeetEnglish { removeModel(); return }
+        var flow = flow(speechModelSlot(for: meetingSpeechModel))
+        flow.release = { [weak self] go in self?.warm.stopNow(); self?.meetingWarm.stopNow(); go() }
+        flow.remove()
+    }
+
     func removeRequiredSpeechModel() {
         if requiredSpeechModel == .parakeetEnglish { removeModel(); return }
         var flow = flow(speechModelSlot(for: requiredSpeechModel))
-        flow.release = { [weak self] go in self?.warm.stopNow(); go() }
+        flow.release = { [weak self] go in self?.warm.stopNow(); self?.meetingWarm.stopNow(); go() }
         flow.remove()
     }
 }

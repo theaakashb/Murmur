@@ -4,8 +4,10 @@ import Foundation
 extension ModelFacts {
     static let localCleanup = ModelFacts(
         displayName: LocalCleanupIdentity.modelName,
-        repository: "heyvedu/vedu-scribe-0.8b",
+        repository: "clouddevaakash/murmur-cleanup-2b",
         directory: LocalCleanupIdentity.directory,
+        retired: [{ $0.appendingPathComponent("Library/Application Support/Dictation/Models/vedu-scribe-0.8b") },
+                  { $0.appendingPathComponent("Library/Application Support/Dictation/Models/murmur-cleanup-2b") }],
         confirmName: LocalCleanupIdentity.modelName,
         summaryLead: LocalCleanupIdentity.modelName,
         summaryTail: ["English", "Apache-2.0"],

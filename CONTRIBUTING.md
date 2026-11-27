@@ -33,6 +33,21 @@ MURMUR_RELEASE=1 \
 
 Keep tracked documentation useful to users or contributors: setup, privacy, security reporting, licensing, maintained tool instructions and reproducible measurements with limitations. Keep conversation logs, agent handoffs, local installation evidence and private audits outside the repository. Moving a tracked file or adding it to `.gitignore` does not make it private; deleted files remain in Git history.
 
+## Retiring a model
+
+Every downloadable model is a `ModelFacts` (`app/ModelText.swift`) plus its pins in `module-one/models/artifact-pins.json`. The installed app version decides which pinned model it uses, so changing a model is a release change:
+
+1. Update the model's pins (repository, revision, file sizes and checksums) and its notices (`THIRD_PARTY_NOTICES.md`, `app/Licenses`).
+2. If the install folder changes, add the old folder to the model's `retired` list in its `ModelFacts`, for example `retired: [{ $0.appendingPathComponent("Library/Application Support/Dictation/Models/old-model") }]`. Keep earlier entries until no supported release still uses them.
+3. Run `app/check.sh`.
+
+What users see after updating:
+
+- At launch, a retired folder that still exists is deleted if the current model is installed. Otherwise the model's Settings row says the update uses a newer model and offers Download.
+- Downloading shows the size and license first, verifies every file, swaps the new folder in, then deletes the retired folders. A failed or cancelled download keeps the old folder.
+- Every installed model has a Reinstall button that downloads the version pinned by the running app and replaces the files only after they verify. Murmur never downloads a model without the user confirming.
+- If a release reuses a folder name with new contents, the file sizes no longer match the pins and the row shows the damaged-model message with Retry. Prefer a new folder name for each model version.
+
 ## Publication checks
 
 Run the redacted secret scans in [SECURITY.md](SECURITY.md) before sharing a branch or making a release. Review all fetched branches and PR refs, and hosted content separately before changing repository visibility. Keep private audit evidence outside this tree.

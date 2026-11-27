@@ -272,6 +272,7 @@ struct ModelRowView: View {
         let actions = HStack(spacing: narrow ? 10 : 16) {
             if row.actions.contains(.download) { Button("Download…", action: download).buttonStyle(InkButtonStyle()).fixedSize() }
             if row.actions.contains(.retry) { Button("Retry…", action: download).buttonStyle(InkButtonStyle()).fixedSize() }
+            if row.actions.contains(.reinstall) { Button("Reinstall…", action: download).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
             if row.actions.contains(.cancel) { Button("Cancel", action: cancel).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
             if row.actions.contains(.remove) { Button("Remove…", role: .destructive, action: remove).buttonStyle(InkButtonStyle(kind: .outline)).fixedSize() }
         }

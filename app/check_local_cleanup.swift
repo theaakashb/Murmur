@@ -46,13 +46,21 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         let terms = (1...15).map { "Term\($0)" }
         let built = CleanupPrompt.build(transcript: "hello there", options: pro, dictionaryTerms: terms, context: ScreenContext(selected: "SECRET-SCREEN-TEXT", clipboard: "", window: ""), instructions: "STYLE-NOTE")
         _ = try await provider(rec) { $0 }.cleanup(built)
-        check(rec.requests.count == 1 && rec.requests[0].text == "hello there" && rec.requests[0].tone == "casual", "Professional never reaches this Mac's model as a formal tone: the request is the typed transcript, casual")
+        check(rec.requests.count == 1 && rec.requests[0].text == "hello there" && rec.requests[0].tone == "formal", "Professional reaches this Mac's model as the formal tone: the request is the typed transcript, never the built prompt")
         check(rec.requests[0].terms == Array(terms.prefix(12)), "at most 12 relevant terms")
         let casual = CleanupPrompt.build(transcript: "hello there", options: .standard)
         _ = try await provider(rec) { $0 }.cleanup(casual)
         check(rec.requests[1].tone == "casual", "other styles use the default tone")
-        do { _ = try await provider(rec) { $0 }.cleanup(CleanupMessages(system: "rewrite", user: "x")); check(false, "a rewrite preset must be refused") }
-        catch { check(error as? ProviderError == .invalidConfiguration(.localModel), "messages without typed input (rewrite presets, notes) are refused") }
+        check(rec.requests[0].screen == "SECRET-SCREEN-TEXT" && rec.requests[0].mode == "" && rec.requests[1].screen == "", "screen context reaches the model as its one [screen:] line, only when given")
+        check(LocalCleanup.screenLine(ScreenContext(selected: " a\n b ", clipboard: "", window: "[x]")) == "a b | (x)", "screen text is flattened in selected, clipboard, window order with brackets rewritten")
+        check(LocalCleanup.screenLine(ScreenContext(selected: String(repeating: "y", count: 500), clipboard: "", window: "")).count == 400, "screen text is capped at 400 characters")
+        _ = try await provider(rec) { $0 }.cleanup(TransformPrompt.build(.email, transcript: "email dana saying the deck is ready", dictionaryTerms: ["Dana"]))
+        check(rec.requests[2].mode == "email" && rec.requests[2].text == "email dana saying the deck is ready" && rec.requests[2].tone == "casual"
+              && rec.requests[2].terms == ["Dana"] && rec.requests[2].screen == "", "a rewrite preset reaches the model as [mode:], with no screen text")
+        _ = try await provider(rec) { $0 }.cleanup(TransformPrompt.build(.aiPrompt, transcript: "ask it to fix the login bug"))
+        check(rec.requests[3].mode == "prompt", "the AI-prompt preset is the model's prompt mode")
+        do { _ = try await provider(rec) { $0 }.cleanup(CleanupMessages(system: "rewrite", user: "x")); check(false, "untyped messages must be refused") }
+        catch { check(error as? ProviderError == .invalidConfiguration(.localModel), "messages without typed input (meeting notes, voice edits) are refused") }
         do { _ = try await provider(rec, status: .modelNotDownloaded) { $0 }.cleanup(casual); check(false, "missing model must throw") }
         catch { check(error as? ProviderError == .modelUnavailable(.localModel, .modelNotDownloaded), "a missing model is reported, never downloaded") }
         do { _ = try await provider(rec) { $0 }.cleanup(CleanupPrompt.build(transcript: String(repeating: "word ", count: 1_000), options: .standard)); check(false, "long input must throw") }
@@ -130,21 +138,28 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         try await Task.sleep(for: .seconds(1.2))
         check(!alive(idlePid), "an idle helper exits and releases the model")
 
-        // Guard through the pipeline: the full guard applies even with the global trust option on.
+        // Guard through the pipeline: Natural keeps the full guard even with the global trust option on.
         let p = try ProcessingCoordinator(directory: root.appendingPathComponent("p"), defaults: defaults)
-        var settings = p.settings; settings.route = .cloud; settings.options = .standard
-        settings.options.polish = true; settings.options.professional = true; settings.options.trustModel = true
+        var settings = p.settings; settings.route = .cloud; settings.options = .standard; settings.options.trustModel = true
         try p.update(settings, persist: false)
         let deadlineRaw = "can you send me the report by 5 the quarterly one not the monthly one"
-        p.cloudCleaner = provider(rec) { _ in "Can you send me the quarterly report, not the monthly one?" }
+        let deadlineDropped = "Can you send me the quarterly report, not the monthly one?"
+        p.cloudCleaner = provider(rec) { _ in deadlineDropped }
         let dropped = await p.processAsync(deadlineRaw)
         if case .insert(let text) = dropped.outcome { check(text.contains("5"), "a model output that drops the deadline is not inserted: \(text)") } else { check(false, "inserts") }
         check(dropped.fallback != nil && dropped.cleanupPath != .modelAccepted, "dropped deadline is recorded as a rejection")
+        // Polish and Professional are trusted like Murmur Cloud: a rewrite only the full guard rejects is accepted.
+        settings.options.polish = true; settings.options.professional = true; try p.update(settings, persist: false)
+        p.cloudCleaner = provider(rec) { _ in "Are you free later?" }
+        let trusted = await p.processAsync("um hi are you free later")
+        check(trusted.outcome == .insert("Are you free later?") && trusted.cleanupPath == .modelAccepted, "Professional on the Local model is trusted")
         p.cloudCleaner = provider(rec) { _ in "Can you send me the report by 5, the quarterly one, not the monthly one?" }
         let ok = await p.processAsync(deadlineRaw)
         check(ok.fallback == nil && ok.promptHash == "local-fixed", "a faithful output is accepted and the fixed prompt is recorded")
 
-        let fridayRaw = "Priya and I were thinking we could ship on Friday, actually no, on Monday" // Polish only here: Professional is cloud-only
+        // Polish: trusted, so the dropped negation below is held only by the truncation check.
+        settings.options.professional = false; try p.update(settings, persist: false)
+        let fridayRaw = "Priya and I were thinking we could ship on Friday, actually no, on Monday"
         p.cloudCleaner = provider(rec) { _ in "Priya and I were thinking we could ship on Monday." }
         let friday = await p.processAsync(fridayRaw)
         check(friday.outcome == .insert("Priya and I were thinking we could ship on Monday.") && friday.fallback == nil, "the correct \"actually no\" repair is accepted")
@@ -159,14 +174,15 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         tones.generate = { _ in "Please send the contract today." }
         p.cloudCleaner = tones
         let refusedTwice = await p.processAsync(notRaw)
-        check(refusedTwice.fallback == .negationChanged && refusedTwice.cleanupPath != .modelAccepted, "a refused answer falls back with no second try")
-        // A rewrite preset cannot run on the fixed-prompt model: it is never sent, ordinary cleanup runs instead.
+        check(refusedTwice.fallback != nil && refusedTwice.cleanupPath != .modelAccepted, "a refused answer falls back with no second try")
+        // A rewrite preset runs on the Local model itself as [mode: email], not on the AI engine.
         var preset = WritingMode(); preset.transform = .email
         let presetRec = Recorder()
-        p.cloudCleaner = provider(presetRec) { _ in "Dear team, ship Monday." }
+        p.cloudCleaner = provider(presetRec) { _ in "Hi team, ship Friday, no, Monday." }
         let presetResult = await p.processAsync("ship friday no monday", style: DictationStyle(mode: preset, settings: p.settings))
-        check(presetResult.fallback == .cleanerFailed || presetRec.requests.count == 1, "a rewrite preset never reaches the local model as a rewrite")
-        check(presetRec.requests.allSatisfy { $0.text == "ship friday no monday" || !$0.text.contains("email") }, "no preset instructions are sent")
+        check(presetRec.requests.first?.mode == "email" && presetRec.requests.count == 1 && presetRec.requests[0].text == "ship friday no monday" && presetResult.engine == nil,
+              "a rewrite preset reaches the Local model once as [mode: email], typed transcript only (\(presetRec.requests.count) requests)")
+        check(presetResult.outcome == .insert("Hi team, ship Friday, no, Monday.") && presetResult.fallback == nil, "the accepted rewrite is inserted: \(presetResult.outcome)")
         check(ProviderID.localModel.displayName == "Local model", "display name")
 
         // Long input is split at sentence ends and a repair stays with the sentence it repairs.

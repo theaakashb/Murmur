@@ -11,24 +11,40 @@ extension AppController {
         // Without the helper and manifest (the UI fixture, or a build without them) the recorder cannot transcribe.
         var local: MeetingRecorder.LocalTranscription?
         if !preview, let runtime = helperRuntime {
-            let warm = warm
+            // Each chunk reads the meeting model now: a change applies from the next chunk.
+            let helperFor: @MainActor (AppController) -> (URL, DictationLanguages.LocalModel, WarmRunner)? = { controller in
+                let model = controller.meetingSpeechModel
+                guard let path = controller.speechModelPath(for: model) else { return nil }
+                return (URL(fileURLWithPath: path), model, model == controller.requiredSpeechModel ? controller.warm : controller.meetingWarm)
+            }
             local = .init(
                 transcribe: { [weak self] url, done in
-                    guard let self else { done(nil); return }
-                    runtime.launch(models: URL(fileURLWithPath: self.modelDirectory), qos: .utility) { launch in
+                    // The pump calls this from helper queues; settings are read on the main thread.
+                    DispatchQueue.main.async {
+                    guard let self, let (models, model, warm) = helperFor(self) else { done(nil); return }
+                    runtime.launch(models: models, model: model, qos: .utility) { launch in
                         guard let launch else { done(nil); return }
                         warm.transcribe(url, helper: runtime.helper, launch: launch) { done(helperAnswer($0)?["text"] as? String) }
                     }
+                    }
                 },
                 transcribeTimed: { [weak self] url, done in
-                    guard let self else { done(nil); return }
-                    runtime.launch(models: URL(fileURLWithPath: self.modelDirectory), qos: .utility) { launch in
+                    // The pump calls this from helper queues; settings are read on the main thread.
+                    DispatchQueue.main.async {
+                    guard let self, let (models, model, warm) = helperFor(self) else { done(nil); return }
+                    runtime.launch(models: models, model: model, qos: .utility) { launch in
                         guard let launch else { done(nil); return }
+                        // Only Parakeet English gives word times; the multilingual models give whole lines, assigned like cloud lines.
+                        guard model == .parakeetEnglish else {
+                            warm.transcribe(url, helper: runtime.helper, launch: launch) { line in done((helperAnswer(line)?["text"] as? String).map { ChunkText(text: $0) }) }
+                            return
+                        }
                         warm.transcribeTimed(url, helper: runtime.helper, launch: launch) { line in
                             let answer = helperAnswer(line)
                             guard let text = answer?["text"] as? String else { done(nil); return }
                             done(ChunkText(text: text, words: answer?["words"] as? [[Double]]))
                         }
+                    }
                     }
                 },
                 helper: runtime.helper)
@@ -76,7 +92,7 @@ extension AppController {
         case .customAPI: break
         }
         let plan = routePlan(notesRoutes(.customAPI), cleanupSendsText: true)
-        guard let cleaner = plan.cleaner else { return (nil, (plan.refusal ?? "\(route.label) is not set up.") + " Set it up in Settings → Cleanup and API Keys.") }
+        guard let cleaner = plan.cleaner else { return (nil, (plan.refusal ?? "\(route.label) is not set up.") + " Set it up under Advanced in Settings → Cleanup.") }
         // A whole meeting takes longer than a dictation: allow the longest wait each route permits.
         return (cleaner.forMeetingNotes(), nil)
     }
@@ -89,7 +105,7 @@ extension AppController {
         case .appleIntelligence: return AppleCleanupProvider().status()?.userMessage
         case .customAPI:
             let plan = RoutePlan.make(notesRoutes(.customAPI), cleanupSendsText: true) { self.credentials.exists($0) ? Self.disclosureOnlyKey : nil }
-            return plan.cleaner == nil ? (plan.refusal ?? "\(route.label) is not set up.") + " Set it up in Settings → Cleanup and API Keys." : nil
+            return plan.cleaner == nil ? (plan.refusal ?? "\(route.label) is not set up.") + " Set it up under Advanced in Settings → Cleanup." : nil
         }
     }
 
@@ -100,6 +116,25 @@ extension AppController {
         let local = disclosure?.staysOnThisMac ?? false
         let warning = disclosure?.warning.map { " " + $0 } ?? ""
         return MeetingNotesRoute.disclosure(route, host: disclosure?.destinationHost, local: local, retention: (disclosure?.retentionNote ?? "") + warning)
+    }
+
+    // MARK: Meeting languages and model
+
+    /// The saved meeting languages, or the dictation languages until they are saved.
+    var effectiveMeetingLanguages: [String] { meetingLanguages.isEmpty ? dictationLanguages : meetingLanguages }
+    /// The smallest on-device model that covers every meeting language (the same rule as dictation).
+    var meetingSpeechModel: DictationLanguages.LocalModel { DictationLanguages(codes: Set(effectiveMeetingLanguages))?.localModel ?? .parakeetEnglish }
+    var meetingSpeechSlot: ModelSlot { self[keyPath: speechModelSlot(for: meetingSpeechModel)] }
+    var meetingSpeechReady: Bool { meetingSpeechModel == .parakeetEnglish ? modelSlot.row.isReady : meetingSpeechSlot.row.isReady }
+
+
+    /// Settings → Meetings → Advanced: one switch sends both meeting transcription and notes to the Custom Provider.
+    var meetingsUseCustomProvider: Bool {
+        get { meetingTranscription == .cloud || meetingNotesRoute == .customAPI }
+        set {
+            meetingTranscription = newValue ? .cloud : .local
+            meetingNotesRoute = newValue ? .customAPI : (AppleSystemModel.status() == nil ? .appleIntelligence : MeetingNotesRoute.none)
+        }
     }
 
     /// Writes notes for a finished meeting on the route chosen now.
@@ -125,7 +160,7 @@ extension AppController {
             var routes = appliedRoutes; routes.transcription = .cloud
             let plan = routePlan(routes, cleanupSendsText: false)
             guard let provider = plan.transcriber else {
-                meetingRecorder.message = (plan.refusal ?? "The cloud transcriber is not set up.") + " Set it up in Settings → Transcription, or choose On this Mac in Settings → Meetings."
+                meetingRecorder.message = (plan.refusal ?? "The cloud transcriber is not set up.") + " Set it up under Advanced in Settings → Transcription, or turn off the Custom Provider in Settings → Meetings."
                 screenRequest = .meetings; openSettings?(); return
             }
             cloudName = provider.id.displayName
@@ -138,8 +173,8 @@ extension AppController {
                     }
                 }
             }
-        } else if !modelSlot.row.isReady {
-            meetingRecorder.message = "Meeting notes transcribe on this Mac. Download the speech model in Settings → Transcription first."
+        } else if !meetingSpeechReady {
+            meetingRecorder.message = "Meetings transcribe on this Mac. Download \(meetingSpeechSlot.facts.displayName) in Settings → Meetings first."
             screenRequest = .meetings; openSettings?(); return
         }
         if !meetingRecorder.start(source, cloud: cloud, cloudName: cloudName) {
