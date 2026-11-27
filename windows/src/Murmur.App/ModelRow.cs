@@ -22,6 +22,9 @@ internal sealed class ModelRow
     readonly Controller? controller;
     readonly Action? changedHandler;
     readonly bool onboarding;
+    /// <summary>The speech model a controller-owned row (the required model, or the meetings' model) acts on; null for rows that own their flow.</summary>
+    readonly Func<LocalSpeechModel>? speechModel;
+    Button? reinstall;
     readonly TextBlock hint = MurmurStyle.Text("", "MurmurCaption");
 
     /// <summary>Stops a required-model row listening to the controller; the owner calls it before dropping the row.</summary>
@@ -37,12 +40,14 @@ internal sealed class ModelRow
     /// <param name="release">Stops what holds the model's files open, before they are deleted.</param>
     /// <param name="changed">After the slot's state changed (the page re-checks what that enables).</param>
     /// <param name="onboarding">The Welcome step: a filled "Download name (size)" button and a line saying what happens next.</param>
-    public ModelRow(AppServices services, ModelSlot slot, Controller controller, Func<XamlRoot?> root, Action<Action> release, Action changed, bool required = false, bool onboarding = false)
+    public ModelRow(AppServices services, ModelSlot slot, Controller controller, Func<XamlRoot?> root, Action<Action> release, Action changed, bool required = false, bool onboarding = false, Func<LocalSpeechModel>? speechModel = null)
     {
         s = services; this.slot = slot; this.root = root; this.onboarding = onboarding;
         var facts = slot.Facts;
-        if (required)
+        if (required) speechModel = () => controller.RequiredSpeechModel;
+        if (speechModel is not null)
         {
+            this.speechModel = speechModel;
             // The controller owns the flow of the required speech model (it prewarms after a download); this row supplies its dialogs and redraws on its changes.
             this.controller = controller;
             changedHandler = () => { Refresh(); changed(); };
@@ -71,7 +76,7 @@ internal sealed class ModelRow
         Panel.Children.Add(bar);
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         var size = slot.Downloader is { } sized ? ModelFacts.FormatBytes(sized.DownloadSize) : "";
-        foreach (var (action, label, click) in new (ModelRowAction, string, Func<Task>)[] { (ModelRowAction.Download, onboarding ? OnboardingText.DownloadButton(facts.DisplayName, size) : "Download", Download), (ModelRowAction.Retry, onboarding ? "Retry download" : "Retry", Download), (ModelRowAction.Cancel, "Cancel", () => { if (controller is not null) controller.CancelRequiredSpeechModel(); else flow!.Cancel(); return Task.CompletedTask; }), (ModelRowAction.Remove, "Remove", Remove) })
+        foreach (var (action, label, click) in new (ModelRowAction, string, Func<Task>)[] { (ModelRowAction.Download, onboarding ? OnboardingText.DownloadButton(facts.DisplayName, size) : "Download", Download), (ModelRowAction.Retry, onboarding ? "Retry download" : "Retry", Download), (ModelRowAction.Cancel, "Cancel", () => { if (controller is not null) controller.CancelSpeechModel(speechModel!()); else flow!.Cancel(); return Task.CompletedTask; }), (ModelRowAction.Remove, "Remove", Remove) })
         {
             // The Welcome step has one obvious action: the accent-filled download button (the Mac's InkButtonStyle "Download…").
             var button = onboarding && action is ModelRowAction.Download or ModelRowAction.Retry
@@ -79,6 +84,13 @@ internal sealed class ModelRow
                 : MurmurStyle.Named(new Button { Content = label }, $"{label} {facts.Title}");
             button.Click += async (_, _) => await click();
             buttons[action] = button; row.Children.Add(button);
+        }
+        // Reinstall (the Mac's ModelRowAction.reinstall): a ready model can be downloaded again; it is replaced only after every file verifies.
+        if (!onboarding)
+        {
+            reinstall = MurmurStyle.Named(new Button { Content = "Reinstall" }, $"Reinstall {facts.Title}");
+            reinstall.Click += async (_, _) => await Download();
+            row.Children.Insert(row.Children.Count - 1, reinstall);
         }
         Panel.Children.Add(row);
         if (onboarding) Panel.Children.Add(hint);
@@ -110,6 +122,7 @@ internal sealed class ModelRow
             button.Visibility = row.Actions.Contains(action) ? Visibility.Visible : Visibility.Collapsed;
             button.IsEnabled = !slot.InFlight || action == ModelRowAction.Cancel;
         }
+        if (reinstall is not null) { reinstall.Visibility = row.IsReady ? Visibility.Visible : Visibility.Collapsed; reinstall.IsEnabled = !slot.InFlight; }
         hint.Text = row.IsReady ? OnboardingText.ReadyHint : row.IsWorking ? OnboardingText.DownloadingHint : row.Actions.Contains(ModelRowAction.Download) ? OnboardingText.DownloadHint : "";
         hint.Visibility = hint.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         message.Message = slot.Message;
@@ -123,7 +136,7 @@ internal sealed class ModelRow
         if (slot.Downloader is not { } downloader || slot.InFlight) return;
         var text = slot.Facts.Confirmation(downloader.DownloadSize, downloader.License, downloader.Target);
         answer.Yes = await Ask(text.Title, text.Body, "Download");
-        if (controller is not null) { controller.SpeechModelDialogs = answer; controller.DownloadRequiredSpeechModel(); } else flow!.Download();
+        if (controller is not null) { controller.SpeechModelDialogs = answer; controller.DownloadSpeechModel(speechModel!()); } else flow!.Download();
         answer.Yes = false;
     }
 
@@ -131,7 +144,7 @@ internal sealed class ModelRow
     {
         if (slot.Downloader is not { } downloader || slot.InFlight) return;
         answer.Yes = await Ask(slot.Facts.RemoveTitle, slot.Facts.RemoveBody(downloader.Target, downloader.DownloadSize), "Remove");
-        if (controller is not null) { controller.SpeechModelDialogs = answer; controller.RemoveRequiredSpeechModel(); } else flow!.Remove();
+        if (controller is not null) { controller.SpeechModelDialogs = answer; controller.RemoveSpeechModel(speechModel!()); } else flow!.Remove();
         answer.Yes = false;
     }
 

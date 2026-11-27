@@ -157,7 +157,7 @@ internal sealed partial class Controller
             var plan = RoutePlan.Make(RouteSettings.Load(s.Settings) with { Transcription = TranscriptionRoute.Cloud }, false, s.Key);
             if (plan.Transcriber is not { } provider)
             {
-                meetings.Message = (plan.Refusal ?? "The cloud transcriber is not set up.") + " Set it up in Settings > Transcription, or choose This PC for meetings.";
+                meetings.Message = (plan.Refusal ?? "The cloud transcriber is not set up.") + " Set it up under Advanced in Settings > Transcription, or turn off the Custom Provider in Settings > Meetings.";
                 ShowMeetingMessage();
                 return false;
             }
@@ -169,9 +169,9 @@ internal sealed partial class Controller
                 _ => new MeetingCloudResult.Failed(),
             };
         }
-        else if (!s.Local.HelperPresent || !s.Local.EnglishFilesPresent)
+        else if (!s.Local.HelperPresent || !MeetingSpeechReady)
         {
-            meetings.Message = "Meeting notes transcribe on this PC. Download the speech model in Settings first.";
+            meetings.Message = $"Meetings transcribe on this PC. Download {MeetingSpeechSlot.Facts.DisplayName} in Settings > Meetings first.";
             ShowMeetingMessage();
             return false;
         }

@@ -31,19 +31,20 @@ internal sealed class DictationLanguagePicker
 
     /// <param name="get">The saved codes, in the order chosen.</param>
     /// <param name="set">Saves the new selection.</param>
-    /// <param name="onDevice">Whether dictation runs on this PC (the larger-model note only applies then).</param>
-    public DictationLanguagePicker(Func<IReadOnlyList<string>> get, Action<IReadOnlyList<string>> set, Func<bool> onDevice)
+    /// <param name="onDevice">Whether the audio is transcribed on this PC (the larger-model note only applies then).</param>
+    /// <param name="title">The question above the list: dictation's, or the meetings'.</param>
+    public DictationLanguagePicker(Func<IReadOnlyList<string>> get, Action<IReadOnlyList<string>> set, Func<bool> onDevice, string title = "What languages do you dictate in?")
     {
         this.get = get; this.set = set; this.onDevice = onDevice;
-        var title = MurmurStyle.Text("What languages do you dictate in?", "MurmurSettingLabel");
-        title.FontSize = 16; title.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
-        AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level2);
+        var heading = MurmurStyle.Text(title, "MurmurSettingLabel");
+        heading.FontSize = 16; heading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+        AutomationProperties.SetHeadingLevel(heading, AutomationHeadingLevel.Level2);
         selected.FontSize = 13; selected.TextWrapping = TextWrapping.Wrap;
         search.TextChanged += (_, _) => Rebuild();
         scroll.Content = list;
         none.Visibility = Visibility.Collapsed;
         speedNote.TextWrapping = TextWrapping.Wrap;
-        foreach (var e in new UIElement[] { title, selected, search, none, scroll, speedNote }) Panel.Children.Add(e);
+        foreach (var e in new UIElement[] { heading, selected, search, none, scroll, speedNote }) Panel.Children.Add(e);
         Refresh();
     }
 

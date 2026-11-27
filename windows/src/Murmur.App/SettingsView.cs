@@ -137,6 +137,7 @@ internal sealed partial class SettingsView
         foreach (var row in body.Children.OfType<FrameworkElement>())
         {
             if (!Texts(row).Any(x => x.Contains(query, StringComparison.OrdinalIgnoreCase))) continue;
+            if (row is Expander advanced) advanced.IsExpanded = true;
             var timer = s.UI.CreateTimer();
             timer.Interval = TimeSpan.FromMilliseconds(60);
             timer.IsRepeating = false;
@@ -294,6 +295,15 @@ internal sealed partial class SettingsView
         page.Children.Add(grid);
     }
 
+    /// <summary>A switch backed by a getter and setter instead of a boolean setting (a route choice).</summary>
+    ToggleSwitch Toggle(string title, string description, Setting<bool>? setting, bool visible, Func<bool> get, Action<bool> set)
+    {
+        var toggle = MurmurStyle.Named(new ToggleSwitch { IsOn = get(), OnContent = null, OffContent = null, MinWidth = 0 }, title);
+        toggle.Toggled += (_, _) => { if (toggle.IsOn != get()) set(toggle.IsOn); };
+        Row(title, description, toggle, visible);
+        return toggle;
+    }
+
     ToggleSwitch Toggle(string title, string description, Setting<bool> setting, Action? changed = null, bool visible = false)
     {
         var toggle = MurmurStyle.Named(new ToggleSwitch { IsOn = s.Settings.Get(setting), OnContent = null, OffContent = null, MinWidth = 0 }, title);
@@ -343,8 +353,8 @@ internal sealed partial class SettingsView
 
     // ---- routes ----
 
-    static readonly (TranscriptionRoute Route, string Label)[] TranscriptionChoices = [(TranscriptionRoute.Local, "Local (this PC)"), (TranscriptionRoute.Cloud, "Custom Provider"), (TranscriptionRoute.MurmurCloud, "Murmur Cloud")];
-    static readonly (CleanupChoice Choice, string Label)[] CleanupChoices = [(CleanupChoice.LocalRules, "Local rules"), (CleanupChoice.LocalModel, "Local model"), (CleanupChoice.CustomAPI, "Custom Provider"), (CleanupChoice.MurmurCloud, "Murmur Cloud")];
+    static readonly (TranscriptionRoute Route, string Label)[] TranscriptionChoices = [(TranscriptionRoute.Local, "Local (this PC)"), (TranscriptionRoute.MurmurCloud, "Murmur Cloud")];
+    static readonly (CleanupChoice Choice, string Label)[] CleanupChoices = [(CleanupChoice.LocalRules, "Local rules"), (CleanupChoice.LocalModel, "Local model"), (CleanupChoice.MurmurCloud, "Murmur Cloud")];
 
     string TranscriptionNote(TranscriptionRoute route)
     {
@@ -357,7 +367,7 @@ internal sealed partial class SettingsView
     string CleanupNote(CleanupChoice choice)
     {
         if (choice == CleanupChoice.LocalRules) return "Text stays on this PC.";
-        if (choice == CleanupChoice.LocalModel) return cleanupFilesPresent ? "Text stays on this PC. One fixed prompt: screen context and rewrite presets are not used." : "Text stays on this PC. Download the cleanup model on this page to use this.";
+        if (choice == CleanupChoice.LocalModel) return cleanupFilesPresent ? "Text stays on this PC." : "Text stays on this PC. Download the cleanup model on this page to use this.";
         var plan = RoutePlan.Make(Routes with { Cleanup = choice }, true, s.Key);
         return DisclosureText.Summary(plan, ProcessingStage.Cleanup)
             ?? (choice == CleanupChoice.CustomAPI ? "Sends the transcript text to the address under Custom Provider. Nothing is sent until you enter an address and a model." : "Sends the transcript text to Murmur Cloud.");
@@ -378,20 +388,44 @@ internal sealed partial class SettingsView
         page.Children.Add(speechHost);
         Toggle("Use GPU when available", "Accelerates live words and local cleanup.", Prefs.UseGpuWhenAvailable,
             LocalCleanupRunner.Shared.MemoryPressure, visible: true);
-        var tabs = SegmentedRow("Where transcription runs", null, [.. TranscriptionChoices.Select(c => c.Label)], Array.FindIndex(TranscriptionChoices, c => c.Route == Routes.Transcription),
-            i => SaveRoutes(r => r with { Transcription = TranscriptionChoices[i].Route }), i => TranscriptionNote(TranscriptionChoices[i].Route));
+        // Custom Provider is chosen under Advanced, so while it is on neither tab is selected.
+        var tabs = SegmentedRow("Where transcription runs", null, [.. TranscriptionChoices.Select(c => c.Label)], Routes.Transcription == TranscriptionRoute.Cloud ? -1 : Array.FindIndex(TranscriptionChoices, c => c.Route == Routes.Transcription),
+            i => SaveRoutes(r => r with { Transcription = TranscriptionChoices[i].Route }), i => i < 0 ? "" : TranscriptionNote(TranscriptionChoices[i].Route), cloud: [1]);
         tabs.SetEnabled(0, false);
         modelRoutes[TranscriptionRoute.Local] = on => tabs.SetEnabled(0, on && !controller.SpeechModelDownloading);
         refreshNotes.Add(() => { for (int i = 1; i < TranscriptionChoices.Length; i++) tabs.SetEnabled(i, !controller.SpeechModelDownloading); });
         var body = page;
+        var (advanced, advancedBody) = AdvancedSection("Transcription advanced settings", Routes.Transcription == TranscriptionRoute.Cloud);
+        body.Children.Add(advanced);
+        page = advancedBody;
+        var custom = Toggle("Use a Custom Provider for transcription", "Sends audio to your own OpenAI-compatible endpoint instead of the choice above.", null, visible: true,
+            get: () => Routes.Transcription == TranscriptionRoute.Cloud,
+            set: on => { SaveRoutes(r => r with { Transcription = on ? TranscriptionRoute.Cloud : TranscriptionRoute.Local }); tabs.Select(on ? -1 : 0); });
+        refreshNotes.Add(() => { custom.IsEnabled = !controller.SpeechModelDownloading; custom.IsOn = Routes.Transcription == TranscriptionRoute.Cloud; tabs.Select(custom.IsOn ? -1 : Math.Max(0, Array.FindIndex(TranscriptionChoices, c => c.Route == Routes.Transcription))); });
         var providerSection = new StackPanel();
-        body.Children.Add(providerSection);
+        advancedBody.Children.Add(providerSection);
         page = providerSection;
         BuildProvider(transcription: true);
+        var disclosure = MurmurStyle.Text("");
+        disclosure.Margin = new Thickness(0, 8, 0, 0);
+        providerSection.Children.Add(disclosure);
         page = body;
-        void RefreshProvider() => providerSection.Visibility = ProviderFieldGating.ShowTranscriptionFields(Routes.Transcription) ? Visibility.Visible : Visibility.Collapsed;
+        void RefreshProvider()
+        {
+            providerSection.Visibility = ProviderFieldGating.ShowTranscriptionFields(Routes.Transcription) ? Visibility.Visible : Visibility.Collapsed;
+            disclosure.Text = TranscriptionNote(TranscriptionRoute.Cloud);
+            if (providerSection.Visibility == Visibility.Visible) advanced.IsExpanded = true;
+        }
         refreshNotes.Add(RefreshProvider);
         RefreshProvider();
+    }
+
+    /// <summary>The Mac's "▸ Advanced" disclosure (advancedButton): the Custom Provider settings live inside; it opens by itself while the provider is in use. Build its rows with <c>page</c> pointed at the returned body.</summary>
+    static (Expander Box, StackPanel Body) AdvancedSection(string name, bool open)
+    {
+        var body = new StackPanel { Spacing = 4 };
+        var box = MurmurStyle.Named(new Expander { Header = "Advanced", Content = body, IsExpanded = open, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 24, 0, 0) }, name);
+        return (box, body);
     }
 
     CleanupOptions SavedCleanupOptions => ProcessingSettings.Load(s.Settings).Options;
@@ -420,42 +454,26 @@ internal sealed partial class SettingsView
 
     void BuildCleanup()
     {
-        const string cloudHelp = "Polish and Professional run on Murmur Cloud or a Custom Provider.";
-        var offer = new StackPanel { Spacing = 8, Visibility = Visibility.Collapsed };
-        var offerText = MurmurStyle.Text("");
-        var getCloud = new Button { Content = MurmurCloud.PurchaseAvailable ? "Start a trial" : "Coming soon", IsEnabled = MurmurCloud.PurchaseAvailable };
-        getCloud.Click += async (_, _) => await Windows.System.Launcher.LaunchUriAsync(new Uri(MurmurCloud.BaseURL.Appending("/billing/checkout") + "?plan=basic"));
-        offer.Children.Add(offerText);
-        offer.Children.Add(getCloud);
-        styleTabs = SegmentedRow("Cleanup style", cloudHelp, ["Faithful", "Natural", "Polish", "Professional"], (int)CleanupStyleNow,
+        // Polish and Professional run on the Local model too, so the style tabs carry no gating or cloud icon.
+        styleTabs = SegmentedRow("Cleanup style", null, ["Faithful", "Natural", "Polish", "Professional"], (int)CleanupStyleNow,
             i =>
             {
-                var style = (CleanupStyle)i;
-                if (style.NeedsModel() && !Routes.Cleanup.CloudOnlyOK())
-                {
-                    offerText.Text = $"{style} runs on Murmur Cloud or a Custom Provider.";
-                    offer.Visibility = Visibility.Visible;
-                    styleTabs!.Select((int)CleanupStyleNow);
-                    return;
-                }
-                offer.Visibility = Visibility.Collapsed;
-                SetCleanupStyle(style);
+                SetCleanupStyle((CleanupStyle)i);
                 foreach (var refresh in refreshRules) refresh();
                 StyleChanged();
-            }, i => StyleHelp((CleanupStyle)i), cloud: [2, 3]);
-        page.Children.Add(offer);
+            }, i => StyleHelp((CleanupStyle)i));
 
         var body = page;
         var routeSection = new StackPanel();
         body.Children.Add(routeSection);
         page = routeSection;
-        SegmentedRow("Cleanup runs on", null, CleanupChoices.Select(c => c.Label).ToArray(), Array.FindIndex(CleanupChoices, c => c.Choice == Routes.Cleanup),
+        // Custom Provider is chosen under Advanced, so while it is on none of these is selected.
+        var runsOn = SegmentedRow("Cleanup runs on", null, CleanupChoices.Select(c => c.Label).ToArray(), Routes.Cleanup == CleanupChoice.CustomAPI ? -1 : Array.FindIndex(CleanupChoices, c => c.Choice == Routes.Cleanup),
             i =>
             {
-                offer.Visibility = Visibility.Collapsed;
                 SaveRoutes(r => r with { Cleanup = CleanupChoices[i].Choice });
                 StyleChanged();
-            }, i => CleanupNote(CleanupChoices[i].Choice));
+            }, i => CleanupNote(i < 0 ? CleanupChoice.CustomAPI : CleanupChoices[i].Choice), cloud: [2]);
         var naturalHelp = MurmurStyle.Text("");
         routeSection.Children.Add(naturalHelp);
         var cleanupRow = new ModelRow(s, s.CleanupSlot, controller, root, go => { LocalCleanupRunner.Shared.Shutdown(); go(); }, UpdateModelRoutes);
@@ -468,10 +486,16 @@ internal sealed partial class SettingsView
         Toggle("Format spoken lists", "Turns “one, two, three” into a numbered list.", Prefs.CleanupLists, StyleChanged);
         Toggle("Fix punctuation and capitalization", "Adds commas, periods and capitals.", Prefs.CleanupPunctuation, StyleChanged);
         Toggle("Spoken commands and numbers", "Interprets “comma” and “new paragraph”, and writes spoken numbers as digits.", Prefs.CleanupSpoken, StyleChanged);
-        var screenContext = Toggle("Use screen context", "Available for Polish and Professional on Murmur Cloud or a Custom Provider. Modes can turn it on or off.", Prefs.ScreenContext);
+        var screenContext = Toggle("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window’s text, as reference for spelling names and terms. Not used by Local rules. Modes can turn it on or off.", Prefs.ScreenContext);
         Note("Website modes use the focused page in Edge, Chrome, Brave, Vivaldi, Opera, Arc, or Firefox when Windows can read it. App matching still works in other browsers and when the page is unavailable.");
+        var (advanced, advancedBody) = AdvancedSection("Cleanup advanced settings", Routes.Cleanup == CleanupChoice.CustomAPI);
+        body.Children.Add(advanced);
+        page = advancedBody;
+        var custom = Toggle("Use a Custom Provider for cleanup", "Sends cleanup to your own OpenAI-compatible endpoint instead of the choice above.", null, visible: true,
+            get: () => Routes.Cleanup == CleanupChoice.CustomAPI,
+            set: on => { SaveRoutes(r => r with { Cleanup = on ? CleanupChoice.CustomAPI : CleanupChoice.LocalModel }); StyleChanged(); });
         var providerSection = new StackPanel();
-        body.Children.Add(providerSection);
+        advancedBody.Children.Add(providerSection);
         page = providerSection;
         BuildProvider(transcription: false);
         page = body;
@@ -479,12 +503,14 @@ internal sealed partial class SettingsView
         {
             var route = Routes.Cleanup;
             var style = CleanupStyleNow;
-            routeSection.Visibility = ProviderFieldGating.ShowCleanupRoute(style) ? Visibility.Visible : Visibility.Collapsed;
+            routeSection.Visibility = advanced.Visibility = ProviderFieldGating.ShowCleanupRoute(style) ? Visibility.Visible : Visibility.Collapsed;
             providerSection.Visibility = ProviderFieldGating.ShowCleanupFields(route, style) ? Visibility.Visible : Visibility.Collapsed;
+            if (providerSection.Visibility == Visibility.Visible) advanced.IsExpanded = true;
+            custom.IsOn = route == CleanupChoice.CustomAPI;
+            runsOn.Select(route == CleanupChoice.CustomAPI ? -1 : Math.Max(0, Array.FindIndex(CleanupChoices, c => c.Choice == route)));
             modelCard.Visibility = route == CleanupChoice.LocalModel ? Visibility.Visible : Visibility.Collapsed;
-            screenContext.IsEnabled = style.NeedsModel();
-            styleTabs.SetCloud(2, !route.CloudOnlyOK());
-            styleTabs.SetCloud(3, !route.CloudOnlyOK());
+            // Screen context reaches Polish and Professional, and Natural on the Local model.
+            screenContext.IsEnabled = style.NeedsModel() || (style == CleanupStyle.Natural && route == CleanupChoice.LocalModel);
             naturalHelp.Visibility = style == CleanupStyle.Natural ? Visibility.Visible : Visibility.Collapsed;
             naturalHelp.Text = route switch
             {
@@ -543,12 +569,7 @@ internal sealed partial class SettingsView
         }
 
         fields.Children.Add(MurmurStyle.Text("Any OpenAI-compatible server. A server on this PC (127.0.0.1) needs no key and sends nothing off the PC. Manage keys under Providers.", "MurmurCaption"));
-        page.Children.Add(MurmurStyle.Named(new Expander
-        {
-            Header = "Custom Provider", Content = fields, HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            IsExpanded = true
-        }, transcription ? "Custom transcription provider" : "Custom cleanup provider"));
+        page.Children.Add(MurmurStyle.Named(fields, transcription ? "Custom transcription provider" : "Custom cleanup provider"));
     }
 
     void BuildKeys()
@@ -560,12 +581,13 @@ internal sealed partial class SettingsView
         KeyRow("Murmur Cloud key", ProviderID.MurmurCloud, () => "");
     }
 
-    void KeyRow(string header, ProviderID provider, Func<string> address)
+    /// <param name="also">A second provider that shares this key and address (Meetings' "same provider" switch); saved, checked and removed together.</param>
+    void KeyRow(string header, ProviderID provider, Func<string> address, ProviderID? also = null)
     {
         var box = MurmurStyle.Named(new PasswordBox { PlaceholderText = "Enter API key" }, header);
         var result = MurmurStyle.Text("", "MurmurCaption");
         AutomationProperties.SetLiveSetting(result, AutomationLiveSetting.Polite);
-        void Refresh() { try { result.Text = s.Credentials.Exists(provider) ? "A key is saved." : KeyText.None; } catch (CredentialException) { result.Text = KeyText.Unreadable; } }
+        void Refresh() { try { result.Text = s.Credentials.Exists(provider) && (also is not { } other || s.Credentials.Exists(other)) ? "A key is saved." : KeyText.None; } catch (CredentialException) { result.Text = KeyText.Unreadable; } }
         Refresh();
         var save = MurmurStyle.Named(new Button { Content = "Save" }, "Save " + header);
         save.Click += (_, _) =>
@@ -574,7 +596,7 @@ internal sealed partial class SettingsView
             try
             {
                 if (provider == ProviderID.MurmurCloud) s.Credentials.Save(key, provider);
-                else CustomAPIKeyBinding.Save(key, address(), s.Settings, s.Credentials, provider);
+                else { CustomAPIKeyBinding.Save(key, address(), s.Settings, s.Credentials, provider); if (also is { } second) CustomAPIKeyBinding.Save(key, address(), s.Settings, s.Credentials, second); }
                 box.Password = ""; result.Text = KeyText.Saved;
             }
             catch (ProviderException e) { result.Text = e.Error.UserMessage; }
@@ -592,7 +614,12 @@ internal sealed partial class SettingsView
         var remove = MurmurStyle.Named(new Button { Content = "Remove" }, "Remove " + header);
         remove.Click += (_, _) =>
         {
-            try { s.Credentials.Delete(provider); if (provider != ProviderID.MurmurCloud) CustomAPIKeyBinding.Clear(s.Settings, provider); result.Text = KeyText.Removed; }
+            try
+            {
+                foreach (var id in also is { } second ? new[] { provider, second } : [provider])
+                { s.Credentials.Delete(id); if (id != ProviderID.MurmurCloud) CustomAPIKeyBinding.Clear(s.Settings, id); }
+                result.Text = KeyText.Removed;
+            }
             catch (CredentialException) { result.Text = KeyText.RemoveFailed; }
         };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { save, validate, remove } };

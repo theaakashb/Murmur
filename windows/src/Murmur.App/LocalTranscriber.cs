@@ -16,6 +16,8 @@ internal sealed class LocalTranscriber : IDisposable
 
     readonly AppServices s;
     readonly WarmRunner warm = new();
+    /// <summary>Meetings whose languages need a different model than dictation keep their own helper, so neither reloads the other's.</summary>
+    readonly WarmRunner meetingWarm = new();
     readonly string appDirectory = AppContext.BaseDirectory;
 
     public LocalTranscriber(AppServices services) { s = services; warm.OnDictionaryStatus = failed => TestEvents.Emit("dictionary-support", ("unavailable", failed)); }
@@ -216,13 +218,18 @@ internal sealed class LocalTranscriber : IDisposable
 
     async Task<ChunkText?> ChunkAsync(string wavPath, bool timed, CancellationToken ct)
     {
+        // Each chunk reads the meeting's model now (the settings store is thread-safe): a change applies from the next chunk.
+        var model = MeetingLanguages.Model(s.Settings);
+        // Only Parakeet English gives word times; the multilingual models give whole lines, assigned like cloud lines.
+        timed &= model == LocalSpeechModel.ParakeetEnglish;
+        var runner = model == RequiredModel ? warm : meetingWarm;
         byte[] bytes;
         try { bytes = await File.ReadAllBytesAsync(wavPath, ct).ConfigureAwait(false); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
         if (WAVAudio.Decode(bytes) is not { } audio) return null;
         if (AudioFormat.ShouldSkipForSilence(SecondPeak(audio.Samples), audio.Samples.Length / (double)audio.SampleRate)) return new("");
-        if (!HelperPresent || await Task.Run(() => Launch(), ct).ConfigureAwait(false) is not { } launch) return null;
-        var line = timed ? await warm.TranscribeTimedAsync(wavPath, HelperPath, launch, ct).ConfigureAwait(false) : await warm.TranscribeAsync(wavPath, HelperPath, launch, ct).ConfigureAwait(false);
+        if (!HelperPresent || await Task.Run(() => Launch(model), ct).ConfigureAwait(false) is not { } launch) return null;
+        var line = timed ? await runner.TranscribeTimedAsync(wavPath, HelperPath, launch, ct).ConfigureAwait(false) : await runner.TranscribeAsync(wavPath, HelperPath, launch, ct).ConfigureAwait(false);
         // The one-shot helper has no word times: a timed chunk that falls back to it is assigned whole.
         line ??= await ModelHelper.RunOnceAsync(HelperPath, launch, wavPath, ct).ConfigureAwait(false);
         var answer = ModelHelper.Answer(line);
@@ -234,7 +241,7 @@ internal sealed class LocalTranscriber : IDisposable
     }
 
     /// <summary>Ends the warm helper so the model files can be deleted.</summary>
-    public void Release() => warm.Stop();
+    public void Release() { warm.Stop(); meetingWarm.Stop(); }
 
-    public void Dispose() => warm.Dispose();
+    public void Dispose() { warm.Dispose(); meetingWarm.Dispose(); }
 }
