@@ -395,7 +395,7 @@ public class RoutesTests
     public void Shapes()
     {
         ICleanupProvider local = new LocalModelCleanupProvider();
-        Assert.True(local.Shape == new CleanupShape { TakesContext = false, SectionTarget = 150, KeepsCorrectionsAttached = true, TakesPresets = false } && local.ModelID == LocalCleanupIdentity.ModelID);
+        Assert.True(local.Shape == new CleanupShape { TakesContext = true, SectionTarget = 150, KeepsCorrectionsAttached = true, TakesPresets = true } && local.ModelID == LocalCleanupIdentity.ModelID);
         ICleanupProvider custom = new OpenAICompatibleCleanupProvider("https://api.example.com/v1", "m", APIKey.Create("shape-key"), ProviderID.CustomAPI);
         Assert.True(custom.Shape == new CleanupShape() && custom.ModelID == "m" && ((OpenAICompatibleCleanupProvider)custom.ForMeetingNotes()).Timeout == OpenAICompatibleCleanupProvider.MaximumTimeout);
         Assert.Same(local, local.ForMeetingNotes());

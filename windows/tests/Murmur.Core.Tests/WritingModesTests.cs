@@ -122,6 +122,9 @@ public class WritingModesTests
         bool Captures(WritingMode? mode, CleanupOptions options, bool global, params WritingMode[] modes) => DictationStyle.NeedsScreenContext(mode, modes, options, global);
         c.Check(!Captures(null, standard, true), "Strict does not read screen context with a stored AI provider");
         c.Check(!Captures(null, CleanupOptions.Faithful, true), "Faithful does not read screen context");
+        c.Check(DictationStyle.NeedsScreenContext(null, [], standard, true, localModel: true), "Natural on the Local model reads opted-in context");
+        c.Check(!DictationStyle.NeedsScreenContext(null, [], standard, false, localModel: true), "Natural on the Local model respects the context setting");
+        c.Check(!DictationStyle.NeedsScreenContext(new WritingMode { Options = standard, Triggers = ["note"] }, [], standard, true, localModel: true), "a Natural writing mode runs on the AI engine, so the Local model reads nothing for it");
         var polish = new CleanupOptions(polish: true);
         c.Check(Captures(null, polish, true), "Polish reads opted-in context");
         c.Check(!Captures(new WritingMode { Options = standard }, polish, true), "Strict mode overrides a global rewrite");
@@ -143,7 +146,8 @@ public class WritingModesTests
         c.Check(DictationStyle.ForMode(new WritingMode { Options = CleanupOptions.Faithful }, trusting, false).Options.TrustModel, "trusting AI rewrites carries into a mode's options");
         c.Check(DictationStyle.ForMode(null, options, false, ctx).Context is null, "global context off and no mode: no context");
         c.Check(DictationStyle.ForMode(new WritingMode { ScreenContext = true, Options = options }, options, false, ctx).Context == ctx, "a mode turns context on over the global setting");
-        c.Check(DictationStyle.ForMode(new WritingMode { ScreenContext = true }, standard, false, ctx).Context is null, "context never goes to a rules-only mode");
+        c.Check(DictationStyle.ForMode(new WritingMode { ScreenContext = true }, CleanupOptions.Faithful, false, ctx).Context is null, "context never goes to a mode with every option off");
+        c.Check(DictationStyle.ForMode(new WritingMode { ScreenContext = true }, standard, false, ctx).Context == ctx, "Natural keeps its context: the Local model cleans Natural with it");
         c.Check(DictationStyle.ForMode(WritingMode.Presets[0], standard, true, ctx) is { UsesEngine: true, UsesModel: true, Transform: ModeTransform.AiPrompt }, "a preset runs on the AI engine");
         c.Check(DictationStyle.ForMode(null, standard, true).Transform is null, "bypass style has no transform");
         c.Done();

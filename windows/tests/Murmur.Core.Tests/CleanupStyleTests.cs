@@ -8,6 +8,7 @@ public class CleanupStyleTests
     [Fact]
     public void ExplicitStyleSelectionMapsToFlagsAndRemembersTheProvider()
     {
+        using var _ = LocalCleanupModels.Use(LocalCleanupModels.Installed); // the shipped model has no levels on its route
         var polish = CleanupStyles.Select(CleanupStyle.Polish, CleanupChoice.LocalRules, CleanupOptions.Faithful);
         Assert.Equal(CleanupChoice.MurmurCloud, polish.Route);
         Assert.Equal(CleanupOptions.Standard with { Polish = true }, polish.Options);
@@ -30,6 +31,7 @@ public class CleanupStyleTests
     [InlineData(CleanupChoice.LocalModel)]
     public void SavedModeCannotRunCloudFeaturesOnALocalRoute(CleanupChoice local)
     {
+        using var _ = LocalCleanupModels.Use(LocalCleanupModels.Installed); // the shipped model has no levels on its route
         var mode = new WritingMode
         {
             Options = CleanupOptions.Standard with { Polish = true, Professional = true },
@@ -56,6 +58,7 @@ public class CleanupStyleTests
     [InlineData(CleanupChoice.LocalModel)]
     public void LocalRoutesUseNaturalAndKeepTheSavedCloudLevel(CleanupChoice local)
     {
+        using var _ = LocalCleanupModels.Use(LocalCleanupModels.Installed); // the shipped model has no levels on its route
         var saved = CleanupOptions.Standard with { Polish = true, Professional = true, TrustModel = true };
         Assert.Equal(CleanupStyle.Natural, CleanupStyles.Current(local, saved));
         Assert.Equal(CleanupOptions.Standard, local.EffectiveOptions(saved));

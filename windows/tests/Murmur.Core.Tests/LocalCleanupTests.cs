@@ -38,11 +38,19 @@ public class LocalCleanupTests
         var terms = Enumerable.Range(1, 15).Select(n => $"Term{n}").ToList();
         var built = CleanupPrompt.Build("hello there", pro, terms, context: new ScreenContext { Selected = "SECRET-SCREEN-TEXT" }, instructions: "STYLE-NOTE");
         await Provider(rec).CleanupAsync(built);
-        Assert.True(rec.Requests.Count == 1 && rec.Requests[0].Text == "hello there" && rec.Requests[0].Tone == "casual", "Professional never reaches the model as a formal tone: the request is the typed transcript, casual");
+        Assert.True(rec.Requests.Count == 1 && rec.Requests[0].Text == "hello there" && rec.Requests[0].Tone == "formal", "Professional reaches the model as the formal tone: the request is the typed transcript, never the built prompt");
         Assert.Equal(terms.Take(12), rec.Requests[0].Terms);
         await Provider(rec).CleanupAsync(CleanupPrompt.Build("hello there", CleanupOptions.Standard));
         Assert.Equal("casual", rec.Requests[1].Tone);
         Assert.DoesNotContain(rec.Requests, r => r.Text.Contains("SECRET") || r.Text.Contains("STYLE-NOTE"));
+        Assert.True(rec.Requests[0].Screen == "SECRET-SCREEN-TEXT" && rec.Requests[0].Mode == "" && rec.Requests[1].Screen == "", "screen context reaches the model as its one [screen:] line, only when given");
+        Assert.Equal("a b | (x)", LocalCleanup.ScreenLine(new ScreenContext { Selected = " a\n b ", Window = "[x]" }));
+        Assert.Equal(400, SwiftText.Count(LocalCleanup.ScreenLine(new ScreenContext { Selected = new string('y', 500) })));
+        await Provider(rec).CleanupAsync(TransformPrompt.Build(ModeTransform.Email, "email dana saying the deck is ready", ["Dana"]));
+        Assert.True(rec.Requests[2].Mode == "email" && rec.Requests[2].Text == "email dana saying the deck is ready" && rec.Requests[2].Tone == "casual"
+            && rec.Requests[2].Terms.SequenceEqual(["Dana"]) && rec.Requests[2].Screen == "", "a rewrite preset reaches the model as [mode:], with no screen text");
+        await Provider(rec).CleanupAsync(TransformPrompt.Build(ModeTransform.AiPrompt, "ask it to fix the login bug"));
+        Assert.Equal("prompt", rec.Requests[3].Mode);
     }
 
     [Fact]
@@ -375,7 +383,8 @@ public class LocalCleanupTests
     static ProcessingCoordinator Coordinator()
     {
         var p = new ProcessingCoordinator(TempDirs.New("local-cleanup"), new InMemorySettingsStore());
-        var options = CleanupOptions.Standard with { Polish = true, Professional = true, TrustModel = true };
+        // Natural first: it keeps the full guard even with the global trust option on. Polish and Professional are trusted like Murmur Cloud.
+        var options = CleanupOptions.Standard with { TrustModel = true };
         p.Update(p.Settings with { Route = CleanupRoute.Cloud, Options = options }, persist: false);
         return p;
     }
@@ -394,6 +403,14 @@ public class LocalCleanupTests
         var ok = await p.ProcessAsync(deadlineRaw);
         Assert.True(ok.Fallback is null && ok.PromptHash == "local-fixed", "a faithful output is accepted and the fixed prompt is recorded");
 
+        // Polish and Professional are trusted like Murmur Cloud: a rewrite only the full guard rejects is accepted.
+        p.Update(p.Settings with { Options = CleanupOptions.Standard with { Polish = true, Professional = true, TrustModel = true } }, persist: false);
+        p.CloudCleaner = Provider(rec, reply: _ => "Are you free later?");
+        var trusted = await p.ProcessAsync("um hi are you free later");
+        Assert.True(trusted.Text == "Are you free later?" && trusted.CleanupPath == CleanupPath.ModelAccepted, "Professional on the Local model is trusted");
+        // Polish: trusted, so the dropped negation below is held only by the truncation check.
+        p.Update(p.Settings with { Options = CleanupOptions.Standard with { Polish = true, TrustModel = true } }, persist: false);
+
         p.CloudCleaner = Provider(rec, reply: _ => "Priya and I were thinking we could ship on Monday.");
         var friday = await p.ProcessAsync("Priya and I were thinking we could ship on Friday, actually no, on Monday");
         Assert.True(friday.Text == "Priya and I were thinking we could ship on Monday." && friday.Fallback is null, "the correct \"actually no\" repair is accepted");
@@ -402,7 +419,7 @@ public class LocalCleanupTests
         p.CloudCleaner = Provider(rec, reply: _ => "Please send the contract today.");
         var negation = await p.ProcessAsync(notRaw);
         Assert.Contains("not", negation.Text!.ToLowerInvariant());
-        Assert.True(negation.Fallback == CleanupFailureReason.NegationChanged && negation.CleanupPath != CleanupPath.ModelAccepted, "a refused answer falls back with no second try");
+        Assert.True(negation.Fallback is not null && negation.CleanupPath != CleanupPath.ModelAccepted, "a refused answer falls back with no second try");
 
         p.CloudCleaner = Provider(rec, reply: _ => "Thanks, Shreya Raman. Send 42.50 dollars.");
         Assert.Null((await p.ProcessAsync("thanks shreya raman send 42.50 dollars")).Fallback);

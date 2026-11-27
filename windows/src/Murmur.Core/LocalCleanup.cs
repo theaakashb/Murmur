@@ -68,8 +68,8 @@ public static class LocalCleanupIdentity
     public const string HelperName = "Murmur.Cleanup.exe";
     /// <summary>Recorded in History: the pinned repository and the first 7 characters of its revision (artifact-pins.json).</summary>
     public static string ModelID => LocalCleanupModels.Current.ModelId;
-    /// <summary>The folder's name before <c>-&lt;rev7&gt;</c> under <c>&lt;data root&gt;\Models</c>.</summary>
-    public static string FolderName => LocalCleanupModels.Current.FolderName;
+    /// <summary>The folder's name before <c>-&lt;rev7&gt;</c> under <c>&lt;data root&gt;\Models</c> (the installed model's: it names files on disk).</summary>
+    public static string FolderName => LocalCleanupModels.Installed.FolderName;
 }
 
 public sealed record LocalCleanupRequest(string Text, string Tone, IReadOnlyList<string> Terms)
@@ -100,13 +100,13 @@ public sealed partial record ModelFacts
     /// <summary>The current local cleanup model's GGUF, pinned in windows/shared/windows-models.json.</summary>
     public static readonly ModelFacts LocalCleanup = new()
     {
-        DisplayName = LocalCleanupIdentity.ModelName,
-        Repository = LocalCleanupModels.Current.Repository,
+        DisplayName = LocalCleanupModels.Installed.Name,
+        Repository = LocalCleanupModels.Installed.Repository,
         Source = ModelPinsSource.WindowsModels,
-        FolderName = LocalCleanupIdentity.FolderName,
-        Retired = LocalCleanupModels.Current.RetiredFolderNames,
-        ConfirmName = LocalCleanupIdentity.ModelName,
-        SummaryLead = LocalCleanupIdentity.ModelName,
+        FolderName = LocalCleanupModels.Installed.FolderName,
+        Retired = LocalCleanupModels.Installed.RetiredFolderNames,
+        ConfirmName = LocalCleanupModels.Installed.Name,
+        SummaryLead = LocalCleanupModels.Installed.Name,
         SummaryTail = ["English", "Apache-2.0"],
         Placement = _ => "Cleanup then runs on this PC without the network.",
         RemoveTitle = "Remove the local cleanup model?",

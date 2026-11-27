@@ -847,11 +847,21 @@ public class ProcessingTests
         // The guard still judged the transcript section alone: without trust the same output is rejected.
         var untrusted = await p.ProcessAsync("send the deck to the client", new DictationStyle(p.Settings.Options with { TrustModel = false }, context: context));
         Assert.True(untrusted.Text != trusted.Text && untrusted.Fallback is not null && untrusted.RejectedOutput is null);
-        // The managed local model is always held to the full guard, whatever the trust setting (it takes no context at all).
-        var localModel = new MockProvider(m => Body(m) + " Ayesha Khan", id: ProviderID.LocalModel) { Shape = new CleanupShape { TakesContext = false } };
-        p.CloudCleaner = localModel;
-        var managed = await p.ProcessAsync("send the deck to the client", p.Settings.Style(context: context));
-        Assert.True(managed.Fallback is not null && !managed.ContextUsed && !localModel.Messages[0].User.Contains("Ayesha"));
+        // A Local model that is not trusted like Murmur Cloud (the shipped one) is always held to the full guard, whatever the trust setting (it takes no context at all).
+        using (LocalCleanupModels.Use(LocalCleanupModels.Installed))
+        {
+            var localModel = new MockProvider(m => Body(m) + " Ayesha Khan", id: ProviderID.LocalModel) { Shape = new CleanupShape { TakesContext = false } };
+            p.CloudCleaner = localModel;
+            var managed = await p.ProcessAsync("send the deck to the client", p.Settings.Style(context: context));
+            Assert.True(managed.Fallback is not null && !managed.ContextUsed && !localModel.Messages[0].User.Contains("Ayesha"));
+        }
+        // A Local model trusted like Murmur Cloud (the Mac's) holds Polish and Professional only to malfunctions; Natural keeps the full guard.
+        var trustedLocal = new MockProvider(m => Body(m) + " Ayesha Khan", id: ProviderID.LocalModel);
+        p.CloudCleaner = trustedLocal;
+        var trustedManaged = await p.ProcessAsync("send the deck to the client", p.Settings.Style(context: context));
+        Assert.True(trustedManaged.Fallback is null && trustedManaged.CleanupPath == CleanupPath.ModelAccepted);
+        var natural = await p.ProcessAsync("send the deck to the client", new DictationStyle(CleanupOptions.Standard with { TrustModel = true }, context: context));
+        Assert.True(natural.Fallback is not null, "Natural on the Local model keeps the full guard");
         // A trusted route still refuses malfunctions.
         p.CloudCleaner = MockProvider.OnBody(b => "Sure! " + b);
         var answered = await p.ProcessAsync("send the deck to the client", p.Settings.Style(context: context));

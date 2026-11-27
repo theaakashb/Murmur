@@ -92,7 +92,7 @@ public class ModelTextTests
         Assert.True(slot.Status == ModelStatus.Ready && !slot.InFlight && slot.Message == "The model is downloaded and verified. Murmur is ready to dictate.");
         Assert.True(changes >= 2);
         Assert.Equal(fixture.Contents[0].Bytes, File.ReadAllBytes(System.IO.Path.Combine(slot.Downloader.Target, "config.json")));
-        Assert.Equal([ModelRowAction.Remove], slot.Row.Actions);
+        Assert.Equal([ModelRowAction.Reinstall, ModelRowAction.Remove], slot.Row.Actions);
     }
 
     [Fact]
