@@ -275,15 +275,18 @@ public sealed class ProcessingCoordinator
         var evidence = new ProcessingResult(new ProcessingOutcome.Insert(raw));
         style ??= Settings.Style();
         // Writing-mode dictations run on the AI engine; the rest use the cleanup route.
-        var cleaner = style.UsesEngine ? EngineCleaner : CloudCleaner;
-        // The Local model's Natural cleanup is its one model pass (no levels); other routes use the model for the rewrite styles and presets only.
+        // The Local model rewrites presets itself when the installed one takes them (LocalCleanupModel.TakesContextAndPresets).
+        var onEngine = style.UsesEngine && !(style.Transform is not null && CloudCleaner?.Id == ProviderID.LocalModel);
+        var cleaner = onEngine ? EngineCleaner : CloudCleaner;
+        // Natural on the Local model is one Polish model pass; other routes use the model for the rewrite styles and presets only.
         var naturalOnLocalModel = !style.UsesEngine && CloudCleaner?.Id == ProviderID.LocalModel && style.Options.AnyEnabled;
         if (!(Settings.Route == CleanupRoute.Cloud || style.UsesEngine) || !(style.UsesModel || naturalOnLocalModel)) return ProcessSegment(raw, style);
         var prepared = Prepare(raw);
         var options = style.Options; var terms = prepared.Terms;
-        if (naturalOnLocalModel) options = options with { Polish = true };
+        // Natural is guarded in full: on other routes it never reaches a model, so it was never trusted.
+        if (naturalOnLocalModel) options = options with { Polish = true, TrustModel = style.UsesModel && options.TrustModel };
         if (cleaner is not null && !cleaner.Id.RunsProfessional()) options = options with { Professional = false };
-        if (style.UsesEngine && cleaner is not null) evidence.Engine = cleaner.Id;
+        if (onEngine && cleaner is not null) evidence.Engine = cleaner.Id;
         evidence.Terms = terms; evidence.CleanupInput = prepared.Text == raw ? null : prepared.Text;
         var context = style.Context; var instructions = style.Instructions;
         // The provider declares what it takes (CleanupShape): a fixed prompt gets no context or style notes (rewrite presets fall back below),
@@ -419,7 +422,8 @@ public sealed class ProcessingCoordinator
         string output;
         try { output = await provider.CleanupAsync(messages, cancellationToken).ConfigureAwait(false); }
         catch (Exception e) { return new CloudAttempt(null, CleanupFailureReason.CleanerFailed, (e as ProviderException)?.Error) { PromptHash = hash }; }
-        var judged = provider.Id is ProviderID.LocalModel or ProviderID.AppleIntelligence ? options with { TrustModel = false } : options;
+        // Apple Intelligence is always held to the full guard (numbers, names, negations); so is the Local model unless the installed one is trusted like Murmur Cloud.
+        var judged = provider.Id == ProviderID.AppleIntelligence || (provider.Id == ProviderID.LocalModel && !LocalCleanupModels.Current.TrustedLikeCloud) ? options with { TrustModel = false } : options;
         CleanupFailureReason reason;
         try
         {

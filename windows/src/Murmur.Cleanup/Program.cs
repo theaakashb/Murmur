@@ -8,7 +8,7 @@ using LLama.Sampling;
 
 // Managed local cleanup helper, the Windows counterpart of module-one/cleanup/Runner (LocalCleanupRunner):
 // one JSON object per line on stdin, one reply per line on stdout.
-//   {"id":1,"text":"...","tone":"formal"|"casual","terms":["..."]}  ->  {"id":1,"text":"..."} | {"id":1,"error":"too-long"|"failed"}
+//   {"id":1,"text":"...","tone":"formal"|"casual","terms":["..."],"mode":"email"|"notes"|"prompt"?,"screen":"..."?}  ->  {"id":1,"text":"..."} | {"id":1,"error":"too-long"|"failed"}
 // Notes mode (--notes) and the GPU probe (--probe) are in NotesMode.cs. No networking, no transcript logging. A fresh context per request. argv[0] is the verified model folder (its .gguf is loaded) or the GGUF itself.
 // The app owns cancellation by terminating this process.
 
@@ -26,12 +26,15 @@ static void Send(object o)
     Console.Out.Flush();
 }
 
-static string Header(string tone, IEnumerable<string> terms)
+static string Header(string tone, string mode, IEnumerable<string> terms, string screen)
 {
     var lines = new List<string>();
     if (tone == "formal") lines.Add("[tone: formal]");
+    if (mode is "email" or "notes" or "prompt") lines.Add($"[mode: {mode}]");
     var vocab = terms.Take(12).Select(t => t.Replace(";", ",").Replace("\n", " ")).ToList();
     if (vocab.Count > 0) lines.Add("[vocab: " + string.Join("; ", vocab) + "]");
+    // The app flattens screen text to one line (LocalCleanup.ScreenLine); a preset never takes it.
+    if (mode.Length == 0 && screen.Length > 0) lines.Add("[screen: " + screen + "]");
     return lines.Count == 0 ? "" : string.Join("\n", lines) + "\n";
 }
 
@@ -72,7 +75,7 @@ if (args.Length > 1 && args[1] == "--tokenize")   // Parity test aid: prints tok
 Send(new { ready = true });
 while (Console.ReadLine() is { } line)
 {
-    int id; string text, tone = "casual"; List<string> terms = [];
+    int id; string text, tone = "casual", mode = "", screen = ""; List<string> terms = [];
     try
     {
         using var doc = JsonDocument.Parse(line);
@@ -80,12 +83,14 @@ while (Console.ReadLine() is { } line)
         id = root.GetProperty("id").GetInt32();
         text = root.GetProperty("text").GetString()!;
         if (root.TryGetProperty("tone", out var t) && t.ValueKind == JsonValueKind.String) tone = t.GetString()!;
+        if (root.TryGetProperty("mode", out var m) && m.ValueKind == JsonValueKind.String) mode = m.GetString()!;
+        if (root.TryGetProperty("screen", out var sc) && sc.ValueKind == JsonValueKind.String) screen = sc.GetString()!;
         if (root.TryGetProperty("terms", out var ts) && ts.ValueKind == JsonValueKind.Array)
             terms = ts.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.String).Select(e => e.GetString()!).ToList();
     }
     catch { Send(new { id = -1, error = "failed" }); continue; }
 
-    var prompt = Header(tone, terms) + text;
+    var prompt = Header(tone, mode, terms, screen) + text;
     try
     {
         if (weights.Tokenize(System_ + "\n" + prompt, false, false, Encoding.UTF8).Length > MaximumInputTokens) { Send(new { id, error = "too-long" }); continue; }

@@ -208,7 +208,7 @@ internal sealed partial class SettingsView
 
         Label("Cleanup");
         var route = Routes.Cleanup;
-        var cloud = route.CloudOnlyOK();
+        var cloud = route.RunsModelLevels();
         var style = mode.Options is { } saved ? 1 + (int)CleanupStyles.Current(route, saved) : 0;
         var cleanup = new Segmented("Mode cleanup", ["Same as Cleanup", "Faithful", "Natural", "Polish", "Professional"], style,
             i => ChangeMode(id, x => x with { Options = ModeOptions(x, i) }, true), cloud: cloud ? null : [3, 4], fontSize: 13);

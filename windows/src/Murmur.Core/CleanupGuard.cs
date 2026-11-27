@@ -24,7 +24,8 @@ public static partial class CleanupGuard
         public bool CommaAfter;
         public bool EndAfter;
         public bool Capitalized => Strings.FirstIsUppercase(Text);
-        public bool IsName => Capitalized && !SentenceStart && Lower != "i" && !Strings.HasPrefix(Lower, "i'");
+        // Speech recognition capitalizes a stray "Uh" mid-sentence; a hesitation is never a name.
+        public bool IsName => Capitalized && !SentenceStart && Lower != "i" && !Strings.HasPrefix(Lower, "i'") && !CleanupText.Hesitations.Contains(Lower);
         string? key;
         /// <summary><see cref="Lower"/> in canonical decomposition: Swift compares and hashes strings by canonical equivalence,
         /// so the guard compares these keys.</summary>
@@ -739,6 +740,10 @@ public static partial class CleanupGuard
                     j++;
                 }
             }
+            // An echo of the previous word's ending ("unnecessary Necessary"): only the echo may go, so "unnecessary" itself is never dropped for "necessary".
+            // shortcut: a spoken self-correction "unhappy, happy" keeps the first word; add a cue check if History shows one.
+            for (int i = 1; i < a.Count; i++)
+                if (SwiftText.Count(a[i]) >= 4 && SwiftText.Count(a[i - 1]) > SwiftText.Count(a[i]) && Strings.HasSuffix(a[i - 1], a[i])) repeats.Add(i);
             // Restarted phrases, often split by a chunk cut: only the first copy of an immediately repeated 2–6 word run may go.
             for (int n = 2; n <= 6; n++)
                 for (int i = 0; i < a.Count; i++)
@@ -909,6 +914,23 @@ public static partial class CleanupGuard
             var w = outWords[j];
             if (matchedOut.Contains(j) || termWords.Contains(w.Key)) continue;
             if (First(Enumerable.Range(0, rawWords.Count), x => window.Contains(x) && !consumedRaw.Contains(x) && a[x] == w.Key) is { } i0) { consumedRaw.Add(i0); continue; }
+            // A hyphen may join 2–3 adjacent raw words in order ("sub agents" -> "sub-agents").
+            if ((options.Polish || options.Professional) && w.Key.Contains('-'))
+            {
+                var gap = Gap(j).ToList();
+                var hiExclusive = gap.Count == 0 ? 0 : gap[^1] + 1;
+                (int Lo, int Hi)? run = null;
+                foreach (var x in gap)
+                {
+                    foreach (var len in new[] { 2, 3 })
+                    {
+                        var hi = x + len - 1;
+                        if (hi < hiExclusive && Enumerable.Range(x, len).All(r => !consumedRaw.Contains(r)) && string.Join("-", Enumerable.Range(x, len).Select(r => a[r])) == w.Key) { run = (x, hi); break; }
+                    }
+                    if (run is not null) break;
+                }
+                if (run is { } joined) { consumedRaw.UnionWith(Enumerable.Range(joined.Lo, joined.Hi - joined.Lo + 1)); continue; }
+            }
             // A negative contraction may complete one speech recognition truncated in the same place, with the same auxiliary.
             if (First(Gap(j), x => !consumedRaw.Contains(x) && CleanupText.TruncatedNegations.TryGetValue(a[x], out var c) && c.Contains(w.Key)) is { } i1) { consumedRaw.Add(i1); continue; }
             if (w.IsName && !rawSet.Contains(w.Key))
@@ -1031,7 +1053,7 @@ public static partial class CleanupGuard
                 int afterLo = run[^1] + 1, afterHi = Math.Min(a.Count, run[^1] + 5);
                 // Every content word of the dropped phrase must come back, not just a shared "the".
                 var content = run.Where(x => !GrammarWords.Contains(a[x])).ToList();
-                bool restated = content.Count > 0 && content.All(x => Enumerable.Range(afterLo, afterHi - afterLo).Any(y => CleanupText.Similarity(a[x], a[y]) >= 0.5));
+                bool restated = content.Count > 0 && content.All(x => Enumerable.Range(afterLo, afterHi - afterLo).Any(y => CleanupText.Similarity(a[x], a[y]) >= 0.5 && !PolarityFlip(a[x], a[y])));
                 if (!run.All(x => DroppableGrammarWords.Contains(a[x])) && !(options.Corrections && restated)) return Fail(CleanupFailureReason.UnexplainedDeletion);
                 k = end + 1;
             }

@@ -24,7 +24,6 @@ internal sealed class ModelRow
     readonly bool onboarding;
     /// <summary>The speech model a controller-owned row (the required model, or the meetings' model) acts on; null for rows that own their flow.</summary>
     readonly Func<LocalSpeechModel>? speechModel;
-    Button? reinstall;
     readonly TextBlock hint = MurmurStyle.Text("", "MurmurCaption");
 
     /// <summary>Stops a required-model row listening to the controller; the owner calls it before dropping the row.</summary>
@@ -76,7 +75,7 @@ internal sealed class ModelRow
         Panel.Children.Add(bar);
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         var size = slot.Downloader is { } sized ? ModelFacts.FormatBytes(sized.DownloadSize) : "";
-        foreach (var (action, label, click) in new (ModelRowAction, string, Func<Task>)[] { (ModelRowAction.Download, onboarding ? OnboardingText.DownloadButton(facts.DisplayName, size) : "Download", Download), (ModelRowAction.Retry, onboarding ? "Retry download" : "Retry", Download), (ModelRowAction.Cancel, "Cancel", () => { if (controller is not null) controller.CancelSpeechModel(speechModel!()); else flow!.Cancel(); return Task.CompletedTask; }), (ModelRowAction.Remove, "Remove", Remove) })
+        foreach (var (action, label, click) in new (ModelRowAction, string, Func<Task>)[] { (ModelRowAction.Download, onboarding ? OnboardingText.DownloadButton(facts.DisplayName, size) : "Download", Download), (ModelRowAction.Retry, onboarding ? "Retry download" : "Retry", Download), (ModelRowAction.Reinstall, "Reinstall", Download), (ModelRowAction.Cancel, "Cancel", () => { if (controller is not null) controller.CancelSpeechModel(speechModel!()); else flow!.Cancel(); return Task.CompletedTask; }), (ModelRowAction.Remove, "Remove", Remove) })
         {
             // The Welcome step has one obvious action: the accent-filled download button (the Mac's InkButtonStyle "Download…").
             var button = onboarding && action is ModelRowAction.Download or ModelRowAction.Retry
@@ -84,13 +83,6 @@ internal sealed class ModelRow
                 : MurmurStyle.Named(new Button { Content = label }, $"{label} {facts.Title}");
             button.Click += async (_, _) => await click();
             buttons[action] = button; row.Children.Add(button);
-        }
-        // Reinstall (the Mac's ModelRowAction.reinstall): a ready model can be downloaded again; it is replaced only after every file verifies.
-        if (!onboarding)
-        {
-            reinstall = MurmurStyle.Named(new Button { Content = "Reinstall" }, $"Reinstall {facts.Title}");
-            reinstall.Click += async (_, _) => await Download();
-            row.Children.Insert(row.Children.Count - 1, reinstall);
         }
         Panel.Children.Add(row);
         if (onboarding) Panel.Children.Add(hint);
@@ -122,7 +114,6 @@ internal sealed class ModelRow
             button.Visibility = row.Actions.Contains(action) ? Visibility.Visible : Visibility.Collapsed;
             button.IsEnabled = !slot.InFlight || action == ModelRowAction.Cancel;
         }
-        if (reinstall is not null) { reinstall.Visibility = row.IsReady ? Visibility.Visible : Visibility.Collapsed; reinstall.IsEnabled = !slot.InFlight; }
         hint.Text = row.IsReady ? OnboardingText.ReadyHint : row.IsWorking ? OnboardingText.DownloadingHint : row.Actions.Contains(ModelRowAction.Download) ? OnboardingText.DownloadHint : "";
         hint.Visibility = hint.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         message.Message = slot.Message;

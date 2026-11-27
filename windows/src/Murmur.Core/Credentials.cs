@@ -47,7 +47,7 @@ public static class ProviderIDExtensions
     };
 
     /// <summary>Professional is cloud-only: neither the Local model nor Apple Intelligence runs it.</summary>
-    public static bool RunsProfessional(this ProviderID id) => id != ProviderID.LocalModel && id != ProviderID.AppleIntelligence;
+    public static bool RunsProfessional(this ProviderID id) => id != ProviderID.AppleIntelligence && (id != ProviderID.LocalModel || LocalCleanupModels.Current.RunsProfessional);
 }
 
 /// <summary>An API key. Every textual representation is redacted, so printing, interpolating or serializing a key

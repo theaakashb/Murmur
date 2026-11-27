@@ -228,7 +228,7 @@ internal sealed record ProvidersData(ProvidersData.AudioData AudioFormat, Provid
 {
     internal sealed record AudioData(int SampleRate, float SilencePeak, double MinimumSpeechSeconds);
     internal sealed record LimitsData(int MaxOutputTokens, double ValidationDeadline);
-    internal sealed record CloudData(string DefaultHost, string CleanupModel, string TranscriptionModel, double CleanupDeadline, bool PurchaseAvailable);
+    internal sealed record CloudData(string DefaultHost, string CleanupModel, string TranscriptionModel, double CleanupDeadline);
     internal sealed record OpenAIData(double NoSpeechThreshold, double LogprobThreshold, int MinLoudWindows, int UploadLimitBytes, string OllamaDefault, double DefaultTimeout, double MaximumTimeout);
     public static readonly ProvidersData Value = SharedData.Load<ProvidersData>("providers");
 }

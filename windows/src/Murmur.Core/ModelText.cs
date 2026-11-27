@@ -26,6 +26,8 @@ public sealed partial record ModelFacts
     public ModelPinsSource Source { get; init; } = ModelPinsSource.ArtifactPins;
     /// <summary>The folder's name before <c>-&lt;rev7&gt;</c>; the repository's name when null.</summary>
     public string? FolderName { get; init; }
+    /// <summary>Folder names (before <c>-&lt;rev7&gt;</c>) of earlier releases' versions of this model, under the same Models folder. Deleted once the current model is installed; reported while they linger (see <see cref="ModelSlot.RetiredFolders"/>).</summary>
+    public IReadOnlyList<string> Retired { get; init; } = [];
     /// <summary>The license the model cards declare when the pins record none.</summary>
     public ModelLicenseInfo? UnpinnedLicense { get; init; }
     /// <summary>The model's name in "Download …?".</summary>
@@ -187,6 +189,7 @@ public sealed class ModelSlot
     public ModelFacts Facts { get; }
     public ModelDownloader? Downloader { get; }
     public ModelManifest? Manifest { get; }
+    readonly string dataRoot;
     public ModelStatus Status { get; set; } = ModelStatus.NotDownloaded;
     public string Message { get; set; } = "";
     public bool InFlight { get; set; }
@@ -195,6 +198,7 @@ public sealed class ModelSlot
     public ModelSlot(ModelFacts facts, byte[]? pins, string dataRoot, IModelDownloadTransport? transport = null)
     {
         Facts = facts;
+        this.dataRoot = dataRoot;
         if (pins is null) return;
         try { Manifest = facts.Manifest(pins); }
         catch (ModelDownloadException) { return; }
@@ -206,6 +210,22 @@ public sealed class ModelSlot
 
     public ModelRowPresentation Row => ModelRowPresentation.Make(Downloader is null ? null : Status);
     public ModelLicenseInfo? License => Downloader?.License;
+    /// <summary>Retired folders from earlier releases that are still on disk: <c>&lt;name&gt;-&lt;7 hex&gt;</c> under the Models folder for each <see cref="ModelFacts.Retired"/> name.</summary>
+    public IReadOnlyList<string> RetiredFolders()
+    {
+        var root = ModelFacts.ModelsRoot(dataRoot);
+        if (Facts.Retired.Count == 0 || !System.IO.Directory.Exists(root)) return [];
+        return [.. System.IO.Directory.EnumerateDirectories(root).Where(d =>
+            Facts.Retired.Any(name => System.Text.RegularExpressions.Regex.IsMatch(Path.GetFileName(d), $"^{System.Text.RegularExpressions.Regex.Escape(name)}-[0-9a-f]{{7}}$")))];
+    }
+    /// <summary>At launch, after an update that pins a new model: deletes the old folders if the new model is ready, else says how to replace it.</summary>
+    public void ReconcileRetired()
+    {
+        var old = RetiredFolders();
+        if (old.Count == 0) return;
+        if (Status.Kind == ModelStatusKind.Ready) { foreach (var folder in old) { try { System.IO.Directory.Delete(folder, true); } catch (IOException) { } catch (UnauthorizedAccessException) { } } }
+        else Message = "This update uses a newer model. Download it to replace the old one; the old one is deleted once the new one is verified.";
+    }
     public string Summary => Downloader is null ? "" : Facts.Summary(Downloader.DownloadSize);
 }
 
@@ -230,7 +250,7 @@ public static class LiveWordsFacts
     }
 }
 
-public enum ModelRowAction { Download, Cancel, Retry, Remove }
+public enum ModelRowAction { Download, Cancel, Retry, Reinstall, Remove }
 
 public sealed record ModelRowPresentation(string StatusText, IReadOnlyList<ModelRowAction> Actions, double? Progress, bool IsWorking, bool IsReady)
 {
@@ -249,7 +269,7 @@ public sealed record ModelRowPresentation(string StatusText, IReadOnlyList<Model
                 var progress = status.Progress!.Value;
                 return new($"Downloading… {(int)Math.Floor(progress.Fraction * 100)}% ({ModelFacts.FormatBytes(progress.BytesDone)} of {ModelFacts.FormatBytes(progress.TotalBytes)})", [ModelRowAction.Cancel], progress.Fraction, true, false);
             case ModelStatusKind.Verifying: return new("Verifying downloaded files…", [ModelRowAction.Cancel], null, true, false);
-            case ModelStatusKind.Ready: return new("Downloaded", [ModelRowAction.Remove], null, false, true);
+            case ModelStatusKind.Ready: return new("Downloaded", [ModelRowAction.Reinstall, ModelRowAction.Remove], null, false, true);
             case ModelStatusKind.Corrupt: return new(status.Reason!, [ModelRowAction.Retry, ModelRowAction.Remove], null, false, false);
             default: return new(ModelFacts.FailureMessage(status.Error!.Value), [ModelRowAction.Retry, ModelRowAction.Remove], null, false, false);
         }

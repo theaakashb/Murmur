@@ -1230,7 +1230,7 @@
 {"displayName":"Custom cleanup","raw":"customCleanup","runsProfessional":true},
 {"displayName":"Local model server","raw":"localServer","runsProfessional":true},
 {"displayName":"Apple Intelligence","raw":"appleIntelligence","runsProfessional":false},
-{"displayName":"Local model","raw":"local-model","runsProfessional":false},
+{"displayName":"Local model","raw":"local-model","runsProfessional":true},
 {"displayName":"Murmur Cloud","raw":"murmur-cloud","runsProfessional":true}
 ],
 "disclosures": [

@@ -31,7 +31,11 @@ public sealed record CleanupMessages(string System, string User)
 {
     /// <summary>Set only by <see cref="CleanupPrompt.Build"/>; null for rewrite presets and meeting notes.</summary>
     public CleanupInput? Input { get; init; }
+    /// <summary>Set only by <see cref="TransformPrompt.Build"/>: the typed preset request, for the managed local model.</summary>
+    public PresetInput? Preset { get; init; }
 }
+
+public sealed record PresetInput(ModeTransform Kind, string Transcript, IReadOnlyList<string> Terms);
 
 /// <summary>Fills the {name} placeholders of an exported prompt template in one pass, so inserted text is never re-read.</summary>
 static class PromptTemplate
@@ -167,6 +171,6 @@ public static class TransformPrompt
         if (terms.Count > 0) system += PromptTemplate.Fill(T.Terms, ("terms", string.Join(T.TermsSeparator, terms)));
         var notes = ScreenContext.Sanitized(instructions ?? Baseline(kind), WritingModeLimits.Instructions);
         if (notes.Length > 0) system += PromptTemplate.Fill(T.Notes, ("id", id), ("notes", notes));
-        return new CleanupMessages(system, PromptTemplate.Fill(T.User, ("id", id), ("transcript", transcript)));
+        return new CleanupMessages(system, PromptTemplate.Fill(T.User, ("id", id), ("transcript", transcript))) { Preset = new PresetInput(kind, transcript, dictionaryTerms ?? []) };
     }
 }

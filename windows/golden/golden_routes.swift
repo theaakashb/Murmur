@@ -119,7 +119,7 @@ func verbose(_ segments: [(String, Double, Double, Double)]) -> String {
     static func main() async throws {
         var choices: [String] = []
         for c in CleanupChoice.allCases {
-            choices.append(line(["kind": "cleanup", "raw": c.rawValue, "id": c.id, "displayName": c.displayName, "cloudOnlyOK": c.cloudOnlyOK, "processingRoute": c.processingRoute.rawValue,
+            choices.append(line(["kind": "cleanup", "raw": c.rawValue, "id": c.id, "displayName": c.displayName, "runsModelLevels": c.runsModelLevels, "processingRoute": c.processingRoute.rawValue,
                                  "providerID": opt(c.providerID?.rawValue), "credentialID": opt(c.credentialID?.rawValue)]))
         }
         for t in TranscriptionRoute.allCases { choices.append(line(["kind": "transcription", "raw": t.rawValue])) }
