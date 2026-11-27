@@ -24,10 +24,6 @@ public sealed class ModelFlow(ModelSlot slot, IModelFlowDialogs dialogs)
     public bool PushProgress { get; init; }
     /// <summary>Null error means success.</summary>
     public Action<ModelDownloadError?> DidDownload { get; init; } = _ => { };
-    /// <summary>Asks for notification permission as the download starts.</summary>
-    public Action AskToNotify { get; init; } = () => { };
-    /// <summary>Announces a finished download (after <see cref="DidDownload"/>, success only).</summary>
-    public Action AnnounceReady { get; init; } = () => { };
     /// <summary>On a worker thread, release what holds the files after confirmation, then call <c>go</c>.</summary>
     public Action<Action> Release { get; init; } = go => go();
     public Action DidRemove { get; init; } = () => { };
@@ -48,7 +44,7 @@ public sealed class ModelFlow(ModelSlot slot, IModelFlowDialogs dialogs)
         // A dictation may have started while the dialog was open.
         if (DownloadGate() is { } late) { Update(s => s.Message = late); return; }
         Update(s => { s.InFlight = true; s.Message = ""; s.Status = ModelStatus.Downloading(new(0, downloader.DownloadSize)); });
-        WillDownload(); AskToNotify();
+        WillDownload();
         var facts = Slot.Facts;
         var pending = 0;
         var finished = false;
@@ -76,7 +72,6 @@ public sealed class ModelFlow(ModelSlot slot, IModelFlowDialogs dialogs)
                 finished = true;
                 Update(s => { s.InFlight = false; s.Status = status; s.Message = facts.CompletionMessage(error); });
                 DidDownload(error);
-                if (error is null) AnnounceReady();
             });
         });
     }
