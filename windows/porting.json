@@ -41,13 +41,13 @@
       "csharp": [
         "windows/src/Murmur.Core/CleanupGuard.cs"
       ],
-      "sha256": "ffd0880cee14671c487f89510381e39ae1678786704644ade0de49e9585431ea"
+      "sha256": "6a819bf233a58c531022c3d2738eb2d55933ceeb376a1993ba7196b6f873eab4"
     },
     "app/CleanupPrompt.swift": {
       "csharp": [
         "windows/src/Murmur.Core/CleanupPrompt.cs"
       ],
-      "sha256": "3bca29e27743d613439b9c95a465bb5b6b90e77272f3d0370d9494ad6112bd48"
+      "sha256": "52992aebe3a1b4f4f88c7a236d38d3325d195c0e8e5bce13032b082d52b7558b"
     },
     "app/CleanupText.swift": {
       "csharp": [
@@ -73,13 +73,13 @@
         "windows/src/Murmur.Core/CleanupStyle.cs",
         "windows/tests/Murmur.Core.Tests/CleanupStyleTests.cs"
       ],
-      "sha256": "2af58a0b840ee522699d3f8fafd0be6582d68ed26121919e332156db981744ce"
+      "sha256": "c53ec58784990afd7ff18b6f5289fca78c85c62dd276571820b31f5f5a8f992b"
     },
     "app/Credentials.swift": {
       "csharp": [
         "windows/src/Murmur.Core/Credentials.cs"
       ],
-      "sha256": "2e248e27ffd8d112fb091208c40129ed0bc30b52a4fa691b4f42ce189eef9681"
+      "sha256": "b293d054f500b0f33dd4e1f50dcfa9b4b865ed80a71eb26bb7a3e9563410e475"
     },
     "app/Delivery.swift": {
       "csharp": [
@@ -151,13 +151,13 @@
       "csharp": [
         "windows/src/Murmur.Core/LocalCleanup.cs"
       ],
-      "sha256": "edfbd617b553d25876f122a519dee8504921232ca31e79bc7b4f02d30b01f3e1"
+      "sha256": "1e3a6e36768fbcfbf9433cbe749f25ef8740f8b305d08c717edbf9efd5361047"
     },
     "app/LocalCleanupFacts.swift": {
       "csharp": [
         "windows/src/Murmur.Core/LocalCleanup.cs"
       ],
-      "sha256": "dd6ad9dde0644e874e089d09ab6dd17feaedfe2c0c38f78dc0e08693a67f5fd1"
+      "sha256": "b48e2d1a990965ffe5bd22bec1f18b71cc0ab8dbf76b2df882a96bfb29a54d33"
     },
     "app/MeetingCapture.swift": {
       "csharp": [
@@ -214,7 +214,7 @@
       "csharp": [
         "windows/src/Murmur.Core/ModelFlow.cs"
       ],
-      "sha256": "cee3d08aeda2c396e0b19540114127e5fdd8cfde3e0f21990383b590bbdab22d"
+      "sha256": "b033a2be1103baa04826ddfc8bdecbe79923c0ba98acc4df6f8499063ce96298"
     },
     "app/ModelHelper.swift": {
       "csharp": [
@@ -234,13 +234,13 @@
       "csharp": [
         "windows/src/Murmur.Core/ModelText.cs"
       ],
-      "sha256": "874b73387ee27e04bcd2506f4e818e92435c2dd0252dbf249e0500cfddeaeaf7"
+      "sha256": "4c7387aa532605d45c27fc6a780804b658413fcc4517fc5d4decb855de0fb083"
     },
     "app/MurmurCloud.swift": {
       "csharp": [
         "windows/src/Murmur.Core/MurmurCloud.cs"
       ],
-      "sha256": "ec9535468a61497fd4817840f92cf8a18ae3487035515122cde1449d9113792c"
+      "sha256": "dbbe4533a0dcb32fe760a1a22d15022fe39e7a15253746f69bb684ca13ba2975"
     },
     "app/MurmurCloudEdit.swift": {
       "csharp": [
@@ -270,7 +270,7 @@
       "csharp": [
         "windows/src/Murmur.Core/Processing.cs"
       ],
-      "sha256": "7e85b3ff83adbf6e73af8a6f84ac4c44e0a6f280e61ebc22695e9586d54e9e2f"
+      "sha256": "23c72ce3513452f84017266a58b47a60fcd8ded1f7644dbff20d812ade37cb22"
     },
     "app/ProfessionalHint.swift": {
       "csharp": [
@@ -300,7 +300,7 @@
       "csharp": [
         "windows/src/Murmur.Core/Routes.cs"
       ],
-      "sha256": "5cf316978946a59edcac18840113e6f25e4749683b98ff3e85892e549a2c42a8"
+      "sha256": "42aa3aef0f29fc7606f93b47b8d4726fcca43773574f75edaabe06ca36af19b5"
     },
     "app/RuleCleaner.swift": {
       "csharp": [
@@ -327,7 +327,7 @@
         "windows/src/Murmur.Core/CleanupStyle.cs",
         "windows/tests/Murmur.Core.Tests/CleanupStyleTests.cs"
       ],
-      "sha256": "462dc08ae3978c20b36c51356fa0ae0d4941ac465b53141683aee63cfd5cea2e"
+      "sha256": "295ccbeb21b419ffae4ae833789a1a9b4c6db2fe69c9e2646bca2f2a2798358b"
     },
     "app/Shortcut.swift": {
       "csharp": [
@@ -375,7 +375,7 @@
       "csharp": [
         "windows/src/Murmur.Core/WritingModes.cs"
       ],
-      "sha256": "a648cb72197a80226bd3adf336a1a4c0b7f43ac6246b87da7bd34f953de09a65"
+      "sha256": "22312c9d0e208023a24d8b0cccaa15d2b831dacc863c6b961aea184d6eeb590e"
     },
     "app/check_app_services.swift": {
       "csharp": [
@@ -383,7 +383,7 @@
         "windows/tests/Murmur.Core.Tests/BackupTests.cs",
         "windows/tests/Murmur.Core.Tests/WelcomeGuideTests.cs"
       ],
-      "sha256": "bc924b3c45ca50f2cd4085d0afc99d29a2d37a5732dfcc40034c4d2400c61210"
+      "sha256": "f9173ed06cae114e9e662cf7b8690ccf1053b032aca7144272c81e4f76b3cbce"
     },
     "app/check_boost_filter.swift": {
       "csharp": [
@@ -404,7 +404,7 @@
         "windows/tests/Murmur.Core.Tests/CleanupPipelineTests.cs",
         "windows/golden/cleanup_cases.swift"
       ],
-      "sha256": "46f773bb1881cae3ab749bbdcc84f07cbd8d10fb2ef49dd6f5f5a9e6dd54c9a2"
+      "sha256": "6516fa1576edc6c2a0c2cb7a5702b17a4ceee5aae574f2d8389b8058bd838d49"
     },
     "app/check_delivery.swift": {
       "csharp": [
@@ -449,7 +449,7 @@
       "csharp": [
         "windows/tests/Murmur.Core.Tests/LocalCleanupTests.cs"
       ],
-      "sha256": "b731f7e03aca5ff8520bf8d84c1088d23f35fa494b616c70b0b9edbe4f8bc163"
+      "sha256": "611581d3a3e176bcf6e485657cf4297b34055a4f84514f6cf6b6870fc2071021"
     },
     "app/check_meetings.swift": {
       "csharp": [
@@ -471,14 +471,14 @@
         "windows/tests/Murmur.Core.Tests/WritingModesTests.cs",
         "windows/tests/Murmur.Core.Tests/SettingsTests.cs"
       ],
-      "sha256": "8da9a51721d6962c74b3fb4188d723d53499f233ff66f47c6e36078a8b109854"
+      "sha256": "fbb9adb6e156083b0923e285810c9a161746174fc238e346fd318c2ab4bb5d8b"
     },
     "app/check_processing.swift": {
       "csharp": [
         "windows/tests/Murmur.Core.Tests/ProcessingTests.cs",
         "windows/tests/Murmur.Core.Tests/ObservationTests.cs"
       ],
-      "sha256": "8c5c170d3f790b3823c5ed5269a60bdf38b07cd8acce24193787ccadd8ccc4a9"
+      "sha256": "1e99d0a5d95ff28ea611abbdf3b96ff3b8f4d7e7813fce19b53c5b337464b969"
     },
     "app/check_professional_hint.swift": {
       "csharp": [
@@ -497,7 +497,7 @@
       "csharp": [
         "windows/tests/Murmur.Core.Tests/RoutesTests.cs"
       ],
-      "sha256": "c6776aff5fe0b7e755e26bf9c2e59343c97e56cf97946213c69bd43869db7830"
+      "sha256": "619705c4cf1e01be8b0f32a560ebcb514ebfb1d8583722c43ea0ff17dd5fcd0e"
     },
     "app/check_speakers.swift": {
       "csharp": [
@@ -542,7 +542,7 @@
       "csharp": [
         "windows/src/Murmur.Cleanup/Program.cs"
       ],
-      "sha256": "a179a0657668c41e8917ae35ff83037ee6687963b176ec6f4a4c3e3939d9911f"
+      "sha256": "ebbb5684b0b6ce848fe76ee31218730533d7e11217b5e32ace8ccc4a6dd6fd4b"
     },
     "module-one/models/Runner/Sources/ModelBench/BoostFilter.swift": {
       "csharp": [
