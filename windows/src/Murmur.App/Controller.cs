@@ -264,7 +264,7 @@ internal sealed partial class Controller : IDisposable
         if (plan.UsesLocalModel)
         {
             if (!s.Local.HelperPresent) return StartFailed("local-helper-missing", "The speech helper is missing. Reinstall Murmur.");
-            if (!SpeechModelReady(languages.LocalModel)) return StartFailed("local-model-missing", "The speech model is not installed yet. Download it in Settings, or pick a Custom Provider or Murmur Cloud.");
+            if (!SpeechModelReady(languages.LocalModel)) return StartFailed("local-model-missing", "The speech model is not installed yet. Download it in Settings, or pick a Custom Provider.");
             if (english && s.Local.ModelDamaged) return StartFailed("local-model-damaged", "The speech model failed its checksum check. Remove it in Settings and download it again.");
         }
         // Load the cleanup model while the user speaks, so that cost is not inside the dictation.

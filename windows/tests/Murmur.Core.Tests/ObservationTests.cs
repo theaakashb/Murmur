@@ -98,7 +98,7 @@ public class ObservationTests
     public void RawValuesSerializeAsInSwift()
     {
         Assert.Equal("\"cloud\"", JsonSerializer.Serialize(CleanupRoute.Cloud));
-        Assert.Equal("\"murmur-cloud\"", JsonSerializer.Serialize(AIEngine.MurmurCloud));
+        Assert.Equal("\"custom-provider\"", JsonSerializer.Serialize(AIEngine.CustomProvider));
         Assert.Equal("\"apple-intelligence\"", JsonSerializer.Serialize(AIEngine.AppleIntelligence));
     }
 }

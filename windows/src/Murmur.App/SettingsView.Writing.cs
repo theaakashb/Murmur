@@ -64,7 +64,7 @@ internal sealed partial class SettingsView
         detail.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { recorded, record } });
         detail.Children.Add(MurmurStyle.Text("A key that also edits text, such as Ctrl+E, is used only when text is selected. Otherwise it works as usual.", "MurmurCaption"));
         page.Children.Add(detail);
-        page.Children.Add(MurmurStyle.Text("Select text, press the shortcut and say how to change it. To replace selected text by dictation, delete it first, or pick a separate voice edit shortcut. Works with a Custom Provider or Murmur Cloud; pasting the result makes rich text plain.", "MurmurCaption"));
+        page.Children.Add(MurmurStyle.Text("Select text, press the shortcut and say how to change it. To replace selected text by dictation, delete it first, or pick a separate voice edit shortcut. Works with a Custom Provider; pasting the result makes rich text plain.", "MurmurCaption"));
     }
 
     static bool Held(Windows.System.VirtualKey key) =>

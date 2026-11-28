@@ -8,7 +8,7 @@ public static class ModeFeedback
     public static string? Notice(WritingMode? mode, bool hasEngine, CleanupFailureReason? fallback)
     {
         if (mode?.Transform is null) return null;
-        if (!hasEngine) return $"{mode.Name} needs Murmur Cloud or a Custom Provider to rewrite (Settings → Providers). Pasted as dictated.";
+        if (!hasEngine) return $"{mode.Name} needs a Custom Provider to rewrite (Settings → Providers). Pasted as dictated.";
         return fallback is null ? null : $"{mode.Name} could not rewrite this dictation. Pasted as cleaned.";
     }
 }

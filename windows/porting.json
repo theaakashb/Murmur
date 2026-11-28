@@ -236,18 +236,6 @@
       ],
       "sha256": "4c7387aa532605d45c27fc6a780804b658413fcc4517fc5d4decb855de0fb083"
     },
-    "app/MurmurCloud.swift": {
-      "csharp": [
-        "windows/src/Murmur.Core/MurmurCloud.cs"
-      ],
-      "sha256": "dbbe4533a0dcb32fe760a1a22d15022fe39e7a15253746f69bb684ca13ba2975"
-    },
-    "app/MurmurCloudEdit.swift": {
-      "csharp": [
-        "windows/src/Murmur.Core/MurmurCloudEdit.cs"
-      ],
-      "sha256": "8aaddb423a377b464cc92a8651960e512311980d90aefa4c73f6794d1285b727"
-    },
     "app/Observation.swift": {
       "csharp": [
         "windows/src/Murmur.Core/Observation.cs"

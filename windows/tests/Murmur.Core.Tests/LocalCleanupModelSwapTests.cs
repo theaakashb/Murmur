@@ -42,7 +42,7 @@ public class LocalCleanupModelSwapTests
         Assert.False(ProviderID.LocalModel.RunsProfessional());
         var shape = Provider(new()).Shape;
         Assert.False(shape.TakesContext || shape.TakesPresets);
-        Assert.Equal(CleanupChoice.MurmurCloud, CleanupStyles.Select(CleanupStyle.Polish, CleanupChoice.LocalRules, CleanupOptions.Standard).Route);
+        Assert.Equal(CleanupChoice.CustomAPI, CleanupStyles.Select(CleanupStyle.Polish, CleanupChoice.LocalRules, CleanupOptions.Standard).Route);
     }
 
     [Fact]

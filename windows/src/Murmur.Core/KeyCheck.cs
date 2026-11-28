@@ -44,10 +44,6 @@ public static class KeyCheck
                     return OnDeviceModelUnavailable.DeviceNotEligible.UserMessage();
                 case ProviderID.LocalModel:
                     return new LocalModelCleanupProvider().Status()?.UserMessage() ?? "The local cleanup model is ready.";
-                case ProviderID.MurmurCloud:
-                    if (key is null) return ProviderError.InvalidConfiguration(provider).UserMessage;
-                    await MurmurCloud.ValidateAsync(key, transport ?? HttpClientTransport.Default, cancellationToken).ConfigureAwait(false);
-                    break;
                 default:
                     // Legacy key accounts only (Cerebras, OpenRouter): no client exists for them.
                     return ProviderError.InvalidConfiguration(provider).UserMessage;

@@ -6,12 +6,12 @@ namespace Murmur.Core;
 // Prompts sent to cleanup models: the cleanup messages and the mode-transform contract.
 // The texts are templates exported from the Swift prompts (shared/cleanup_prompt.json); this file holds the assembly logic.
 
-/// <summary>The typed request behind a built prompt, for providers that build their own prompt (the managed local model, Murmur Cloud).</summary>
+/// <summary>The typed request behind a built prompt, for providers that build their own prompt (the managed local model).</summary>
 public sealed record CleanupInput
 {
     /// <summary>The transcript after Professional's comma-free corrections, before spoken commands: what the local model takes.</summary>
     public required string Raw { get; init; }
-    /// <summary>The text between the transcript tags: <see cref="Raw"/> with spoken commands written out. What Murmur Cloud takes.</summary>
+    /// <summary>The text between the transcript tags: <see cref="Raw"/> with spoken commands written out.</summary>
     public required string Sent { get; init; }
     public required CleanupOptions Options { get; init; }
     /// <summary>The dictionary terms as given; <see cref="PromptTerms"/> is the cleaned list the prompt shows.</summary>

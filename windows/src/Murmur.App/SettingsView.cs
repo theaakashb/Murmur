@@ -228,7 +228,6 @@ internal sealed partial class SettingsView
         page.Children.Add(reset);
     }
 
-    readonly Dictionary<object, Action<bool>> modelRoutes = [];
     bool speechFilesPresent, cleanupFilesPresent;
     int modelCheck;
     readonly List<Action> refreshRules = [];
@@ -333,10 +332,10 @@ internal sealed partial class SettingsView
         Row(title, description, Picker(title, items, selected, changed), visible);
 
     /// <summary>A label, then an underline-tab choice with its help text under it (the Mac's Cleanup style, indicator and route pickers).</summary>
-    Segmented SegmentedRow(string title, string? help, string[] items, int selected, Action<int> changed, Func<int, string>? note = null, int[]? cloud = null)
+    Segmented SegmentedRow(string title, string? help, string[] items, int selected, Action<int> changed, Func<int, string>? note = null)
     {
         Heading(title);
-        var tabs = new Segmented(title, items, selected, i => { changed(i); foreach (var refresh in refreshNotes) refresh(); }, cloud: cloud);
+        var tabs = new Segmented(title, items, selected, i => { changed(i); foreach (var refresh in refreshNotes) refresh(); });
         var row = new Grid { ColumnSpacing = 4, ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } }, Children = { tabs } };
         if (help is not null && note is not null) { var h = Help(help); Grid.SetColumn(h, 1); row.Children.Add(h); }
         page.Children.Add(row);
@@ -353,15 +352,14 @@ internal sealed partial class SettingsView
 
     // ---- routes ----
 
-    static readonly (TranscriptionRoute Route, string Label)[] TranscriptionChoices = [(TranscriptionRoute.Local, "Local (this PC)"), (TranscriptionRoute.MurmurCloud, "Murmur Cloud")];
-    static readonly (CleanupChoice Choice, string Label)[] CleanupChoices = [(CleanupChoice.LocalRules, "Local rules"), (CleanupChoice.LocalModel, "Local model"), (CleanupChoice.MurmurCloud, "Murmur Cloud")];
+    static readonly (CleanupChoice Choice, string Label)[] CleanupChoices = [(CleanupChoice.LocalRules, "Local rules"), (CleanupChoice.LocalModel, "Local model")];
 
     string TranscriptionNote(TranscriptionRoute route)
     {
         if (route == TranscriptionRoute.Local) return speechFilesPresent ? "Audio stays on this PC. Downloading the model uses the network once. Dictation does not." : "Audio stays on this PC. Download the speech model on this page to use this.";
         var plan = RoutePlan.Make(Routes with { Transcription = route }, true, s.Key);
         return DisclosureText.Summary(plan, ProcessingStage.Transcription)
-            ?? (route == TranscriptionRoute.Cloud ? "Sends each recording to the address under Custom Provider. Nothing is sent until you enter an address and a model." : "Sends each recording to Murmur Cloud.");
+            ?? "Sends each recording to the address under Custom Provider. Nothing is sent until you enter an address and a model.";
     }
 
     string CleanupNote(CleanupChoice choice)
@@ -370,7 +368,7 @@ internal sealed partial class SettingsView
         if (choice == CleanupChoice.LocalModel) return cleanupFilesPresent ? "Text stays on this PC." : "Text stays on this PC. Download the cleanup model on this page to use this.";
         var plan = RoutePlan.Make(Routes with { Cleanup = choice }, true, s.Key);
         return DisclosureText.Summary(plan, ProcessingStage.Cleanup)
-            ?? (choice == CleanupChoice.CustomAPI ? "Sends the transcript text to the address under Custom Provider. Nothing is sent until you enter an address and a model." : "Sends the transcript text to Murmur Cloud.");
+            ?? "Sends the transcript text to the address under Custom Provider. Nothing is sent until you enter an address and a model.";
     }
 
     void BuildTranscription()
@@ -388,20 +386,20 @@ internal sealed partial class SettingsView
         page.Children.Add(speechHost);
         Toggle("Use GPU when available", "Accelerates live words and local cleanup.", Prefs.UseGpuWhenAvailable,
             LocalCleanupRunner.Shared.MemoryPressure, visible: true);
-        // Custom Provider is chosen under Advanced, so while it is on neither tab is selected.
-        var tabs = SegmentedRow("Where transcription runs", null, [.. TranscriptionChoices.Select(c => c.Label)], Routes.Transcription == TranscriptionRoute.Cloud ? -1 : Array.FindIndex(TranscriptionChoices, c => c.Route == Routes.Transcription),
-            i => SaveRoutes(r => r with { Transcription = TranscriptionChoices[i].Route }), i => i < 0 ? "" : TranscriptionNote(TranscriptionChoices[i].Route), cloud: [1]);
-        tabs.SetEnabled(0, false);
-        modelRoutes[TranscriptionRoute.Local] = on => tabs.SetEnabled(0, on && !controller.SpeechModelDownloading);
-        refreshNotes.Add(() => { for (int i = 1; i < TranscriptionChoices.Length; i++) tabs.SetEnabled(i, !controller.SpeechModelDownloading); });
+        Heading("Where transcription runs");
+        string Runs() => Routes.Transcription == TranscriptionRoute.Local ? TranscriptionNote(TranscriptionRoute.Local) : "Audio is sent to your Custom Provider.";
+        var runs = MurmurStyle.Text(Runs());
+        runs.Margin = new Thickness(0, 8, 0, 0);
+        page.Children.Add(runs);
+        refreshNotes.Add(() => runs.Text = Runs());
         var body = page;
         var (advanced, advancedBody) = AdvancedSection("Transcription advanced settings", Routes.Transcription == TranscriptionRoute.Cloud);
         body.Children.Add(advanced);
         page = advancedBody;
-        var custom = Toggle("Use a Custom Provider for transcription", "Sends audio to your own OpenAI-compatible endpoint instead of the choice above.", null, visible: true,
+        var custom = Toggle("Use a Custom Provider for transcription", "Sends audio to your own OpenAI-compatible endpoint instead of transcribing on this PC.", null, visible: true,
             get: () => Routes.Transcription == TranscriptionRoute.Cloud,
-            set: on => { SaveRoutes(r => r with { Transcription = on ? TranscriptionRoute.Cloud : TranscriptionRoute.Local }); tabs.Select(on ? -1 : 0); });
-        refreshNotes.Add(() => { custom.IsEnabled = !controller.SpeechModelDownloading; custom.IsOn = Routes.Transcription == TranscriptionRoute.Cloud; tabs.Select(custom.IsOn ? -1 : Math.Max(0, Array.FindIndex(TranscriptionChoices, c => c.Route == Routes.Transcription))); });
+            set: on => { SaveRoutes(r => r with { Transcription = on ? TranscriptionRoute.Cloud : TranscriptionRoute.Local }));
+        refreshNotes.Add(() => { custom.IsEnabled = !controller.SpeechModelDownloading; custom.IsOn = Routes.Transcription == TranscriptionRoute.Cloud; });
         var providerSection = new StackPanel();
         advancedBody.Children.Add(providerSection);
         page = providerSection;
@@ -473,7 +471,7 @@ internal sealed partial class SettingsView
             {
                 SaveRoutes(r => r with { Cleanup = CleanupChoices[i].Choice });
                 StyleChanged();
-            }, i => CleanupNote(i < 0 ? CleanupChoice.CustomAPI : CleanupChoices[i].Choice), cloud: [2]);
+            }, i => CleanupNote(i < 0 ? CleanupChoice.CustomAPI : CleanupChoices[i].Choice));
         var naturalHelp = MurmurStyle.Text("");
         routeSection.Children.Add(naturalHelp);
         var cleanupRow = new ModelRow(s, s.CleanupSlot, controller, root, go => { LocalCleanupRunner.Shared.Shutdown(); go(); }, UpdateModelRoutes);
@@ -529,7 +527,7 @@ internal sealed partial class SettingsView
         Toggle("Learn only from readable fields", "Murmur first reads the text box through Windows accessibility. If an app does not allow that, it can instead follow the keys you type into it, in memory only, for that one dictation: keys are never saved, logged or sent. Turn this on to use accessibility only.", Prefs.ReadableLearning, visible: true);
     }
 
-    /// <summary>Enables local transcription only while its files are installed and pass the pinned checksums. Hashing runs off the UI thread (once per launch, then cached).</summary>
+    /// <summary>Refreshes whether the model files are installed, for the route notes. The check runs off the UI thread.</summary>
     void UpdateModelRoutes()
     {
         int check = ++modelCheck;
@@ -537,13 +535,11 @@ internal sealed partial class SettingsView
         {
             var speechInstalled = s.Local.ModelFilesPresent;
             var cleanupInstalled = LocalCleanupRunner.InstalledStatus() is null;
-            var speech = s.Local.HelperPresent && speechInstalled && s.Local.Verify();
             s.UI.TryEnqueue(() =>
             {
                 if (check != modelCheck) return;
                 speechFilesPresent = speechInstalled;
                 cleanupFilesPresent = cleanupInstalled;
-                modelRoutes[TranscriptionRoute.Local](speech);
                 foreach (var refresh in refreshNotes) refresh();
             });
         });
@@ -578,7 +574,6 @@ internal sealed partial class SettingsView
         Note("API keys stay on this PC, outside settings and History.");
         KeyRow("Custom transcription key", ProviderID.CustomTranscription, () => Routes.CustomTranscriptionAPIBaseURL);
         KeyRow("Custom cleanup key", ProviderID.CustomCleanup, () => Routes.CustomAPIBaseURL);
-        KeyRow("Murmur Cloud key", ProviderID.MurmurCloud, () => "");
     }
 
     /// <param name="also">A second provider that shares this key and address (Meetings' "same provider" switch); saved, checked and removed together.</param>
@@ -595,8 +590,8 @@ internal sealed partial class SettingsView
             if (APIKey.Create(box.Password) is not { } key) { result.Text = KeyText.Invalid; return; }
             try
             {
-                if (provider == ProviderID.MurmurCloud) s.Credentials.Save(key, provider);
-                else { CustomAPIKeyBinding.Save(key, address(), s.Settings, s.Credentials, provider); if (also is { } second) CustomAPIKeyBinding.Save(key, address(), s.Settings, s.Credentials, second); }
+                CustomAPIKeyBinding.Save(key, address(), s.Settings, s.Credentials, provider);
+                if (also is { } second) CustomAPIKeyBinding.Save(key, address(), s.Settings, s.Credentials, second);
                 box.Password = ""; result.Text = KeyText.Saved;
             }
             catch (ProviderException e) { result.Text = e.Error.UserMessage; }
@@ -606,7 +601,7 @@ internal sealed partial class SettingsView
         validate.Click += async (_, _) =>
         {
             APIKey? key = APIKey.Create(box.Password);
-            try { key ??= provider == ProviderID.MurmurCloud ? s.Credentials.Read(provider) : CustomAPIKeyBinding.Read(address(), s.Settings, s.Credentials, provider); }
+            try { key ??= CustomAPIKeyBinding.Read(address(), s.Settings, s.Credentials, provider); }
             catch (Exception e) when (e is CredentialException or ProviderException) { result.Text = KeyText.Unreadable; return; }
             result.Text = KeyText.Checking;
             result.Text = await KeyCheck.RunAsync(provider, key, address());
@@ -617,7 +612,7 @@ internal sealed partial class SettingsView
             try
             {
                 foreach (var id in also is { } second ? new[] { provider, second } : [provider])
-                { s.Credentials.Delete(id); if (id != ProviderID.MurmurCloud) CustomAPIKeyBinding.Clear(s.Settings, id); }
+                { s.Credentials.Delete(id); CustomAPIKeyBinding.Clear(s.Settings, id); }
                 result.Text = KeyText.Removed;
             }
             catch (CredentialException) { result.Text = KeyText.RemoveFailed; }
@@ -765,11 +760,11 @@ internal sealed partial class SettingsView
         var report = DataWipe.DeleteAllData(s.Locations, () =>
         {
             var removed = new List<string>();
-            foreach (var provider in new[] { ProviderID.CustomTranscription, ProviderID.CustomCleanup, ProviderID.CustomAPI, ProviderID.MurmurCloud })
+            foreach (var provider in new[] { ProviderID.CustomTranscription, ProviderID.CustomCleanup, ProviderID.CustomAPI })
             {
                 if (s.Credentials.Exists(provider)) removed.Add(provider.DisplayName());
                 s.Credentials.Delete(provider);
-                if (provider != ProviderID.MurmurCloud) CustomAPIKeyBinding.Clear(s.Settings, provider);
+                CustomAPIKeyBinding.Clear(s.Settings, provider);
             }
             s.Credentials.DeleteAll();
             return removed;

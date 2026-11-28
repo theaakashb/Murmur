@@ -7,7 +7,6 @@ public class ProviderFieldGatingTests
     [Theory]
     [InlineData(TranscriptionRoute.Local, false)]
     [InlineData(TranscriptionRoute.Cloud, true)]
-    [InlineData(TranscriptionRoute.MurmurCloud, false)]
     public void TranscriptionFieldsShowOnlyForTheCustomProviderRoute(TranscriptionRoute route, bool shown) =>
         Assert.Equal(shown, ProviderFieldGating.ShowTranscriptionFields(route));
 

@@ -847,7 +847,7 @@ public class ProcessingTests
         // The guard still judged the transcript section alone: without trust the same output is rejected.
         var untrusted = await p.ProcessAsync("send the deck to the client", new DictationStyle(p.Settings.Options with { TrustModel = false }, context: context));
         Assert.True(untrusted.Text != trusted.Text && untrusted.Fallback is not null && untrusted.RejectedOutput is null);
-        // A Local model that is not trusted like Murmur Cloud (the shipped one) is always held to the full guard, whatever the trust setting (it takes no context at all).
+        // A Local model that is not trusted (TrustedLikeCloud false, the shipped one) is always held to the full guard, whatever the trust setting (it takes no context at all).
         using (LocalCleanupModels.Use(LocalCleanupModels.Installed))
         {
             var localModel = new MockProvider(m => Body(m) + " Ayesha Khan", id: ProviderID.LocalModel) { Shape = new CleanupShape { TakesContext = false } };
@@ -855,7 +855,7 @@ public class ProcessingTests
             var managed = await p.ProcessAsync("send the deck to the client", p.Settings.Style(context: context));
             Assert.True(managed.Fallback is not null && !managed.ContextUsed && !localModel.Messages[0].User.Contains("Ayesha"));
         }
-        // A Local model trusted like Murmur Cloud (the Mac's) holds Polish and Professional only to malfunctions; Natural keeps the full guard.
+        // A Local model trusted for Polish and Professional (the Mac's) holds Polish and Professional only to malfunctions; Natural keeps the full guard.
         var trustedLocal = new MockProvider(m => Body(m) + " Ayesha Khan", id: ProviderID.LocalModel);
         p.CloudCleaner = trustedLocal;
         var trustedManaged = await p.ProcessAsync("send the deck to the client", p.Settings.Style(context: context));

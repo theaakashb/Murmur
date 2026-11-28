@@ -102,83 +102,6 @@ public class ProvidersTests
 
     static byte[] B(string s) => Encoding.UTF8.GetBytes(s);
 
-    // MARK: Murmur Cloud
-
-    [Fact]
-    public async Task MurmurCloud()
-    {
-        var pro = new CleanupOptions(fillers: true, corrections: true, lists: false, punctuation: true, professional: true, spoken: true);
-        // Professional with corrections drops "comma" by comma-free correction; spoken commands then write out "ten percent".
-        const string spoken = "revenue is up ten percent new line send it to clouddev";
-        var context = new ScreenContext { Selected = "Selected", Clipboard = "", Window = "Window" };
-        var built = CleanupPrompt.Build(spoken, pro, ["clouddev", " clouddev ", "Ana\nMaria"], context: context, instructions: "Use British spelling.");
-        var input = built.Input;
-        Assert.NotNull(input);
-        var corrected = CleanupGuard.ApplyCommaFreeCorrections(spoken);
-        Assert.True(input.Raw == corrected && input.Sent == RuleCleaner.SpokenCommands(corrected) && input.Sent != input.Raw, "typed input: raw is the corrected text, sent has spoken commands written out");
-        Assert.Contains($"\n{input.Sent}\n", built.User);
-        var request = MurmurCloudCleanupFormat.MakeRequest(input, Key);
-        Assert.True(request.Url.ToString() == "https://api.murmurdictation.com/v1/cleanup" && request.Method == "POST", "cleanup posts to /v1/cleanup on the fixed base URL");
-        Assert.True(request.Header("Authorization") == $"Bearer {FakeSecret}" && request.Header("Content-Type") == "application/json", "bearer key and JSON body");
-        var body = Json(request.Body);
-        Assert.Equal(new[] { "transcript", "level", "fillers", "corrections", "punctuation", "lists", "terms", "style_notes", "context" }.Order(), body.EnumerateObject().Select(p => p.Name).Order());
-        Assert.True(body.GetProperty("transcript").GetString() == input.Sent && body.GetProperty("level").GetString() == "professional");
-        Assert.True(body.GetProperty("fillers").GetBoolean() && body.GetProperty("corrections").GetBoolean() && body.GetProperty("punctuation").GetBoolean() && !body.GetProperty("lists").GetBoolean(), "the four toggles");
-        Assert.Equal(["clouddev", "Ana Maria"], GoldenFiles.Strings(body.GetProperty("terms")));
-        Assert.Equal("Use British spelling.", body.GetProperty("style_notes").GetString());
-        Assert.Equal(new Dictionary<string, string> { ["selected"] = "Selected", ["clipboard"] = "", ["window"] = "Window" },
-                     body.GetProperty("context").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!));
-        pro = pro with { Professional = false };
-        var plain = CleanupPrompt.Build("um send it", pro).Input!;
-        var minimal = Json(MurmurCloudCleanupFormat.MakeRequest(plain, Key).Body);
-        Assert.Equal(new[] { "transcript", "level", "fillers", "corrections", "punctuation", "lists" }.Order(), minimal.EnumerateObject().Select(p => p.Name).Order());
-        Assert.Equal("polish", minimal.GetProperty("level").GetString());
-        var strict = CleanupPrompt.Build("um send it", new CleanupOptions(punctuation: true)).Input!;
-        Assert.True(Core.MurmurCloud.MakeBaseURL(null).Host == "api.murmurdictation.com" && Core.MurmurCloud.MakeBaseURL("").Host == "api.murmurdictation.com"
-                    && Core.MurmurCloud.MakeBaseURL("preview.example.com").Host == "preview.example.com", "Murmur Cloud host is the default unless the build bakes another");
-        Assert.Null(MurmurCloudCleanupFormat.MakeBody(strict));
-
-        // The provider: refuses presets and Strict without a request; parses {"text"}; maps the documented statuses.
-        var transport = new MockTransport(Result(200, """{"text":"Send it."}"""));
-        var cloud = new MurmurCloudCleanupProvider(Key) { Transport = transport };
-        var preset = TransformPrompt.Build(ModeTransform.Email, "email sarah saying hi");
-        await ExpectAsync(ProviderError.InvalidConfiguration(ProviderID.MurmurCloud), () => cloud.CleanupAsync(preset));
-        await ExpectAsync(ProviderError.InvalidConfiguration(ProviderID.MurmurCloud), () => cloud.CleanupAsync(CleanupPrompt.Build("um send it", new CleanupOptions(punctuation: true))));
-        Assert.Empty(transport.Requests);
-        Assert.Equal("Send it.", await cloud.CleanupAsync(CleanupPrompt.Build("um send it", pro)));
-        Assert.True(transport.Requests.Count == 1 && cloud.ModelID == "murmur-cleanup" && cloud.Shape == new CleanupShape { TakesPresets = false }, "one request; model id; context taken, presets not");
-        (int, ProviderError)[] statuses = [(401, ProviderError.Authentication(ProviderID.MurmurCloud)), (402, ProviderError.Quota(ProviderID.MurmurCloud)), (429, ProviderError.RateLimited(ProviderID.MurmurCloud, 5)),
-            (413, ProviderError.PayloadTooLarge(ProviderID.MurmurCloud, null)), (400, ProviderError.Rejected(ProviderID.MurmurCloud, 400)), (415, ProviderError.Rejected(ProviderID.MurmurCloud, 415)),
-            (502, ProviderError.Server(ProviderID.MurmurCloud, 502)), (503, ProviderError.Server(ProviderID.MurmurCloud, 503)), (504, ProviderError.Timeout(ProviderID.MurmurCloud))];
-        const string errorBody = """{"error":{"message":"fixed","type":"t","code":"c"}}""";
-        foreach (var (status, expected) in statuses)
-            Expect(expected, () => MurmurCloudCleanupFormat.Parse(Result(status, errorBody, new() { ["Retry-After"] = "5" })));
-        Assert.True(ProviderError.RateLimited(ProviderID.MurmurCloud, 5).Disposition == SessionDisposition.PreserveRetryLater && ProviderError.Quota(ProviderID.MurmurCloud).Disposition == SessionDisposition.PreserveNeedsChange);
-        Expect(ProviderError.MalformedResponse(ProviderID.MurmurCloud), () => MurmurCloudCleanupFormat.Parse(Result(200, """{"answer":"x"}""")));
-        Assert.DoesNotContain("model", ProviderError.InvalidConfiguration(ProviderID.MurmurCloud).UserMessage);
-
-        // Key validation: GET /v1/models with the key.
-        var models = new MockTransport(Result(200, """{"data":[{"id":"murmur-cleanup"},{"id":"murmur-transcribe"}]}"""));
-        await Core.MurmurCloud.ValidateAsync(Key, models);
-        Assert.True(models.Requests[0].Url.ToString() == "https://api.murmurdictation.com/v1/models" && models.Requests[0].Method == "GET" && models.Requests[0].Header("Authorization") == $"Bearer {FakeSecret}");
-        foreach (var (status, expected) in new[] { (401, ProviderError.Authentication(ProviderID.MurmurCloud)), (402, ProviderError.Quota(ProviderID.MurmurCloud)) })
-            await ExpectAsync(expected, () => Core.MurmurCloud.ValidateAsync(Key, new MockTransport(Result(status, errorBody))));
-
-        // Transcription: the shared multipart upload, no prompt, reply {"text"}.
-        var upload = new MockTransport(Result(200, """{"text":"Send the report."}"""));
-        var stt = new MurmurCloudTranscriptionProvider(Key) { Transport = upload };
-        Assert.Equal("Send the report.", await stt.TranscribeAsync(new AudioPayload(B("RIFF"))));
-        var sent = upload.Requests[0];
-        var form = Encoding.UTF8.GetString(sent.Body!);
-        Assert.True(sent.Url.ToString() == "https://api.murmurdictation.com/v1/audio/transcriptions" && sent.Header("Authorization") == $"Bearer {FakeSecret}");
-        Assert.True(form.Contains("name=\"file\"") && form.Contains("name=\"language\"") && !form.Contains("name=\"prompt\""), "multipart has the file and language, no prompt");
-        var limit = OpenAICompatibleTranscriptionProvider.UploadLimitBytes;
-        await ExpectAsync(ProviderError.PayloadTooLarge(ProviderID.MurmurCloud, limit), () => stt.TranscribeAsync(new AudioPayload(new byte[limit + 1])));
-        Assert.Single(upload.Requests);
-        Assert.True(stt.Disclosure.DestinationHost == "api.murmurdictation.com" && stt.Disclosure.LeavesDevice.SequenceEqual(["audio"]) && cloud.Disclosure.DestinationHost == "api.murmurdictation.com"
-                    && !cloud.Disclosure.LeavesDevice.Contains("audio"), "disclosures name the host; cleanup sends no audio");
-    }
-
     // MARK: Keys and credentials
 
     [Fact]
@@ -207,7 +130,7 @@ public class ProvidersTests
         store.Delete(ProviderID.CustomTranscription); // deleting a missing key succeeds
         store.DeleteAll();
         Assert.Null(store.Read(ProviderID.CustomCleanup));
-        Assert.Equal(["openrouter", "cerebras", "customAPI", "customTranscription", "customCleanup", "localServer", "appleIntelligence", "local-model", "murmur-cloud"],
+        Assert.Equal(["openrouter", "cerebras", "customAPI", "customTranscription", "customCleanup", "localServer", "appleIntelligence", "local-model"],
                      Enum.GetValues<ProviderID>().Select(p => p.RawValue()));
         Assert.Equal("Keychain operation failed (status -25300).", CredentialError.Keychain(-25300).Description);
     }
@@ -659,7 +582,5 @@ public class ProvidersTests
         Assert.Equal(0.01f, AudioFormat.SilencePeak);
         Assert.Equal(8192, ProviderLimits.MaxOutputTokens);
         Assert.Equal(25_000_000, OpenAICompatibleTranscriptionProvider.UploadLimitBytes);
-        Assert.Equal("api.murmurdictation.com", Core.MurmurCloud.Host);
-        Assert.Equal(45, Core.MurmurCloud.CleanupDeadline);
     }
 }

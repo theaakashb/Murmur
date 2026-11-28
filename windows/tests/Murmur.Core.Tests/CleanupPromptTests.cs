@@ -74,7 +74,6 @@ public class CleanupPromptTests
     [Fact]
     public void TypedInput()
     {
-        // check_providers.swift checkMurmurCloud.
         var pro = new CleanupOptions(fillers: true, corrections: true, lists: false, punctuation: true, professional: true, spoken: true);
         const string spoken = "revenue is up ten percent new line send it to clouddev";
         var context = new ScreenContext { Selected = "Selected", Window = "Window" };

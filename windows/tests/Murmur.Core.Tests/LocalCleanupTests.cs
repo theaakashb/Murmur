@@ -383,7 +383,7 @@ public class LocalCleanupTests
     static ProcessingCoordinator Coordinator()
     {
         var p = new ProcessingCoordinator(TempDirs.New("local-cleanup"), new InMemorySettingsStore());
-        // Natural first: it keeps the full guard even with the global trust option on. Polish and Professional are trusted like Murmur Cloud.
+        // Natural first: it keeps the full guard even with the global trust option on. Polish and Professional are trusted (TrustedLikeCloud).
         var options = CleanupOptions.Standard with { TrustModel = true };
         p.Update(p.Settings with { Route = CleanupRoute.Cloud, Options = options }, persist: false);
         return p;
@@ -403,7 +403,7 @@ public class LocalCleanupTests
         var ok = await p.ProcessAsync(deadlineRaw);
         Assert.True(ok.Fallback is null && ok.PromptHash == "local-fixed", "a faithful output is accepted and the fixed prompt is recorded");
 
-        // Polish and Professional are trusted like Murmur Cloud: a rewrite only the full guard rejects is accepted.
+        // Polish and Professional are trusted (TrustedLikeCloud): a rewrite only the full guard rejects is accepted.
         p.Update(p.Settings with { Options = CleanupOptions.Standard with { Polish = true, Professional = true, TrustModel = true } }, persist: false);
         p.CloudCleaner = Provider(rec, reply: _ => "Are you free later?");
         var trusted = await p.ProcessAsync("um hi are you free later");
