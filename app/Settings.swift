@@ -72,6 +72,8 @@ enum Prefs {
     static let meetingIndicator = Setting("meetingIndicator", MeetingIndicator.notch)
     /// The live meeting panel's top-right corner, x then y.
     static let meetingPanelTopRight = Setting("meetingPanelTopRight", [Double]())
+    /// The app build that last posted the model update notice, so each update posts it once.
+    static let modelUpdateNoticeBuild = Setting("modelUpdateNoticeBuild", "")
     /// Open at login is switched on once, at the first launch.
     static let openAtLoginDefaulted = Setting("openAtLoginDefaulted", false)
     /// Folded "heard" words of dismissed dictionary suggestions. Derived from dictations, so Delete All Data removes it.

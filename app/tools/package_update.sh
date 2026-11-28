@@ -21,7 +21,17 @@ ditto -c -k --keepParent "$app_path" "$archive"
 key_args=(--account "${MURMUR_SPARKLE_KEY_ACCOUNT:-Murmur}")
 if [[ -n "${MURMUR_SPARKLE_KEY_FILE:-}" ]]; then key_args=(--ed-key-file "$MURMUR_SPARKLE_KEY_FILE"); fi
 args=(--download-url-prefix "$repository/releases/download/v$release_version/" --maximum-deltas 0 --embed-release-notes)
-if [[ -n "${MURMUR_RELEASE_NOTES:-}" ]]; then cp "$MURMUR_RELEASE_NOTES" "$output/Murmur-$version.md"; fi
+notes="$output/Murmur-$version.md"
+if [[ -n "${MURMUR_RELEASE_NOTES:-}" ]]; then cp "$MURMUR_RELEASE_NOTES" "$notes"; fi
+# Sparkle's dialog shows these notes: name every downloadable model whose pinned revision changed since the last release.
+previous_tag="$(git -C "$project_root" describe --tags --abbrev=0 --match 'v[0-9]*' --exclude "v$release_version" HEAD)" \
+  || { echo 'No earlier v* release tag to compare model pins with: run git fetch --tags.' >&2; exit 1; }
+model_note="$(python3 "$project_root/app/tools/model_update_note.py" \
+  <(git -C "$project_root" show "$previous_tag:module-one/models/artifact-pins.json") "$app_path/Contents/Resources/artifact-pins.json")"
+if [[ -n "$model_note" ]]; then
+  if [[ -s "$notes" ]]; then printf '\n%s\n' "$model_note" >> "$notes"; else printf '%s\n' "$model_note" > "$notes"; fi
+  echo "Release notes now say: $model_note"
+fi
 "$sparkle_path/bin/generate_appcast" "${args[@]}" "${key_args[@]}" "$output"
 # generate_appcast checks the embedded key; explicitly verify the signature too.
 signature="$(python3 - "$output/appcast.xml" <<'PY'

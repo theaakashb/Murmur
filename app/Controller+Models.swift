@@ -117,6 +117,16 @@ extension AppController {
         flow.didRemove = { [weak self] in self?.liveWordsVerified = false }
         flow.remove()
     }
+    /// Once per app build: models whose old version is still on disk but whose pinned version is not installed.
+    func announceModelUpdates() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+        let outdated = modelSlots.filter { !self[keyPath: $0].retiredFolders(home: home).isEmpty && self[keyPath: $0].status != .ready }
+        guard !outdated.isEmpty, UserDefaults.standard[Prefs.modelUpdateNoticeBuild] != build else { return }
+        UserDefaults.standard[Prefs.modelUpdateNoticeBuild] = build
+        let pane: SettingsPane = outdated.contains(\.localSlot) ? .cleanup : outdated.contains(\.dictionarySlot) ? .dictionary : .transcription
+        readyNotifier.postUpdate(models: outdated.map { self[keyPath: $0].facts.displayName }, pane: pane)
+    }
     func useDefaultModelDirectory() { if let downloader = modelSlot.downloader { modelDirectory = downloader.target.path } }
 }
 
