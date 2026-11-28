@@ -8,7 +8,6 @@ Dictionary entries support preferred spellings and explicit misheard variants. P
 |---|---|
 | Local Parakeet | Enabled preferred spellings and variants, supplied to the verified optional CTC model; `BoostFilter` limits replacements. |
 | Custom OpenAI-compatible | No dictionary-derived prompt or invented vocabulary field, including for Whisper models. |
-| Murmur Cloud | No dictionary-derived prompt; relevant terms go only with cleanup. |
 
 Whisper prompts can be continued as prior speech, producing unspoken dictionary text. Removing such text afterward can also erase deliberately spoken names or lists. Keep prompt omission and literal-output preservation together. Silence checks and trailing-silence trimming are separate safeguards.
 
