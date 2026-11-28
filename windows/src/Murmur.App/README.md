@@ -1,6 +1,6 @@
 # Murmur.App
 
-The WinUI 3 tray app (unpackaged, self-contained). It builds on Windows only (the XAML compiler is Windows-only).
+The WinUI 3 tray app (unpackaged, self-contained) of Murmur, free, offline, private dictation (https://murmurdictation.com). It builds on Windows only (the XAML compiler is Windows-only).
 
 ```
 dotnet build windows/Murmur.App.slnx
@@ -40,7 +40,7 @@ Settings → Writing → Learning. On by default; the first switch turns off eve
 
 Choose languages in the Welcome Guide or **Settings → Dictation → Transcription**. Local English dictation uses Parakeet Unified. Murmur uses Parakeet TDT v3 when it covers every selected language, and Whisper large-v3-turbo for broader selections such as Hindi or Arabic. Download the recommended model once to dictate offline. With a multilingual selection, Murmur preserves the transcript and applies explicit spellings you added to Dictionary.
 
-Murmur Cloud detects the language automatically for multilingual dictation. Language choices apply to dictation.
+Language choices apply to dictation.
 
 ## UI
 

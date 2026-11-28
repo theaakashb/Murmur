@@ -1,6 +1,6 @@
 # Install and test on a real Windows PC
 
-This is for the M2 and M3 exits on a PC with a real microphone. The automated harness (`harness/README.md`) already covers the pipeline on a VM; this run covers what it can't: real microphones, a real provider, a person's keyboard, Teams and Slack, and speed on real hardware.
+Murmur for Windows is free, offline, private dictation. This is for the M2 and M3 exits on a PC with a real microphone. The automated harness (`harness/README.md`) already covers the pipeline on a VM; this run covers what it can't: real microphones, a real provider, a person's keyboard, Teams and Slack, and speed on real hardware.
 
 Never paste dictated text into issues, chats or the results file. Describe what went wrong instead.
 
@@ -11,7 +11,7 @@ Never paste dictated text into issues, chats or the results file. Describe what 
 - Internet access, for the speech model download (663 MB) and the cloud route.
 - Notepad, Microsoft Edge, VS Code, and Teams or Slack signed in.
 - About 3 GB of free disk space.
-- For part A only: a Murmur Cloud key, or a Custom Provider address and key.
+- For part A only: a Custom Provider address and key.
 
 ## 1. Get the build
 
@@ -38,8 +38,8 @@ It's a folder of about 360 MB with `Murmur.exe`, `Speech\MurmurSpeech.exe` and `
 ## Part A: 20 dictations, cloud route (M2 exit)
 
 1. In Settings:
-   - Transcription: Murmur Cloud (or Custom Provider). Cleanup: the same.
-   - Enter the key, then Save and Validate.
+   - Transcription: Custom Provider. Cleanup: the same.
+   - Enter the address, model and key, then Save and Validate.
    - Keep the shortcut on Right Ctrl. If your keyboard has no Right Ctrl, which is common on laptops with a Copilot key, pick another key with Record key.
 2. Copy `harness/real-mic/results-template.csv` somewhere and fill in one row per dictation.
 3. For each row:
@@ -115,7 +115,7 @@ Needs a PC with a speaker or headset and a microphone, and a Teams or Zoom call 
 **Speaker separation and the cloud route (also on the PC):**
 - Download both speaker models (Models: segmentation, embedding) and turn on "Separate speakers after a meeting" (stored as `meetingSpeakers`; the Settings row is the UI worker's). Run a call with two or more other people. After Stop, lines should be labelled Speaker 1, Speaker 2, and the kept call audio (`retry-audio\speakers\<id>.wav`) disappears when separation finishes. Note how many speakers it finds against how many really spoke; the clustering threshold (stored 0.6, sherpa cosine distance) is a starting value from one 16 s two-speaker sample, not tuned.
 - Kill Murmur right after Stop while "Separating speakers" shows: on the next launch the separation resumes from the kept audio (or fails and the audio is deleted after 24 hours).
-- Cloud: set `meetingTranscription` to cloud with a Custom Provider or Murmur Cloud transcriber configured. Chunks go to the provider; a failed chunk is transcribed here and marked. With the cloud route, speaker separation still splits the whole lines by speaker but without word times.
+- Cloud: set `meetingTranscription` to cloud with a Custom Provider transcriber configured. Chunks go to the provider; a failed chunk is transcribed here and marked. With the cloud route, speaker separation still splits the whole lines by speaker but without word times.
 - Quit during a meeting: a confirmation appears; Yes stops and saves it.
 
 ## Uninstall

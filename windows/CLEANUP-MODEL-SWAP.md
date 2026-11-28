@@ -10,10 +10,10 @@ The Mac ships Murmur Cleanup 2B (MLX safetensors). Windows ships Vedu Scribe 0.8
 | --- | --- |
 | `Name`, `ModelId`, `Repository`, `FolderName` | Row title, History model id, pin lookup in `windows/shared/windows-models.json`, folder `<data root>\Models\<FolderName>-<rev7>` |
 | `RetiredFolderNames` | Folders of the models this one replaced. Deleted after the new model verifies (in `ModelFlow`) and at launch when the new one is already ready; reported in the row message while the old one lingers (`ModelSlot.ReconcileRetired`) |
-| `RunsModelLevels` | Polish, Professional and Natural run on the Local model route (`CleanupChoice.RunsModelLevels`). Without it they need Murmur Cloud or a Custom Provider, and choosing Polish or Professional from Local rules moves to Murmur Cloud; with it, to the Local model |
+| `RunsModelLevels` | Polish, Professional and Natural run on the Local model route (`CleanupChoice.RunsModelLevels`). Without it they need a Custom Provider; with it, choosing Polish or Professional from Local rules moves to the Local model |
 | `RunsProfessional` | Sends `[tone: formal]` (`ProviderID.RunsProfessional`) |
 | `TakesContextAndPresets` | Sends rewrite presets as `[mode: email\|notes\|prompt]` and screen context as `[screen: ...]` (`LocalModelCleanupProvider`, `CleanupShape`). Windows does not capture screen text yet, so only presets are live |
-| `TrustedLikeCloud` | Polish and Professional are held only to malfunctions by the guard, as on Murmur Cloud. Otherwise the full guard (numbers, names, negations) applies |
+| `TrustedLikeCloud` | Polish and Professional are held only to malfunctions by the guard. Otherwise the full guard (numbers, names, negations) applies |
 | `MaximumCharacters` | Longest dictation one request takes |
 
 ## Steps

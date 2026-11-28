@@ -32,7 +32,7 @@ Setup: Settings > Writing > Learning > "Learn from my corrections" on.
 
 ## 3. Voice edit with a real provider (about 5 min)
 
-Setup: a working cleanup provider, either Murmur Cloud or a Custom Provider with its key.
+Setup: a working cleanup provider: a Custom Provider with its key.
 
 1. In Notepad, dictate a sentence, then select it.
 2. Hold Right Ctrl and say an edit, such as "make this more formal". The selection should be replaced by the edited text.

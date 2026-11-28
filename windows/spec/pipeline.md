@@ -29,10 +29,10 @@ In order (Controller.swift:619-662): refuse on secure input; refuse if the micro
 
 ## 4. Transcribe
 
-- Route plan (Routes.swift:236-267): local Parakeet, custom OpenAI-compatible (`cloud`), or Murmur Cloud. A cloud route with missing configuration or key is a refusal.
+- Route plan (Routes.swift:236-267): local Parakeet or custom OpenAI-compatible (`cloud`). A cloud route with missing configuration or key is a refusal.
 - **No fallback** between transcribers (Routes.swift:10-12, 301). A cloud failure ends in the error phase with audio kept; one request, no retry.
 - Local (Controller.swift:880-960): verify model hashes before launch (ModelHelper.swift:44-55); use the warm helper, with chunks transcribed during recording; if it does not answer, run a one-shot helper with a 300 s kill timer. Dictionary bias is passed as `--ctc <model> --vocabulary parakeet-vocabulary.json` only when the dictionary has entries and the CTC model verifies (ModelHelper.swift:44-55). On Windows the equivalent arguments depend on the M3 hotwords spike (PLAN "Speech recognition").
-- Cloud (CloudAudio.swift:17-27, Routes.swift:284-314): 16 kHz mono PCM16 WAV, trailing silence trimmed to 0.5 s; multipart POST `{base}/v1/audio/transcriptions` with `model`, `response_format` (`verbose_json` for Groq/OpenAI Whisper, else `json`), `temperature=0`, `language=en` (OpenAICompatible.swift:10-27). **No dictionary prompt.** Limit 25,000,000 bytes, deadline 75 s (OpenAICompatible.swift:185, 216). Murmur Cloud: same format, model `murmur-transcribe`, bearer auth (MurmurCloud.swift:12, 110-130).
+- Cloud (CloudAudio.swift:17-27, Routes.swift:284-314): 16 kHz mono PCM16 WAV, trailing silence trimmed to 0.5 s; multipart POST `{base}/v1/audio/transcriptions` with `model`, `response_format` (`verbose_json` for Groq/OpenAI Whisper, else `json`), `temperature=0`, `language=en` (OpenAICompatible.swift:10-27). **No dictionary prompt.** Limit 25,000,000 bytes, deadline 75 s (OpenAICompatible.swift:185, 216).
 - Provider errors and dispositions: ProviderTypes.swift:91-157. Only `cancelled` discards the audio.
 
 ## 5. Save raw
@@ -56,7 +56,7 @@ The raw transcript is written to History before cleanup (Controller.swift:970-97
 - Local route, or a style that uses no model: synchronous rule cleaner (Controller.swift:1058-1061, Processing.swift:164-177). Otherwise one cancellable model call (Controller.swift:1062-1066).
 - Options: fillers, corrections, lists, punctuation, polish, professional, spoken (CleanupTypes.swift:7-25). Only polish and professional use a model (WritingModes.swift:74).
 - Prompt (CleanupPrompt.swift:104-140): transcript in a nonce-tagged `<transcript-NONCE>` block; spoken commands pre-applied by rules; up to 50 dictionary terms, then style notes, then screen context marked as data.
-- Murmur Cloud: JSON `{transcript, level, fillers, corrections, punctuation, lists, terms, style_notes, context}` to `/v1/cleanup`, 45 s (MurmurCloud.swift:40-71). Custom: chat completions, `temperature=0`, timeout 120 s default, 300 s max (OpenAICompatible.swift:377-378).
+- Custom: chat completions, `temperature=0`, timeout 120 s default, 300 s max (OpenAICompatible.swift:377-378).
 - Long text is split into sections run in parallel, each guarded on its own (Processing.swift:253-262).
 
 ## 9. Guard and fallback
@@ -98,7 +98,7 @@ The raw transcript is written to History before cleanup (Controller.swift:970-97
 
 - Separate shortcut, or the dictation key when a readable selection exists (EditTrigger.swift:7-14, VoiceEdit.swift:175-182; selection probe timeout 0.15 s).
 - Needs an AI engine; refuses secure input, password fields, Murmur's own window, no selection (VoiceEdit.swift:59-85). Selection limit 8,000 characters remote (3,000 on-device) (EditPrompt.swift:9-10). The selection is read through accessibility, never by sending a copy chord. Instruction = the dictated transcript, 500 characters max (VoiceEdit.swift:100).
-- Prompt with nonce-tagged selection and instruction (EditPrompt.swift:13-22); Murmur Cloud uses its edit endpoint (MurmurCloudEdit.swift).
+- Prompt with nonce-tagged selection and instruction (EditPrompt.swift:13-22).
 - `EditCheck.verdict`: unchanged, refused (empty, longer than 3×+200, assistant-style) or apply (EditPrompt.swift:29-45).
 - Replace only if the element, value, selection range and selected text are unchanged, through the normal paste (VoiceEdit.swift:152-160). Status `edited`, `editOriginal` saved, card offers the original for Copy.
 
