@@ -383,7 +383,7 @@ enum ScreenRequest: Equatable {
         // An update that pins a new model leaves the old folder behind: delete it if the new model is ready, else say how to replace it.
         for slot in modelSlots where !self[keyPath: slot].retiredFolders(home: home).isEmpty {
             if self[keyPath: slot].status == .ready { self[keyPath: slot].retiredFolders(home: home).forEach { try? FileManager.default.removeItem(at: $0) } }
-            else { self[keyPath: slot].message = "This update uses a newer model. Download it to replace the old one; the old one is deleted once the new one is verified." }
+            else { self[keyPath: slot].message = ModelReady.updateRowMessage }
         }
         warm.onDictionaryStatus = { [weak self] failed in DispatchQueue.main.async { self?.dictionarySupportFailed = failed } }
         if !preview {

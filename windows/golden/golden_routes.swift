@@ -1,4 +1,4 @@
-// deps: AudioFormat CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention Cleanup Settings CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Credentials VoiceCues Processing WritingModes MurmurCloud Routes CloudAudio KeyCheck AppleCleanup LocalCleanup AIEngine DictationLanguages
+// deps: AudioFormat CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention Cleanup Settings CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Credentials VoiceCues Processing WritingModes Routes CloudAudio KeyCheck AppleCleanup LocalCleanup AIEngine DictationLanguages
 import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -30,9 +30,6 @@ func transcriber(_ t: TranscriptionProvider?) -> Any {
     case let p as OpenAICompatibleTranscriptionProvider:
         return ["type": "custom", "id": p.id.rawValue, "model": opt(p.modelID), "endpoint": p.endpoint.absoluteString, "key": opt(p.server.apiKey?.secret == secret ? "key" : p.server.apiKey?.secret),
                 "precheck": (p as Any) is SilencePrecheckedTranscriber]
-    case let p as MurmurCloudTranscriptionProvider:
-        return ["type": "murmurCloud", "id": p.id.rawValue, "model": opt(p.modelID), "endpoint": p.endpoint.absoluteString, "key": p.apiKey.secret == secret ? "key" : p.apiKey.secret,
-                "precheck": (p as Any) is SilencePrecheckedTranscriber]
     case nil: return NSNull()
     default: return "other"
     }
@@ -43,11 +40,9 @@ func cleaner(_ c: CleanupProvider?) -> Any {
     case let p as OpenAICompatibleCleanupProvider:
         return ["type": "custom", "id": p.id.rawValue, "model": opt(p.modelID), "base": p.baseURL.absoluteString, "key": opt(p.apiKey.map { $0.secret == secret ? "key" : $0.secret }),
                 "effort": opt(p.reasoningEffort), "timeout": p.timeout, "notesTimeout": (p.forMeetingNotes() as! OpenAICompatibleCleanupProvider).timeout]
-    case let p as MurmurCloudCleanupProvider:
-        return ["type": "murmurCloud", "id": p.id.rawValue, "model": opt(p.modelID), "key": p.apiKey.secret == secret ? "key" : p.apiKey.secret]
     case let p as LocalModelCleanupProvider:
         return ["type": "localModel", "id": p.id.rawValue, "model": opt(p.modelID), "disclosure": disclosure(p.disclosure),
-                "shape": [p.shape.takesContext, p.shape.keepsCorrectionsAttached, p.shape.takesPresets], "sectionTarget": opt(p.shape.sectionTarget)]
+                "shape": [p.shape.takesContext, p.shape.keepsCorrectionsAttached], "sectionTarget": opt(p.shape.sectionTarget)]
     case nil: return NSNull()
     default: return "other"
     }
@@ -130,7 +125,7 @@ func verbose(_ segments: [(String, Double, Double, Double)]) -> String {
         }
 
         // Route plans.
-        let keySets: [(String, Set<ProviderID>)] = [("none", []), ("all", Set(ProviderID.allCases)), ("murmurCloud", [.murmurCloud]), ("custom", [.customTranscription, .customCleanup])]
+        let keySets: [(String, Set<ProviderID>)] = [("none", []), ("all", Set(ProviderID.allCases)), ("custom", [.customTranscription, .customCleanup])]
         var plans: [String] = []
         func plan(_ s: RouteSettings, sends: Bool, keys: (String, Set<ProviderID>)) {
             var asked: [ProviderID] = []
@@ -165,8 +160,6 @@ func verbose(_ segments: [(String, Double, Double, Double)]) -> String {
             var s = RouteSettings(); s.transcription = .cloud; s.customTranscriptionAPIBaseURL = "https://speech.example/v1"; s.customTranscriptionModel = "speech-model"
             s.cleanup = .customAPI; s.customAPIBaseURL = "https://cleanup.example/v1"; s.customAPIModel = "cleanup-model"
             plan(s, sends: true, keys: keys)
-            s.transcription = .murmurCloud; s.cleanup = .murmurCloud
-            plan(s, sends: true, keys: keys)
             s.transcription = .cloud; s.customTranscriptionAPIBaseURL = "ftp://x"; s.cleanup = .customAPI; s.customAPIModel = ""
             plan(s, sends: true, keys: keys)
         }
@@ -177,7 +170,7 @@ func verbose(_ segments: [(String, Double, Double, Double)]) -> String {
         let stored: [[String: String]] = [
             [:], [K.transcription: "cloud", K.cleanup: "custom-api", K.customAPIBaseURL: "https://api.example.com/v1", K.customAPIModel: "qwen",
                   K.customTranscriptionAPIBaseURL: "https://speech.example/v1", K.customTranscriptionModel: "whisper-1", K.customAPIReasoningEffort: "medium"],
-            [K.transcription: "murmur-cloud", K.cleanup: "murmur-cloud"], [K.transcription: "LOCAL", K.cleanup: "Local-Rules"], [K.transcription: "", K.cleanup: ""],
+            [K.transcription: "LOCAL", K.cleanup: "Local-Rules"], [K.transcription: "", K.cleanup: ""],
             [K.cleanup: "local-model"], [K.customAPIBaseURL: "https://only-cleanup.example/v1"], [K.customAPIBaseURL: "https://a.example", K.customTranscriptionAPIBaseURL: ""],
             [K.customAPIReasoningEffort: ""], [K.cleanup: "custom-api", K.customAPIModel: " spaced "],
         ]
@@ -272,7 +265,6 @@ func verbose(_ segments: [(String, Double, Double, Double)]) -> String {
             ("verbose", verbose([(" Send the report.", 0, 1, -0.8)]), 0, ""), ("verbose", verbose([(" A.", 0, 0.5, -0.1), (" B.", 0.5, 1, -1.3), (" C.", 1, 2, -0.6)]), 0, ""),
             ("custom", #"{"text":"Synthetic transcript."}"#, 200, ""), ("custom", "{\"error\":{\"message\":\"bad key \(secret)\",\"code\":401}}", 401, ""), ("custom", #"{"wrong":1}"#, 200, ""),
             ("custom", verbose([(" Send the report.", 0, 1, -0.2), (" Thank you.", 1.2, 1.9, -0.2)]), 200, ""), ("custom", "", 503, ""),
-            ("murmurCloud", #"{"text":"Send the report."}"#, 200, ""), ("murmurCloud", "", 402, ""),
         ]
         for (audioName, recipe, rate) in audios {
             let data = WAVAudio.encodePCM16(samples(recipe), sampleRate: rate)
@@ -284,10 +276,8 @@ func verbose(_ segments: [(String, Double, Double, Double)]) -> String {
                     let errors: [String: ProviderError] = ["authentication": .authentication(.customAPI), "rateLimited": .rateLimited(.customAPI, retryAfter: 30), "cancelled": .cancelled]
                     provider = Spy(response: payload == "text" ? .success(extra) : .failure(errors[extra]!))
                 case "verbose": provider = Verbose(json: payload)
-                case "custom":
-                    var p = try OpenAICompatibleTranscriptionProvider(baseURL: "https://stt.example.test", model: "whisper-large-v3-turbo", apiKey: key); p.transport = Mock(status, payload); provider = p
                 default:
-                    var p = MurmurCloudTranscriptionProvider(apiKey: key); p.transport = Mock(status, payload); provider = p
+                    var p = try OpenAICompatibleTranscriptionProvider(baseURL: "https://stt.example.test", model: "whisper-large-v3-turbo", apiKey: key); p.transport = Mock(status, payload); provider = p
                 }
                 let (outcome, detail) = await CloudTranscription.runDetailed(provider: provider, audioData: data)
                 let o: [String: Any]

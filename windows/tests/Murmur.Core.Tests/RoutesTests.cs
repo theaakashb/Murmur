@@ -94,7 +94,7 @@ public class RoutesTests
                     && new RouteSettings().CustomAPIReasoningEffort == "low", "reasoning effort defaults to low, is trimmed, and empty sends none");
         Assert.Null(Routes.MakeCleanupProvider(CleanupChoice.CustomAPI, TestKey, "ftp://x", "m"));
         Assert.IsType<OpenAICompatibleCleanupProvider>(Routes.MakeCleanupProvider(CleanupChoice.CustomAPI, null, "https://api.example.com/v1", "m"));
-        Assert.Equal([CleanupChoice.LocalRules, CleanupChoice.LocalModel, CleanupChoice.CustomAPI, CleanupChoice.MurmurCloud], Enum.GetValues<CleanupChoice>());
+        Assert.Equal([CleanupChoice.LocalRules, CleanupChoice.LocalModel, CleanupChoice.CustomAPI], Enum.GetValues<CleanupChoice>());
         Assert.True(CleanupChoice.LocalModel.ProviderID() == ProviderID.LocalModel && CleanupChoice.LocalModel.ProviderID() != CleanupChoice.CustomAPI.ProviderID() && CleanupChoice.LocalModel.CredentialID() == ProviderID.LocalModel);
         Assert.IsType<LocalModelCleanupProvider>(Routes.MakeCleanupProvider(CleanupChoice.LocalModel, null, "https://api.example.com/v1", "m"));
         var localPlan = RoutePlan.Make(new RouteSettings { Cleanup = CleanupChoice.LocalModel }, true, _ => null);
@@ -315,7 +315,7 @@ public class RoutesTests
         Assert.Equal(TestKey, CustomAPIKeyBinding.Read("https://first.example/v1", relaunched, boundKeys));
         Assert.DoesNotContain(binding.Snapshot().Values, v => $"{v}".Contains(Secret));
         Assert.True(APIKey.Create("sk bad 99") is null && !KeyText.Invalid.Contains("sk bad 99"));
-        Assert.Equal([ProviderID.CustomTranscription, ProviderID.CustomCleanup, ProviderID.MurmurCloud], KeyText.Providers);
+        Assert.Equal([ProviderID.CustomTranscription, ProviderID.CustomCleanup], KeyText.Providers);
         var changedKeys = new InMemoryCredentialStore(new Dictionary<ProviderID, APIKey> { [ProviderID.CustomCleanup] = TestKey });
         binding.Set(CustomAPIKeyBinding.PreferenceFor(ProviderID.CustomCleanup), "https://other.example");
         Assert.Equal(CredentialError.DestinationMismatch, Assert.Throws<CredentialException>(() => CustomAPIKeyBinding.Read("https://changed.example/v1", binding, changedKeys, ProviderID.CustomCleanup)).Error);
@@ -356,39 +356,6 @@ public class RoutesTests
         public void Save(APIKey key, ProviderID provider) => throw new CredentialException(CredentialError.Keychain(-1));
         public void Delete(ProviderID provider) { }
         public void DeleteAll() { }
-    }
-
-    // MARK: Murmur Cloud routes
-
-    [Fact]
-    public async Task MurmurCloudRoutes()
-    {
-        var routes = new RouteSettings { Transcription = TranscriptionRoute.MurmurCloud, Cleanup = CleanupChoice.MurmurCloud };
-        Assert.True(CleanupChoice.MurmurCloud.ProviderID() == ProviderID.MurmurCloud && CleanupChoice.MurmurCloud.CredentialID() == ProviderID.MurmurCloud
-                    && CleanupChoice.MurmurCloud.ProcessingRoute() == CleanupRoute.Cloud && RouteRawValues.TranscriptionRouteFrom("murmur-cloud") == TranscriptionRoute.MurmurCloud
-                    && routes.ApiBaseURL(ProviderID.MurmurCloud) is null, "Murmur Cloud is its own provider; its key has no address binding");
-        var store = new InMemoryCredentialStore(new Dictionary<ProviderID, APIKey> { [ProviderID.MurmurCloud] = TestKey });
-        Assert.Equal(TestKey, CustomAPIKeyBinding.ReadKey(ProviderID.MurmurCloud, routes, new InMemorySettingsStore(), store));
-        var asked = new List<ProviderID>();
-        var both = RoutePlan.Make(routes, true, id => { asked.Add(id); return id == ProviderID.MurmurCloud ? TestKey : null; });
-        Assert.True(both.Transcriber is MurmurCloudTranscriptionProvider && both.Cleaner is MurmurCloudCleanupProvider && both.Refusal is null && asked.ToHashSet().SetEquals([ProviderID.MurmurCloud]));
-        Assert.True(both.Stages.Select(s => s.Stage).SequenceEqual([ProcessingStage.Transcription, ProcessingStage.Cleanup]) && both.Stages.All(s => s.DestinationHost == "api.murmurdictation.com"));
-        Assert.IsAssignableFrom<ISilencePrecheckedTranscriber>(both.Transcriber);
-        routes.Transcription = TranscriptionRoute.Local;
-        var cleanupOnly = RoutePlan.Make(routes, true, id => id == ProviderID.MurmurCloud ? TestKey : null);
-        Assert.True(cleanupOnly.Transcriber is null && cleanupOnly.Cleaner is MurmurCloudCleanupProvider && cleanupOnly.Stages.Select(s => s.Stage).SequenceEqual([ProcessingStage.Cleanup])
-                    && !cleanupOnly.Stages[0].LeavesDevice.Contains("audio"));
-        routes.Transcription = TranscriptionRoute.MurmurCloud;
-        var noKey = RoutePlan.Make(routes, true, _ => null);
-        Assert.True(noKey.Transcriber is null && noKey.Cleaner is null && noKey.Refusal == ProviderError.InvalidConfiguration(ProviderID.MurmurCloud).UserMessage);
-        Assert.Equal(2, noKey.Stages.Count);
-
-        var ok = new CannedTransport(200, """{"data":[]}""");
-        Assert.Equal("Murmur Cloud accepted the key.", await KeyCheck.RunAsync(ProviderID.MurmurCloud, TestKey, "", ok));
-        Assert.Equal(1, ok.Count);
-        Assert.Equal(ProviderError.Quota(ProviderID.MurmurCloud).UserMessage, await KeyCheck.RunAsync(ProviderID.MurmurCloud, TestKey, "", new CannedTransport(402)));
-        Assert.Equal(ProviderError.Authentication(ProviderID.MurmurCloud).UserMessage, await KeyCheck.RunAsync(ProviderID.MurmurCloud, TestKey, "", new CannedTransport(401)));
-        Assert.Equal(ProviderError.InvalidConfiguration(ProviderID.MurmurCloud).UserMessage, await KeyCheck.RunAsync(ProviderID.MurmurCloud, null, ""));
     }
 
     [Fact]
@@ -508,7 +475,7 @@ public class RoutesTests
         var path = Path.Combine(folder, "speech.wav");
         await File.WriteAllBytesAsync(path, audio);
         var transport = new CannedTransport(200, "{\"text\":\"नमस्ते، مرحبًا\"}");
-        var provider = new MurmurCloudTranscriptionProvider(TestKey) { Transport = transport };
+        var provider = new OpenAICompatibleTranscriptionProvider("https://stt.example.test", "whisper-1", TestKey) { Transport = transport };
         const string spoken = "नमस्ते، مرحبًا";
         var english = await CloudTranscription.RunDetailedAsync(provider, audio);
         Assert.True(english.Outcome == Transcript(spoken) && Body(transport).Contains("name=\"language\"\r\n\r\nen\r\n"), "the default request still sends English");
@@ -563,30 +530,6 @@ public class RoutesTests
         var result7 = await p.ProcessAsync("Um, call Akme.");
         Assert.True(result7.Text == "Call Akme.", "unconfigured cloud cleanup uses local rules");
         Assert.True(result7.ProviderError is null, "error cleared per call");
-    }
-
-    // MARK: murmurCloudChecks, the coordinator half
-
-    [Fact]
-    public async Task MurmurCloudThroughTheCoordinator()
-    {
-        // The server gets the text after this PC's edits, the guard judges the reply, History records the server's prompt.
-        var p = Coordinator();
-        p.Update(p.Settings with { Route = CleanupChoice.MurmurCloud.ProcessingRoute(), Options = CleanupOptions.Standard with { Polish = true, Spoken = true } });
-        var server = new CannedTransport(200, """{"text":"Revenue is up 10%."}""");
-        p.CloudCleaner = new MurmurCloudCleanupProvider(TestKey) { Transport = server };
-        var result = await p.ProcessAsync("revenue is up ten percent");
-        var body = JsonDocument.Parse(server.Requests[^1].Body!).RootElement;
-        Assert.True(body.GetProperty("transcript").GetString() == "revenue is up 10%" && body.GetProperty("level").GetString() == "polish", "the server gets the transcript after spoken commands");
-        Assert.True(result.Text == "Revenue is up 10%." && result.PromptHash == "murmur-cloud-server", "the guarded reply is inserted; the prompt hash names the server's prompt");
-        // A preset is refused without a request; the ordinary cleanup that follows carries none of the preset's instructions.
-        p.EngineCleaner = p.CloudCleaner; // writing modes run on the AI engine
-        var email = p.Settings.Style(WritingMode.Presets[1]);
-        var before = server.Count;
-        await p.ProcessAsync("revenue is up ten percent", email);
-        var presetBody = JsonDocument.Parse(server.Requests[^1].Body!).RootElement;
-        Assert.True(email.Instructions.Length > 0 && server.Count == before + 1 && !presetBody.TryGetProperty("style_notes", out _),
-                    "a preset falls back to one ordinary cleanup with no preset instructions as style notes");
     }
 
     // MARK: main(): every destination setting stays on this PC when restoring (check_routes.swift:144-146)

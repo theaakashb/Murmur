@@ -1,4 +1,4 @@
-// deps: AudioFormat CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Credentials MurmurCloud
+// deps: AudioFormat CleanupTypes CleanupText CleanupGuard CleanupPrompt RuleCleaner ProviderTypes ProviderHTTP OpenAICompatible Credentials
 import Foundation
 import CryptoKit
 
@@ -151,9 +151,6 @@ func segment(_ s: TranscriptSegment) -> [String: Any] {
             transcriptions.append(line(["provider": base, "request": request(p.makeRequest(AudioPayload(data: Data([1, 2, 3])), boundary: "synthetic-boundary"), boundary: "synthetic-boundary"),
                                         "validate": request(p.server.makeGetRequest(p.server.modelsURL))]))
         }
-        let cloudSTT = MurmurCloudTranscriptionProvider(apiKey: key)
-        transcriptions.append(line(["provider": "murmur-cloud", "request": request(cloudSTT.makeRequest(AudioPayload(data: Data("RIFF".utf8)), boundary: boundary), boundary: boundary),
-                                    "validate": request(MurmurCloud.modelsRequest(key: key))]))
 
         // Chat requests.
         var chats: [String] = []
@@ -179,27 +176,6 @@ func segment(_ s: TranscriptSegment) -> [String: Any] {
             chats.append(line(["provider": base, "key": apiKey != nil, "models": request(p.makeGetRequest(p.modelsURL)), "tags": request(p.makeGetRequest(p.ollamaTagsURL)),
                                "chat": request(try OpenAICompatibleCleanupProvider.makeRequest(messages: messages, endpoint: p.chatCompletionsURL, model: p.model, apiKey: p.sendableKey,
                                                                                                maxTokens: p.maxTokens, reasoningEffort: "low", provider: p.id))]))
-        }
-
-        // Murmur Cloud cleanup bodies from built prompts (fixed nonce).
-        var cloud: [String] = []
-        let context = ScreenContext(selected: "Selected / <b>", clipboard: "", window: "Window — Zoë")
-        let optionSets: [(String, CleanupOptions)] = [
-            ("professional", CleanupOptions(fillers: true, corrections: true, lists: false, punctuation: true, professional: true, spoken: true)),
-            ("polish", CleanupOptions(fillers: true, corrections: true, lists: true, punctuation: true, polish: true, spoken: true)),
-            ("polishNoSpoken", CleanupOptions(fillers: false, corrections: false, lists: true, punctuation: false, polish: true)),
-            ("professionalNoCorrections", CleanupOptions(corrections: false, professional: true)),
-            ("strict", CleanupOptions(punctuation: true)),
-        ]
-        for (name, options) in optionSets {
-            for (terms, ctx, notes) in [([], nil, ""), (["clouddev", " clouddev ", "Ana\nMaria"], context, "Use British spelling."), (["Akme"], nil, "")] as [([String], ScreenContext?, String)] {
-                for transcript in ["revenue is up ten percent new line send it to clouddev", "um send it", ""] {
-                    let built = CleanupPrompt.build(transcript: transcript, options: options, dictionaryTerms: terms, nonce: "N1", context: ctx, instructions: notes)
-                    guard let input = built.input else { continue }
-                    cloud.append(line(["options": name, "transcript": transcript, "terms": terms, "context": ctx != nil, "notes": notes,
-                                       "outcome": outcome { request(try MurmurCloudCleanupFormat.makeRequest(input, key: key)) }]))
-                }
-            }
         }
 
         // Response parsing.
@@ -242,7 +218,7 @@ func segment(_ s: TranscriptSegment) -> [String: Any] {
         ]
         var parses: [String] = []
         for (name, status, body, levels) in transcriptionBodies {
-            for provider in [ProviderID.customAPI, .murmurCloud] {
+            for provider in [ProviderID.customAPI] {
                 parses.append(line(["fn": "transcription", "name": name, "provider": provider.rawValue, "status": status, "body": body, "levels": opt(levels?.map { Double($0) }),
                                     "outcome": outcome { () -> Any in
                                         let r = try OpenAITranscriptionFormat.parseDetailed(provider: provider, result: HTTPResult(status: status, body: Data(body.utf8)), levels: levels)
@@ -270,11 +246,6 @@ func segment(_ s: TranscriptSegment) -> [String: Any] {
                                     "outcome": outcome { try OpenAIChatFormat.parse(provider: provider, result: HTTPResult(status: status, body: Data(body.utf8))) }]))
             }
         }
-        for (name, status, body) in [("text", 200, #"{"text":"Send it."}"#), ("answer", 200, #"{"answer":"x"}"#), ("error", 200, #"{"error":{"code":"c"},"text":"x"}"#),
-                                     ("401", 401, #"{"error":{"message":"fixed"}}"#), ("textNull", 200, #"{"text":null}"#), ("html", 200, "<html>")] {
-            parses.append(line(["fn": "murmurCloud", "name": name, "status": status, "body": body,
-                                "outcome": outcome { try MurmurCloudCleanupFormat.parse(HTTPResult(status: status, body: Data(body.utf8))) }]))
-        }
         let ollamaV1 = #"{"object":"list","data":[{"id":"qwen2.5:7b"},{"id":"llama3.2:latest"}]}"#
         let llamaServer = #"{"models":[{"name":"gemma.gguf","model":"gemma.gguf"}],"object":"list","data":[{"id":"gemma.gguf"}]}"#
         let tags = #"{"models":[{"name":"llama3.2:latest","model":"llama3.2:latest"},{"name":"mistral:7b"},{"model":"b:1","name":"a:1"},{"name":5}]}"#
@@ -289,7 +260,7 @@ func segment(_ s: TranscriptSegment) -> [String: Any] {
 
         // Classification of HTTP results at a fixed time.
         var classify: [String] = []
-        for provider in [ProviderID.customAPI, .localServer, .murmurCloud, .customTranscription] {
+        for provider in [ProviderID.customAPI, .localServer, .customTranscription] {
             for status in [100, 200, 204, 299, 300, 301, 304, 307, 308, 399, 400, 401, 402, 403, 404, 408, 409, 412, 413, 415, 422, 429, 451, 499, 500, 502, 503, 504, 520, 599, 600] {
                 classify.append(line(["provider": provider.rawValue, "status": status, "body": "", "headers": [:] as [String: String],
                                       "error": errorObject(ProviderErrorClassifier.classify(provider: provider, result: HTTPResult(status: status), now: now))]))
@@ -324,7 +295,7 @@ func segment(_ s: TranscriptSegment) -> [String: Any] {
             ("cannotConnectToHost", .cannotConnectToHost), ("notConnectedToInternet", .notConnectedToInternet), ("cannotFindHost", .cannotFindHost),
             ("networkConnectionLost", .networkConnectionLost), ("secureConnectionFailed", .secureConnectionFailed), ("badServerResponse", .badServerResponse), ("unknown", .unknown)]
         for (name, code) in codes {
-            for provider in [ProviderID.localServer, .customAPI, .customCleanup, .customTranscription, .murmurCloud] {
+            for provider in [ProviderID.localServer, .customAPI, .customCleanup, .customTranscription] {
                 for url in [nil, "http://localhost:11434/v1/chat/completions", "http://[::1]:1234/v1/models", "https://api.example.com/v1/models", "http://192.168.1.20:8000/v1/models", "http://127.0.0.1:8080"] as [String?] {
                     transport.append(line(["code": name, "provider": provider.rawValue, "url": opt(url),
                                            "error": errorObject(ProviderErrorClassifier.classify(provider: provider, transportError: URLError(code), url: url.flatMap(URL.init(string:))))]))
@@ -360,8 +331,6 @@ func segment(_ s: TranscriptSegment) -> [String: Any] {
                 disclosures.append(line(["kind": "transcription", "base": base, "key": apiKey != nil, "disclosure": disclosure(t.disclosure)]))
             }
         }
-        disclosures.append(line(["kind": "murmurCloudCleanup", "disclosure": disclosure(MurmurCloudCleanupProvider(apiKey: key).disclosure)]))
-        disclosures.append(line(["kind": "murmurCloudTranscription", "disclosure": disclosure(MurmurCloudTranscriptionProvider(apiKey: key).disclosure)]))
         for items in [[], ["audio"], ["a", "b"], ["a", "b", "c"]] {
             disclosures.append(line(["kind": "list", "items": items, "summary": DataDisclosure(provider: .customAPI, stage: .cleanup, destinationHost: "h.example", leavesDevice: items,
                                                                                          staysOnDevice: [], retentionNote: "Note.", warning: items.count == 2 ? "Careful." : nil).summary]))
@@ -398,7 +367,7 @@ func segment(_ s: TranscriptSegment) -> [String: Any] {
         }
 
         emit([("endpoints", endpoints), ("loopback", loopback), ("addresses", addresses), ("transcriptionRequests", transcriptions), ("chatRequests", chats),
-              ("murmurCloudRequests", cloud), ("parse", parses), ("classify", classify), ("retryAfter", retry), ("transportErrors", transport),
+              ("parse", parses), ("classify", classify), ("retryAfter", retry), ("transportErrors", transport),
               ("errors", messagesOut), ("providerIDs", names), ("disclosures", disclosures), ("apiKeys", keys), ("reasoning", reasoning), ("helpers", helpers)])
     }
 }

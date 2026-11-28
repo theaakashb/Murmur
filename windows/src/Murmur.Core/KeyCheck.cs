@@ -14,9 +14,7 @@ public static class KeyText
     public static readonly IReadOnlyList<ProviderID> Providers = [.. T.Providers.Select(raw => ProviderIDExtensions.FromRaw(raw) ?? throw new InvalidDataException("Unknown provider id in shared/routes.json."))];
 
     public static string Validated(ProviderID provider) =>
-        provider == ProviderID.LocalServer ? "The local model server answered."
-        : provider is ProviderID.CustomTranscription or ProviderID.CustomCleanup or ProviderID.CustomAPI ? "The custom API endpoint answered."
-        : $"{provider.DisplayName()} accepted the key.";
+        provider == ProviderID.LocalServer ? "The local model server answered." : "The custom API endpoint answered.";
 }
 
 /// <summary>Swift's <c>Result&lt;[String], ProviderError&gt;</c> for model discovery: exactly one of the two is set.</summary>
@@ -44,10 +42,6 @@ public static class KeyCheck
                     return OnDeviceModelUnavailable.DeviceNotEligible.UserMessage();
                 case ProviderID.LocalModel:
                     return new LocalModelCleanupProvider().Status()?.UserMessage() ?? "The local cleanup model is ready.";
-                case ProviderID.MurmurCloud:
-                    if (key is null) return ProviderError.InvalidConfiguration(provider).UserMessage;
-                    await MurmurCloud.ValidateAsync(key, transport ?? HttpClientTransport.Default, cancellationToken).ConfigureAwait(false);
-                    break;
                 default:
                     // Legacy key accounts only (Cerebras, OpenRouter): no client exists for them.
                     return ProviderError.InvalidConfiguration(provider).UserMessage;

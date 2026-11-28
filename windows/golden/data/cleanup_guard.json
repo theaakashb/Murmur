@@ -1057,6 +1057,7 @@
 {"input":"we could ship the update on Monday because","nonList":1,"words":["we|we|1000","could|could|0000","ship|ship|0000","the|the|0000","update|update|0000","on|on|0000","Monday|monday|0000","because|because|0000"]},
 {"commaFree":"6,7","commaFreeApplied":"send me the report by 5 the quarterly one","input":"send me the report by 5 I mean the quarterly one","loose":"6,7","nonList":1,"words":["send|send|1000","me|me|0000","the|the|0000","report|report|0000","by|by|0000","5|5|0000","I|i|0000","mean|mean|0000","the|the|0000","quarterly|quarterly|0000","one|one|0000"]},
 {"input":"send me the report by 5 the quarterly one","nonList":1,"words":["send|send|1000","me|me|0000","the|the|0000","report|report|0000","by|by|0000","5|5|0000","the|the|0000","quarterly|quarterly|0000","one|one|0000"]},
+{"input":"Professional: the local model gets the transcript after comma-free corrections","nonList":1,"words":["Professional|professional|1000","the|the|1000","local|local|0000","model|model|0000","gets|gets|0000","the|the|0000","transcript|transcript|0000","after|after|0000","comma-free|comma-free|0000","corrections|corrections|0000"]},
 {"input":"I did not say it.","nonList":1,"words":["I|i|1000","did|did|0000","not|not|0000","say|say|0000","it|it|0001"]},
 {"input":"professional keeps an unrestated I meant","nonList":1,"words":["professional|professional|1000","keeps|keeps|0000","an|an|0000","unrestated|unrestated|0000","I|i|0000","meant|meant|0000"]},
 {"input":"one","nonList":1,"words":["one|one|1000"]},

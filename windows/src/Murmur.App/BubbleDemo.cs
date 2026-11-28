@@ -26,7 +26,7 @@ internal sealed partial class Bubble
         {
             case "listening": ShowListening(); break;
             case "processing": ShowProcessing(); break;
-            case "label": ShowProcessing("Editing on Murmur Cloud…"); break;
+            case "label": ShowProcessing("Editing with your Custom Provider…"); break;
             case "live-start": ShowListening(); ShowLiveWords(); break;
             case "live-words": ShowListening(); ShowLiveWords(); break;
             case "notice": ShowNotice("Dictation saved", seconds + 5); break;

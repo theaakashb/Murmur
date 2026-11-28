@@ -58,7 +58,7 @@
 {"key":"customTranscriptionAPIBaseURL","machine":true},
 {"key":"localServerURL","machine":true},
 {"key":"customAPIKeyEndpoint","machine":true},
-{"key":"customAPIKeyEndpoint.murmur-cloud","machine":true},
+{"key":"customAPIKeyEndpoint.customCleanup","machine":true},
 {"key":"SUEnableAutomaticChecks","machine":true},
 {"key":"SUFoo","machine":true},
 {"key":"NSWindow Frame Settings","machine":true},

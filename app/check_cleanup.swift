@@ -517,6 +517,8 @@ struct ThrowingCleaner: Cleaner {
             ("I mean business when I say this", "I mean business when I say this"),
             ("Meet Tuesday, sorry, Thursday.", "Meet Tuesday, sorry, Thursday."),
         ] { expect(CleanupGuard.applyCommaFreeCorrections(raw) == out, "comma-free correction: \(raw)") }
+        let meant = "we could ship the update on Friday actually no I meant on Monday because"
+        expect(CleanupPrompt.build(transcript: meant, options: CleanupOptions(fillers: true, corrections: true, lists: false, punctuation: true, professional: true, spoken: true)).input?.raw == CleanupGuard.applyCommaFreeCorrections(meant), "Professional: the local model gets the transcript after comma-free corrections")
         expect(CleanupGuard.check(raw: "I did not say that I meant it", cleaned: "I did not say it.", options: professional) != .pass, "professional keeps an unrestated I meant")
         // Numbers and negations keep their place; numeric "one" is never a pronoun (PR review).
         for (raw, out, label) in [

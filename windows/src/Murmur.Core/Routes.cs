@@ -22,8 +22,6 @@ public enum TranscriptionRoute
     Local,
     /// <summary>A custom OpenAI-compatible endpoint.</summary>
     Cloud,
-    /// <summary>Murmur Cloud, with the Murmur Cloud key.</summary>
-    MurmurCloud,
 }
 
 public enum CleanupChoice
@@ -33,14 +31,12 @@ public enum CleanupChoice
     /// <summary>The managed local model: downloaded on request, runs on this computer.</summary>
     LocalModel,
     CustomAPI,
-    /// <summary>Murmur Cloud: the server builds the prompt; the guard stays here.</summary>
-    MurmurCloud,
 }
 
 public static class RouteRawValues
 {
-    static readonly string[] Transcription = ["local", "cloud", "murmur-cloud"];
-    static readonly string[] Cleanup = ["local-rules", "local-model", "custom-api", "murmur-cloud"];
+    static readonly string[] Transcription = ["local", "cloud"];
+    static readonly string[] Cleanup = ["local-rules", "local-model", "custom-api"];
 
     public static string RawValue(this TranscriptionRoute route) => Transcription[(int)route];
     public static string RawValue(this CleanupChoice choice) => Cleanup[(int)choice];
@@ -53,7 +49,7 @@ public static class CleanupChoiceExtensions
 {
     public static string Id(this CleanupChoice choice) => choice.RawValue();
 
-    /// <summary>Polish and Professional need a model: Murmur Cloud, a Custom Provider, or the Local model when the installed one runs them (<see cref="LocalCleanupModel.RunsModelLevels"/>); never Local rules.</summary>
+    /// <summary>Polish and Professional need a model: a Custom Provider, or the Local model when the installed one runs them (<see cref="LocalCleanupModel.RunsModelLevels"/>); never Local rules.</summary>
     public static bool RunsModelLevels(this CleanupChoice choice) => choice switch
     {
         CleanupChoice.LocalRules => false,
@@ -65,8 +61,7 @@ public static class CleanupChoiceExtensions
     {
         CleanupChoice.LocalRules => "Local rules (this Mac)",
         CleanupChoice.LocalModel => "Local model (this Mac)",
-        CleanupChoice.CustomAPI => "Custom Provider",
-        _ => "Murmur Cloud",
+        _ => "Custom Provider",
     };
 
     /// <summary>The processing route: anything but the rule cleaner goes through a provider.</summary>
@@ -76,8 +71,7 @@ public static class CleanupChoiceExtensions
     {
         CleanupChoice.LocalRules => null,
         CleanupChoice.LocalModel => Core.ProviderID.LocalModel,
-        CleanupChoice.CustomAPI => Core.ProviderID.CustomAPI,
-        _ => Core.ProviderID.MurmurCloud,
+        _ => Core.ProviderID.CustomAPI,
     };
 
     public static ProviderID? CredentialID(this CleanupChoice choice) => choice == CleanupChoice.CustomAPI ? Core.ProviderID.CustomCleanup : choice.ProviderID();
@@ -103,13 +97,12 @@ public static class Routes
         {
             case CleanupChoice.LocalRules: return null;
             case CleanupChoice.LocalModel: return new LocalModelCleanupProvider();
-            case CleanupChoice.CustomAPI:
+            default:
                 var name = SwiftText.TrimWhitespaceAndNewlines(model);
                 if (name.Length == 0) return null;
                 var effort = SwiftText.TrimWhitespaceAndNewlines(reasoningEffort);
                 try { return new OpenAICompatibleCleanupProvider(apiBaseURL, name, key, Core.ProviderID.CustomAPI) { ReasoningEffort = effort.Length == 0 ? null : effort }; }
                 catch (ProviderException) { return null; }
-            default: return key is null ? null : new MurmurCloudCleanupProvider(key);
         }
     }
 }
@@ -242,9 +235,6 @@ public sealed record RoutePlan(ITranscriptionProvider? Transcriber, ICleanupProv
     /// <summary>Null transcriber means local transcription (Parakeet).</summary>
     public bool UsesLocalModel => Transcriber is null && Refusal is null;
 
-    /// <summary>Reads only the disclosure of a provider; this placeholder is never sent anywhere.</summary>
-    static readonly APIKey PlaceholderKey = APIKey.Create("disclosure-only")!;
-
     /// <summary><paramref name="cleanupSendsText"/> is false when every cleanup option is off: the provider is not called
     /// then, so nothing is sent and no key is needed.</summary>
     public static RoutePlan Make(RouteSettings settings, bool cleanupSendsText, Func<ProviderID, APIKey?> key)
@@ -259,12 +249,6 @@ public sealed record RoutePlan(ITranscriptionProvider? Transcriber, ICleanupProv
                 if (transcriber is null) refusal = ProviderError.InvalidConfiguration(ProviderID.CustomAPI).UserMessage;
                 if (transcriber?.Disclosure is { StaysOnThisMac: false } disclosure) stages.Add(disclosure);
                 break;
-            case TranscriptionRoute.MurmurCloud:
-                transcriber = key(ProviderID.MurmurCloud) is APIKey cloudKey ? new MurmurCloudTranscriptionProvider(cloudKey) : null;
-                if (transcriber is null) refusal = ProviderError.InvalidConfiguration(ProviderID.MurmurCloud).UserMessage;
-                // Shown before a key is saved too, so Settings discloses the route while it is set up.
-                stages.Add(new MurmurCloudTranscriptionProvider(PlaceholderKey).Disclosure);
-                break;
         }
         ICleanupProvider? cleaner = null;
         if (settings.Cleanup != CleanupChoice.LocalRules && cleanupSendsText && settings.Cleanup.ProviderID() is ProviderID provider)
@@ -272,8 +256,7 @@ public sealed record RoutePlan(ITranscriptionProvider? Transcriber, ICleanupProv
             var storedKey = settings.Cleanup == CleanupChoice.LocalModel ? null : key(settings.Cleanup.CredentialID() ?? provider);
             cleaner = Routes.MakeCleanupProvider(settings.Cleanup, storedKey, settings.CustomAPIBaseURL, settings.CustomAPIModel, settings.CustomAPIReasoningEffort);
             if (cleaner is null && refusal is null) refusal = ProviderError.InvalidConfiguration(provider).UserMessage;
-            var preview = cleaner ?? Routes.MakeCleanupProvider(settings.Cleanup, storedKey ?? PlaceholderKey, settings.CustomAPIBaseURL, settings.CustomAPIModel);
-            if (preview?.Disclosure is { StaysOnThisMac: false } disclosure) stages.Add(disclosure);
+            if (cleaner?.Disclosure is { StaysOnThisMac: false } disclosure) stages.Add(disclosure);
         }
         return new RoutePlan(transcriber, cleaner, refusal, stages);
     }

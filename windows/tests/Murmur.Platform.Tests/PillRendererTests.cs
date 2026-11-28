@@ -53,7 +53,7 @@ public sealed class PillRendererTests(ITestOutputHelper output) : IDisposable
                 yield return ["live-start", new PillModel(PillKind.LiveWords) { Dark = dark }, scale, 22];
                 yield return ["live-words", new PillModel(PillKind.LiveWords) { Dark = dark, Settled = "Add two eggs and a litre of milk to the shopping ", Guess = "list" }, scale, 22];
                 yield return ["live-two-lines", new PillModel(PillKind.LiveWords) { Dark = dark, Settled = "Add two eggs and a litre of milk to the shopping list and then call the plumber about the kitchen tap before ", Guess = "noon" }, scale, 22];
-                yield return ["label", new PillModel(PillKind.DotsLabel) { Dark = dark, Text = "Editing on Murmur Cloud…", Processing = true }, scale, 16];
+                yield return ["label", new PillModel(PillKind.DotsLabel) { Dark = dark, Text = "Editing with your Custom Provider…", Processing = true }, scale, 16];
                 yield return ["notice", new PillModel(PillKind.Notice) { Dark = dark, Text = "Dictation saved" }, scale, 18];
                 yield return ["error", new PillModel(PillKind.Error) { Dark = dark, Text = "The microphone is not available." }, scale, 18];
                 yield return ["copy", new PillModel(PillKind.Copy) { Dark = dark, Title = "Couldn’t paste here", Preview = "Add two eggs and a litre of milk to the shopping list. Then call the plumber about the kitchen tap." }, scale, 18];

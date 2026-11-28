@@ -36,12 +36,4 @@ try:
     raise AssertionError("release missing signing key")
 except ValueError:
     pass
-assert "MurmurCloudHost" not in configure({}, {})
-assert configure({}, dict(MURMUR_CLOUD_HOST="preview.example.com"))["MurmurCloudHost"] == "preview.example.com"
-for bad_host in ["https://x.com", "a.com/path", "a b.com", "localhost"]:
-    try:
-        configure({}, dict(MURMUR_CLOUD_HOST=bad_host))
-        raise AssertionError(bad_host)
-    except ValueError:
-        pass
 print("Update build configuration checks passed")

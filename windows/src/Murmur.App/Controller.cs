@@ -96,7 +96,7 @@ internal sealed partial class Controller : IDisposable
 
     public bool VoiceEditReady
     {
-        get { var routes = RouteSettings.Load(s.Settings); return VoiceEdit.VoiceEditReady(routes.Cleanup, routes, provider => s.Key(provider) is not null); }
+        get { var routes = RouteSettings.Load(s.Settings); return VoiceEdit.VoiceEditReady(routes.Cleanup, routes); }
     }
 
     public bool IsBusy => phase is Phase.Listening or Phase.Processing;
@@ -264,7 +264,7 @@ internal sealed partial class Controller : IDisposable
         if (plan.UsesLocalModel)
         {
             if (!s.Local.HelperPresent) return StartFailed("local-helper-missing", "The speech helper is missing. Reinstall Murmur.");
-            if (!SpeechModelReady(languages.LocalModel)) return StartFailed("local-model-missing", "The speech model is not installed yet. Download it in Settings, or pick a Custom Provider or Murmur Cloud.");
+            if (!SpeechModelReady(languages.LocalModel)) return StartFailed("local-model-missing", "The speech model is not installed yet. Download it in Settings, or pick a Custom Provider.");
             if (english && s.Local.ModelDamaged) return StartFailed("local-model-damaged", "The speech model failed its checksum check. Remove it in Settings and download it again.");
         }
         // Load the cleanup model while the user speaks, so that cost is not inside the dictation.

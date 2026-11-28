@@ -10,7 +10,7 @@ public class CleanupStyleTests
     {
         using var _ = LocalCleanupModels.Use(LocalCleanupModels.Installed); // the shipped model has no levels on its route
         var polish = CleanupStyles.Select(CleanupStyle.Polish, CleanupChoice.LocalRules, CleanupOptions.Faithful);
-        Assert.Equal(CleanupChoice.MurmurCloud, polish.Route);
+        Assert.Equal(CleanupChoice.CustomAPI, polish.Route);
         Assert.Equal(CleanupOptions.Standard with { Polish = true }, polish.Options);
 
         var natural = CleanupStyles.Select(CleanupStyle.Natural, CleanupChoice.CustomAPI, polish.Options);
@@ -50,7 +50,7 @@ public class CleanupStyleTests
         Assert.Null(effective.Transform);
         Assert.Null(effective.Context);
         Assert.False(effective.UsesEngine);
-        Assert.Same(saved, CleanupChoice.MurmurCloud.EffectiveStyle(saved));
+        Assert.Same(saved, CleanupChoice.CustomAPI.EffectiveStyle(saved));
     }
 
     [Theory]
@@ -62,7 +62,7 @@ public class CleanupStyleTests
         var saved = CleanupOptions.Standard with { Polish = true, Professional = true, TrustModel = true };
         Assert.Equal(CleanupStyle.Natural, CleanupStyles.Current(local, saved));
         Assert.Equal(CleanupOptions.Standard, local.EffectiveOptions(saved));
-        Assert.Equal(CleanupStyle.Professional, CleanupStyles.Current(CleanupChoice.MurmurCloud, saved));
+        Assert.Equal(CleanupStyle.Professional, CleanupStyles.Current(CleanupChoice.CustomAPI, saved));
         Assert.Equal(saved, CleanupChoice.CustomAPI.EffectiveOptions(saved));
     }
 }

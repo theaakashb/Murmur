@@ -164,7 +164,6 @@ extension SettingsView {
                                     if controller.chosenSpeechModel == .parakeetEnglish {
                                         cleanupChoices
                                         if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .customAPI { customCleanupSettings }
-                                        if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .murmurCloud { keyRow(.murmurCloud).padding(.top, 16) }
                                         disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 12)
                                     }
                                 }

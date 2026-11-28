@@ -9,7 +9,7 @@ using System.Text.Json;
 namespace Murmur.Core;
 
 /// <summary>What one managed local cleanup model is and what it can do. The Mac replaced Vedu Scribe 0.8B with Murmur Cleanup 2B (which also takes tone, rewrite presets and screen
-/// context as header lines, and is trusted like Murmur Cloud); the Windows GGUF of it is not published yet. Replacing the model is: add a profile, set
+/// context as header lines, and is trusted for Polish and Professional); the Windows GGUF of it is not published yet. Replacing the model is: add a profile, set
 /// <see cref="LocalCleanupModels.Current"/>, pin the GGUF in windows/shared/windows-models.json and list the old folder in <see cref="ModelFacts.Retired"/> (windows/CLEANUP-MODEL-SWAP.md).</summary>
 public sealed record LocalCleanupModel
 {
@@ -22,13 +22,13 @@ public sealed record LocalCleanupModel
     public required string FolderName { get; init; }
     /// <summary>Folder names of the models this one replaced; the next download deletes them.</summary>
     public IReadOnlyList<string> RetiredFolderNames { get; init; } = [];
-    /// <summary>Polish, Professional and Natural run as model passes on the Local model route (Mac: runsModelLevels). Without it those need Murmur Cloud or a Custom Provider.</summary>
+    /// <summary>Polish, Professional and Natural run as model passes on the Local model route (Mac: runsModelLevels). Without it those need a Custom Provider.</summary>
     public bool RunsModelLevels { get; init; }
     /// <summary>The model has a formal tone header (<c>[tone: formal]</c>), so Professional runs on it.</summary>
     public bool RunsProfessional { get; init; }
     /// <summary>The model takes screen text (<c>[screen: ...]</c>) and rewrite presets (<c>[mode: ...]</c>); without it both fall back as before.</summary>
     public bool TakesContextAndPresets { get; init; }
-    /// <summary>Polish and Professional are held only to malfunctions, as on Murmur Cloud; otherwise the full guard (numbers, names, negations) applies.</summary>
+    /// <summary>Polish and Professional are held only to malfunctions; otherwise the full guard (numbers, names, negations) applies.</summary>
     public bool TrustedLikeCloud { get; init; }
     /// <summary>The longest dictation (in characters) one request takes.</summary>
     public int MaximumCharacters { get; init; } = 4_000;

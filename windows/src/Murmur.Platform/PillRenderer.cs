@@ -6,7 +6,7 @@ public enum PillKind
 {
     /// <summary>Just the five bars (listening, or the processing sweep). No background.</summary>
     Dots,
-    /// <summary>Processing with a label ("Editing on Murmur Cloud…"): a card with the bars and the text.</summary>
+    /// <summary>Processing with a label ("Editing with your Custom Provider…"): a card with the bars and the text.</summary>
     DotsLabel,
     /// <summary>The live-words card: the bars, then the words (the last one dimmed), or a dim "Listening…".</summary>
     LiveWords,

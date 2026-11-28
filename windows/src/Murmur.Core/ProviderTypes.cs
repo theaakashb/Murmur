@@ -68,9 +68,7 @@ public sealed record DataDisclosure(ProviderID Provider, ProcessingStage Stage, 
             else
             {
                 static string List(IReadOnlyList<string> items) => items.Count < 2 ? string.Concat(items) : string.Join(", ", items.Take(items.Count - 1)) + " and " + items[^1];
-                main = Provider == ProviderID.MurmurCloud
-                    ? $"Sends {List(LeavesDevice)} to Murmur Cloud. See murmurdictation.com/privacy for details."
-                    : $"Sends {List(LeavesDevice)} to {DestinationHost}. {RetentionNote}";
+                main = $"Sends {List(LeavesDevice)} to {DestinationHost}. {RetentionNote}";
             }
             return Warning is null ? main : main + " " + Warning;
         }
@@ -173,14 +171,11 @@ public sealed record ProviderError
                 case ProviderErrorKind.Server: return Status is long status ? $"{name} had a server problem (HTTP {status})." : $"{name} had a server problem.";
                 case ProviderErrorKind.MalformedResponse or ProviderErrorKind.OutputTruncated: return $"{name} returned a response Murmur couldn't use.";
                 case ProviderErrorKind.ContentBlocked: return $"{name} declined to process this dictation (content filter).";
-                case ProviderErrorKind.Rejected when Provider == ProviderID.MurmurCloud: return $"{name} rejected the request (HTTP {Status}).";
                 case ProviderErrorKind.Rejected: return $"{name} rejected the request (HTTP {Status}). Check the model setting.";
                 case ProviderErrorKind.InvalidConfiguration when Provider == ProviderID.LocalServer:
                     return "The local model server isn't set up. Check the server address (http or https, no user name or password) and the model name in Settings.";
                 case ProviderErrorKind.InvalidConfiguration when Provider == ProviderID.CustomAPI:
                     return "The custom API provider isn't set up. Check the API base URL, model name and key in Settings.";
-                case ProviderErrorKind.InvalidConfiguration when Provider == ProviderID.MurmurCloud:
-                    return "Murmur Cloud isn't set up. Add your Murmur Cloud key in Settings.";
                 case ProviderErrorKind.InvalidConfiguration: return $"{name} isn't set up. Add an API key and model in Settings.";
                 case ProviderErrorKind.ServerNotRunning: return $"No local model server is running at {Address}. Start it, or check the address in Settings.";
                 case ProviderErrorKind.ModelUnavailable: return Unavailable!.Value.UserMessage();
@@ -224,11 +219,10 @@ public static class ProviderLimits
 }
 
 /// <summary>shared/providers.json, exported by windows/shared/export_providers.swift.</summary>
-internal sealed record ProvidersData(ProvidersData.AudioData AudioFormat, ProvidersData.LimitsData ProviderLimits, ProvidersData.CloudData MurmurCloud, ProvidersData.OpenAIData OpenAI)
+internal sealed record ProvidersData(ProvidersData.AudioData AudioFormat, ProvidersData.LimitsData ProviderLimits, ProvidersData.OpenAIData OpenAI)
 {
     internal sealed record AudioData(int SampleRate, float SilencePeak, double MinimumSpeechSeconds);
     internal sealed record LimitsData(int MaxOutputTokens, double ValidationDeadline);
-    internal sealed record CloudData(string DefaultHost, string CleanupModel, string TranscriptionModel, double CleanupDeadline);
     internal sealed record OpenAIData(double NoSpeechThreshold, double LogprobThreshold, int MinLoudWindows, int UploadLimitBytes, string OllamaDefault, double DefaultTimeout, double MaximumTimeout);
     public static readonly ProvidersData Value = SharedData.Load<ProvidersData>("providers");
 }
@@ -244,7 +238,8 @@ public sealed record CleanupShape
     public int? SectionTarget { get; init; }
     /// <summary>With sections: a sentence opening with a correction cue stays with the one it repairs.</summary>
     public bool KeepsCorrectionsAttached { get; init; }
-    /// <summary>False: rewrite presets are refused, and their instructions are not sent as style notes on the ordinary cleanup that follows.</summary>
+    /// <summary>False: rewrite presets are refused, and their instructions are not sent as style notes on the ordinary cleanup that follows.
+    /// Windows only (the Mac dropped it): the shipped local model takes no presets.</summary>
     public bool TakesPresets { get; init; } = true;
 }
 

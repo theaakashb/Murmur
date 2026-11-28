@@ -175,7 +175,6 @@ public class ProvidersGoldenTests
     public static IEnumerable<object[]> Addresses => Cases("addresses");
     public static IEnumerable<object[]> TranscriptionRequests => Cases("transcriptionRequests");
     public static IEnumerable<object[]> ChatRequests => Cases("chatRequests");
-    public static IEnumerable<object[]> MurmurCloudRequests => Cases("murmurCloudRequests");
     public static IEnumerable<object[]> Parse => Cases("parse");
     public static IEnumerable<object[]> Classify => Cases("classify");
     public static IEnumerable<object[]> RetryAfter => Cases("retryAfter");
@@ -231,13 +230,7 @@ public class ProvidersGoldenTests
         var expected = c.GetProperty("request");
         if (ProviderGolden.Str(c, "provider") is string provider)
         {
-            var audio = provider == "murmur-cloud" ? new AudioPayload(Encoding.UTF8.GetBytes("RIFF")) : new AudioPayload([1, 2, 3]);
-            if (provider == "murmur-cloud")
-            {
-                ProviderGolden.AssertRequest(expected, new MurmurCloudTranscriptionProvider(ProviderGolden.Key).MakeRequest(audio, "TESTBOUNDARY"), "TESTBOUNDARY");
-                ProviderGolden.AssertRequest(c.GetProperty("validate"), MurmurCloud.ModelsRequest(ProviderGolden.Key));
-                return;
-            }
+            var audio = new AudioPayload([1, 2, 3]);
             var p = new OpenAICompatibleTranscriptionProvider(provider, "custom/whisper:latest", ProviderGolden.Key);
             ProviderGolden.AssertRequest(expected, p.MakeRequest(audio, "synthetic-boundary"), "synthetic-boundary");
             ProviderGolden.AssertRequest(c.GetProperty("validate"), p.Server.MakeGetRequest(p.Server.ModelsURL));
@@ -272,25 +265,6 @@ public class ProvidersGoldenTests
         int? maxTokens = ProviderGolden.IsNull(c, "maxTokens") ? null : c.GetProperty("maxTokens").GetInt32();
         var request = OpenAIChatFormat.MakeRequest(endpoint, ProviderGolden.Bool(c, "key") ? ProviderGolden.Key : null, "llama3.2:latest", Messages, maxTokens, ProviderGolden.Str(c, "effort"));
         ProviderGolden.AssertRequest(c.GetProperty("request"), request);
-    }
-
-    static readonly Dictionary<string, CleanupOptions> OptionSets = new()
-    {
-        ["professional"] = new(fillers: true, corrections: true, lists: false, punctuation: true, professional: true, spoken: true),
-        ["polish"] = new(fillers: true, corrections: true, lists: true, punctuation: true, polish: true, spoken: true),
-        ["polishNoSpoken"] = new(fillers: false, corrections: false, lists: true, punctuation: false, polish: true),
-        ["professionalNoCorrections"] = new(corrections: false, professional: true),
-        ["strict"] = new(punctuation: true),
-    };
-
-    [Theory, MemberData(nameof(MurmurCloudRequests))]
-    public void MurmurCloudRequestMatches(int i, string label)
-    {
-        var c = Case("murmurCloudRequests", i);
-        var context = ProviderGolden.Bool(c, "context") ? new ScreenContext { Selected = "Selected / <b>", Clipboard = "", Window = "Window — Zoë" } : null;
-        var built = CleanupPrompt.Build(S(c, "transcript"), OptionSets[S(c, "options")], GoldenFiles.Strings(c.GetProperty("terms")), "N1", context, S(c, "notes"));
-        Assert.NotNull(built.Input);
-        ProviderGolden.AssertOutcome(c.GetProperty("outcome"), () => MurmurCloudCleanupFormat.MakeRequest(built.Input, ProviderGolden.Key), (e, r) => ProviderGolden.AssertRequest(e, r), label);
     }
 
     static void AssertSegments(JsonElement expected, IReadOnlyList<TranscriptSegment>? actual)
@@ -334,9 +308,6 @@ public class ProvidersGoldenTests
                 break;
             case "chat":
                 ProviderGolden.AssertOutcome(outcome, () => OpenAIChatFormat.Parse(ProviderGolden.Provider(S(c, "provider")), result), Text, label);
-                break;
-            case "murmurCloud":
-                ProviderGolden.AssertOutcome(outcome, () => MurmurCloudCleanupFormat.Parse(result), Text, label);
                 break;
             case "modelList":
                 ProviderGolden.AssertOutcome(outcome, () => OpenAICompatibleCleanupProvider.ParseModelList(result), Strings, label);
@@ -409,8 +380,6 @@ public class ProvidersGoldenTests
             case "transcription":
                 ProviderGolden.AssertDisclosure(expected, new OpenAICompatibleTranscriptionProvider(S(c, "base"), "whisper-1", key).Disclosure);
                 break;
-            case "murmurCloudCleanup": ProviderGolden.AssertDisclosure(expected, new MurmurCloudCleanupProvider(ProviderGolden.Key).Disclosure); break;
-            case "murmurCloudTranscription": ProviderGolden.AssertDisclosure(expected, new MurmurCloudTranscriptionProvider(ProviderGolden.Key).Disclosure); break;
             default:
                 var items = GoldenFiles.Strings(c.GetProperty("items"));
                 Assert.Equal(S(c, "summary"), new DataDisclosure(ProviderID.CustomAPI, ProcessingStage.Cleanup, "h.example", items, [], "Note.", items.Length == 2 ? "Careful." : null).Summary);

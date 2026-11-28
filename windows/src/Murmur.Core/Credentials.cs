@@ -21,13 +21,11 @@ public enum ProviderID
     AppleIntelligence,
     /// <summary>The managed local cleanup model. No key; nothing leaves the computer.</summary>
     LocalModel,
-    /// <summary>Murmur's own hosted service: cleanup and transcription with one Murmur Cloud key.</summary>
-    MurmurCloud,
 }
 
 public static class ProviderIDExtensions
 {
-    static readonly string[] Raw = ["openrouter", "cerebras", "customAPI", "customTranscription", "customCleanup", "localServer", "appleIntelligence", "local-model", "murmur-cloud"];
+    static readonly string[] Raw = ["openrouter", "cerebras", "customAPI", "customTranscription", "customCleanup", "localServer", "appleIntelligence", "local-model"];
 
     public static string RawValue(this ProviderID id) => Raw[(int)id];
 
@@ -42,8 +40,7 @@ public static class ProviderIDExtensions
         ProviderID.CustomCleanup => "Custom cleanup",
         ProviderID.LocalServer => "Local model server",
         ProviderID.AppleIntelligence => "Apple Intelligence",
-        ProviderID.LocalModel => "Local model",
-        _ => "Murmur Cloud",
+        _ => "Local model",
     };
 
     /// <summary>Professional is cloud-only: neither the Local model nor Apple Intelligence runs it.</summary>

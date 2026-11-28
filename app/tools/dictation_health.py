@@ -16,7 +16,7 @@ import time
 
 HISTORY = os.path.expanduser("~/Library/Application Support/Dictation/history")
 APPLE_EPOCH = 978307200  # Swift Date's reference date, in Unix seconds.
-# Thresholds from CLEANUP_BENCHMARK.md (October 22, 2026) and History before it; see that file.
+# Empirical thresholds, set from History.
 MIN_DICTATIONS = 10
 MAX_FALLBACK_RATE = 0.15     # Trust on: the guard is bypassed, so fallbacks mean provider failure or the judge.
 MAX_CLEANER_FAILED_RATE = 0.05

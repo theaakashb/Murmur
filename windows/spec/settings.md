@@ -50,8 +50,8 @@ Derived from the Swift app at commit `c70cdb1`. References are `app/<file>:<line
 | pasteLastShortcut | string | Mac fixed ⌃⌘V | Paste last dictation | Shortcut.swift:245 | new key on Windows, default `ctrl-win-shift-v` |
 | voiceEditShortcut | string | `same` | Voice edit key. `same` uses the dictation key with a selection. For a separate chord, use `custom:<decimal VK>:<mask>` (Ctrl 1, Shift 2, Alt 4, Win 8). Omit the mask for an unmodified key. | Controller+Settings.swift:9, EditTrigger.swift:13-14 | same semantics |
 | modelDirectory | path | computed under the user cache folder | Batch model folder | Controller+Settings.swift:10, ModelText.swift:97-100 | `%LOCALAPPDATA%\Murmur\Models\<model>-<rev>` |
-| transcriptionRoute | `local`/`cloud`/`murmur-cloud` | `local` | Transcription route | Routes.swift:20-26, 117-118 | same |
-| cleanupChoice | `local-rules`/`local-model`/`custom-api`/`murmur-cloud` | `local-rules` | Cleanup route | Routes.swift:37-44, 120 | same; `local-model` runs Vedu Scribe through `Murmur.Cleanup` |
+| transcriptionRoute | `local`/`cloud` | `local` | Transcription route | Routes.swift:20-26, 117-118 | same |
+| cleanupChoice | `local-rules`/`local-model`/`custom-api` | `local-rules` | Cleanup route | Routes.swift:37-44, 120 | same; `local-model` runs Vedu Scribe through `Murmur.Cleanup` |
 | customAPIBaseURL | string | "" | Custom cleanup server | Routes.swift:121 | same |
 | customTranscriptionAPIBaseURL | string | customAPIBaseURL when unset | Custom transcription server | Routes.swift:122, 187 | same |
 | customAPIModel | string | "" | Custom cleanup model | Routes.swift:123 | same |
@@ -97,7 +97,6 @@ Windows: Credential Manager generic credentials, target `Murmur/<account>`, pers
 | --- | --- | --- |
 | customTranscription | Custom transcription key | Credentials.swift:14 |
 | customCleanup | Custom cleanup key | Credentials.swift:15 |
-| murmur-cloud | Murmur Cloud key | Credentials.swift:22 |
 
 Legacy accounts (`customAPI`, `openrouter`, `cerebras`, `localServer`) are not ported. Delete All removes every `Murmur/*` credential (`Credentials.swift:167-172`).
 

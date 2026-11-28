@@ -22,8 +22,7 @@ public sealed record VoiceEditSession(string EngineName, string Destination, boo
     string Selection, Func<string, string, CancellationToken, Task<string>> Run)
 {
     public Guid Generation { get; init; } = Guid.NewGuid();
-    // Mac VoiceEdit.swift:112 (fix/murmur-cloud-status-copy): Murmur Cloud never shows its host; a Custom Provider shows its destination.
-    public string ProcessingLabel => OnDevice ? "Editing on this PC…" : Destination == MurmurCloud.Host ? "Editing on Murmur Cloud…" : $"Editing with {EngineName} ({Destination})…";
+    public string ProcessingLabel => OnDevice ? "Editing on this PC…" : $"Editing with {EngineName} ({Destination})…";
     public string CompletedLabel => $"Edited with {EngineName}. Ctrl+Z in the app undoes it.";
 }
 
@@ -35,8 +34,8 @@ public static class VoiceEdit
         public sealed record Refused(string Message, bool Dictates = true) : SessionResult;
     }
 
-    public static bool VoiceEditReady(CleanupChoice cleanup, RouteSettings routes, Func<ProviderID, bool> hasKey) =>
-        AIEngines.Derive(cleanup) is { } engine && engine.UnavailableReason(routes, hasKey) is null;
+    public static bool VoiceEditReady(CleanupChoice cleanup, RouteSettings routes) =>
+        AIEngines.Derive(cleanup) is { } engine && engine.UnavailableReason(routes) is null;
 
     public static SessionResult? VoiceEditForDictationKey(string shortcut, Func<SessionResult> session)
     {
@@ -46,13 +45,12 @@ public static class VoiceEdit
     }
 
     public static SessionResult CreateSession(bool secureInput, CleanupChoice cleanup, RouteSettings routes, Func<ProviderID, APIKey?> key,
-        IVoiceEditTarget target, int ownProcessId, IHttpTransport? cloudTransport = null)
+        IVoiceEditTarget target, int ownProcessId)
     {
         if (secureInput) return new SessionResult.Refused("Voice edit is unavailable while Secure Input is active.");
         if (AIEngines.Derive(cleanup) is not { } engine)
-            return new SessionResult.Refused("Voice edit needs a Custom Provider or Murmur Cloud.");
-        var cloudKey = engine == AIEngine.MurmurCloud ? key(ProviderID.MurmurCloud) : null;
-        if (engine.UnavailableReason(routes, _ => cloudKey is not null) is { } reason)
+            return new SessionResult.Refused("Voice edit needs a Custom Provider.");
+        if (engine.UnavailableReason(routes) is { } reason)
             return new SessionResult.Refused(reason);
         var focus = target.Capture();
         if (focus is null) return new SessionResult.Refused("Select some text first.");
@@ -61,13 +59,8 @@ public static class VoiceEdit
         if (!focus.ReadableText || focus.Selection is not { } selection || !EditTrigger.CapturesKey(false, selection))
             return new SessionResult.Refused("Select some text first. Murmur could not read a selection in this app.");
 
-        var name = engine == AIEngine.CustomProvider ? "your Custom Provider" : "Murmur Cloud";
+        const string name = "your Custom Provider";
         if (SelectionRefusal(selection, name, onDevice: false) is { } failure) return failure;
-        if (cloudKey is not null)
-        {
-            var client = new MurmurCloudEditProvider(cloudKey) { Transport = cloudTransport ?? HttpClientTransport.Default };
-            return new SessionResult.Ready(new(name, client.Disclosure.DestinationHost, false, focus, selection, client.EditAsync));
-        }
         if (engine.Provider(routes, key) is not { } provider)
             return new SessionResult.Refused("Voice edit is not set up. Check AI features in Settings.");
         return new SessionResult.Ready(new(name, provider.Disclosure.DestinationHost, false, focus, selection,

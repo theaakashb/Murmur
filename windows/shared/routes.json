@@ -8,8 +8,7 @@
     "none" : "No key saved",
     "providers" : [
       "customTranscription",
-      "customCleanup",
-      "murmur-cloud"
+      "customCleanup"
     ],
     "removeFailed" : "The key could not be removed from the Keychain.",
     "removed" : "Key removed",

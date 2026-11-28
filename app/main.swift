@@ -19,7 +19,10 @@ import Combine
         NSApp.setActivationPolicy(controller.showInDock ? .regular : .accessory)
         NSApp.mainMenu = buildMainMenu()
         controller.openSettings = { [weak self] in self?.showWindow() }
-        controller.readyNotifier.onOpen = { [weak self] in self?.showWindow() } // Onboarding stays on its current step; otherwise the main window.
+        controller.readyNotifier.onOpen = { [weak self] pane in // Onboarding stays on its current step; otherwise the main window or the named pane.
+            if let pane { self?.controller.screenRequest = .settingsPane(pane) }
+            self?.showWindow()
+        }
         controller.readyNotifier.attach()
         controller.updateMenu = { [weak self] in self?.meetingPanel.indicatorChanged(); self?.refreshMenu() }
         // The meeting indicator shows whether or not the menu bar icon is otherwise visible.
@@ -35,6 +38,7 @@ import Combine
         let launchedAtLogin = event?.eventID == kAEOpenApplication
             && event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
         controller.start(); refreshMenu()
+        if !options.preview && options.testAudio == nil { controller.announceModelUpdates() }
         if let audio = options.testAudio, let expectedApp = options.expectedApp {
             controller.checkSavedAudio(URL(fileURLWithPath: audio), expectedApp: expectedApp) { NSApp.terminate(nil) }
         } else if options.preview || !launchedAtLogin { showWindow() }

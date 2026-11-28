@@ -4,12 +4,6 @@
     "sampleRate" : 16000,
     "silencePeak" : 0.01
   },
-  "murmurCloud" : {
-    "cleanupDeadline" : 45,
-    "cleanupModel" : "murmur-cleanup",
-    "defaultHost" : "api.murmurdictation.com",
-    "transcriptionModel" : "murmur-transcribe"
-  },
   "openAI" : {
     "defaultTimeout" : 120,
     "logprobThreshold" : -1,

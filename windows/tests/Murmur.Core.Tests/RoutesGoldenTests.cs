@@ -119,7 +119,6 @@ public class RoutesGoldenTests
         switch (t)
         {
             case OpenAICompatibleTranscriptionProvider p: Assert.Equal("custom", S(e, "type")); Assert.Equal(S(e, "endpoint"), p.Endpoint.ToString()); Assert.Equal(ProviderGolden.Str(e, "key"), KeyName(p.Server.ApiKey)); break;
-            case MurmurCloudTranscriptionProvider m: Assert.Equal("murmurCloud", S(e, "type")); Assert.Equal(S(e, "endpoint"), m.Endpoint.ToString()); Assert.Equal(ProviderGolden.Str(e, "key"), KeyName(m.ApiKey)); break;
             default: Assert.Fail("unexpected transcriber type"); break;
         }
     }
@@ -140,11 +139,10 @@ public class RoutesGoldenTests
                 Assert.Equal(e.GetProperty("timeout").GetDouble(), p.Timeout);
                 Assert.Equal(e.GetProperty("notesTimeout").GetDouble(), ((OpenAICompatibleCleanupProvider)p.ForMeetingNotes()).Timeout);
                 break;
-            case MurmurCloudCleanupProvider m: Assert.Equal("murmurCloud", S(e, "type")); Assert.Equal(ProviderGolden.Str(e, "key"), KeyName(m.ApiKey)); break;
             case LocalModelCleanupProvider l:
                 Assert.Equal("localModel", S(e, "type"));
                 ProviderGolden.AssertDisclosure(e.GetProperty("disclosure"), l.Disclosure);
-                Assert.Equal(e.GetProperty("shape").EnumerateArray().Select(x => x.GetBoolean()), new[] { l.Shape.TakesContext, l.Shape.KeepsCorrectionsAttached, l.Shape.TakesPresets });
+                Assert.Equal(e.GetProperty("shape").EnumerateArray().Select(x => x.GetBoolean()), new[] { l.Shape.TakesContext, l.Shape.KeepsCorrectionsAttached });
                 Assert.Equal(e.GetProperty("sectionTarget").GetInt32(), l.Shape.SectionTarget);
                 break;
             default: Assert.Fail("unexpected cleaner type"); break;
@@ -153,7 +151,7 @@ public class RoutesGoldenTests
 
     static readonly Dictionary<string, HashSet<ProviderID>> KeySets = new()
     {
-        ["none"] = [], ["all"] = [.. Enum.GetValues<ProviderID>()], ["murmurCloud"] = [ProviderID.MurmurCloud], ["custom"] = [ProviderID.CustomTranscription, ProviderID.CustomCleanup],
+        ["none"] = [], ["all"] = [.. Enum.GetValues<ProviderID>()], ["custom"] = [ProviderID.CustomTranscription, ProviderID.CustomCleanup],
     };
 
     [Theory, MemberData(nameof(Plans))]
@@ -304,8 +302,7 @@ public class RoutesGoldenTests
                 _ => ProviderError.Cancelled,
             })),
             "verbose" => new VerboseTranscriber(payload),
-            "custom" => new OpenAICompatibleTranscriptionProvider("https://stt.example.test", "whisper-large-v3-turbo", Key) { Transport = new CannedTransport(status, payload) },
-            _ => new MurmurCloudTranscriptionProvider(Key) { Transport = new CannedTransport(status, payload) },
+            _ => new OpenAICompatibleTranscriptionProvider("https://stt.example.test", "whisper-large-v3-turbo", Key) { Transport = new CannedTransport(status, payload) },
         };
         var (outcome2, detail) = await CloudTranscription.RunDetailedAsync(provider, data);
         var e = c.GetProperty("outcome");

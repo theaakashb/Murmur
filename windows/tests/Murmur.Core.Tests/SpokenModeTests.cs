@@ -71,7 +71,7 @@ public class SpokenModeTests
         var said = WritingModes.Trigger(Modes, "Email mode, tell Sam I'm late.")!.Value;
         var result = await p.ProcessAsync(said.Text, p.Settings.Style(said.Mode));
         Assert.Equal(CleanupFailureReason.CleanerFailed, result.Fallback);
-        Assert.Contains("Murmur Cloud or a Custom Provider", ModeFeedback.Notice(said.Mode, hasEngine: false, result.Fallback));
+        Assert.Contains("needs a Custom Provider", ModeFeedback.Notice(said.Mode, hasEngine: false, result.Fallback));
     }
 
     [Fact]

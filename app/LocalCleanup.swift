@@ -9,10 +9,10 @@ enum LocalCleanupIdentity {
     static let modelName = "Murmur Cleanup 2B"
     static let helperName = "LocalCleanupRunner"
     /// Recorded in History: the pinned repository and the first 7 characters of its revision (artifact-pins.json).
-    static let modelID = "clouddevaakash/murmur-cleanup-2b@b591570"
+    static let modelID = "clouddevaakash/murmur-cleanup-2b@555400a"
     /// A stable app-owned location, not a user setting.
     static func directory(home: URL) -> URL {
-        home.appendingPathComponent("Library/Application Support/Dictation/Models/murmur-cleanup-2b-r3")
+        home.appendingPathComponent("Library/Application Support/Dictation/Models/murmur-cleanup-2b-r5")
     }
 }
 
@@ -47,7 +47,7 @@ struct LocalModelCleanupProvider: CleanupProvider {
     var generate: @Sendable (LocalCleanupRequest) async throws -> String = { try await LocalCleanupRunner.shared.clean($0) }
     var modelID: String? { LocalCleanupIdentity.modelID }
     /// One fixed prompt: screen context and presets go as header lines; style notes are not followed.
-    var shape: CleanupShape { CleanupShape(takesContext: true, sectionTarget: 150, keepsCorrectionsAttached: true, takesPresets: true) }
+    var shape: CleanupShape { CleanupShape(takesContext: true, sectionTarget: 150, keepsCorrectionsAttached: true) }
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .cleanup, destinationHost: "\(LocalCleanupIdentity.modelName), downloaded to this Mac", leavesDevice: [],
                        staysOnDevice: ["the transcript"], retentionNote: "")

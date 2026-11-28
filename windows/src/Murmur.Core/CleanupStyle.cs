@@ -32,8 +32,8 @@ public static class CleanupStyles
     {
         if (style == CleanupStyle.Faithful) return (route, CleanupOptions.Faithful);
         if (!saved.AnyEnabled) saved = CleanupOptions.Standard;
-        // Polish and Professional need a model route: from Local rules they move to the Local model when it runs them, else to Murmur Cloud.
-        if (style.NeedsModel() && !route.RunsModelLevels()) route = LocalCleanupModels.Current.RunsModelLevels ? CleanupChoice.LocalModel : CleanupChoice.MurmurCloud;
+        // Polish and Professional need a model route: from Local rules they move to the Local model when it runs them, else to the Custom Provider.
+        if (style.NeedsModel() && !route.RunsModelLevels()) route = LocalCleanupModels.Current.RunsModelLevels ? CleanupChoice.LocalModel : CleanupChoice.CustomAPI;
         return (route, saved with { Polish = style.NeedsModel(), Professional = style == CleanupStyle.Professional });
     }
 }

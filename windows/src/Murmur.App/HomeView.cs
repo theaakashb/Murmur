@@ -95,8 +95,8 @@ internal sealed class HomeView(AppServices s, Controller controller, HomeView.Ac
 
     UIElement RouteLine(RouteSettings routes)
     {
-        string transcription = routes.Transcription switch { TranscriptionRoute.Local => "On this PC", TranscriptionRoute.MurmurCloud => "Murmur Cloud", _ => "Custom Provider" };
-        string cleanup = routes.Cleanup switch { CleanupChoice.LocalRules => "Local rules", CleanupChoice.LocalModel => "Local model", CleanupChoice.CustomAPI => "Custom Provider", _ => "Murmur Cloud" };
+        string transcription = routes.Transcription switch { TranscriptionRoute.Local => "On this PC", _ => "Custom Provider" };
+        string cleanup = routes.Cleanup switch { CleanupChoice.LocalRules => "Local rules", CleanupChoice.LocalModel => "Local model", _ => "Custom Provider" };
         var plan = RoutePlan.Make(routes, true, s.Key);
         var details = new List<string>();
         foreach (var stage in new[] { ProcessingStage.Transcription, ProcessingStage.Cleanup })

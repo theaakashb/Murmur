@@ -45,10 +45,7 @@ public class CleanupPromptGoldenTests
         Assert.Equal(c.GetProperty("user").GetString(), m.User);
         var input = m.Input!;
         Assert.Equal(c.GetProperty("raw").GetString(), input.Raw);
-        Assert.Equal(c.GetProperty("sent").GetString(), input.Sent);
-        Assert.Equal(Strings(c, "promptTerms"), input.PromptTerms);
         Assert.Equal(Strings(c, "terms"), input.Terms);
-        Assert.Equal(c.GetProperty("notes").GetString(), input.Notes);
         Assert.Equal(ReadContext(c, "inputContext"), input.Context);
     }
 

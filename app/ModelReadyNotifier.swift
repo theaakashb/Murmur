@@ -3,8 +3,8 @@ import UserNotifications
 
 /// Posts `ModelReady` notices. Permission is asked when a model download starts, never at launch.
 @MainActor final class ModelReadyNotifier: NSObject, UNUserNotificationCenterDelegate {
-    /// A click on the notice: bring Murmur forward.
-    var onOpen: () -> Void = {}
+    /// A click on the notice: bring Murmur forward, at the Settings pane the notice names, if any.
+    var onOpen: (SettingsPane?) -> Void = { _ in }
     // Not available to a bare binary outside an app bundle.
     private var center: UNUserNotificationCenter? { Bundle.main.bundleURL.pathExtension == "app" ? .current() : nil }
 
@@ -25,8 +25,21 @@ import UserNotifications
         }
     }
 
+    /// Asks for permission if needed, then posts even while a Murmur window is open: the launch window does not show the model row.
+    func postUpdate(models: [String], pane: SettingsPane) {
+        guard let center else { return }
+        center.requestAuthorization(options: [.alert]) { granted, _ in
+            guard granted else { return }
+            let content = UNMutableNotificationContent()
+            content.title = ModelReady.updateTitle; content.body = ModelReady.updateBody(models: models)
+            content.userInfo = ["pane": pane.rawValue]
+            center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        }
+    }
+
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler done: @escaping () -> Void) {
-        DispatchQueue.main.async { MainActor.assumeIsolated { self.onOpen() }; done() }
+        let pane = (response.notification.request.content.userInfo["pane"] as? Int).flatMap(SettingsPane.init(rawValue:))
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.onOpen(pane) }; done() }
     }
     // Murmur can be active with no key window; still show the banner then.
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {

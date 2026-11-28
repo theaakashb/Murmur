@@ -18,7 +18,7 @@ using System.Text.RegularExpressions;
 namespace Murmur.Core;
 
 /// <summary>Where cleanup runs. <c>Local</c> is the RuleCleaner. <c>Cloud</c> means "through an <see cref="ICleanupProvider"/>":
-/// a custom OpenAI-compatible endpoint, Murmur Cloud or the managed local model (see <see cref="CleanupChoice"/>). Raw values "local", "cloud".</summary>
+/// a custom OpenAI-compatible endpoint or the managed local model (see <see cref="CleanupChoice"/>). Raw values "local", "cloud".</summary>
 [System.Text.Json.Serialization.JsonConverter(typeof(CamelCaseEnumConverter<CleanupRoute>))]
 public enum CleanupRoute { Local, Cloud }
 
@@ -415,14 +415,14 @@ public sealed class ProcessingCoordinator
         {
             probe?.Invoke("prompt");
             messages = CleanupPrompt.Build(section, options, terms, context: context, instructions: instructions);
-            // The managed model's prompt is fixed inside the helper and Murmur Cloud's is built by the server, so the built prompt's hash would mislead.
-            hash = provider.Id == ProviderID.LocalModel ? "local-fixed" : provider.Id == ProviderID.MurmurCloud ? "murmur-cloud-server" : PromptHash(messages.System);
+            // The managed model's prompt is fixed inside the helper, so the built prompt's hash would mislead.
+            hash = provider.Id == ProviderID.LocalModel ? "local-fixed" : PromptHash(messages.System);
         }
         catch (RegexMatchTimeoutException) { return new CloudAttempt(null, CleanupFailureReason.CleanerFailed, null); }
         string output;
         try { output = await provider.CleanupAsync(messages, cancellationToken).ConfigureAwait(false); }
         catch (Exception e) { return new CloudAttempt(null, CleanupFailureReason.CleanerFailed, (e as ProviderException)?.Error) { PromptHash = hash }; }
-        // Apple Intelligence is always held to the full guard (numbers, names, negations); so is the Local model unless the installed one is trusted like Murmur Cloud.
+        // Apple Intelligence is always held to the full guard (numbers, names, negations); so is the Local model unless the installed one is trusted (TrustedLikeCloud).
         var judged = provider.Id == ProviderID.AppleIntelligence || (provider.Id == ProviderID.LocalModel && !LocalCleanupModels.Current.TrustedLikeCloud) ? options with { TrustModel = false } : options;
         CleanupFailureReason reason;
         try
