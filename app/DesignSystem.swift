@@ -317,16 +317,13 @@ struct SettingInfoButton: View {
     }
 }
 
-func segmented<T: Hashable>(_ options: [(T, String)], _ selection: Binding<T>, size: CGFloat = 15, cloud: @escaping (T) -> Bool = { _ in false }) -> some View {
+func segmented<T: Hashable>(_ options: [(T, String)], _ selection: Binding<T>, size: CGFloat = 15) -> some View {
     HStack(spacing: 12) {
         ForEach(options.indices, id: \.self) { index in
             let (value, label) = options[index]
             let on = selection.wrappedValue == value
             Button { selection.wrappedValue = value } label: {
-                HStack(spacing: 4) {
-                    Text(label).lineLimit(1).minimumScaleFactor(0.75)
-                    if cloud(value) { Image(systemName: "cloud.fill").font(.system(size: size - 2)).foregroundStyle(Palette.accent) }
-                }
+                Text(label).lineLimit(1).minimumScaleFactor(0.75)
                     .font(WindowType.body(size, weight: .medium))
                     .frame(maxWidth: .infinity).frame(minHeight: 40)
                     .foregroundStyle(on ? Palette.ink : Palette.ink70)
@@ -334,7 +331,6 @@ func segmented<T: Hashable>(_ options: [(T, String)], _ selection: Binding<T>, s
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain).accessibilityAddTraits(on ? .isSelected : [])
-            .accessibilityLabel(cloud(value) ? "\(label), runs on Murmur Cloud" : label)
         }
     }
 }

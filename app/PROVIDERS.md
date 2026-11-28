@@ -1,10 +1,10 @@
 # Provider integration
 
-Configure transcription and cleanup independently in Settings. Cloud routes require your own provider configuration. Review the destination and data disclosure before enabling a route; provider availability, pricing and retention terms must be checked with that provider.
+Configure transcription and cleanup independently in Settings. The only cloud route is an optional Custom Provider: your own OpenAI-compatible endpoint and key. Nothing leaves the Mac unless you set one up. Review the destination and data disclosure before enabling a route; provider availability, pricing and retention terms must be checked with that provider.
 
 ## Configure a route
 
-1. Choose a transcription route in Settings → Transcription and a cleanup style in Settings → Cleanup. Polish and Professional use the AI model you pick there; Faithful and Strict run on this Mac. Local Parakeet transcription and built-in cleanup need no provider account; Apple Intelligence is offered only for meeting notes (Settings → Meetings), depending on system availability.
+1. Choose a transcription route in Settings → Transcription and a cleanup style in Settings → Cleanup. Polish and Professional use the AI model you pick there; Faithful and Strict run on this Mac. Local Parakeet transcription and built-in cleanup need no provider account. Apple Intelligence is not a cleanup choice; it runs writing modes and voice edit on local routes (see AI engine) and is offered for meeting notes (Settings → Meetings), depending on system availability.
 2. For Custom Provider, enter the service's base URL, model ID and, when required, API key. Transcription and cleanup have separate fields and destination-bound keys. URLs and model IDs apply on Return or focus loss; keys require Save.
 
 | Custom stage | Request | Base URL example |
@@ -16,24 +16,14 @@ A base URL can include or omit a trailing `/v1`; do not enter the full request p
 
 Only loopback destinations count as on this Mac and can work without a key; a local server configured to require authentication still needs its key. LAN and other remote hosts are disclosed as off-Mac. Use HTTPS off-Mac: keys are not sent to unencrypted remote endpoints. Changing an endpoint requires saving its key again for that destination. If nothing is listening at a loopback address, cleanup, transcription and key validation report that no local model server is running there; a remote endpoint that refuses the connection gets the generic network error.
 
-## Murmur Cloud
+## AI engine
 
-Murmur Cloud is Murmur's hosted service at `https://api.murmurdictation.com` (fixed, not a setting). Choose it for cleanup only, or for transcription and cleanup. Paste the Murmur Cloud key in its key field; Validate calls `GET /v1/models` (a 402 means no active plan). With local transcription only `POST /v1/cleanup` runs and no audio leaves the Mac.
-
-| Stage | Request |
-| --- | --- |
-| Transcription | Multipart audio to `/v1/audio/transcriptions`, as for a custom provider, with no dictionary prompt. |
-| Cleanup | Murmur's own JSON to `/v1/cleanup`: the transcript after the Mac's own edits, the level (Polish or Professional), the four cleanup toggles, relevant dictionary terms, style notes and any enabled screen context. The server builds the prompt; the guard stays on this Mac. |
-
-The Prompt, Email and Notes presets are not sent to Murmur Cloud: their dictations get ordinary cleanup without the preset's instructions. Meeting notes have their own route and never use Murmur Cloud.
-
-**AI engine.** Writing modes (presets and per-app or per-website styles) run on their own engine, chosen in Settings → Writing → Modes: Apple Intelligence (this Mac, macOS 26), your Custom Provider, or Murmur Cloud. A dictation that uses a mode is sent only to that engine, even when Cleanup runs on this Mac; with Apple Intelligence nothing leaves the Mac. With no engine available, modes apply only their non-AI settings. History records the engine that ran.
+Writing modes (presets and per-app or per-website styles) and voice edit run on an engine that follows the cleanup choice; it has no setting of its own (`AIEngine.swift`). With Custom Provider cleanup it is your Custom Provider; with Local rules or the Local model it is Apple Intelligence (this Mac, macOS 26) where available. On the Local model, the Prompt, Email and Notes presets run on the Local model itself. A dictation that uses a mode is sent only to that engine; with Apple Intelligence nothing leaves the Mac. With no engine available, modes apply only their non-AI settings. History records the engine that ran.
 
 Custom cleanup makes one provider request per dictation. A provider error or rejected rewrite can use guarded local cleanup; a transcription error does not switch to another transcriber.
 
 ## Implementation
 
-- `MurmurCloud.swift` implements the Murmur Cloud requests.
 - `OpenAICompatible.swift` and `ProviderHTTP.swift` implement custom OpenAI-compatible requests, transport and response validation; `ProviderTypes.swift` holds the shared contracts.
 - `Credentials.swift` stores API keys in the macOS Keychain.
 - `Routes.swift` resolves configured routes and their disclosures; `CloudAudio.swift` prepares upload audio and `KeyCheck.swift` validates keys.

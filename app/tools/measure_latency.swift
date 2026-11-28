@@ -1,10 +1,9 @@
 // End-to-end latency after key release, per stage, on synthetic speech (macOS `say`, 16 kHz WAV). Reuses the app's own
-// WarmRunner (local Parakeet helper), ProcessingCoordinator (local rules, Apple Intelligence, Murmur Cloud cleanup) and
-// MurmurCloudTranscriptionProvider. Insertion is not measured (it needs a focused app); see LATENCY_BENCHMARK.md.
-// Prints numbers only: never the synthetic or transcribed text, never a key. Murmur Cloud is skipped without a stored key.
+// WarmRunner (local Parakeet helper) and ProcessingCoordinator (local rules, Apple Intelligence cleanup). Insertion is not
+// measured (it needs a focused app); see LATENCY_BENCHMARK.md. Prints numbers only: never the synthetic or transcribed text.
 //
 //   app/tools/build.sh measure_latency   # prints the executable path, called /tmp/ml below
-//   [ML_N=20] [ML_COLD=3] /tmp/ml HELPER_EXECUTABLE PARAKEET_MODEL_DIR [local,apple,cloud]
+//   [ML_N=20] [ML_COLD=3] /tmp/ml HELPER_EXECUTABLE PARAKEET_MODEL_DIR [local,apple]
 import Foundation
 
 let buckets: [(name: String, words: Int)] = [("short", 17), ("medium", 56), ("long", 166)]
@@ -40,9 +39,9 @@ func asr(_ warm: WarmRunner, _ helper: URL, _ launch: HelperLaunch, _ wav: URL) 
     static func main() async throws {
         setvbuf(stdout, nil, _IOLBF, 0)
         let a = Array(CommandLine.arguments.dropFirst())
-        guard a.count >= 2 else { print("usage: ml HELPER MODEL_DIR [local,apple,cloud]"); exit(2) }
+        guard a.count >= 2 else { print("usage: ml HELPER MODEL_DIR [local,apple]"); exit(2) }
         let helper = URL(fileURLWithPath: a[0]), models = URL(fileURLWithPath: a[1])
-        let stages = Set((a.count > 2 ? a[2] : "local,apple,cloud").split(separator: ",").map(String.init))
+        let stages = Set((a.count > 2 ? a[2] : "local,apple").split(separator: ",").map(String.init))
         let n = Int(ProcessInfo.processInfo.environment["ML_N"] ?? "") ?? 20, coldRuns = Int(ProcessInfo.processInfo.environment["ML_COLD"] ?? "") ?? 3
         let launch = HelperLaunch(models: models, dictionaryArguments: [], key: "bench")
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("murmur-latency-\(UUID())")
@@ -116,28 +115,6 @@ func asr(_ warm: WarmRunner, _ helper: URL, _ launch: HelperLaunch, _ wav: URL) 
             if let why = apple.status() { print("| Apple Intelligence | - | 0 | - | - | - | - | unavailable: \(why.userMessage) |") } else {
                 for level in ["polish", "professional"] { await cleanup("Apple on-device cleanup (\(level.capitalized))", route: .cloud, provider: apple, level: level, texts: transcripts, first: level == "polish") }
             }
-        }
-        if stages.contains("cloud") {
-            guard let key = try? KeychainCredentialStore().read(.murmurCloud) else { print("| Murmur Cloud | - | 0 | - | - | - | - | skipped: no stored key |"); return }
-            let tr = MurmurCloudTranscriptionProvider(apiKey: key)
-            var cloudTexts: [String: [String]] = [:]
-            for b in buckets {
-                var xs: [Double] = [], prep: [Double] = [], failed = 0
-                for (i, c) in clips[b.name]!.enumerated() {
-                    let t0 = now(); let prepared = CloudAudio.prepare(try Data(contentsOf: c.url.deletingPathExtension().appendingPathExtension("wav"))); prep.append(now() - t0)
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)  // dictations are sparse; do not trip a rate limit
-                    let t = now()
-                    var res: TranscriptionResult? = nil
-                    do { res = try await tr.transcribeDetailed(prepared.payload) } catch { print("  cloud ASR error \(b.name): \(Mirror(reflecting: error).children.first?.label ?? "\(error)")") }
-                    if let r = res, !r.text.isEmpty {
-                        let dt = now() - t
-                        if i == 0 && b.name == "short" { cell("Murmur Cloud ASR, first request (cold)", b.name, [dt], failed: 0) } else { xs.append(dt) }
-                        cloudTexts[b.name, default: []].append(r.text)
-                    } else { failed += 1 }
-                }
-                cell("Murmur Cloud ASR upload+transcribe", b.name, xs, failed: failed); cell("Murmur Cloud audio prepare (local)", b.name, prep, failed: 0)
-            }
-            await cleanup("Murmur Cloud cleanup (Polish)", route: .cloud, provider: MurmurCloudCleanupProvider(apiKey: key), level: "polish", texts: cloudTexts)
         }
     }
 }
