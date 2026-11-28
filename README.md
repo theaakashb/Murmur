@@ -1,23 +1,25 @@
 # Murmur
 
-Murmur is a macOS dictation app. Press a global shortcut, speak, and Murmur pastes the text into the focused field. It can remove fillers, apply spoken corrections and format lists, and each of these can be turned on or off. On-device transcription uses Core ML, with a speech model chosen for the languages you dictate in.
+Murmur is a free, offline dictation app for Mac. Press a shortcut, speak, and the text appears in the field you are typing in. Speech is transcribed on your Mac, nothing leaves it unless you set up your own provider, and there is no account. Murmur is open source under the MIT License.
 
-## Status
+**Download Murmur and read the setup guide at [murmurdictation.com](https://murmurdictation.com).** It needs a Mac with Apple silicon and macOS 14 or later. The download is also attached to the [latest release](https://github.com/theaakashb/Murmur/releases/latest), and the app checks GitHub releases for updates.
 
-Pre-release source project. There is no production-signed, notarized download; build a development bundle from source.
+The optional local cleanup model, Murmur Cleanup 2B, runs on your Mac. On a fresh held-out set of 290 rows (Apple M3, 4-bit), its output was preferred over the cloud model gpt-oss-120b in 61% of blind pairwise comparisons (Polish 63%, Professional 67%), with 3.8% hard failures against 4.1% for gpt-oss-120b and a median latency of 0.62 s. The [model card](https://huggingface.co/clouddevaakash/murmur-cleanup-2b) has the method and the full results.
 
-Murmur transcribes locally by default and inserts text into the focused field. It also offers optional cloud transcription and cleanup, a custom dictionary, voice cues, correction learning, meeting capture, and update checks. Cloud features require your own provider configuration.
+## Build from source
 
-## Requirements
+The rest of this page is for building Murmur yourself.
+
+### Requirements
 
 - Apple Silicon Mac (M1 or later). Intel is not supported.
-- macOS 14 or later on Apple silicon. Apple Intelligence cleanup and Apple Intelligence meeting notes need macOS 26; call-audio meeting capture needs macOS 14.2 (macOS 14.0 and 14.1 record the microphone only). The Liquid Glass bubble is used on macOS 26; older systems draw a standard material.
+- macOS 14 or later on Apple silicon. Apple Intelligence (writing modes and voice edit on local routes, and meeting notes) needs macOS 26; call-audio meeting capture needs macOS 14.2 (macOS 14.0 and 14.1 record the microphone only). The Liquid Glass bubble is used on macOS 26; older systems draw a standard material.
 - Swift toolchain to build (the development host uses Swift 6.3.3).
 - Permissions: Microphone, Accessibility, and Input Monitoring for dictation; System Audio Recording for meeting audio from other apps.
 
 Development and performance testing has focused on an M3 MacBook Air with 16 GB of memory.
 
-## Build
+### Build
 
 Install Apple Command Line Tools (`xcode-select --install`) or Xcode with a macOS 26 or newer SDK and Swift toolchain (the app still runs on macOS 14) before building.
 
@@ -30,11 +32,11 @@ open runtime/Murmur.app
 
 The first build needs internet access to fetch pinned FluidAudio and WhisperKit sources and FluidAudio’s checksummed binary dependency. It does not download speech model weights.
 
-For contributors, the [development guide](CONTRIBUTING.md) covers checks and fixtures. [Provider integration](app/PROVIDERS.md) explains optional route configuration; [app development](app/README.md) covers settings, recovery, and test tools.
+For contributors, the [development guide](CONTRIBUTING.md) covers checks and fixtures. [Provider integration](app/PROVIDERS.md) explains the optional Custom Provider; [app development](app/README.md) covers settings, recovery, and test tools.
 
-## First run
+### First run
 
-Open Settings, download the speech model (review its license first), and grant the permissions shown by the app. Local dictation needs no provider account or API key. Cloud routes are optional and require your own provider configuration. Start with a disposable text field and synthetic speech; the default shortcut is Right Option: hold for at least 250 ms and release to finish, or double-press to keep recording until the next press. A lone short tap is canceled. Enable **Press once to start, again to stop** in Settings → General for single-press toggling. Review the shortcut and insertion options in Settings → General.
+Open Settings, download the speech model (review its license first), and grant the permissions shown by the app. Local dictation needs no account or API key. A Custom Provider is optional and uses your own endpoint and key. Start with a disposable text field and synthetic speech; the default shortcut is Right Option: hold for at least 250 ms and release to finish, or double-press to keep recording until the next press. A lone short tap is canceled. Enable **Press once to start, again to stop** in Settings → General for single-press toggling. Review the shortcut and insertion options in Settings → General.
 
 For an isolated interface preview with synthetic data and no capture or insertion, run:
 
@@ -48,10 +50,10 @@ See [SECURITY.md](SECURITY.md) for reporting and secret-scanning instructions.
 
 Murmur keeps dictation local by default. Review these data flows before enabling optional features:
 
-- Transcription and cleanup run locally by default. Model downloads and update checks use the network.
-- Writing modes use the AI engine chosen in Settings → Writing → Modes. Apple Intelligence keeps text on this Mac; Murmur Cloud and Custom Provider are opt-in, and a mode dictation is sent only to the engine you picked.
-- Voice edit (your dictation key when text is selected, or a separate shortcut you record) sends the text you selected and your spoken instruction to the AI engine that matches your cleanup route, only when you press it: Apple Intelligence on this Mac for local routes, your Custom Provider at its address, or Murmur Cloud. If that engine fails, the text is never sent to another one. When an edit is applied, History saves the original selection, your instruction and the result on this Mac, with the same retention and Delete All Data as dictations; with History Off nothing is kept after Murmur quits.
-- Cloud processing is opt-in. Settings displays the destination and data disclosure inline. Cloud transcription does not silently switch providers; failed or rejected AI cleanup can use local rules. Use your own provider credentials where required; loopback servers can work without a key.
+- Transcription and cleanup run on this Mac by default. Only three things use the network: model downloads (when you ask for one), update checks, and a Custom Provider you set up with your own key.
+- Writing modes run on the AI engine that matches your cleanup choice: Apple Intelligence on this Mac (macOS 26) for local routes, or your Custom Provider. With the Local model, the Email, Notes and Prompt presets run on the Local model. A mode dictation is sent only to that engine.
+- Voice edit (your dictation key when text is selected, or a separate shortcut you record) sends the text you selected and your spoken instruction to the AI engine that matches your cleanup route, only when you press it: Apple Intelligence on this Mac for local routes, or your Custom Provider at its address. If that engine fails, the text is never sent to another one. When an edit is applied, History saves the original selection, your instruction and the result on this Mac, with the same retention and Delete All Data as dictations; with History Off nothing is kept after Murmur quits.
+- A Custom Provider is opt-in. Settings displays the destination and data disclosure inline. Cloud transcription does not silently switch providers; failed or rejected AI cleanup can use local rules. It uses your own credentials where required; loopback servers can work without a key.
 - API keys are stored in the macOS Keychain. The provider client redacts key representations and uses content-free errors; do not include keys in issue reports.
 - Transcript history stays on the Mac with no cloud sync. Retention is 30 days by default, with six-month and forever options. History Off keeps new transcripts only until Murmur quits, but does not erase existing history or disable retry audio and dictionary learning. Each entry also keeps diagnostic detail (segment scores, cleanup output, timing) in the same file. Settings can optionally keep each dictation's recording for 7 days (off by default); Delete All Data removes it.
 - Audio is not kept as a permanent history. Failed dictation audio, unfinished meeting chunks and call audio waiting for speaker separation can remain locally for up to 24 hours. Expiry is enforced while Murmur runs; quitting the app does not run a background deletion service.
@@ -78,13 +80,13 @@ rm -rf ~/Library/Caches/Dictation
 security delete-generic-password -s Murmur
 ```
 
-The folders still use the app's old name, Dictation. Optional dictionary-support weights are stored separately in `~/Library/Application Support/FluidAudio/Models/parakeet-ctc-110m-coreml`; other FluidAudio apps may share this folder, so remove them from Settings → Dictionary, which shows that warning. App preferences are stored under the development bundle ID, `cc.clouddev.dictation.development`; `defaults delete cc.clouddev.dictation.development` removes them. To revoke permissions, remove Murmur under System Settings → Privacy & Security → Microphone, Accessibility and Input Monitoring, plus System Audio Recording if you enabled meeting capture.
+The folders still use the app's old name, Dictation. Optional dictionary-support weights are stored separately in `~/Library/Application Support/FluidAudio/Models/parakeet-ctc-110m-coreml`; other FluidAudio apps may share this folder, so remove them from Settings → Dictionary, which shows that warning. App preferences are stored under the bundle ID `cc.clouddev.dictation.development`; `defaults delete cc.clouddev.dictation.development` removes them. To revoke permissions, remove Murmur under System Settings → Privacy & Security → Microphone, Accessibility and Input Monitoring, plus System Audio Recording if you enabled meeting capture.
 
 ## Dictation languages
 
 Choose languages in the Welcome Guide or **Settings → Transcription**. Local English dictation uses Parakeet Unified. Murmur uses Parakeet TDT v3 when it covers every selected language, and Whisper large-v3-turbo for broader selections such as Hindi or Arabic. Download the recommended model once to dictate offline. With a multilingual selection, Murmur preserves the transcript and applies explicit spellings you added to Dictionary.
 
-Murmur Cloud detects the language automatically for multilingual dictation. Language choices apply to dictation.
+Language choices apply to dictation.
 
 ## Windows
 

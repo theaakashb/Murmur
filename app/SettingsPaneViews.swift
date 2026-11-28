@@ -178,7 +178,7 @@ extension SettingsView {
             let customOn = controller.transcriptionRoute == .cloud
             advancedButton($showAdvanced, locked: customOn).padding(.top, 28).id("transcription-advanced")
             if showAdvanced || customOn {
-                toggleRow("Use a Custom Provider for transcription", "Sends audio to your own OpenAI-compatible endpoint instead of the choice above.",
+                toggleRow("Use a Custom Provider for transcription", "Sends audio to your own OpenAI-compatible endpoint instead of transcribing on this Mac.",
                           isOn: Binding(get: { customOn }, set: { controller.transcriptionRoute = $0 ? .cloud : .local }))
                     .disabled(controller.speechModelDownloading)
                 if customOn {
@@ -217,15 +217,8 @@ extension SettingsView {
     var transcriptionRoutes: some View {
         VStack(alignment: .leading, spacing: 0) {
             eyebrow("Where transcription runs").padding(.top, 28)
-            // Custom Provider is chosen under Advanced, so while it is on neither of these is selected.
-            segmented([(TranscriptionRoute.local, "On this Mac"), (TranscriptionRoute.murmurCloud, "Murmur Cloud")], $controller.transcriptionRoute, cloud: { $0 == .murmurCloud })
-                .padding(.top, 8).disabled(controller.speechModelDownloading)
-            if controller.transcriptionRoute == .local {
-                help("Audio stays on this Mac. Downloading the model uses the network once; dictation does not.").padding(.top, 12)
-            } else if controller.transcriptionRoute == .murmurCloud {
-                keyRow(.murmurCloud).padding(.top, 16)
-                disclosure(controller.routeDisclosure(.transcription)).padding(.top, 16)
-            }
+            help(controller.transcriptionRoute == .local ? "Audio stays on this Mac. Downloading the model uses the network once; dictation does not."
+                 : "Audio is sent to your Custom Provider.").padding(.top, 8)
         }
     }
 
@@ -275,7 +268,7 @@ extension SettingsView {
             if cleanupStyle.wrappedValue != .faithful {
                 eyebrow("Cleanup runs on").padding(.top, 20)
                 // Custom Provider is chosen under Advanced, so while it is on none of these is selected.
-                segmented(CleanupChoice.allCases.filter { $0 != .customAPI }.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14, cloud: { $0 == .murmurCloud })
+                segmented(CleanupChoice.allCases.filter { $0 != .customAPI }.map { ($0, short($0.displayName)) }, $controller.cleanupChoice, size: 14)
                     .padding(.top, 8).help(controller.cleanupChoice.displayName)
                 if controller.cleanupChoice == .localModel { localModelSection }
                 if cleanupStyle.wrappedValue == .strict {
@@ -305,7 +298,7 @@ extension SettingsView {
             }
             help("If an AI rewrite is rejected, clear spoken corrections can still apply. The raw transcript stays in History.").padding(.top, 16)
 
-            toggleRow("Suggest Professional", "Now and then, in History, Murmur notes when Professional would have tidied a dictation. It decides on this Mac and never sends anything until you ask for a preview.", isOn: Binding(get: { controller.professionalHint.enabled }, set: { UserDefaults.standard.set($0, forKey: ProfessionalHint.enabledKey); controller.objectWillChange.send() }))
+            toggleRow("Suggest Professional", "Now and then, in History, Murmur notes when Professional would have tidied a dictation. It decides on this Mac and sends nothing.", isOn: Binding(get: { controller.professionalHint.enabled }, set: { UserDefaults.standard.set($0, forKey: ProfessionalHint.enabledKey); controller.objectWillChange.send() }))
                 .padding(.top, 12)
             toggleRow("Use screen context", "AI cleanup also gets the selected text, the clipboard and the focused window's text, as reference for spelling names and terms. Never read under Secure Input, in password fields, or from clipboard items marked as passwords. Not used by Local rules. Modes can turn it on or off.", isOn: $controller.screenContext)
                 .padding(.top, 12).disabled(!cleanupStyle.wrappedValue.needsModel && !(cleanupStyle.wrappedValue == .strict && controller.cleanupChoice == .localModel)).id("screen-context")
@@ -317,10 +310,6 @@ extension SettingsView {
                               isOn: Binding(get: { customOn }, set: { controller.cleanupChoice = $0 ? .customAPI : .localModel }))
                     if customOn { customCleanupSettings }
                 }
-            }
-            if cleanupStyle.wrappedValue != .faithful, controller.cleanupChoice == .murmurCloud {
-                keyRow(.murmurCloud).padding(.top, 16)
-                disclosure(controller.routeDisclosure(.cleanup)).padding(.top, 8)
             }
         }
     }
@@ -347,8 +336,8 @@ extension SettingsView {
         VStack(alignment: .leading, spacing: 0) {
             if controller.aiEngine == nil {
                 help(controller.cleanupChoice == .localModel
-                     ? "Email, Notes and Prompt run on the Local model. Other modes need Apple Intelligence (macOS 26), Murmur Cloud or a Custom Provider."
-                     : "Writing modes need Apple Intelligence (macOS 26), Murmur Cloud or a Custom Provider. Email, Notes and Prompt also run on the Local model.").padding(.top, 12)
+                     ? "Email, Notes and Prompt run on the Local model. Other modes need Apple Intelligence (macOS 26) or a Custom Provider."
+                     : "Writing modes need Apple Intelligence (macOS 26) or a Custom Provider. Email, Notes and Prompt also run on the Local model.").padding(.top, 12)
             }
             HStack(spacing: 4) {
                 Text("How modes are chosen").font(Font.system(size: 14, weight: .semibold))

@@ -1,6 +1,6 @@
 # Contributing to Murmur
 
-Murmur is pre-release. Use the root [README](README.md) for visitor setup and privacy information.
+This guide is for working on Murmur's source. To install the app, download it from [murmurdictation.com](https://murmurdictation.com). The root [README](README.md) covers privacy and building from source.
 
 ## Requirements
 

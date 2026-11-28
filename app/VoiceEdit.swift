@@ -61,8 +61,8 @@ extension AppController {
         guard !IsSecureEventInputEnabled() else { return no("Voice edit is unavailable while Secure Input is active.") }
         let routes = routeSettings
         let key: (ProviderID) -> APIKey? = { try? CustomAPIKeyBinding.readKey(for: $0, routes: routes, defaults: .standard, credentials: self.credentials) }
-        guard let engine = AIEngine.derive(cleanup: cleanupChoice) else { return no("Voice edit needs Apple Intelligence (macOS 26), a Custom Provider or Murmur Cloud.") }
-        if let reason = engine.unavailableReason(routes: routes, hasKey: { key($0) != nil }) {
+        guard let engine = AIEngine.derive(cleanup: cleanupChoice) else { return no("Voice edit needs Apple Intelligence (macOS 26) or a Custom Provider.") }
+        if let reason = engine.unavailableReason(routes: routes) {
             return no("\(reason) Voice edit works with Apple Intelligence (macOS 26) or your own API key.")
         }
         guard let target = try? captureFocus() else { return no("Select some text first.") }
@@ -71,13 +71,9 @@ extension AppController {
         guard let selection = focusedSelectedText(target.element), !selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return no("Select some text first. Murmur could not read a selection in this app.")
         }
-        let name = engine == .appleIntelligence ? "Apple Intelligence" : engine == .customProvider ? "your Custom Provider" : "Murmur Cloud"
+        let name = engine == .appleIntelligence ? "Apple Intelligence" : "your Custom Provider"
         let cap = engine == .appleIntelligence ? EditPrompt.appleSelectionLimit : EditPrompt.remoteSelectionLimit
         guard selection.count <= cap else { return no("The selection is too long for \(name) (\(cap) characters at most). Select less.", dictates: false) }
-        if engine == .murmurCloud, let apiKey = key(.murmurCloud) {
-            let client = MurmurCloudEditProvider(apiKey: apiKey)
-            return .success(VoiceEditSession(engineName: name, destination: MurmurCloud.host, onDevice: false, target: target, selection: selection, run: { try await client.edit(text: $0, instruction: $1) }))
-        }
         guard let provider = engine.provider(routes: routes, key: key) else { return no("Voice edit is not set up. Check AI features in Settings.") }
         let onDevice = provider.disclosure.staysOnThisMac
         return .success(VoiceEditSession(engineName: name, destination: onDevice ? "this Mac" : provider.disclosure.destinationHost, onDevice: onDevice, target: target, selection: selection,
@@ -88,7 +84,7 @@ extension AppController {
     var voiceEditReady: Bool {
         let routes = routeSettings
         guard let engine = AIEngine.derive(cleanup: cleanupChoice) else { return false }
-        return engine.unavailableReason(routes: routes, hasKey: { (try? CustomAPIKeyBinding.readKey(for: $0, routes: routes, defaults: .standard, credentials: self.credentials)) != nil }) == nil
+        return engine.unavailableReason(routes: routes) == nil
     }
 
     /// The instruction transcript is in, saved like a dictation: one engine call, then a verified replace or a Copy card.
@@ -109,7 +105,7 @@ extension AppController {
             self.finishVoiceEdit(edit, instruction: words, result: result, entry: entry, store: store)
             done()
         }
-        setPhase(.processing, edit.onDevice ? "Editing on this Mac…" : edit.destination == MurmurCloud.host ? "Editing on Murmur Cloud…" : "Editing with \(edit.engineName) (\(edit.destination))…", showsMessage: true)
+        setPhase(.processing, edit.onDevice ? "Editing on this Mac…" : "Editing with \(edit.engineName) (\(edit.destination))…", showsMessage: true)
     }
 
     /// The card's "⌃⌘V pastes it too" line is true because the card's text is the last dictation.

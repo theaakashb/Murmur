@@ -1,22 +1,10 @@
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
 
-// Voice edit: prompt shape, output bounds and the Murmur Cloud /v1/edit client with a fake transport. No network.
+// Voice edit: prompt shape and output bounds. No network.
 
 private var failures = 0
 private func check(_ condition: @autoclosure () -> Bool, _ label: String, line: Int = #line) {
     if !condition() { failures += 1; print("FAIL [line \(line)]: \(label)") }
-}
-
-private final class FakeTransport: HTTPTransport, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _requests: [URLRequest] = []
-    let result: HTTPResult
-    init(status: Int, body: String) { result = HTTPResult(status: status, headers: [:], body: Data(body.utf8)) }
-    var requests: [URLRequest] { lock.withLock { _requests } }
-    func send(_ request: URLRequest) async throws -> HTTPResult { lock.withLock { _requests.append(request) }; return result }
 }
 
 @main enum Main {
@@ -40,22 +28,6 @@ private final class FakeTransport: HTTPTransport, @unchecked Sendable {
         check(EditCheck.verdict(selection: "ok", instruction: "x", output: "As an AI language model I cannot") == .refused("The model answered instead of editing."), "an assistant phrase is refused")
         check(EditCheck.verdict(selection: "we can't meet, sorry", instruction: "more polite", output: "I'm afraid we cannot meet, with apologies.") == .apply("I'm afraid we cannot meet, with apologies."), "a legitimate rewrite with sorry-like words applies")
         check(EditCheck.verdict(selection: "short", instruction: "expand", output: String(repeating: "word ", count: 30)) == .apply(String(repeating: "word ", count: 30).trimmingCharacters(in: .whitespaces)), "an expansion within three times plus 200 applies")
-
-        // Murmur Cloud client.
-        let key = APIKey("mc-test")!
-        let ok = FakeTransport(status: 200, body: #"{"text":"Hello world"}"#)
-        let got = try? await MurmurCloudEditProvider(apiKey: key, transport: ok).edit(text: "helo wrld", instruction: "fix typos")
-        check(got == "Hello world", "the edit client returns the server text")
-        let req = ok.requests.first, body = req?.httpBody.map { String(decoding: $0, as: UTF8.self) } ?? ""
-        check(req?.url?.path == "/v1/edit" && req?.httpMethod == "POST" && req?.value(forHTTPHeaderField: "Authorization") == "Bearer mc-test", "POST /v1/edit with the key")
-        check(body == #"{"instruction":"fix typos","text":"helo wrld"}"#, "the body is exactly text and instruction")
-        for (status, label) in [(404, "404"), (402, "402"), (413, "413"), (401, "401")] {
-            let t = FakeTransport(status: status, body: #"{"error":{"code":"x","message":"y"}}"#)
-            do { _ = try await MurmurCloudEditProvider(apiKey: key, transport: t).edit(text: "a", instruction: "b"); check(false, "\(label) throws") }
-            catch { check(t.requests.count == 1, "\(label) makes one request and does not retry elsewhere") }
-        }
-        let d = MurmurCloudEditProvider(apiKey: key).disclosure
-        check(d.destinationHost == MurmurCloud.host && d.leavesDevice.contains("the selected text") && d.leavesDevice.contains("your spoken instruction") && d.staysOnDevice.contains("audio"), "disclosure names the selection, the instruction and the host")
 
         if failures == 0 { print("voice edit checks passed") } else { print("\(failures) failed"); exit(1) }
     }
