@@ -45,4 +45,4 @@ print(signature)
 PY
 )"
 "$sparkle_path/bin/sign_update" "${key_args[@]}" --verify "$archive" "$signature"
-echo "Upload $archive and $output/appcast.xml to a draft release tagged v$release_version, then publish it as latest."
+echo "Upload $archive and $output/appcast.xml to a draft release tagged v$release_version (use $notes as --notes-file when it exists), then publish it as latest."
