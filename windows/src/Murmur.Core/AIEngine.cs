@@ -16,8 +16,8 @@ public static class AIEngines
         _ => "custom-provider",
     };
 
-    /// <summary>Why this engine cannot run now, in one line, or null when it can. <paramref name="hasKey"/> only asks whether a key is stored.</summary>
-    public static string? UnavailableReason(this AIEngine engine, RouteSettings routes, Func<ProviderID, bool> hasKey) => engine switch
+    /// <summary>Why this engine cannot run now, in one line, or null when it can.</summary>
+    public static string? UnavailableReason(this AIEngine engine, RouteSettings routes) => engine switch
     {
         AIEngine.AppleIntelligence => "Apple Intelligence is not available on Windows.",
         _ => Routes.MakeCleanupProvider(CleanupChoice.CustomAPI, null, routes.CustomAPIBaseURL, routes.CustomAPIModel) is null
@@ -27,7 +27,7 @@ public static class AIEngines
     /// <summary>The provider for this engine, or null when it cannot run. Reuses the existing providers; the caller keeps the guard.</summary>
     public static ICleanupProvider? Provider(this AIEngine engine, RouteSettings routes, Func<ProviderID, APIKey?> key)
     {
-        if (engine.UnavailableReason(routes, id => key(id) is not null) is not null) return null;
+        if (engine.UnavailableReason(routes) is not null) return null;
         return engine switch
         {
             AIEngine.CustomProvider => Routes.MakeCleanupProvider(CleanupChoice.CustomAPI, key(ProviderID.CustomCleanup), routes.CustomAPIBaseURL, routes.CustomAPIModel, routes.CustomAPIReasoningEffort),

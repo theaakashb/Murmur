@@ -38,7 +38,7 @@ Updated 2026-11-19 (overnight autonomous run).
   - **Still open for M3 as planned:**
       - Live words in the bubble.
     - Chunked transcription during recording.
-- **M2 real-mic: confirmed by the user, 2026-11-19.** Real-microphone dictations on the Star Labs PC with the hosted cloud route worked in Notepad and in other apps. The user hasn't named the other apps yet; ask if the exit record needs them.
+- **M2 real-mic: confirmed by the user, 2026-11-19.** Real-microphone dictations on the Star Labs PC with a cloud route worked in Notepad and in other apps. The user hasn't named the other apps yet; ask if the exit record needs them.
 - **Bug, must be fixed before M6:** the app freezes while the transcription model downloads. Likely cause: download, hash or file work on the UI thread, or a synchronous wait on it. The fix covers both model downloads:
   - the work runs off the dispatcher;
   - progress is marshalled back to the UI;

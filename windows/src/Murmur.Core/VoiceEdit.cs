@@ -34,8 +34,8 @@ public static class VoiceEdit
         public sealed record Refused(string Message, bool Dictates = true) : SessionResult;
     }
 
-    public static bool VoiceEditReady(CleanupChoice cleanup, RouteSettings routes, Func<ProviderID, bool> hasKey) =>
-        AIEngines.Derive(cleanup) is { } engine && engine.UnavailableReason(routes, hasKey) is null;
+    public static bool VoiceEditReady(CleanupChoice cleanup, RouteSettings routes) =>
+        AIEngines.Derive(cleanup) is { } engine && engine.UnavailableReason(routes) is null;
 
     public static SessionResult? VoiceEditForDictationKey(string shortcut, Func<SessionResult> session)
     {
@@ -50,7 +50,7 @@ public static class VoiceEdit
         if (secureInput) return new SessionResult.Refused("Voice edit is unavailable while Secure Input is active.");
         if (AIEngines.Derive(cleanup) is not { } engine)
             return new SessionResult.Refused("Voice edit needs a Custom Provider.");
-        if (engine.UnavailableReason(routes, id => key(id) is not null) is { } reason)
+        if (engine.UnavailableReason(routes) is { } reason)
             return new SessionResult.Refused(reason);
         var focus = target.Capture();
         if (focus is null) return new SessionResult.Refused("Select some text first.");

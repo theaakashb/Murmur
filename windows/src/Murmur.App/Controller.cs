@@ -96,7 +96,7 @@ internal sealed partial class Controller : IDisposable
 
     public bool VoiceEditReady
     {
-        get { var routes = RouteSettings.Load(s.Settings); return VoiceEdit.VoiceEditReady(routes.Cleanup, routes, provider => s.Key(provider) is not null); }
+        get { var routes = RouteSettings.Load(s.Settings); return VoiceEdit.VoiceEditReady(routes.Cleanup, routes); }
     }
 
     public bool IsBusy => phase is Phase.Listening or Phase.Processing;

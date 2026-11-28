@@ -398,7 +398,7 @@ internal sealed partial class SettingsView
         page = advancedBody;
         var custom = Toggle("Use a Custom Provider for transcription", "Sends audio to your own OpenAI-compatible endpoint instead of transcribing on this PC.", null, visible: true,
             get: () => Routes.Transcription == TranscriptionRoute.Cloud,
-            set: on => { SaveRoutes(r => r with { Transcription = on ? TranscriptionRoute.Cloud : TranscriptionRoute.Local }));
+            set: on => SaveRoutes(r => r with { Transcription = on ? TranscriptionRoute.Cloud : TranscriptionRoute.Local }));
         refreshNotes.Add(() => { custom.IsEnabled = !controller.SpeechModelDownloading; custom.IsOn = Routes.Transcription == TranscriptionRoute.Cloud; });
         var providerSection = new StackPanel();
         advancedBody.Children.Add(providerSection);

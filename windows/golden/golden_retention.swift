@@ -74,7 +74,7 @@ func lines<T: Encodable>(_ name: String, _ items: [T]) -> String {
         merge(["SUEnableAutomaticChecks": "1", "NSWindow Frame Main": "1 2 3 4", "shortcut": "custom:1:2:K"], ["SUEnableAutomaticChecks": "0"])
         merge([:], ["shortcut": "right-option", "transcriptionRoute": "local"])
         let keys = ["modelDirectory", "inputDeviceUID", "transcriptionRoute", "cloudTranscriber", "cleanupChoice", "cleanupRoute", "customAPIBaseURL",
-                    "customTranscriptionAPIBaseURL", "localServerURL", "customAPIKeyEndpoint", "SUEnableAutomaticChecks", "SUFoo",
+                    "customTranscriptionAPIBaseURL", "localServerURL", "customAPIKeyEndpoint", "customAPIKeyEndpoint.customCleanup", "SUEnableAutomaticChecks", "SUFoo",
                     "NSWindow Frame Settings", "liveWords", "customAPIModel", "customTranscriptionModel", "customAPIReasoningEffort", "su", "shortcut", "retention", "writingModes", ""]
         let machine = keys.map { MachineCase(key: $0, machine: DataBackup.isMachineSetting($0)) }
 

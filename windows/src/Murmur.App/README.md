@@ -44,7 +44,7 @@ Language choices apply to dictation.
 
 ## UI
 
-The tray opens Settings and History. In Settings, the speech model is under **Dictation → Transcription**, and the cleanup model is under **Writing**. Manage cloud keys under **Providers**.
+The tray opens Settings and History. In Settings, the speech model is under **Dictation → Transcription**, and the cleanup model is under **Writing**. Manage API keys under **Providers**.
 
 The app follows the Windows theme. For visual tests, set `MURMUR_THEME=light` or `MURMUR_THEME=dark` together with a throwaway `MURMUR_DATA_DIR`. The indicator reports recording and processing without taking focus. Only the copy card accepts clicks.
 
