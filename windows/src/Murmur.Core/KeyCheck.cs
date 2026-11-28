@@ -14,9 +14,7 @@ public static class KeyText
     public static readonly IReadOnlyList<ProviderID> Providers = [.. T.Providers.Select(raw => ProviderIDExtensions.FromRaw(raw) ?? throw new InvalidDataException("Unknown provider id in shared/routes.json."))];
 
     public static string Validated(ProviderID provider) =>
-        provider == ProviderID.LocalServer ? "The local model server answered."
-        : provider is ProviderID.CustomTranscription or ProviderID.CustomCleanup or ProviderID.CustomAPI ? "The custom API endpoint answered."
-        : $"{provider.DisplayName()} accepted the key.";
+        provider == ProviderID.LocalServer ? "The local model server answered." : "The custom API endpoint answered.";
 }
 
 /// <summary>Swift's <c>Result&lt;[String], ProviderError&gt;</c> for model discovery: exactly one of the two is set.</summary>

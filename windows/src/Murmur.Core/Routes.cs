@@ -235,9 +235,6 @@ public sealed record RoutePlan(ITranscriptionProvider? Transcriber, ICleanupProv
     /// <summary>Null transcriber means local transcription (Parakeet).</summary>
     public bool UsesLocalModel => Transcriber is null && Refusal is null;
 
-    /// <summary>Reads only the disclosure of a provider; this placeholder is never sent anywhere.</summary>
-    static readonly APIKey PlaceholderKey = APIKey.Create("disclosure-only")!;
-
     /// <summary><paramref name="cleanupSendsText"/> is false when every cleanup option is off: the provider is not called
     /// then, so nothing is sent and no key is needed.</summary>
     public static RoutePlan Make(RouteSettings settings, bool cleanupSendsText, Func<ProviderID, APIKey?> key)
@@ -259,8 +256,7 @@ public sealed record RoutePlan(ITranscriptionProvider? Transcriber, ICleanupProv
             var storedKey = settings.Cleanup == CleanupChoice.LocalModel ? null : key(settings.Cleanup.CredentialID() ?? provider);
             cleaner = Routes.MakeCleanupProvider(settings.Cleanup, storedKey, settings.CustomAPIBaseURL, settings.CustomAPIModel, settings.CustomAPIReasoningEffort);
             if (cleaner is null && refusal is null) refusal = ProviderError.InvalidConfiguration(provider).UserMessage;
-            var preview = cleaner ?? Routes.MakeCleanupProvider(settings.Cleanup, storedKey ?? PlaceholderKey, settings.CustomAPIBaseURL, settings.CustomAPIModel);
-            if (preview?.Disclosure is { StaysOnThisMac: false } disclosure) stages.Add(disclosure);
+            if (cleaner?.Disclosure is { StaysOnThisMac: false } disclosure) stages.Add(disclosure);
         }
         return new RoutePlan(transcriber, cleaner, refusal, stages);
     }

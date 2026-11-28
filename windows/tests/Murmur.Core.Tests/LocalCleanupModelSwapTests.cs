@@ -9,7 +9,7 @@ public static class MacLikeModel
 {
     public static readonly LocalCleanupModel Profile = new()
     {
-        Name = "Murmur Cleanup 2B", ModelId = "clouddevaakash/murmur-cleanup-2b@b591570", Repository = "clouddevaakash/murmur-cleanup-2b-gguf", FolderName = "murmur-cleanup-2b",
+        Name = "Murmur Cleanup 2B", ModelId = "clouddevaakash/murmur-cleanup-2b@555400a", Repository = "clouddevaakash/murmur-cleanup-2b-gguf", FolderName = "murmur-cleanup-2b",
         RetiredFolderNames = ["vedu-scribe-0.8b"], RunsModelLevels = true, RunsProfessional = true, TakesContextAndPresets = true, TrustedLikeCloud = true, MaximumCharacters = 4_000,
     };
     public static IDisposable Use() => LocalCleanupModels.Use(Profile);

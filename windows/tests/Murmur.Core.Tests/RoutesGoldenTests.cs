@@ -142,7 +142,7 @@ public class RoutesGoldenTests
             case LocalModelCleanupProvider l:
                 Assert.Equal("localModel", S(e, "type"));
                 ProviderGolden.AssertDisclosure(e.GetProperty("disclosure"), l.Disclosure);
-                Assert.Equal(e.GetProperty("shape").EnumerateArray().Select(x => x.GetBoolean()), new[] { l.Shape.TakesContext, l.Shape.KeepsCorrectionsAttached, l.Shape.TakesPresets });
+                Assert.Equal(e.GetProperty("shape").EnumerateArray().Select(x => x.GetBoolean()), new[] { l.Shape.TakesContext, l.Shape.KeepsCorrectionsAttached });
                 Assert.Equal(e.GetProperty("sectionTarget").GetInt32(), l.Shape.SectionTarget);
                 break;
             default: Assert.Fail("unexpected cleaner type"); break;

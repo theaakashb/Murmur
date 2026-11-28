@@ -1,4 +1,4 @@
-// deps: AudioFormat CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention Cleanup Settings CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Credentials VoiceCues Processing WritingModes MurmurCloud Routes CloudAudio KeyCheck AppleCleanup LocalCleanup AIEngine DictationLanguages
+// deps: AudioFormat CleanupTypes CleanupText CleanupGuard RuleCleaner PrivateFiles Dictionary Learning Retention Cleanup Settings CleanupPrompt ProviderTypes ProviderHTTP OpenAICompatible Credentials VoiceCues Processing WritingModes Routes CloudAudio KeyCheck AppleCleanup LocalCleanup AIEngine DictationLanguages
 import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -42,7 +42,7 @@ func cleaner(_ c: CleanupProvider?) -> Any {
                 "effort": opt(p.reasoningEffort), "timeout": p.timeout, "notesTimeout": (p.forMeetingNotes() as! OpenAICompatibleCleanupProvider).timeout]
     case let p as LocalModelCleanupProvider:
         return ["type": "localModel", "id": p.id.rawValue, "model": opt(p.modelID), "disclosure": disclosure(p.disclosure),
-                "shape": [p.shape.takesContext, p.shape.keepsCorrectionsAttached, p.shape.takesPresets], "sectionTarget": opt(p.shape.sectionTarget)]
+                "shape": [p.shape.takesContext, p.shape.keepsCorrectionsAttached], "sectionTarget": opt(p.shape.sectionTarget)]
     case nil: return NSNull()
     default: return "other"
     }

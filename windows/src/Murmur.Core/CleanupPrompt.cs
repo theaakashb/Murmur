@@ -6,25 +6,19 @@ namespace Murmur.Core;
 // Prompts sent to cleanup models: the cleanup messages and the mode-transform contract.
 // The texts are templates exported from the Swift prompts (shared/cleanup_prompt.json); this file holds the assembly logic.
 
-/// <summary>The typed request behind a built prompt, for providers that build their own prompt (the managed local model).</summary>
+/// <summary>The typed request behind a built prompt, for the managed local model, which builds its own prompt.</summary>
 public sealed record CleanupInput
 {
     /// <summary>The transcript after Professional's comma-free corrections, before spoken commands: what the local model takes.</summary>
     public required string Raw { get; init; }
-    /// <summary>The text between the transcript tags: <see cref="Raw"/> with spoken commands written out.</summary>
-    public required string Sent { get; init; }
     public required CleanupOptions Options { get; init; }
-    /// <summary>The dictionary terms as given; <see cref="PromptTerms"/> is the cleaned list the prompt shows.</summary>
+    /// <summary>The dictionary terms as given.</summary>
     public IReadOnlyList<string> Terms { get; init; } = [];
-    public IReadOnlyList<string> PromptTerms { get; init; } = [];
-    /// <summary>The style notes as the prompt carries them (sanitized and capped); empty for none.</summary>
-    public string Notes { get; init; } = "";
     /// <summary>Screen context, null when none was given or it is empty.</summary>
     public ScreenContext? Context { get; init; }
 
-    public bool Equals(CleanupInput? o) => o is not null && Raw == o.Raw && Sent == o.Sent && Options == o.Options && Terms.SequenceEqual(o.Terms)
-        && PromptTerms.SequenceEqual(o.PromptTerms) && Notes == o.Notes && Context == o.Context;
-    public override int GetHashCode() => HashCode.Combine(Raw, Sent, Options, Notes, Context);
+    public bool Equals(CleanupInput? o) => o is not null && Raw == o.Raw && Options == o.Options && Terms.SequenceEqual(o.Terms) && Context == o.Context;
+    public override int GetHashCode() => HashCode.Combine(Raw, Options, Context);
 }
 
 public sealed record CleanupMessages(string System, string User)
@@ -136,7 +130,7 @@ public static class CleanupPrompt
         }
         return new CleanupMessages(system, user)
         {
-            Input = new CleanupInput { Raw = corrected, Sent = sent, Options = options, Terms = dictionaryTerms.ToArray(), PromptTerms = terms, Notes = notes, Context = hasContext ? context : null },
+            Input = new CleanupInput { Raw = corrected, Options = options, Terms = dictionaryTerms.ToArray(), Context = hasContext ? context : null },
         };
     }
 }

@@ -80,10 +80,8 @@ public class CleanupPromptTests
         var built = CleanupPrompt.Build(spoken, pro, ["clouddev", " clouddev ", "Ana\nMaria"], context: context, instructions: "Use British spelling.");
         var input = built.Input!;
         var corrected = CleanupGuard.ApplyCommaFreeCorrections(spoken);
-        Assert.True(input.Raw == corrected && input.Sent == RuleCleaner.SpokenCommands(corrected) && input.Sent != input.Raw, "raw is the corrected text, sent has spoken commands written out");
-        Assert.Contains($"\n{input.Sent}\n", built.User);
-        Assert.Equal(["clouddev", "Ana Maria"], input.PromptTerms);
-        Assert.Equal("Use British spelling.", input.Notes);
+        Assert.True(input.Raw == corrected && RuleCleaner.SpokenCommands(corrected) != input.Raw, "raw is the corrected text, before spoken commands");
+        Assert.Contains($"\n{RuleCleaner.SpokenCommands(corrected)}\n", built.User);
         Assert.Equal(context, input.Context);
         // check_local_cleanup.swift: terms as given, context only when not empty.
         var terms = Enumerable.Range(1, 15).Select(n => $"Term{n}").ToList();

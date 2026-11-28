@@ -238,7 +238,8 @@ public sealed record CleanupShape
     public int? SectionTarget { get; init; }
     /// <summary>With sections: a sentence opening with a correction cue stays with the one it repairs.</summary>
     public bool KeepsCorrectionsAttached { get; init; }
-    /// <summary>False: rewrite presets are refused, and their instructions are not sent as style notes on the ordinary cleanup that follows.</summary>
+    /// <summary>False: rewrite presets are refused, and their instructions are not sent as style notes on the ordinary cleanup that follows.
+    /// Windows only (the Mac dropped it): the shipped local model takes no presets.</summary>
     public bool TakesPresets { get; init; } = true;
 }
 

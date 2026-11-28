@@ -10,7 +10,7 @@ struct SystemCase: Encodable { var options: String, tails: Bool, sha256: String 
 struct BuildCase: Encodable {
     var transcript: String, options: String, terms: [String], nonce: String, context: Context?, instructions: String
     var system: String, user: String
-    var raw: String, sent: String, promptTerms: [String], notes: String, inputContext: Context?
+    var raw: String, inputContext: Context?
 }
 struct TransformCase: Encodable { var kind: String, transcript: String, terms: [String], nonce: String, instructions: String?, system: String, user: String }
 
@@ -50,7 +50,7 @@ func sha(_ s: String) -> String { SHA256.hash(data: Data(s.utf8)).map { String(f
             let i = m.input!
             func ctx(_ s: ScreenContext?) -> Context? { s.map { Context(selected: $0.selected, clipboard: $0.clipboard, window: $0.window) } }
             builds.append(GoldenCases.json(BuildCase(transcript: t, options: GoldenCases.encode(o), terms: terms, nonce: nonce, context: ctx(c), instructions: n,
-                                                     system: m.system, user: m.user, raw: i.raw, sent: i.sent, promptTerms: i.promptTerms, notes: i.notes, inputContext: ctx(i.context))))
+                                                     system: m.system, user: m.user, raw: i.raw, inputContext: ctx(i.context))))
         }
     }
 
