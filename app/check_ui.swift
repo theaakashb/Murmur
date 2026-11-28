@@ -197,13 +197,14 @@ extension AppController {
                 controller.cleanupChoice = args.contains("--custom-cleanup") ? .customAPI : args.contains("--murmur-cloud") ? .murmurCloud : .localModel; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
                 if style == -1 { controller.useFaithfulTranscription() }
             }
-            // --local-model ready|downloading|failed|notice: the managed local cleanup row in its states (no download runs).
+            // --local-model ready|downloading|failed|notice|update: the managed local cleanup row in its states (no download runs).
             if let flag = args.firstIndex(of: "--local-model"), args.indices.contains(flag + 1) {
                 switch args[flag + 1] {
                 case "ready": controller.showLocalModelFixture(.ready)
                 case "downloading": controller.showLocalModelFixture(.downloading(ModelDownloadProgress(bytesDone: 214_000_000, totalBytes: 560_000_000)))
                 case "failed": controller.showLocalModelFixture(.failed(.diskFull))
                 case "notice": controller.showLocalModelFixture(.notDownloaded)
+                case "update": controller.showLocalModelFixture(.notDownloaded, message: ModelReady.updateRowMessage)
                 default: controller.showLocalModelFixture(.notDownloaded)
                 }
             }

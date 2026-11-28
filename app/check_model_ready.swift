@@ -5,6 +5,9 @@ import Foundation
         precondition(ModelReady.title == "Murmur is ready")
         precondition(ModelReady.body(.speech, model: "Parakeet", shortcut: "Right ⌥") == "Parakeet finished downloading. Hold Right ⌥ to start dictating.")
         precondition(ModelReady.body(.cleanup, model: "Qwen", shortcut: "Right ⌥") == "Qwen finished downloading. Cleanup is on.")
+        precondition(ModelReady.updateBody(models: ["Murmur Cleanup 2B"]) == "This version of Murmur uses a new Murmur Cleanup 2B. Click to download it in Settings.")
+        precondition(ModelReady.updateBody(models: ["A", "B"]).contains("new A and B."))
+        precondition(ModelReady.updateBody(models: ["A", "B", "C"]).contains("new A, B and C."))
         // (succeeded, permitted, appActive, hasKeyWindow) -> posts
         let cases: [(Bool, Bool, Bool, Bool, Bool)] = [
             (true, true, false, false, true), (true, true, false, true, true), (true, true, true, false, true),
@@ -13,6 +16,6 @@ import Foundation
             (true, false, false, false, false)  // permission denied or not granted
         ]
         for c in cases { precondition(ModelReady.shouldPost(succeeded: c.0, permitted: c.1, appActive: c.2, hasKeyWindow: c.3) == c.4, "\(c)") }
-        print("Model ready checks passed: 2 texts and \(cases.count) posting decisions.")
+        print("Model ready checks passed: 5 texts and \(cases.count) posting decisions.")
     }
 }
