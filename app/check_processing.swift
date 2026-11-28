@@ -423,13 +423,13 @@ private final class MockCloudCleaner: CleanupProvider, @unchecked Sendable {
         let result39 = await expect(p, "every like give or take twenty seconds okay", .insert("every like give or take twenty seconds okay"), "rejection without punctuation uses local rules")
         check(result39.fallback != nil && result39.cleanupPath == .localRules, "rejected without punctuation outcome is local rules")
         settings.options = .standard; settings.options.polish = true
-        // The Local model: Polish and Professional are trusted like Murmur Cloud; Natural and Apple Intelligence keep the full guard.
+        // The Local model: Polish and Professional are trusted; Natural and Apple Intelligence keep the full guard.
         let greeting = MockCloudCleaner(.success("Are you free later?")); greeting.id = .localModel; p.cloudCleaner = greeting
         var trusted = settings; trusted.route = .cloud
         trusted.options = ProcessingSettings.options(fillers: true, corrections: true, lists: true, punctuation: true, polish: true, professional: true, spoken: false)
         try p.update(trusted, persist: false)
         let professional = await p.processAsync("Um, hi, are you free later?")
-        check(professional.cleanupPath == .modelAccepted, "Professional on the Local model is trusted like Murmur Cloud")
+        check(professional.cleanupPath == .modelAccepted, "Professional on the Local model is trusted")
         trusted.options.polish = false; trusted.options.professional = false; trusted.screenContext = true; try p.update(trusted, persist: false)
         let screen = ScreenContext(selected: "", clipboard: "", window: "Calendar")
         let natural = await p.processAsync("Um, hi, are you free later?", style: DictationStyle(mode: nil, settings: trusted, context: screen))

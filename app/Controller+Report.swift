@@ -11,7 +11,7 @@ extension AppController {
             appVersion: info?["CFBundleShortVersionString"] as? String ?? "unknown", build: info?["CFBundleVersion"] as? String ?? "unknown",
             macOS: ProcessInfo.processInfo.operatingSystemVersionString, macModel: Self.macModelIdentifier(),
             microphone: permission().rawValue, accessibilityAllowed: accessibilityAuthorized, inputMonitoringAllowed: inputMonitoringAuthorized,
-            transcription: transcriptionRoute == .local ? .thisMac(model: ModelFacts.batch.repository) : transcriptionRoute == .murmurCloud ? .service(name: ProviderID.murmurCloud.displayName, model: nil) : .custom,
+            transcription: transcriptionRoute == .local ? .thisMac(model: ModelFacts.batch.repository) : .custom,
             cleanup: choice == .customAPI ? .custom : .service(name: choice.displayName, model: choice == .localModel ? LocalCleanupIdentity.modelID : nil), cleanupStyle: style.label,
             historyOn: appliedHistoryMode.persistsTranscripts, retention: appliedRetention.label,
             models: modelSlots.map { let slot = self[keyPath: $0]; return (slot.facts.displayName, slot.row.isReady) },

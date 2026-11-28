@@ -18,8 +18,6 @@ enum ProviderID: String, CaseIterable, Codable, Sendable {
     case appleIntelligence
     /// The managed local cleanup model (LocalCleanup.swift). No key; nothing leaves this Mac.
     case localModel = "local-model"
-    /// Murmur's own hosted service (MurmurCloud.swift): cleanup and transcription with one Murmur Cloud key.
-    case murmurCloud = "murmur-cloud"
 
     var displayName: String {
         switch self {
@@ -31,7 +29,6 @@ enum ProviderID: String, CaseIterable, Codable, Sendable {
         case .localServer: return "Local model server"
         case .appleIntelligence: return "Apple Intelligence"
         case .localModel: return "Local model"
-        case .murmurCloud: return "Murmur Cloud"
         }
     }
 

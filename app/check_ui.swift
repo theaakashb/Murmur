@@ -60,9 +60,6 @@ extension AppController {
         if CommandLine.arguments.contains("--custom-transcription") {
             controller.transcriptionRoute = .cloud
         }
-        if CommandLine.arguments.contains("--murmur-cloud") {
-            controller.transcriptionRoute = .murmurCloud; controller.cleanupChoice = .murmurCloud
-        }
         // Applying an unrelated switch must not reload History on the main thread.
         controller.applySettings()
         var historyReloads = 0
@@ -105,7 +102,7 @@ extension AppController {
         var entries = [
             HistoryEntry(id: UUID().uuidString, recordedAt: Date(), rawText: "Synthetic transcript pasted into an unreadable field. Long text wraps for visual inspection.\nSecond synthetic paragraph keeps this fixture free of real transcript content.", finalText: "Synthetic transcript pasted into an unreadable field. Long text wraps for visual inspection.\nSecond synthetic paragraph keeps this fixture free of real transcript content.", insertionStatus: InsertionStatus.unverified.rawValue),
             { var e = HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-1800), rawText: "um so the synthetic meeting is at three pm on tuesday we should uh bring the slides", finalText: "So the synthetic meeting is at 3 PM on Tuesday. We should bring the slides.", insertionStatus: (args.contains("--history-diff") ? InsertionStatus.savedNotInserted : InsertionStatus.verified).rawValue)
-              e.transcriptionProvider = "local"; e.cleanupProvider = "murmur-cloud"; e.cleanupOutcome = .modelAccepted; return e }(),
+              e.transcriptionProvider = "local"; e.cleanupProvider = "local-model"; e.cleanupOutcome = .modelAccepted; return e }(),
             HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-3600), rawText: "Synthetic verified transcript.", finalText: "Synthetic verified transcript.", insertionStatus: InsertionStatus.verified.rawValue)
         ]
         entries[0].cleanupOptions = CleanupOptions(professional: true); entries[0].cleanupFallback = CleanupFailureReason.unexplainedDeletion.rawValue
@@ -139,7 +136,7 @@ extension AppController {
                 HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-21600), rawText: "Synthetic transcript hold.", finalText: "", insertionStatus: InsertionStatus.heldTranscript.rawValue)
             ]
         }
-        // --professional-hint [--hint-key [--hint-asking]]: an open Professional offer on a synthetic run-on dictation, without or with a Murmur Cloud key.
+        // --professional-hint: an open Professional offer on a synthetic run-on dictation.
         let hintText = "so I wanted to tell you about the plan for the launch and we should get the designs done and then the copy and then the review and then ship it on Thursday no I mean Friday and also tell the team about the new pricing page and the docs and the changelog and make sure support knows"
         let hintEntry = HistoryEntry(id: UUID().uuidString, recordedAt: Date().addingTimeInterval(-300), rawText: hintText, finalText: hintText, insertionStatus: InsertionStatus.verified.rawValue)
         if CommandLine.arguments.contains("--professional-hint") { entries.insert(hintEntry, at: 0) }
@@ -152,18 +149,7 @@ extension AppController {
         DispatchQueue.main.async {
             controller.refreshHistory()
             if args.contains("--professional-hint") {
-                if args.contains("--hint-key"), let key = APIKey("fixture-key") { try? controller.credentials.save(key, for: .murmurCloud); controller.refreshKeys() }
                 controller.professionalHint.offer(hintEntry.id)
-                if args.contains("--hint-asking") { controller.professionalHint.preview = .asking }
-                // --hint-state ready|unchanged|unavailable|error: a finished preview (synthetic text; no request is made).
-                if let i = args.firstIndex(of: "--hint-state"), args.indices.contains(i + 1) {
-                    switch args[i + 1] {
-                    case "ready": controller.professionalHint.preview = .ready("I wanted to tell you about the launch plan: designs, copy, review, then ship on Friday.")
-                    case "unchanged": controller.professionalHint.preview = .unchanged
-                    case "unavailable": controller.professionalHint.preview = .unavailable("No preview available for this dictation.")
-                    default: controller.professionalHint.preview = .unavailable(ProviderError.quota(.murmurCloud).userMessage)
-                    }
-                }
             }
             controller.recoveryEntryID = args.contains("--history-diff") ? entries.first { $0.status == .savedNotInserted }?.id : entries.first?.id
             if args.contains("--history-diff") || args.contains("--history-edit") { DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { controller.screenRequest = .history } }
@@ -194,7 +180,7 @@ extension AppController {
             if args.contains("--transcription-pane") { controller.screenRequest = .settingsPane(.transcription) }
             // --cleanup-style -1|0|1|2: Faithful, Strict, Polish or Professional, with an AI model stored.
             if let flag = args.firstIndex(of: "--cleanup-style"), args.indices.contains(flag + 1), let style = Int(args[flag + 1]) {
-                controller.cleanupChoice = args.contains("--custom-cleanup") ? .customAPI : args.contains("--murmur-cloud") ? .murmurCloud : .localModel; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
+                controller.cleanupChoice = args.contains("--custom-cleanup") ? .customAPI : .localModel; controller.cleanupPolish = style >= 1; controller.cleanupProfessional = style == 2
                 if style == -1 { controller.useFaithfulTranscription() }
             }
             // --local-model ready|downloading|failed|notice|update: the managed local cleanup row in its states (no download runs).

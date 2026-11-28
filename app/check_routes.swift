@@ -138,7 +138,6 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         await cancelChecks()
         endpointChecks()
         shapeChecks()
-        try await murmurCloudChecks(root.appendingPathComponent("murmur-cloud"), defaults)
 
         let stored = defaults.dictionaryRepresentation().values.map { "\($0)" }.joined()
         check(!stored.contains(secret), "no key in UserDefaults")
@@ -166,16 +165,14 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
               && RouteSettings().customAPIReasoningEffort == "low", "reasoning effort defaults to low, is trimmed, and empty sends none")
         check(makeCleanupProvider(.customAPI, key: testKey, apiBaseURL: "ftp://x", model: "m") == nil, "custom API rejects a bad URL")
         check(makeCleanupProvider(.customAPI, key: nil, apiBaseURL: "https://api.example.com/v1", model: "m") is OpenAICompatibleCleanupProvider, "custom API key is optional")
-        check(CleanupChoice.allCases == [.localRules, .localModel, .customAPI, .murmurCloud], "cleanup choices: local rules, local model, custom API and Murmur Cloud; Apple Intelligence is meeting notes only")
+        check(CleanupChoice.allCases == [.localRules, .localModel, .customAPI], "cleanup choices: local rules, local model and custom API; Apple Intelligence is meeting notes only")
         do { // AI engine: availability and defaults
             var r = RouteSettings()
-            check(AIEngine.murmurCloud.unavailableReason(routes: r, hasKey: { _ in false }) != nil && AIEngine.murmurCloud.unavailableReason(routes: r, hasKey: { $0 == .murmurCloud }) == nil, "Murmur Cloud engine needs a key")
-            check(AIEngine.customProvider.unavailableReason(routes: r, hasKey: { _ in false }) != nil, "Custom engine needs a configured provider")
+            check(AIEngine.customProvider.unavailableReason(routes: r) != nil && AIEngine.customProvider.provider(routes: r, key: { _ in testKey }) == nil, "Custom engine needs a configured provider; an unavailable engine builds no provider")
             r.customAPIBaseURL = "https://api.example.com/v1"; r.customAPIModel = "m"
-            check(AIEngine.customProvider.unavailableReason(routes: r, hasKey: { _ in false }) == nil && AIEngine.customProvider.provider(routes: r, key: { _ in nil }) is OpenAICompatibleCleanupProvider, "Custom engine builds the existing provider")
-            check(AIEngine.murmurCloud.provider(routes: r, key: { _ in nil }) == nil, "an unavailable engine builds no provider")
+            check(AIEngine.customProvider.unavailableReason(routes: r) == nil && AIEngine.customProvider.provider(routes: r, key: { _ in nil }) is OpenAICompatibleCleanupProvider, "Custom engine builds the existing provider")
             let apple = AIEngine.derive(cleanup: .localRules)
-            check(AIEngine.derive(cleanup: .murmurCloud) == .murmurCloud && AIEngine.derive(cleanup: .customAPI) == .customProvider, "cloud and custom routes keep their own engine")
+            check(AIEngine.derive(cleanup: .customAPI) == .customProvider, "the custom route keeps its own engine")
             check(apple == AIEngine.derive(cleanup: .localModel) && (apple == nil || apple == .appleIntelligence), "local routes use Apple Intelligence only where available")
         }
         check(CleanupChoice.localModel.providerID == .localModel && CleanupChoice.localModel.providerID != CleanupChoice.customAPI.providerID && CleanupChoice.localModel.credentialID == .localModel, "local model is its own provider with no key")
@@ -284,6 +281,8 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check(oldSpeech.customAPIBaseURL == "https://api.cerebras.ai/v1", "migration preserves an existing chosen custom server")
         defaults.set("gemini", forKey: RouteSettings.Key.legacyCloudTranscriber); defaults.set("gemini", forKey: RouteSettings.Key.cleanup)
         check(RouteSettings.load(from: defaults).cleanup == .localRules, "a stored choice that no longer exists loads as local rules")
+        defaults.set("removed-route", forKey: RouteSettings.Key.transcription); defaults.set("removed-route", forKey: RouteSettings.Key.cleanup)
+        check({ let s = RouteSettings.load(from: defaults); return s.transcription == .local && s.cleanup == .localRules }(), "a stored route that no longer exists loads as the local defaults")
         defaults.set("apple-intelligence", forKey: RouteSettings.Key.cleanup)
         check(RouteSettings.load(from: defaults).cleanup == .localModel, "a stored Apple Intelligence cleanup choice loads as the Local model")
         for key in [RouteSettings.Key.transcription, RouteSettings.Key.legacyCloudTranscriber, RouteSettings.Key.cleanup, RouteSettings.Key.customAPIBaseURL, RouteSettings.Key.customAPIModel, RouteSettings.Key.customTranscriptionModel, RouteSettings.Key.legacyServerURL, RouteSettings.Key.legacyServerModel] { defaults.removeObject(forKey: key) }
@@ -334,7 +333,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         defer { try? FileManager.default.removeItem(at: url) }
         do {
             try audio.write(to: url)
-            var provider = MurmurCloudTranscriptionProvider(apiKey: testKey)
+            var provider = try! OpenAICompatibleTranscriptionProvider(baseURL: "https://stt.example.test", model: "whisper-1", apiKey: testKey)
             let transport = MockTransport(HTTPResult(status: 200, body: Data(#"{"text":"नमस्ते، مرحبًا"}"#.utf8)))
             provider.transport = transport
             let english = await CloudTranscription.runDetailed(provider: provider, audioData: audio)
@@ -448,7 +447,7 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
         check((try? CustomAPIKeyBinding.read(at: "https://first.example/v1", defaults: relaunched, credentials: boundKeys)) == testKey, "binding survives relaunch")
         check(!binding.dictionaryRepresentation().values.map { "\($0)" }.joined().contains(secret), "binding stores no secret")
         check(APIKey("sk bad 99") == nil && !KeyText.invalid.contains("sk bad 99"), "invalid key message does not echo input")
-        check(KeyText.providers == [.customTranscription, .customCleanup, .murmurCloud], "separate custom provider keys and the Murmur Cloud key appear in settings")
+        check(KeyText.providers == [.customTranscription, .customCleanup], "separate custom provider keys appear in settings")
         let migration = UserDefaults(suiteName: "murmur-migration-" + UUID().uuidString)!
         defer { for key in [RouteSettings.Key.cleanup, RouteSettings.Key.customAPIBaseURL, RouteSettings.Key.customTranscriptionAPIBaseURL, RouteSettings.Key.customAPIModel, RouteSettings.Key.customTranscriptionModel, RouteSettings.Key.transcription, RouteSettings.Key.legacyCloudTranscriber, "customAPIKeysSplitMigrationComplete"] { migration.removeObject(forKey: key) } }
         let keys = InMemoryCredentialStore([.cerebras: testKey, .openrouter: testKey])
@@ -583,65 +582,11 @@ private func floatStereoWAV(_ left: [Float], _ right: [Float], rate: Int) -> Dat
     }
 
     /// Providers declare how shared code shapes their requests (no type tests): context caps, sections, model id, notes timeout.
-    // MARK: Murmur Cloud
-
-    @MainActor static func murmurCloudChecks(_ directory: URL, _ defaults: UserDefaults) async throws {
-        var routes = RouteSettings(); routes.transcription = .murmurCloud; routes.cleanup = .murmurCloud
-        check(CleanupChoice.murmurCloud.providerID == .murmurCloud && CleanupChoice.murmurCloud.credentialID == .murmurCloud && CleanupChoice.murmurCloud.processingRoute == .cloud
-              && TranscriptionRoute(rawValue: "murmur-cloud") == .murmurCloud && routes.apiBaseURL(for: .murmurCloud) == nil, "Murmur Cloud is its own provider; its key has no address binding")
-        // The key is read straight from the store, as for any provider without a configurable address.
-        let store = InMemoryCredentialStore([.murmurCloud: testKey])
-        check((try? CustomAPIKeyBinding.readKey(for: .murmurCloud, routes: routes, defaults: defaults, credentials: store)) == testKey, "the Murmur Cloud key is read from the Keychain store")
-        var asked: [ProviderID] = []
-        let both = RoutePlan.make(routes, cleanupSendsText: true) { asked.append($0); return $0 == .murmurCloud ? testKey : nil }
-        check(both.transcriber is MurmurCloudTranscriptionProvider && both.cleaner is MurmurCloudCleanupProvider && both.refusal == nil && Set(asked) == [.murmurCloud], "both stages on Murmur Cloud use only its key")
-        check(both.stages.map(\.stage) == [.transcription, .cleanup] && both.stages.allSatisfy { $0.destinationHost == "api.murmurdictation.com" }, "both stages are disclosed with the host")
-        check(both.transcriber is SilencePrecheckedTranscriber, "silent clips are not sent to Murmur Cloud")
-        routes.transcription = .local
-        let cleanupOnly = RoutePlan.make(routes, cleanupSendsText: true) { $0 == .murmurCloud ? testKey : nil }
-        check(cleanupOnly.transcriber == nil && cleanupOnly.cleaner is MurmurCloudCleanupProvider && cleanupOnly.stages.map(\.stage) == [.cleanup]
-              && !cleanupOnly.stages[0].leavesDevice.contains("audio"), "cleanup only: local transcription, no audio leaves the Mac")
-        routes.transcription = .murmurCloud
-        let noKey = RoutePlan.make(routes, cleanupSendsText: true) { _ in nil }
-        check(noKey.transcriber == nil && noKey.cleaner == nil && noKey.refusal == ProviderError.invalidConfiguration(.murmurCloud).userMessage, "without a key the dictation is refused, never sent elsewhere")
-        check(noKey.stages.count == 2, "the route is disclosed before a key is saved")
-
-        // Key validation through KeyCheck: GET /v1/models, 200 ok, 401 bad key, 402 no plan.
-        let ok = MockTransport(HTTPResult(status: 200, body: Data(#"{"data":[]}"#.utf8)))
-        let accepted = await KeyCheck.run(.murmurCloud, key: testKey, apiBaseURL: "", transport: ok)
-        check(accepted == "Murmur Cloud accepted the key." && ok.count == 1, "a valid key is accepted")
-        let unpaid = await KeyCheck.run(.murmurCloud, key: testKey, apiBaseURL: "", transport: MockTransport(HTTPResult(status: 402)))
-        check(unpaid == ProviderError.quota(.murmurCloud).userMessage, "402 reports no active plan")
-        let bad = await KeyCheck.run(.murmurCloud, key: testKey, apiBaseURL: "", transport: MockTransport(HTTPResult(status: 401)))
-        check(bad == ProviderError.authentication(.murmurCloud).userMessage, "401 reports a bad key")
-        let missing = await KeyCheck.run(.murmurCloud, key: nil, apiBaseURL: "")
-        check(missing == ProviderError.invalidConfiguration(.murmurCloud).userMessage, "no key, no request")
-
-        // Through the coordinator: the server gets the text after the Mac's edits, the guard judges the reply, History records the server's prompt.
-        let p = try ProcessingCoordinator(directory: directory, defaults: defaults)
-        var settings = p.settings; settings.route = CleanupChoice.murmurCloud.processingRoute; settings.options = .standard; settings.options.polish = true; settings.options.spoken = true; try p.update(settings)
-        let server = MockTransport(HTTPResult(status: 200, body: Data(#"{"text":"Revenue is up 10%."}"#.utf8)))
-        var cloud = MurmurCloudCleanupProvider(apiKey: testKey); cloud.transport = server
-        p.cloudCleaner = cloud
-        let result = await p.processAsync("revenue is up ten percent")
-        let body = (try? JSONSerialization.jsonObject(with: Data(server.lastBody.utf8))) as? [String: Any] ?? [:]
-        check(body["transcript"] as? String == "revenue is up 10%" && body["level"] as? String == "polish", "the server gets the transcript after spoken commands")
-        check(result.outcome == .insert("Revenue is up 10%.") && result.promptHash == "murmur-cloud-server", "the guarded reply is inserted; the prompt hash names the server's prompt")
-        // A preset is refused without a request; the ordinary cleanup that follows carries none of the preset's instructions.
-        p.engineCleaner = p.cloudCleaner // writing modes run on the AI engine
-        let email = DictationStyle(mode: WritingMode.presets[1], settings: p.settings)
-        let before = server.count
-        _ = await p.processAsync("revenue is up ten percent", style: email)
-        let presetBody = (try? JSONSerialization.jsonObject(with: Data(server.lastBody.utf8))) as? [String: Any] ?? [:]
-        check(!email.instructions.isEmpty && server.count == before + 1 && presetBody["style_notes"] == nil, "a preset falls back to one ordinary cleanup with no preset instructions as style notes")
-        settings.route = .local; try p.update(settings)
-    }
-
     static func shapeChecks() {
         let key = APIKey("shape-key")!
         let apple: CleanupProvider = AppleCleanupProvider(), local: CleanupProvider = LocalModelCleanupProvider()
         check(apple.shape == CleanupShape(contextCaps: .init(selected: 400, clipboard: 400, window: 1_000), sectionTarget: 400) && apple.modelID == nil, "Apple: capped context, 400-word sections, no model id")
-        check(local.shape == CleanupShape(takesContext: true, sectionTarget: 150, keepsCorrectionsAttached: true, takesPresets: true) && local.modelID == LocalCleanupIdentity.modelID, "local model: context and presets, 150-word sections kept with corrections")
+        check(local.shape == CleanupShape(takesContext: true, sectionTarget: 150, keepsCorrectionsAttached: true) && local.modelID == LocalCleanupIdentity.modelID, "local model: context and presets, 150-word sections kept with corrections")
         let custom = try? OpenAICompatibleCleanupProvider(baseURL: "https://api.example.com/v1", model: "m", apiKey: key, provider: .customAPI)
         check(custom?.shape == CleanupShape() && custom?.modelID == "m" && (custom?.forMeetingNotes() as? OpenAICompatibleCleanupProvider)?.timeout == OpenAICompatibleCleanupProvider.maximumTimeout, "custom cleanup: its model id, the longest notes wait")
         check(apple.forMeetingNotes() is AppleCleanupProvider, "providers without a longer wait are unchanged for notes")

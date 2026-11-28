@@ -457,9 +457,9 @@ import AVFoundation
         precondition(!AppController.recoveryRangeIsIntact(value: "abc Hellp def", range: range, inserted: "Hello"), "an edited span is never reverted")
         precondition(!AppController.recoveryRangeIsIntact(value: "abc", range: range, inserted: "Hello"), "a shortened field is never reverted")
         precondition(AppController.routeLabel(transcription: "local", cleanup: "local-rules", outcome: .localRoute) == "Heard and cleaned: Local")
-        precondition(AppController.routeLabel(transcription: "local", cleanup: "murmur-cloud", outcome: .modelAccepted) == "Heard: Local · Cleaned: Murmur Cloud")
-        precondition(AppController.routeLabel(transcription: "murmur-cloud", cleanup: "murmur-cloud", outcome: .localRules) == "Heard: Murmur Cloud · Cleaned: sent to Murmur Cloud, local rules used")
-        precondition(AppController.routeLabel(transcription: "local", cleanup: "murmur-cloud", outcome: .off) == "Heard: Local", "cleanup off sends nothing")
+        precondition(AppController.routeLabel(transcription: "local", cleanup: "customAPI", outcome: .modelAccepted) == "Heard: Local · Cleaned: Custom Provider")
+        precondition(AppController.routeLabel(transcription: "customAPI", cleanup: "customAPI", outcome: .localRules) == "Heard: Custom Provider · Cleaned: sent to Custom Provider, local rules used")
+        precondition(AppController.routeLabel(transcription: "local", cleanup: "customAPI", outcome: .off) == "Heard: Local", "cleanup off sends nothing")
 
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("chunks-\(UUID())")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

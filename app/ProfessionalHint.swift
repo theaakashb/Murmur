@@ -1,7 +1,7 @@
 import Foundation
 
 // When Professional would visibly help a dictation, decided on this Mac from the dictation's own words:
-// no network, no model. The History row offers it; nothing is sent until the user asks for a preview.
+// no network, no model. The History row offers it; nothing is sent.
 
 enum ProfessionalSignal {
     enum Reason: String, Equatable { case runOn, correction, list, fillers }
@@ -61,7 +61,7 @@ struct ProfessionalHintState: Codable, Equatable {
     var firstSeen: Date?, lastOffered: Date?
     /// The History entry carrying the offer, if one is open.
     var offerID: String?
-    /// The user acted on an offer (previewed or started a trial): the hint is done.
+    /// The user acted on an offer (turned Professional on): the hint is done.
     var acted = false
 
     static let minDictations = 10, minDays = 3.0, minGapDays = 7.0, maxDismissals = 2

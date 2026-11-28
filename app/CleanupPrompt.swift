@@ -3,18 +3,13 @@ import Foundation
 // Prompts sent to cleanup models: the cleanup messages and the mode-transform contract.
 
 
-/// The typed request behind a built prompt, for providers that build their own prompt (the managed local model, Murmur Cloud).
+/// The typed request behind a built prompt, for the managed local model, which builds its own prompt.
 struct CleanupInput: Equatable, Sendable {
     /// The transcript after Professional's comma-free corrections, before spoken commands: what the local model takes.
     var raw: String
-    /// The text between the transcript tags: `raw` with spoken commands written out. What Murmur Cloud takes.
-    var sent: String
     var options: CleanupOptions
-    /// The dictionary terms as given; `promptTerms` is the cleaned list the prompt shows.
+    /// The dictionary terms as given.
     var terms: [String]
-    var promptTerms: [String] = []
-    /// The style notes as the prompt carries them (sanitized and capped); empty for none.
-    var notes = ""
     /// Screen context, nil when none was given or it is empty.
     var context: ScreenContext? = nil
 }
@@ -42,8 +37,7 @@ enum CleanupPrompt {
     static let spellingsTail = "\n\nPreferred spellings from"
     static let tails = [styleNotesTail, contextTail, spellingsTail]
 
-    /// Polish and Professional: the rewrite levels. Written from scratch in November 2026 and kept short, then extended and
-    /// pruned so gpt-oss-20b at low reasoning matches gpt-oss-120b on Bedrock (CLEANUP_BENCHMARK.md). Each example is here because
+    /// Polish and Professional: the rewrite levels. Written from scratch in November 2026 and kept short. Each example is here because
     /// removing it failed a measured case; add one only for a case that fails without it.
     private static func rewriteSystem(_ options: CleanupOptions) -> String {
         let pro = options.professional
@@ -143,7 +137,7 @@ enum CleanupPrompt {
         // The nonce stays out of the system prompt (style notes aside), so local servers can reuse its cached prefix.
         let names = "Transcript tags: <\(tag)> and </\(tag)>." + (context?.isEmpty == false ? " Context tags: <\(contextTag)> and </\(contextTag)>." : "")
         return CleanupMessages(system: system, user: user + "\n" + names,
-                               input: CleanupInput(raw: corrected, sent: sent, options: options, terms: dictionaryTerms, promptTerms: terms, notes: notes,
+                               input: CleanupInput(raw: corrected, options: options, terms: dictionaryTerms,
                                                    context: context?.isEmpty == false ? context : nil))
     }
 }

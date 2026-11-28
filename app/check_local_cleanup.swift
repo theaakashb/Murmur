@@ -148,7 +148,7 @@ private func alive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 }
         let dropped = await p.processAsync(deadlineRaw)
         if case .insert(let text) = dropped.outcome { check(text.contains("5"), "a model output that drops the deadline is not inserted: \(text)") } else { check(false, "inserts") }
         check(dropped.fallback != nil && dropped.cleanupPath != .modelAccepted, "dropped deadline is recorded as a rejection")
-        // Polish and Professional are trusted like Murmur Cloud: a rewrite only the full guard rejects is accepted.
+        // Polish and Professional are trusted: a rewrite only the full guard rejects is accepted.
         settings.options.polish = true; settings.options.professional = true; try p.update(settings, persist: false)
         p.cloudCleaner = provider(rec) { _ in "Are you free later?" }
         let trusted = await p.processAsync("um hi are you free later")

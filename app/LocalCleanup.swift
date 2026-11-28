@@ -47,7 +47,7 @@ struct LocalModelCleanupProvider: CleanupProvider {
     var generate: @Sendable (LocalCleanupRequest) async throws -> String = { try await LocalCleanupRunner.shared.clean($0) }
     var modelID: String? { LocalCleanupIdentity.modelID }
     /// One fixed prompt: screen context and presets go as header lines; style notes are not followed.
-    var shape: CleanupShape { CleanupShape(takesContext: true, sectionTarget: 150, keepsCorrectionsAttached: true, takesPresets: true) }
+    var shape: CleanupShape { CleanupShape(takesContext: true, sectionTarget: 150, keepsCorrectionsAttached: true) }
     var disclosure: DataDisclosure {
         DataDisclosure(provider: id, stage: .cleanup, destinationHost: "\(LocalCleanupIdentity.modelName), downloaded to this Mac", leavesDevice: [],
                        staysOnDevice: ["the transcript"], retentionNote: "")
